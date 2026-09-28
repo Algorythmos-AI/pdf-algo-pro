@@ -1,0 +1,234 @@
+import CoreTestSupport
+import Foundation
+import Testing
+
+@testable import Core
+
+@Suite("Document values")
+struct DocumentTests {
+  @Test("Tags are trimmed, de-duplicated ignoring case, and sorted")
+  func tagsAreNormalized() {
+    let document = Document(title: "A", fileName: "a.pdf", addedAt: .now, tags: [" Tax ", "invoice", "tax", "", "Contracts"])
+    #expect(document.tags == ["Contracts", "invoice", "Tax"])
+  }
+
+  @Test func identifiersRoundTripThroughStrings() throws {
+    let id = DocumentID()
+    #expect(DocumentID(string: id.description) == id)
+    #expect(DocumentID(string: "not-a-uuid") == nil)
+    let decoded = try JSONDecoder().decode(DocumentID.self, from: JSONEncoder().encode(id))
+    #expect(decoded == id)
+  }
+
+  @Test func modifiedDateDefaultsToAddedDate() {
+    let added = Date(timeIntervalSince1970: 100)
+    #expect(Document(title: "A", fileName: "a.pdf", addedAt: added).modifiedAt == added)
+  }
+}
+
+@Suite("Library sections and sorting")
+struct LibrarySectionTests {
+  let base = Date(timeIntervalSince1970: 1_000_000)
+
+  func make(_ title: String, opened: Double? = nil, added: Double = 0, favorite: Bool = false, tags: [String] = [], deleted: Bool = false) -> Document {
+    Document(
+      title: title, fileName: "\(title).pdf", addedAt: base.addingTimeInterval(added),
+      lastOpenedAt: opened.map { base.addingTimeInterval($0) }, isFavorite: favorite, tags: tags,
+      deletedAt: deleted ? base : nil)
+  }
+
+  @Test func sectionsSelectTheRightDocuments() {
+    let plain = make("plain")
+    let opened = make("opened", opened: 5)
+    let favorite = make("favorite", favorite: true)
+    let tagged = make("tagged", tags: ["Tax"])
+    let deleted = make("deleted", opened: 9, favorite: true, tags: ["Tax"], deleted: true)
+    let all = [plain, opened, favorite, tagged, deleted]
+    #expect(all.filter(LibrarySection.all.contains).map(\.title) == ["plain", "opened", "favorite", "tagged"])
+    #expect(all.filter(LibrarySection.recents.contains).map(\.title) == ["opened"])
+    #expect(all.filter(LibrarySection.favorites.contains).map(\.title) == ["favorite"])
+    #expect(all.filter(LibrarySection.tag("tax").contains).map(\.title) == ["tagged"])
+    #expect(all.filter(LibrarySection.recentlyDeleted.contains).map(\.title) == ["deleted"])
+  }
+
+  @Test func recentlyOpenedPutsOpenedDocumentsFirstThenNewestAdded() {
+    let documents = [make("old", added: 1), make("new", added: 2), make("seen", opened: 1), make("seenLater", opened: 2)]
+    #expect(LibrarySort.recentlyOpened.sorted(documents).map(\.title) == ["seenLater", "seen", "new", "old"])
+  }
+
+  @Test func titleSortIsNumericAware() {
+    let documents = [make("Invoice 10"), make("Invoice 2"), make("apple")]
+    #expect(LibrarySort.title.sorted(documents).map(\.title) == ["apple", "Invoice 2", "Invoice 10"])
+  }
+
+  @Test func dateAddedIsNewestFirst() {
+    #expect(LibrarySort.dateAdded.sorted([make("a", added: 1), make("b", added: 3)]).map(\.title) == ["b", "a"])
+  }
+}
+
+@Suite("Onboarding intents")
+struct OnboardingIntentTests {
+  @Test("The AI-first options lead, in the order the PRD fixes (FR-ONB-001)")
+  func orderMatchesThePRD() {
+    #expect(
+      OnboardingIntent.allCases == [
+        .chatWithPDF, .summarizeDocument, .extractData, .analyzeContract, .editText, .annotate, .sign, .convert,
+        .organize, .read, .scan, .allTools,
+      ])
+    let aiFirst = OnboardingIntent.allCases.prefix(4).allSatisfy { $0.usesIntelligence }
+    let aiLater = OnboardingIntent.allCases.dropFirst(4).contains { $0.usesIntelligence }
+    #expect(aiFirst && !aiLater)
+  }
+
+  @Test(arguments: [
+    (OnboardingIntent.chatWithPDF, HomeAction.openAssistant(.ask)),
+    (.summarizeDocument, .openAssistant(.summarize)),
+    (.extractData, .openAssistant(.extract)),
+    (.analyzeContract, .openAssistant(.explainContract)),
+    (.scan, .scanDocument),
+    (.read, .importDocument),
+    (.sign, .importDocument),
+  ])
+  func intentsPersonaliseThePrimaryAction(intent: OnboardingIntent, action: HomeAction) {
+    #expect(intent.primaryAction == action)
+  }
+
+  @Test func firstChosenIntentLeadsAndNoChoiceMeansImport() {
+    #expect(HomeAction.primary(for: [.scan, .chatWithPDF]) == .scanDocument)
+    #expect(HomeAction.primary(for: []) == .importDocument)
+  }
+}
+
+@Suite("Deep links")
+struct DeepLinkTests {
+  let id = DocumentID()
+
+  @Test func documentLinksRoundTripWithOneBasedPages() throws {
+    let url = DeepLink.url(for: id, pageIndex: 4)
+    #expect(url.absoluteString == "pdfalgopro://document/\(id)?page=5")
+    #expect(DeepLink.route(for: url) == .document(id, pageIndex: 4))
+    #expect(DeepLink.route(for: DeepLink.url(for: id)) == .document(id, pageIndex: nil))
+  }
+
+  @Test(arguments: [
+    ("pdfalgopro://library", Route.library(.all)),
+    ("pdfalgopro://library/favorites", .library(.favorites)),
+    ("pdfalgopro://library/recents", .library(.recents)),
+    ("pdfalgopro://library/deleted", .library(.recentlyDeleted)),
+    ("PDFALGOPRO://scan", .scan),
+    ("pdfalgopro://settings", .settings),
+  ])
+  func knownLinksParse(string: String, route: Route) throws {
+    #expect(DeepLink.route(for: try #require(URL(string: string))) == route)
+  }
+
+  @Test(arguments: [
+    "https://example.com/document/x", "pdfalgopro://document/not-a-uuid", "pdfalgopro://library/unknown",
+    "pdfalgopro://scan/now", "pdfalgopro://delete/everything", "pdfalgopro://document",
+  ])
+  func untrustedOrMalformedLinksAreRejected(string: String) throws {
+    #expect(DeepLink.route(for: try #require(URL(string: string))) == nil)
+  }
+
+  @Test func zeroOrNegativePagesAreIgnored() throws {
+    let url = try #require(URL(string: "pdfalgopro://document/\(id)?page=0"))
+    #expect(DeepLink.route(for: url) == .document(id, pageIndex: nil))
+  }
+
+  @Test func routesAreCodableForSceneRestoration() throws {
+    for route in [Route.library(.tag("Tax")), .document(id, pageIndex: 2), .scan, .settings] {
+      #expect(try JSONDecoder().decode(Route.self, from: JSONEncoder().encode(route)) == route)
+    }
+  }
+}
+
+@Suite("Intelligence values")
+struct IntelligenceValueTests {
+  @Test func citationsShowOneBasedPageNumbers() {
+    #expect(Citation(pageIndex: 11).pageNumber == 12)
+  }
+
+  @Test func notFoundAnswersAreUngrounded() {
+    let answer = Answer.notFound(tier: .onDevice)
+    #expect(!answer.isGrounded && answer.citations.isEmpty)
+  }
+
+  @Test func availabilityReportsWhetherATierIsReady() {
+    #expect(IntelligenceAvailability.available(.onDevice).isAvailable)
+    #expect(!IntelligenceAvailability.unavailable(.modelNotReady).isAvailable)
+  }
+
+  @Test func extractionExportsQuotedCSV() {
+    let extraction = Extraction(
+      fields: [ExtractedField(key: "party", value: "Acme \"Ltd\", Paris", pageIndex: 1), ExtractedField(key: "total", value: "12", pageIndex: nil)],
+      tier: .onDevice)
+    #expect(extraction.csv == "field,value,page\r\n\"party\",\"Acme \"\"Ltd\"\", Paris\",2\r\n\"total\",\"12\",\r\n")
+    #expect(extraction.fields[0].isVerified && !extraction.fields[1].isVerified)
+  }
+
+  @Test func inspectionDetectsATextLayer() {
+    #expect(PDFInspection(pageCount: 1, isEncrypted: false, pages: [PageText(pageIndex: 0, text: "x")]).hasTextLayer)
+    #expect(!PDFInspection(pageCount: 1, isEncrypted: false, pages: [PageText(pageIndex: 0, text: " \n")]).hasTextLayer)
+  }
+}
+
+@Suite("Settings")
+struct SettingsTests {
+  @Test func userDefaultsStoreRoundTripsAndDefaultsWhenEmpty() throws {
+    let suite = "settings-test-\(UUID())"
+    let defaults = try #require(UserDefaults(suiteName: suite))
+    defer { defaults.removePersistentDomain(forName: suite) }
+    let store = UserDefaultsSettingsStore(defaults: defaults)
+    #expect(store.load() == AppSettings())
+    let changed = AppSettings(hasCompletedOnboarding: true, intents: [.scan], isIntelligenceHidden: true, readerDisplayMode: .singlePage, librarySort: .title)
+    store.save(changed)
+    #expect(UserDefaultsSettingsStore(defaults: defaults).load() == changed)
+  }
+
+  @Test func corruptSettingsFallBackToDefaults() throws {
+    let suite = "settings-test-\(UUID())"
+    let defaults = try #require(UserDefaults(suiteName: suite))
+    defer { defaults.removePersistentDomain(forName: suite) }
+    defaults.set(Data("{".utf8), forKey: "app.settings.v1")
+    #expect(UserDefaultsSettingsStore(defaults: defaults).load() == AppSettings())
+  }
+}
+
+@Suite("Document intake")
+struct DocumentIntakeTests {
+  @Test("Importing copies, inspects, records and indexes the document")
+  func importIndexesTheDocument() async throws {
+    let library = FakeDocumentLibrary()
+    let index = FakeIndex()
+    let inspection = PDFInspection(pageCount: 2, isEncrypted: false, pages: [PageText(pageIndex: 0, text: "Lease"), PageText(pageIndex: 1, text: "")])
+    let intake = DocumentIntake(library: library, inspector: FakeInspector(result: inspection), index: index)
+    let source = FileManager.default.temporaryDirectory.appendingPathComponent("Lease \(UUID()).pdf")
+    try Data("%PDF-1.7 test".utf8).write(to: source)
+
+    let document = try await intake.importFile(at: source)
+
+    #expect(document.pageCount == 2 && document.hasTextLayer && !document.isEncrypted)
+    #expect(try await index.pages(of: document.id) == inspection.pages)
+  }
+
+  @Test("A file that cannot be read as a PDF leaves no document behind")
+  func unreadableFileIsRolledBack() async throws {
+    let library = FakeDocumentLibrary()
+    let intake = DocumentIntake(library: library, inspector: FakeInspector(fails: true), index: FakeIndex())
+    await #expect(throws: LibraryError.notAPDF) {
+      try await intake.add(data: Data("%PDF-broken".utf8), title: "Broken")
+    }
+    #expect(try await library.documents(in: .all, sortedBy: .title).isEmpty)
+  }
+
+  @Test func refreshReinspectsAChangedFile() async throws {
+    let library = FakeDocumentLibrary()
+    let index = FakeIndex()
+    let seeded = await library.seed(Document(title: "Scan", fileName: "scan.pdf", addedAt: .distantPast))
+    let intake = DocumentIntake(library: library, inspector: FakeInspector(), index: index)
+    let refreshed = try await intake.refresh(seeded.id)
+    #expect(refreshed.hasTextLayer)
+    #expect(refreshed.modifiedAt > seeded.modifiedAt)
+    await #expect(throws: LibraryError.notFound) { try await intake.refresh(DocumentID()) }
+  }
+}
