@@ -138,6 +138,11 @@ public actor FakeDocumentLibrary: DocumentLibrary {
     for document in expired { documents[document.id] = nil }
     return expired.map(\.id)
   }
+
+  public func reconcileWithFiles() async throws -> [Document] {
+    try check()
+    return []
+  }
 }
 
 /// An inspector that returns fixed results, or reads the page texts a test stored for a URL.

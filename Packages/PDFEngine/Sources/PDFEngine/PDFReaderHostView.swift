@@ -30,7 +30,6 @@ final class PDFReaderHostView: PDFView {
       isFindInteractionEnabled = true
       pageShadowsEnabled = true
       backgroundColor = .secondarySystemBackground
-      accessibilityLabel = String(localized: "Document pages", bundle: .module)
     #endif
     pageObserver = NotificationCenter.default.addObserver(forName: .PDFViewPageChanged, object: self, queue: .main) {
       [weak self, weak controller] _ in

@@ -35,6 +35,10 @@ public protocol DocumentLibrary: Sendable {
   func deletePermanently(_ id: DocumentID) async throws
   /// Permanently deletes documents that have been in Recently Deleted for 30 days or more.
   func purgeExpired(now: Date) async throws -> [DocumentID]
+  /// Brings the index in line with the files: PDFs added outside the app (for example in the Files
+  /// app) are added, entries whose file is gone are removed. Returns the documents added, which
+  /// still need inspecting and indexing.
+  func reconcileWithFiles() async throws -> [Document]
 }
 
 /// Errors from the library.
