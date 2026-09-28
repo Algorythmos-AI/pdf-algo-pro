@@ -1,0 +1,157 @@
+name: ci
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+  push:
+    branches: [integration, main]
+  merge_group:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  pr-title:
+    name: pr-title
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Conventional-commit pull request title
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          pattern='^(feat|fix|docs|chore|ci|refactor|perf|test|build|revert|release)(\([a-z0-9/-]+\))?!?: .+'
+          if ! printf '%s' "$TITLE" | grep -Eq "$pattern"; then
+            echo "::error::PR title must be a Conventional Commit, e.g. \"feat(ocr): add French recognition\". Got: \"$TITLE\""
+            exit 1
+          fi
+
+  promotion-guard:
+    name: promotion-guard
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Only integration or hotfix/* may merge into main
+        env:
+          BASE: ${{ github.base_ref }}
+          HEAD: ${{ github.head_ref }}
+        run: |
+          if [ "$BASE" = "main" ] && [ "$HEAD" != "integration" ] && [[ "$HEAD" != hotfix/* ]]; then
+            echo "::error::Pull requests into main must come from integration (release) or hotfix/* (hotfix). Got: $HEAD"
+            exit 1
+          fi
+          echo "ok: $HEAD -> $BASE"
+
+  secrets:
+    uses: Algorythmos-AI/.github/.github/workflows/security.yml@1078ed679bed88c7a41744cda79aa505eb4ff277
+    with:
+      semgrep: false
+
+  docs:
+    name: docs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Links, headings, indexes (blocking); evidence and freshness (warnings)
+        run: python3 scripts/ci/check_docs.py
+
+  invariants:
+    name: invariants
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Source and privacy-manifest invariants
+        run: python3 scripts/ci/invariants.py
+
+  changes:
+    name: changes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      ios: ${{ steps.detect.outputs.ios }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+      - id: detect
+        name: Did Swift or project inputs change?
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          pattern='(\.swift$|^project\.yml$|^Packages/|^App/|\.xctestplan$|\.xcprivacy$|Package\.resolved$|^\.github/workflows/ci\.yml$)'
+          if [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ] \
+             || ! git cat-file -e "$BASE_SHA" 2>/dev/null; then
+            changed="$(git ls-files)"
+          else
+            changed="$(git diff --name-only "$BASE_SHA" HEAD)"
+          fi
+          if printf '%s\n' "$changed" | grep -Eq "$pattern" && [ -f project.yml ]; then
+            echo "ios=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ios=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  ios:
+    name: ios
+    needs: changes
+    if: needs.changes.outputs.ios == 'true'
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      XCODEGEN_VERSION: "2.46.0"
+      XCODEGEN_SHA256: 4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806
+      SCHEME: PDFAlgoPro
+      TEST_PLAN: PDFAlgoPro
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Select Xcode 27 (fail if missing)
+        run: |
+          xcode="$(find /Applications -maxdepth 1 -name 'Xcode_27*.app' 2>/dev/null | sort -V | tail -1)"
+          if [ -z "$xcode" ]; then
+            echo "::error::Xcode 27 is not installed on this runner image; the iOS 27 SDK is required"
+            exit 1
+          fi
+          sudo xcode-select -s "$xcode/Contents/Developer"
+          xcodebuild -version
+      - name: Install pinned XcodeGen (checksum verified)
+        run: |
+          curl -sSL -o xcodegen.zip "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
+          echo "${XCODEGEN_SHA256}  xcodegen.zip" | shasum -a 256 -c -
+          unzip -q xcodegen.zip -d "$RUNNER_TEMP/xcodegen"
+          echo "$RUNNER_TEMP/xcodegen/xcodegen/bin" >> "$GITHUB_PATH"
+      - name: Generate project and check the package lockfile
+        run: |
+          xcodegen generate
+          xcodebuild -resolvePackageDependencies -scheme "$SCHEME"
+          git diff --exit-code -- '*Package.resolved'
+      - name: Format (swift format, strict)
+        run: xcrun swift-format lint --strict --recursive App Packages
+      - name: Build for testing (unsigned, warnings as errors)
+        run: |
+          device="$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; print(next(x["udid"] for k in sorted(d, reverse=True) if "iOS" in k for x in d[k] if x["name"].startswith("iPhone")))')"
+          echo "SIM=$device" >> "$GITHUB_ENV"
+          xcodebuild build-for-testing -scheme "$SCHEME" -testPlan "$TEST_PLAN" \
+            -destination "id=$device" CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
+      - name: Tests (unit, UI, accessibility audit, snapshots)
+        run: |
+          xcodebuild test-without-building -scheme "$SCHEME" -testPlan "$TEST_PLAN" \
+            -destination "id=$SIM" -enableCodeCoverage YES -resultBundlePath Tests.xcresult
+      - name: Coverage gate (80% overall and per target)
+        run: |
+          xcrun xccov view --report --json Tests.xcresult > coverage.json
+          python3 scripts/ci/coverage_gate.py coverage.json --min 80
+      - name: Keep the result bundle on failure
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: Tests.xcresult
+          path: Tests.xcresult
+          retention-days: 7

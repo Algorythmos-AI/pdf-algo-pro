@@ -1,0 +1,38 @@
+name: Research or spike
+description: A question to answer with evidence (customer, technical or market research, or a time-boxed spike)
+title: "[Research]: "
+labels: ["status:triage"]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: The single question this research answers.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Decision it informs
+      description: The decision, ADR or requirement waiting on the answer.
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind
+      options: [Customer research, Technical spike, Market or competitor research, Compliance or legal research]
+    validations:
+      required: true
+  - type: textarea
+    id: method
+    attributes:
+      label: Method and time box
+      description: How it will be answered, what counts as enough evidence, and the time box.
+    validations:
+      required: true
+  - type: textarea
+    id: findings
+    attributes:
+      label: Findings and decision
+      description: Filled in when done. Cite sources; label assumptions. Record the decision in the decision register or an ADR.

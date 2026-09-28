@@ -1,0 +1,35 @@
+# Product labels. The organisation's shared labels (security, breaking-change, blocked, ai, devops,
+# dependencies, migration, i18n, compliance, housekeeping) are synced from the org first; these only
+# extend them and never redefine an org label. Apply with `uv run --with pyyaml==6.0.2 python scripts/gh/sync_github.py labels` (dry run; add --apply).
+labels:
+  # Work types (GitHub defaults kept)
+  - { name: bug, color: d73a4a, description: "Something doesn't work as expected" }
+  - { name: enhancement, color: a2eeef, description: "New capability or improvement" }
+  - { name: documentation, color: 0075ca, description: "Documentation only" }
+  # Platforms
+  - { name: ios, color: 1d76db, description: "iPhone" }
+  - { name: ipad, color: 1d76db, description: "iPad" }
+  - { name: macos, color: 1d76db, description: "Mac" }
+  - { name: visionos, color: 1d76db, description: "Apple Vision Pro" }
+  # Product areas
+  - { name: pdf, color: 5319e7, description: "PDF engine: rendering, editing, forms, redaction, signatures" }
+  - { name: ocr, color: 5319e7, description: "Scanning and text recognition" }
+  - { name: performance, color: fbca04, description: "Speed, memory, battery or app size" }
+  - { name: accessibility, color: 0e8a16, description: "VoiceOver, Dynamic Type, contrast, keyboard, Voice Control" }
+  - { name: design, color: c5def5, description: "Design system, UX flows, visual design" }
+  - { name: release, color: 006b75, description: "Release preparation, App Store and TestFlight" }
+  # Priority
+  - { name: "priority:p0", color: b60205, description: "Blocks a release or harms users; drop everything" }
+  - { name: "priority:p1", color: d93f0b, description: "Needed for the current milestone" }
+  - { name: "priority:p2", color: fbca04, description: "Should do; next milestone if not this one" }
+  - { name: "priority:p3", color: c2e0c6, description: "Nice to have" }
+  # Size (relative effort)
+  - { name: "size:s", color: ededed, description: "Up to a day" }
+  - { name: "size:m", color: ededed, description: "A few days" }
+  - { name: "size:l", color: ededed, description: "About a week or two" }
+  - { name: "size:xl", color: ededed, description: "Too big: split into an epic" }
+  # Status
+  - { name: "status:triage", color: f9d0c4, description: "New; needs triage" }
+  - { name: "status:ready", color: 0e8a16, description: "Triaged, sized and ready to start" }
+  - { name: "status:in-progress", color: 1d76db, description: "Being worked on" }
+  - { name: "status:blocked-external", color: d93f0b, description: "Waiting on something outside the repository" }

@@ -1,0 +1,31 @@
+name: Security hardening (non-sensitive)
+description: A hardening idea or security debt that is safe to discuss publicly
+title: "[Security]: "
+labels: ["security", "status:triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## ⚠️ Not for vulnerabilities
+        If you found a vulnerability, **stop here** and report it privately:
+        **Security → Report a vulnerability** in this repository, or email info@algorythmos.com.au with the
+        subject `SECURITY: pdf-algo-pro`. Public issues are for hardening ideas and known, non-exploitable debt only.
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Confirmation
+      options:
+        - label: This describes no exploitable vulnerability and contains no secrets or personal data
+          required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Hardening proposal
+      description: What to strengthen and why (threat, asset, current control).
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: [Document handling, AI and prompts, Storage and sync, Purchases and entitlements, Build and supply chain, Repository and CI]

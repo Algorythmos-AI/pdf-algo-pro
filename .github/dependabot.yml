@@ -1,0 +1,10 @@
+# From the org template. Updates target the default branch (integration). The swift ecosystem is
+# added in the pull request that introduces the first Package.swift.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: integration
+    schedule: { interval: monthly }
+    groups:
+      actions: { patterns: ["*"] }
