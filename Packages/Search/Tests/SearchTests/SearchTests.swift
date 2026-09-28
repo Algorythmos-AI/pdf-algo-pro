@@ -12,7 +12,7 @@ private actor RecordingSpotlight: SpotlightIndexing {
 }
 
 private func makeIndex(spotlight: (any SpotlightIndexing)? = nil) throws -> LocalSearchIndex {
-  try LocalSearchIndex(folder: FileManager.default.temporaryDirectory.appendingPathComponent("search-\(UUID())"), spotlight: spotlight)
+  LocalSearchIndex(folder: FileManager.default.temporaryDirectory.appendingPathComponent("search-\(UUID())"), spotlight: spotlight)
 }
 
 private func document(_ title: String, tags: [String] = []) -> Document {
@@ -65,7 +65,7 @@ struct LocalSearchIndexTests {
     let report = document("Report")
     let pages = [PageText(pageIndex: 0, text: "quarterly results")]
     try await LocalSearchIndex(folder: folder, spotlight: spotlight).index(report, pages: pages)
-    let reopened = try LocalSearchIndex(folder: folder, spotlight: spotlight)
+    let reopened = LocalSearchIndex(folder: folder, spotlight: spotlight)
     #expect(try await reopened.pages(of: report.id) == pages)
     #expect(await spotlight.indexed[report.id] == "quarterly results")
     try await reopened.remove(report.id)

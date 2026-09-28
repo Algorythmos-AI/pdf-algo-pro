@@ -16,7 +16,7 @@ private struct Harness {
     root = FileManager.default.temporaryDirectory.appendingPathComponent("library-\(UUID().uuidString)")
     clock = TestClock()
     let clock = self.clock
-    library = try FileDocumentLibrary(
+    library = FileDocumentLibrary(
       documentsFolder: root.appendingPathComponent("Documents"), deletedFolder: root.appendingPathComponent("Deleted"),
       index: LibraryIndex(storeURL: storeURL ?? root.appendingPathComponent("Index/library.store")), now: { clock.now })
   }

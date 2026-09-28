@@ -52,12 +52,12 @@ public actor ThumbnailCache {
     cache.countLimit = 300
   }
 
-  /// The first page of a PDF as a thumbnail, or `nil` when it cannot be rendered (for example a
-  /// locked document).
-  public func thumbnail(for url: URL, version: Date, maximumPixelSize: Int = 240) -> CGImage? {
-    let key = "\(url.path)|\(version.timeIntervalSince1970)|\(maximumPixelSize)" as NSString
+  /// A page of a PDF as a thumbnail, or `nil` when it cannot be rendered (for example a locked
+  /// document).
+  public func thumbnail(for url: URL, pageIndex: Int = 0, version: Date, maximumPixelSize: Int = 240) -> CGImage? {
+    let key = "\(url.path)|\(pageIndex)|\(version.timeIntervalSince1970)|\(maximumPixelSize)" as NSString
     if let cached = cache.object(forKey: key) { return cached.image }
-    guard let image = try? PageRenderer.render(pageIndex: 0, of: url, maximumPixelSize: maximumPixelSize) else {
+    guard let image = try? PageRenderer.render(pageIndex: pageIndex, of: url, maximumPixelSize: maximumPixelSize) else {
       return nil
     }
     cache.setObject(CGImageBox(image), forKey: key)

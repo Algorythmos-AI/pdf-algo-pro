@@ -7,23 +7,24 @@ import Foundation
 /// Page text is derived data kept in Application Support, one file per document, and removed with
 /// the document (FR-LIB-006). `Assumption:` a linear scan is fast enough for libraries up to a few
 /// thousand documents; the 10,000-document performance test decides whether a token index is needed
-/// ([architecture review, open questions](../../../../docs/ios-architecture-review.md)).
+/// (architecture review, open questions).
 public actor LocalSearchIndex: DocumentIndexing {
   private let folder: URL
   private let spotlight: (any SpotlightIndexing)?
   private var cache: [DocumentID: [PageText]] = [:]
 
-  /// Creates an index in a folder, optionally mirroring documents into Spotlight (FR-LIB-005).
-  public init(folder: URL, spotlight: (any SpotlightIndexing)? = nil) throws {
+  /// Creates an index in a folder, optionally mirroring documents into Spotlight (FR-LIB-005). If
+  /// the folder cannot be created, writes fail with an error and search still works from memory.
+  public init(folder: URL, spotlight: (any SpotlightIndexing)? = nil) {
     self.folder = folder
     self.spotlight = spotlight
-    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
   }
 
   public func index(_ document: Document, pages: [PageText]) async throws {
+    cache[document.id] = pages
     let data = try JSONEncoder().encode(pages)
     try data.write(to: file(for: document.id), options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
-    cache[document.id] = pages
     await spotlight?.index(document, text: pages.map(\.text).joined(separator: "\n"))
   }
 

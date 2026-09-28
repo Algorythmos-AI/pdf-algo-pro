@@ -129,7 +129,7 @@ public actor LibraryIndex {
   }
 
   /// The rung of the ladder the index is on.
-  public let level: StoreLevel
+  nonisolated public let level: StoreLevel
   private let store: SwiftDataIndexStore?
   private var memory: [DocumentID: Document] = [:]
 

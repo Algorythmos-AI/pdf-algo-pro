@@ -14,7 +14,8 @@ public actor FileDocumentLibrary: DocumentLibrary {
   private let now: @Sendable () -> Date
   private let fileManager = FileManager.default
 
-  /// Creates a library.
+  /// Creates a library. Folders are created if needed; if that fails, operations report
+  /// `LibraryError.fileAccessFailed` instead of stopping the app.
   ///
   /// - Parameters:
   ///   - documentsFolder: Where documents live; the app passes its Documents folder, shown in Files.
@@ -23,13 +24,13 @@ public actor FileDocumentLibrary: DocumentLibrary {
   ///   - now: The clock, injected so tests never wait.
   public init(
     documentsFolder: URL, deletedFolder: URL, index: LibraryIndex, now: @escaping @Sendable () -> Date = { Date() }
-  ) throws {
+  ) {
     self.documentsFolder = documentsFolder
     self.deletedFolder = deletedFolder
     self.index = index
     self.now = now
     for folder in [documentsFolder, deletedFolder] {
-      try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+      try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
     }
   }
 
