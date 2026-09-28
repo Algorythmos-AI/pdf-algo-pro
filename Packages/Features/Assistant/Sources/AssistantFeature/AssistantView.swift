@@ -63,7 +63,7 @@ public struct AssistantView: View {
 
   private var questionField: some View {
     HStack {
-      TextField(text: $model.question, axis: .vertical) { Text("Ask about this document", bundle: .module) }
+      TextField(text: $model.question) { Text("Ask about this document", bundle: .module) }
         .textFieldStyle(.roundedBorder)
         .submitLabel(.send)
         .onSubmit { Task { await model.ask() } }

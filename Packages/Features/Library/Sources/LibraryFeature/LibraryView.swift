@@ -10,6 +10,7 @@ public struct LibraryView<Detail: View>: View {
   @State private var model: LibraryModel
   @State private var columns = NavigationSplitViewVisibility.automatic
   @State private var compactColumn = NavigationSplitViewColumn.content
+  @Environment(\.horizontalSizeClass) private var sizeClass
   @State private var isPickingFiles = false
   @State private var renaming: Document?
   @State private var newTitle = ""
@@ -134,7 +135,7 @@ public struct LibraryView<Detail: View>: View {
             Image(systemName: "gearshape")
           }
         }
-        .accessibilityIdentifier("library.settings")
+        .accessibilityIdentifier("library.sidebar.settings")
       }
     }
   }
@@ -164,6 +165,19 @@ public struct LibraryView<Detail: View>: View {
       return !urls.isEmpty
     }
     .toolbar {
+      if sizeClass == .compact {
+        // On iPhone the sidebar is one step back, so Settings is also on the list's toolbar.
+        ToolbarItem(placement: .topBarLeading) {
+          Button(action: onSettings) {
+            Label {
+              Text("Settings", bundle: .module)
+            } icon: {
+              Image(systemName: "gearshape")
+            }
+          }
+          .accessibilityIdentifier("library.settings")
+        }
+      }
       ToolbarItemGroup(placement: .primaryAction) {
         Menu {
           Picker(selection: $model.sort) {

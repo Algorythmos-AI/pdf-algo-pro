@@ -131,6 +131,20 @@ targets:
       configs:
         Staging:
           PRODUCT_BUNDLE_IDENTIFIER: com.algorythmos.pdfalgopro.staging
+  PDFAlgoProTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: App/Tests
+    dependencies:
+      - target: PDFAlgoPro
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.algorythmos.pdfalgopro.tests
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+        SWIFT_UPCOMING_FEATURE_NONISOLATED_NONSENDING_BY_DEFAULT: YES
   PDFAlgoProUITests:
     type: bundle.ui-testing
     platform: iOS
@@ -149,6 +163,7 @@ schemes:
     build:
       targets:
         PDFAlgoPro: all
+        PDFAlgoProTests: [test]
         PDFAlgoProUITests: [test]
     test:
       config: Debug

@@ -123,6 +123,13 @@
     {
       "target": {
         "containerPath": "container:PDFAlgoPro.xcodeproj",
+        "identifier": "17E26245668293B02479B2B7",
+        "name": "PDFAlgoProTests"
+      }
+    },
+    {
+      "target": {
+        "containerPath": "container:PDFAlgoPro.xcodeproj",
         "identifier": "12F8DDC939C9FA809B6ACC4A",
         "name": "PDFAlgoProUITests"
       }

@@ -9,7 +9,7 @@ extraction) runs on the device first. Built by Algorythmos.
 | **Status**      | Foundation phase · native iOS foundation app in progress under an owner exception (PAP-028); the readiness gate ([`docs/readiness-review.md`](docs/readiness-review.md)) is NOT READY |
 | **Owner**       | [@Algorythmos-AI/maintainers](https://github.com/orgs/Algorythmos-AI/teams/maintainers)                          |
 | **Runs at**     | iPhone and iPad (iOS/iPadOS 27+ at launch; iOS 26 while Xcode 27 is unavailable) via TestFlight and the App Store once released. No deployed service. |
-| **Run locally** | `xcodegen generate && python3 scripts/ci/write_testplan.py`, then open `PDFAlgoPro.xcodeproj` and run the `PDFAlgoPro` scheme on an iPhone simulator. The planning package starts at [`docs/README.md`](docs/README.md). |
+| **Run locally** | `xcodegen generate && python3 scripts/ci/write_testplan.py`, then open `PDFAlgoPro.xcodeproj` and run the `PDFAlgoPro` scheme on an iPhone simulator. Fast pre-push compile check: `scripts/dev/typecheck.sh`. The planning package starts at [`docs/README.md`](docs/README.md). |
 | **Context**     | [Algorythmos-AI](https://github.com/Algorythmos-AI) · [Governance](docs/github-governance.md) · [Agent rules](AGENTS.md) · [Licence](LICENSE) |
 
 ---

@@ -5,7 +5,7 @@
 
 XcodeGen does not generate test plans, and a plan refers to project targets by their generated IDs,
 so the plan is derived from the project each time it is generated (locally and in CI). It lists every
-local package's test target (found from each Package.swift) and the UI test target, with code coverage
+local package's test target (found from each Package.swift), the app's unit tests and the UI tests, with code coverage
 on. Run it again whenever a package or test target is added, removed or renamed.
 """
 from __future__ import annotations
@@ -18,7 +18,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 PROJECT = ROOT / "PDFAlgoPro.xcodeproj" / "project.pbxproj"
 PLAN = ROOT / "PDFAlgoPro.xctestplan"
-APP, UI_TESTS = "PDFAlgoPro", "PDFAlgoProUITests"
+APP, UNIT_TESTS, UI_TESTS = "PDFAlgoPro", "PDFAlgoProTests", "PDFAlgoProUITests"
 
 
 def target_id(pbxproj: str, name: str) -> str:
@@ -42,8 +42,9 @@ def main() -> int:
     pbxproj = PROJECT.read_text(encoding="utf-8")
     targets = [{"target": {"containerPath": f"container:{path}", "identifier": name, "name": name}}
                for path, name in package_test_targets()]
-    targets.append({"target": {"containerPath": "container:PDFAlgoPro.xcodeproj",
-                               "identifier": target_id(pbxproj, UI_TESTS), "name": UI_TESTS}})
+    for name in (UNIT_TESTS, UI_TESTS):
+        targets.append({"target": {"containerPath": "container:PDFAlgoPro.xcodeproj",
+                                   "identifier": target_id(pbxproj, name), "name": name}})
     plan = {
         "configurations": [{"id": "4F1C2A00-0000-4000-8000-000000000001", "name": "Default", "options": {}}],
         "defaultOptions": {
