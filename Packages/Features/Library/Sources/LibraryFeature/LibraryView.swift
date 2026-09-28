@@ -8,6 +8,7 @@ import UniformTypeIdentifiers
 public struct LibraryView<Detail: View>: View {
   @State private var model: LibraryModel
   @State private var columns = NavigationSplitViewVisibility.automatic
+  @State private var compactColumn = NavigationSplitViewColumn.content
   @State private var isPickingFiles = false
   @State private var renaming: Document?
   @State private var newTitle = ""
@@ -33,7 +34,7 @@ public struct LibraryView<Detail: View>: View {
 
   /// The library.
   public var body: some View {
-    NavigationSplitView(columnVisibility: $columns) {
+    NavigationSplitView(columnVisibility: $columns, preferredCompactColumn: $compactColumn) {
       sidebar
     } content: {
       content
@@ -72,13 +73,21 @@ public struct LibraryView<Detail: View>: View {
       }
       Button(role: .cancel) { renaming = nil } label: { Text("Cancel", bundle: .module) }
     }
+    .onChange(of: model.selection) { compactColumn = model.selection == nil ? .content : .detail }
     .task { await model.load() }
   }
 
   // MARK: - Sidebar
 
   private var sidebar: some View {
-    List(selection: Binding(get: { model.section }, set: { if let section = $0 { model.section = section } })) {
+    List(
+      selection: Binding(
+        get: { model.section },
+        set: { section in
+          if let section { model.section = section }
+          compactColumn = .content
+        })
+    ) {
       Section {
         ForEach(LibrarySection.fixed, id: \.self) { section in
           Label { Self.title(for: section) } icon: { Image(systemName: Self.symbol(for: section)) }

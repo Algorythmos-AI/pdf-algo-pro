@@ -16,9 +16,14 @@ public struct OnboardingView: View {
     NavigationStack {
       ScrollView {
         VStack(alignment: .leading, spacing: Spacing.s300) {
-          Text("Choose as many as you like. You can change this later in Settings.", bundle: .module)
-            .font(.callout)
-            .foregroundStyle(Color.ds.labelSecondary)
+          VStack(alignment: .leading, spacing: Spacing.s100) {
+            Text("What do you do with PDFs most often?", bundle: .module)
+              .font(.largeTitle.bold())
+              .accessibilityAddTraits(.isHeader)
+            Text("Choose as many as you like. You can change this later in Settings.", bundle: .module)
+              .font(.callout)
+              .foregroundStyle(Color.ds.labelSecondary)
+          }
           group(title: Text("Ask and understand", bundle: .module), intents: model.askAndUnderstand)
           if model.intelligenceNeedsNote {
             Label {
@@ -38,8 +43,8 @@ public struct OnboardingView: View {
         .readableWidth()
       }
       .background(Color.ds.backgroundGrouped)
-      .navigationTitle(Text("What do you do with PDFs most often?", bundle: .module))
-      .navigationBarTitleDisplayMode(.inline)
+      .navigationTitle(Text("Welcome", bundle: .module))
+      .toolbarTitleDisplayMode(.inline)
       .toolbar {
         ToolbarItem(placement: .cancellationAction) {
           Button {
