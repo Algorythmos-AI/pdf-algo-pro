@@ -123,12 +123,14 @@ def warn_freshness(warnings: list[str]) -> None:
         warnings.append(f"docs/working-memory.md last updated {age} days ago; refresh it with the next change")
 
 
-def warn_evidence(path: Path, lines: list[str], warnings: list[str]) -> None:
+def warn_evidence(path: Path, lines: list[str], raw: list[str], warnings: list[str]) -> None:
+    """Numbers are read from prose (code stripped); labels and links may sit in inline code."""
     paragraph: list[tuple[int, str]] = []
 
     def flush() -> None:
         text = " ".join(line for _, line in paragraph)
-        if NUMBER_CLAIM.search(text) and not re.search(r"\]\(|Assumption:|Source:|\[\^|ADR-\d{4}", text):
+        source = " ".join(raw[no - 1] for no, _ in paragraph)
+        if NUMBER_CLAIM.search(text) and not re.search(r"\]\(|Assumption:|Source:|\[\^|ADR-\d{4}", source):
             warnings.append(f"{path.relative_to(ROOT)}:{paragraph[0][0]}: number without a source or 'Assumption:' label")
         paragraph.clear()
 
@@ -146,11 +148,12 @@ def main() -> int:
     errors: list[str] = []
     warnings: list[str] = []
     for path in tracked_markdown():
-        lines = strip_code(path.read_text(encoding="utf-8").splitlines())
+        raw = path.read_text(encoding="utf-8").splitlines()
+        lines = strip_code(raw)
         check_links(path, lines, errors)
         check_headings(path, lines, errors)
         if path.relative_to(ROOT).parts[0] == "docs":
-            warn_evidence(path, lines, warnings)
+            warn_evidence(path, lines, raw, warnings)
     check_index(errors)
     warn_freshness(warnings)
 

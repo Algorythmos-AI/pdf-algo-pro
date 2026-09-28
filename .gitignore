@@ -34,6 +34,7 @@ AuthKey_*.p8
 # Real documents never enter git; test corpora are synthetic or licence-clean and generated.
 *.pdf
 !Tests/Fixtures/Synthetic/**/*.pdf
+!**/Tests/Fixtures/Synthetic/**/*.pdf
 
 # Tooling
 __pycache__/

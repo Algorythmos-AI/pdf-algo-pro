@@ -108,6 +108,9 @@ jobs:
     env:
       XCODEGEN_VERSION: "2.46.0"
       XCODEGEN_SHA256: 4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806
+      # Verified on the first code pull request, when this job first runs (it is dormant until then).
+      SIMULATOR_NAME: iPhone 17
+      SIMULATOR_RUNTIME: com.apple.CoreSimulator.SimRuntime.iOS-27
       SCHEME: PDFAlgoPro
       TEST_PLAN: PDFAlgoPro
     steps:
@@ -136,7 +139,9 @@ jobs:
         run: xcrun swift-format lint --strict --recursive App Packages
       - name: Build for testing (unsigned, warnings as errors)
         run: |
-          device="$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; print(next(x["udid"] for k in sorted(d, reverse=True) if "iOS" in k for x in d[k] if x["name"].startswith("iPhone")))')"
+          # Pinned device and runtime: snapshot references are recorded on exactly this simulator.
+          device="$(xcrun simctl list devices available -j | SIM_NAME="$SIMULATOR_NAME" SIM_RUNTIME="$SIMULATOR_RUNTIME" python3 -c 'import json,os,sys; d=json.load(sys.stdin)["devices"]; ids=[x["udid"] for k in d if k.startswith(os.environ["SIM_RUNTIME"]) for x in d[k] if x["name"] == os.environ["SIM_NAME"]]; print(ids[0] if ids else "")')"
+          if [ -z "$device" ]; then echo "::error::simulator '$SIMULATOR_NAME' on runtime $SIMULATOR_RUNTIME* not found on this runner"; exit 1; fi
           echo "SIM=$device" >> "$GITHUB_ENV"
           xcodebuild build-for-testing -scheme "$SCHEME" -testPlan "$TEST_PLAN" \
             -destination "id=$device" CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
