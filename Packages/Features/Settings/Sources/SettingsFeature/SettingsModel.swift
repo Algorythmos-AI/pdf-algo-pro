@@ -18,9 +18,12 @@ public final class SettingsModel {
   /// Creates the model.
   ///
   /// - Parameters:
+  ///   - store: Where settings are kept.
   ///   - diagnostics: Builds the diagnostics summary (no document content) when the user asks.
   ///   - onChange: Tells the app the settings changed.
-  public init(store: any SettingsStoring, diagnostics: @escaping () async -> String, onChange: @escaping (AppSettings) -> Void) {
+  public init(
+    store: any SettingsStoring, diagnostics: @escaping () async -> String, onChange: @escaping (AppSettings) -> Void
+  ) {
     self.store = store
     self.diagnostics = diagnostics
     self.onChange = onChange
@@ -64,7 +67,9 @@ public final class SettingsModel {
     if includesDiagnostics {
       body += "\n\n---\n\(await diagnostics())"
     }
-    components.queryItems = [URLQueryItem(name: "subject", value: "PDF Algo Pro support"), URLQueryItem(name: "body", value: body)]
+    components.queryItems = [
+      URLQueryItem(name: "subject", value: "PDF Algo Pro support"), URLQueryItem(name: "body", value: body),
+    ]
     return components.url
   }
 

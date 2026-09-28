@@ -2,7 +2,7 @@
 import PackageDescription
 
 let settings: [SwiftSetting] = [
-        .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
+  .enableUpcomingFeature("NonisolatedNonsendingByDefault")
 ]
 
 let package = Package(

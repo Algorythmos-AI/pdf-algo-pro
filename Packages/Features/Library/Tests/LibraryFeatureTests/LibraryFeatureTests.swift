@@ -79,7 +79,9 @@ struct LibraryModelTests {
   @Test("Sections and sort order change what is shown, and the sort is remembered")
   func sectionsAndSort() async throws {
     let harness = Harness()
-    await harness.library.seed(Document(title: "B", fileName: "b.pdf", addedAt: Date(timeIntervalSince1970: 1), isFavorite: true, tags: ["Work"]))
+    await harness.library.seed(
+      Document(title: "B", fileName: "b.pdf", addedAt: Date(timeIntervalSince1970: 1), isFavorite: true, tags: ["Work"])
+    )
     await harness.library.seed(Document(title: "A", fileName: "a.pdf", addedAt: Date(timeIntervalSince1970: 2)))
     await harness.model.load()
     harness.model.sort = .title
@@ -141,7 +143,8 @@ struct LibraryModelTests {
   @Test("Thumbnails render from the document's file")
   func thumbnails() async throws {
     let harness = Harness()
-    let document = await harness.library.seed(Document(title: "Sample", fileName: "s.pdf", addedAt: .now), data: try SyntheticPDF.makeSample())
+    let document = await harness.library.seed(
+      Document(title: "Sample", fileName: "s.pdf", addedAt: .now), data: try SyntheticPDF.makeSample())
     #expect(await harness.model.thumbnail(for: document) != nil)
     #expect(await harness.model.thumbnail(for: Document(title: "x", fileName: "missing.pdf", addedAt: .now)) == nil)
   }

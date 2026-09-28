@@ -76,7 +76,8 @@ public final class LibraryModel {
   /// Creates the model.
   public init(
     library: any DocumentLibrary, intake: DocumentIntake, index: any DocumentIndexing, settings: any SettingsStoring,
-    telemetry: any TelemetryRecording, thumbnails: ThumbnailCache = ThumbnailCache(), now: @escaping () -> Date = { Date() }
+    telemetry: any TelemetryRecording, thumbnails: ThumbnailCache = ThumbnailCache(),
+    now: @escaping () -> Date = { Date() }
   ) {
     self.library = library
     self.intake = intake
@@ -151,7 +152,8 @@ public final class LibraryModel {
     }
     if failures > 0 {
       errorMessage = String(
-        localized: "\(failures) file(s) couldn't be imported because they aren't readable PDFs. Nothing else changed.", bundle: .module)
+        localized: "\(failures) file(s) couldn't be imported because they aren't readable PDFs. Nothing else changed.",
+        bundle: .module)
       await telemetry.record("quality.operation.failed")
     }
     await reload()

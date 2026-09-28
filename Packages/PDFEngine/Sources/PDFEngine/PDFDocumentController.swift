@@ -140,7 +140,8 @@ public final class PDFDocumentController {
   public func find(_ query: String) -> [TextMatch] {
     let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !trimmed.isEmpty else { return [] }
-    return document.findString(trimmed, withOptions: [.caseInsensitive, .diacriticInsensitive]).compactMap { selection in
+    return document.findString(trimmed, withOptions: [.caseInsensitive, .diacriticInsensitive]).compactMap {
+      selection in
       guard let page = selection.pages.first else { return nil }
       return TextMatch(pageIndex: document.index(for: page), text: selection.string ?? trimmed)
     }
@@ -214,7 +215,8 @@ public final class PDFDocumentController {
     guard let page = document.page(at: pageIndex) else { return }
     let bounds = page.bounds(for: .cropBox)
     let note = PDFAnnotation(
-      bounds: CGRect(x: bounds.minX + 24, y: bounds.maxY - 48, width: 24, height: 24), forType: .text, withProperties: nil)
+      bounds: CGRect(x: bounds.minX + 24, y: bounds.maxY - 48, width: 24, height: 24), forType: .text,
+      withProperties: nil)
     note.contents = contents
     note.color = AnnotationPalette.yellow
     add([(note, page)])
@@ -254,8 +256,9 @@ public final class PDFDocumentController {
 
   // MARK: - Saving
 
-  /// Writes the document atomically with coordinated access; a failed save leaves the file
-  /// unchanged (NFR-REL-002). Encrypted documents keep their password.
+  /// Writes the document atomically with coordinated access; a failed save leaves the file unchanged (NFR-REL-002).
+  ///
+  /// Encrypted documents keep their password.
   ///
   /// - Throws: `PDFEngineError.saveFailed`.
   public func save(to url: URL) throws {
@@ -271,7 +274,9 @@ public final class PDFDocumentController {
     else { throw PDFEngineError.saveFailed }
     var coordinationError: NSError?
     var writeError: (any Error)?
-    NSFileCoordinator(filePresenter: nil).coordinate(writingItemAt: url, options: .forReplacing, error: &coordinationError) {
+    NSFileCoordinator(filePresenter: nil).coordinate(
+      writingItemAt: url, options: .forReplacing, error: &coordinationError
+    ) {
       target in
       do {
         try data.write(to: target, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])

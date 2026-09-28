@@ -13,14 +13,16 @@ public actor LocalSearchIndex: DocumentIndexing {
   private let spotlight: (any SpotlightIndexing)?
   private var cache: [DocumentID: [PageText]] = [:]
 
-  /// Creates an index in a folder, optionally mirroring documents into Spotlight (FR-LIB-005). If
-  /// the folder cannot be created, writes fail with an error and search still works from memory.
+  /// Creates an index in a folder, optionally mirroring documents into Spotlight (FR-LIB-005).
+  ///
+  /// If the folder cannot be created, writes fail with an error and search still works from memory.
   public init(folder: URL, spotlight: (any SpotlightIndexing)? = nil) {
     self.folder = folder
     self.spotlight = spotlight
     try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
   }
 
+  /// Adds or replaces a document in the index (and in Spotlight, FR-LIB-005).
   public func index(_ document: Document, pages: [PageText]) async throws {
     cache[document.id] = pages
     let data = try JSONEncoder().encode(pages)
@@ -28,6 +30,7 @@ public actor LocalSearchIndex: DocumentIndexing {
     await spotlight?.index(document, text: pages.map(\.text).joined(separator: "\n"))
   }
 
+  /// Removes a document and its derived text (FR-LIB-006).
   public func remove(_ id: DocumentID) async throws {
     cache[id] = nil
     let url = file(for: id)
@@ -37,6 +40,7 @@ public actor LocalSearchIndex: DocumentIndexing {
     await spotlight?.remove(id)
   }
 
+  /// The stored page texts of a document, for intelligence and reading aloud.
   public func pages(of id: DocumentID) async throws -> [PageText] {
     if let cached = cache[id] { return cached }
     let url = file(for: id)
@@ -46,6 +50,7 @@ public actor LocalSearchIndex: DocumentIndexing {
     return pages
   }
 
+  /// Documents matching a query, best first.
   public func search(_ query: String, in documents: [Document]) async throws -> [SearchHit] {
     let terms = SearchText.terms(query)
     guard !terms.isEmpty else { return [] }
@@ -59,7 +64,8 @@ public actor LocalSearchIndex: DocumentIndexing {
       guard terms.allSatisfy(everything.contains) else { continue }
       let titleMatches = terms.filter(title.contains).count
       if titleMatches == terms.count {
-        scored.append((SearchHit(documentID: document.id, pageIndex: nil, snippet: nil), 1000 + titleMatches, document.title))
+        scored.append(
+          (SearchHit(documentID: document.id, pageIndex: nil, snippet: nil), 1000 + titleMatches, document.title))
         continue
       }
       let best = folded.indices.max { folded[$0].matchCount(of: terms) < folded[$1].matchCount(of: terms) }
@@ -69,7 +75,8 @@ public actor LocalSearchIndex: DocumentIndexing {
       scored.append((SearchHit(documentID: document.id, pageIndex: pageIndex, snippet: snippet), score, document.title))
     }
     return scored.sorted { lhs, rhs in
-      lhs.score != rhs.score ? lhs.score > rhs.score : lhs.title.localizedStandardCompare(rhs.title) == .orderedAscending
+      lhs.score != rhs.score
+        ? lhs.score > rhs.score : lhs.title.localizedStandardCompare(rhs.title) == .orderedAscending
     }.map(\.hit)
   }
 

@@ -10,15 +10,16 @@ import Testing
 @MainActor
 @Suite("Scan model")
 struct ScanModelTests {
-  private func makeModel(inspector: FakeInspector = FakeInspector()) -> (ScanModel, FakeDocumentLibrary, RecordingTelemetry, Opened) {
+  private func makeModel(
+    inspector: FakeInspector = FakeInspector()
+  ) -> (ScanModel, FakeDocumentLibrary, RecordingTelemetry, Opened) {
     let library = FakeDocumentLibrary()
     let telemetry = RecordingTelemetry()
     let opened = Opened()
     let model = ScanModel(
       intake: DocumentIntake(library: library, inspector: inspector, index: FakeIndex()),
       builder: SearchablePDFBuilder(recognizer: FakeRecognizer()), telemetry: telemetry,
-      now: { Date(timeIntervalSince1970: 1_800_000_000) }
-    ) { opened.document = $0 }
+      now: { Date(timeIntervalSince1970: 1_800_000_000) }, onFinish: { opened.document = $0 })
     return (model, library, telemetry, opened)
   }
 

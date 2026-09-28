@@ -1,7 +1,6 @@
+import Core
 import CoreGraphics
 import Foundation
-
-import Core
 
 /// An in-memory library for tests and previews. Files are written to a temporary folder.
 public actor FakeDocumentLibrary: DocumentLibrary {
@@ -45,38 +44,47 @@ public actor FakeDocumentLibrary: DocumentLibrary {
     return document
   }
 
+  /// Documents in a section, in the given order.
   public func documents(in section: LibrarySection, sortedBy sort: LibrarySort) async throws -> [Document] {
     try check()
     return sort.sorted(documents.values.filter(section.contains))
   }
 
+  /// One document, or `nil` when it does not exist.
   public func document(withID id: DocumentID) async throws -> Document? {
     try check()
     return documents[id]
   }
 
+  /// Every tag in use, sorted.
   public func allTags() async throws -> [String] {
     try check()
     return Document.normalizedTags(documents.values.filter { !$0.isDeleted }.flatMap(\.tags))
   }
 
+  /// The file URL of a document, for reading and coordinated writing.
   public func fileURL(for id: DocumentID) async throws -> URL {
     try check()
     return folder.appendingPathComponent(try existing(id).fileName)
   }
 
+  /// Copies a PDF into the library, reading it with coordinated, security-scoped access.
   public func importDocument(from url: URL) async throws -> Document {
     try check()
     let data = try Data(contentsOf: url)
     guard data.starts(with: Data("%PDF-".utf8)) else { throw LibraryError.notAPDF }
-    return seed(Document(title: url.deletingPathExtension().lastPathComponent, fileName: "\(UUID()).pdf", addedAt: now()), data: data)
+    return seed(
+      Document(title: url.deletingPathExtension().lastPathComponent, fileName: "\(UUID()).pdf", addedAt: now()),
+      data: data)
   }
 
+  /// Adds PDF data (for example a new scan) as a document.
   public func addDocument(data: Data, title: String) async throws -> Document {
     try check()
     return seed(Document(title: title, fileName: "\(UUID()).pdf", addedAt: now()), data: data)
   }
 
+  /// Records what inspection learnt about a document's file.
   public func updateInspection(_ inspection: PDFInspection, for id: DocumentID) async throws {
     try check()
     var document = try existing(id)
@@ -86,6 +94,7 @@ public actor FakeDocumentLibrary: DocumentLibrary {
     documents[id] = document
   }
 
+  /// Renames a document; the title is trimmed and must not be empty.
   public func rename(_ id: DocumentID, to title: String) async throws -> Document {
     try check()
     let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -96,42 +105,50 @@ public actor FakeDocumentLibrary: DocumentLibrary {
     return document
   }
 
+  /// Marks or unmarks a favourite.
   public func setFavorite(_ isFavorite: Bool, for id: DocumentID) async throws {
     try check()
     documents[id]?.isFavorite = isFavorite
   }
 
+  /// Replaces a document's tags.
   public func setTags(_ tags: [String], for id: DocumentID) async throws {
     try check()
     documents[id]?.tags = Document.normalizedTags(tags)
   }
 
+  /// Records that a document was opened and the page it showed.
   public func recordOpened(_ id: DocumentID, pageIndex: Int) async throws {
     try check()
     documents[id]?.lastOpenedAt = now()
     documents[id]?.lastPageIndex = pageIndex
   }
 
+  /// Records that the file's contents changed (after a save).
   public func recordModified(_ id: DocumentID) async throws {
     try check()
     documents[id]?.modifiedAt = now()
   }
 
+  /// Moves a document to Recently Deleted, where it stays for 30 days.
   public func moveToRecentlyDeleted(_ id: DocumentID) async throws {
     try check()
     documents[id]?.deletedAt = now()
   }
 
+  /// Restores a document from Recently Deleted.
   public func restore(_ id: DocumentID) async throws {
     try check()
     documents[id]?.deletedAt = nil
   }
 
+  /// Deletes a document's file and index entry permanently.
   public func deletePermanently(_ id: DocumentID) async throws {
     try check()
     documents[id] = nil
   }
 
+  /// Permanently deletes documents that have been in Recently Deleted for 30 days or more.
   public func purgeExpired(now: Date) async throws -> [DocumentID] {
     try check()
     let expired = documents.values.filter { ($0.deletedAt.map { now.timeIntervalSince($0) >= 30 * 86_400 }) ?? false }
@@ -139,6 +156,10 @@ public actor FakeDocumentLibrary: DocumentLibrary {
     return expired.map(\.id)
   }
 
+  /// Brings the index in line with the files: PDFs added outside the app (for example in the Files app) are added,
+  /// entries whose file is gone are removed.
+  ///
+  /// Returns the documents added, which still need inspecting and indexing.
   public func reconcileWithFiles() async throws -> [Document] {
     try check()
     return []
@@ -153,11 +174,17 @@ public struct FakeInspector: PDFInspecting {
   public let fails: Bool
 
   /// Creates an inspector.
-  public init(result: PDFInspection = PDFInspection(pageCount: 1, isEncrypted: false, pages: [PageText(pageIndex: 0, text: "Hello")]), fails: Bool = false) {
+  public init(
+    result: PDFInspection = PDFInspection(
+      pageCount: 1, isEncrypted: false, pages: [PageText(pageIndex: 0, text: "Hello")]), fails: Bool = false
+  ) {
     self.result = result
     self.fails = fails
   }
 
+  /// Inspects the PDF at a URL.
+  ///
+  /// - Throws: `LibraryError.notAPDF` when the file cannot be read as a PDF.
   public func inspect(_ url: URL) async throws -> PDFInspection {
     if fails { throw LibraryError.notAPDF }
     return result
@@ -179,25 +206,31 @@ public actor FakeIndex: DocumentIndexing {
     stored[id] = pages
   }
 
+  /// Adds or replaces a document in the index (and in Spotlight, FR-LIB-005).
   public func index(_ document: Document, pages: [PageText]) async throws {
     stored[document.id] = pages
   }
 
+  /// Removes a document and its derived text (FR-LIB-006).
   public func remove(_ id: DocumentID) async throws {
     stored[id] = nil
     removed.append(id)
   }
 
+  /// The stored page texts of a document, for intelligence and reading aloud.
   public func pages(of id: DocumentID) async throws -> [PageText] {
     stored[id] ?? []
   }
 
+  /// Documents matching a query, best first.
   public func search(_ query: String, in documents: [Document]) async throws -> [SearchHit] {
     documents.compactMap { document in
       if document.title.localizedCaseInsensitiveContains(query) {
         return SearchHit(documentID: document.id, pageIndex: nil, snippet: nil)
       }
-      guard let page = stored[document.id]?.first(where: { $0.text.localizedCaseInsensitiveContains(query) }) else { return nil }
+      guard let page = stored[document.id]?.first(where: { $0.text.localizedCaseInsensitiveContains(query) }) else {
+        return nil
+      }
       return SearchHit(documentID: document.id, pageIndex: page.pageIndex, snippet: page.text)
     }
   }
@@ -221,8 +254,11 @@ public actor FakeIntelligence: DocumentIntelligence {
   /// Creates an assistant that answers from page 1 on device.
   public init(
     availability: IntelligenceAvailability = .available(.onDevice),
-    answer: Answer = Answer(text: "The document is about testing.", citations: [Citation(pageIndex: 0, quote: "testing")], tier: .onDevice, isGrounded: true),
-    extraction: Extraction = Extraction(fields: [ExtractedField(key: "invoiceNumber", value: "INV-1", pageIndex: 0)], tier: .onDevice)
+    answer: Answer = Answer(
+      text: "The document is about testing.", citations: [Citation(pageIndex: 0, quote: "testing")], tier: .onDevice,
+      isGrounded: true),
+    extraction: Extraction = Extraction(
+      fields: [ExtractedField(key: "invoiceNumber", value: "INV-1", pageIndex: 0)], tier: .onDevice)
   ) {
     currentAvailability = availability
     self.answer = answer
@@ -230,20 +266,25 @@ public actor FakeIntelligence: DocumentIntelligence {
   }
 
   /// Changes what the fake reports and returns.
-  public func configure(availability: IntelligenceAvailability? = nil, answer: Answer? = nil, error: IntelligenceError? = nil) {
+  public func configure(
+    availability: IntelligenceAvailability? = nil, answer: Answer? = nil, error: IntelligenceError? = nil
+  ) {
     if let availability { currentAvailability = availability }
     if let answer { self.answer = answer }
     self.error = error
   }
 
+  /// Whether a tier can run now.
   public func availability() async -> IntelligenceAvailability { currentAvailability }
 
+  /// Summarises the pages, citing the pages each point draws on.
   public func summarize(_ pages: [PageText]) async throws -> Answer {
     tasks.append(.summarize)
     if let error { throw error }
     return answer
   }
 
+  /// Answers a question from the pages, or returns a not-found answer.
   public func answer(_ question: String, from pages: [PageText]) async throws -> Answer {
     tasks.append(.ask)
     questions.append(question)
@@ -251,12 +292,16 @@ public actor FakeIntelligence: DocumentIntelligence {
     return answer
   }
 
+  /// Extracts structured fields and verifies each value against the text.
   public func extractFields(from pages: [PageText]) async throws -> Extraction {
     tasks.append(.extract)
     if let error { throw error }
     return extraction
   }
 
+  /// Explains a contract's key terms in plain language.
+  ///
+  /// The UI adds the not-legal-advice disclosure.
   public func explainContract(_ pages: [PageText]) async throws -> Answer {
     tasks.append(.explainContract)
     if let error { throw error }
@@ -270,10 +315,15 @@ public struct FakeRecognizer: TextRecognizing {
   public let lines: [RecognizedLine]
 
   /// Creates a recogniser.
-  public init(lines: [RecognizedLine] = [RecognizedLine(text: "Recognised text", bounds: CGRect(x: 0.1, y: 0.8, width: 0.6, height: 0.05), confidence: 0.9)]) {
+  public init(
+    lines: [RecognizedLine] = [
+      RecognizedLine(text: "Recognised text", bounds: CGRect(x: 0.1, y: 0.8, width: 0.6, height: 0.05), confidence: 0.9)
+    ]
+  ) {
     self.lines = lines
   }
 
+  /// Recognises the lines of text in an image.
   public func recognizeText(in image: CGImage) async throws -> [RecognizedLine] { lines }
 }
 
@@ -287,10 +337,12 @@ public final class InMemorySettingsStore: SettingsStoring, @unchecked Sendable {
     self.settings = settings
   }
 
+  /// The current settings.
   public func load() -> AppSettings {
     lock.withLock { settings }
   }
 
+  /// Replaces the settings.
   public func save(_ settings: AppSettings) {
     lock.withLock { self.settings = settings }
   }
@@ -304,6 +356,7 @@ public actor RecordingTelemetry: TelemetryRecording {
   /// Creates an empty recorder.
   public init() {}
 
+  /// Records an event by its `domain.object.action` name; unknown names are dropped.
   public func record(_ event: String) async {
     events.append(event)
   }

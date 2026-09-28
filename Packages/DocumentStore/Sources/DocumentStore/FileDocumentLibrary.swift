@@ -14,8 +14,10 @@ public actor FileDocumentLibrary: DocumentLibrary {
   private let now: @Sendable () -> Date
   private let fileManager = FileManager.default
 
-  /// Creates a library. Folders are created if needed; if that fails, operations report
-  /// `LibraryError.fileAccessFailed` instead of stopping the app.
+  /// Creates a library.
+  ///
+  /// Folders are created if needed; if that fails, operations report `LibraryError.fileAccessFailed` instead of
+  /// stopping the app.
   ///
   /// - Parameters:
   ///   - documentsFolder: Where documents live; the app passes its Documents folder, shown in Files.
@@ -36,36 +38,44 @@ public actor FileDocumentLibrary: DocumentLibrary {
 
   // MARK: - Reading
 
+  /// Documents in a section, in the given order.
   public func documents(in section: LibrarySection, sortedBy sort: LibrarySort) async throws -> [Document] {
     sort.sorted(try await index.all().filter(section.contains))
   }
 
+  /// One document, or `nil` when it does not exist.
   public func document(withID id: DocumentID) async throws -> Document? {
     try await index.document(id)
   }
 
+  /// Every tag in use, sorted.
   public func allTags() async throws -> [String] {
     Document.normalizedTags(try await index.all().filter { !$0.isDeleted }.flatMap(\.tags))
   }
 
+  /// The file URL of a document, for reading and coordinated writing.
   public func fileURL(for id: DocumentID) async throws -> URL {
     location(of: try await existing(id))
   }
 
   // MARK: - Adding
 
+  /// Copies a PDF into the library, reading it with coordinated, security-scoped access.
   public func importDocument(from url: URL) async throws -> Document {
     let scoped = url.startAccessingSecurityScopedResource()
     defer { if scoped { url.stopAccessingSecurityScopedResource() } }
     var coordinationError: NSError?
     var data: Data?
-    NSFileCoordinator(filePresenter: nil).coordinate(readingItemAt: url, options: .withoutChanges, error: &coordinationError) {
+    NSFileCoordinator(filePresenter: nil).coordinate(
+      readingItemAt: url, options: .withoutChanges, error: &coordinationError
+    ) {
       data = try? Data(contentsOf: $0, options: .mappedIfSafe)
     }
     guard coordinationError == nil, let data else { throw LibraryError.fileAccessFailed }
     return try await add(data, title: url.deletingPathExtension().lastPathComponent)
   }
 
+  /// Adds PDF data (for example a new scan) as a document.
   public func addDocument(data: Data, title: String) async throws -> Document {
     try await add(data, title: title)
   }
@@ -80,6 +90,7 @@ public actor FileDocumentLibrary: DocumentLibrary {
     return document
   }
 
+  /// Records what inspection learnt about a document's file.
   public func updateInspection(_ inspection: PDFInspection, for id: DocumentID) async throws {
     var document = try await existing(id)
     document.pageCount = inspection.pageCount
@@ -90,6 +101,7 @@ public actor FileDocumentLibrary: DocumentLibrary {
 
   // MARK: - Changing
 
+  /// Renames a document; the title is trimmed and must not be empty.
   public func rename(_ id: DocumentID, to title: String) async throws -> Document {
     var document = try await existing(id)
     let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -105,18 +117,21 @@ public actor FileDocumentLibrary: DocumentLibrary {
     return document
   }
 
+  /// Marks or unmarks a favourite.
   public func setFavorite(_ isFavorite: Bool, for id: DocumentID) async throws {
     var document = try await existing(id)
     document.isFavorite = isFavorite
     try await index.upsert(document)
   }
 
+  /// Replaces a document's tags.
   public func setTags(_ tags: [String], for id: DocumentID) async throws {
     var document = try await existing(id)
     document.tags = Document.normalizedTags(tags)
     try await index.upsert(document)
   }
 
+  /// Records that a document was opened and the page it showed.
   public func recordOpened(_ id: DocumentID, pageIndex: Int) async throws {
     var document = try await existing(id)
     document.lastOpenedAt = now()
@@ -124,6 +139,7 @@ public actor FileDocumentLibrary: DocumentLibrary {
     try await index.upsert(document)
   }
 
+  /// Records that the file's contents changed (after a save).
   public func recordModified(_ id: DocumentID) async throws {
     var document = try await existing(id)
     document.modifiedAt = now()
@@ -132,6 +148,7 @@ public actor FileDocumentLibrary: DocumentLibrary {
 
   // MARK: - Deleting
 
+  /// Moves a document to Recently Deleted, where it stays for 30 days.
   public func moveToRecentlyDeleted(_ id: DocumentID) async throws {
     var document = try await existing(id)
     guard !document.isDeleted else { return }
@@ -142,6 +159,7 @@ public actor FileDocumentLibrary: DocumentLibrary {
     try await index.upsert(document)
   }
 
+  /// Restores a document from Recently Deleted.
   public func restore(_ id: DocumentID) async throws {
     var document = try await existing(id)
     guard document.isDeleted else { return }
@@ -152,13 +170,16 @@ public actor FileDocumentLibrary: DocumentLibrary {
     try await index.upsert(document)
   }
 
+  /// Deletes a document's file and index entry permanently.
   public func deletePermanently(_ id: DocumentID) async throws {
     let document = try await existing(id)
     let url = location(of: document)
     if fileManager.fileExists(atPath: url.path) {
       var coordinationError: NSError?
       var removeError: (any Error)?
-      NSFileCoordinator(filePresenter: nil).coordinate(writingItemAt: url, options: .forDeleting, error: &coordinationError) {
+      NSFileCoordinator(filePresenter: nil).coordinate(
+        writingItemAt: url, options: .forDeleting, error: &coordinationError
+      ) {
         do { try FileManager.default.removeItem(at: $0) } catch { removeError = error }
       }
       guard coordinationError == nil, removeError == nil else { throw LibraryError.fileAccessFailed }
@@ -166,6 +187,7 @@ public actor FileDocumentLibrary: DocumentLibrary {
     try await index.delete(id)
   }
 
+  /// Permanently deletes documents that have been in Recently Deleted for 30 days or more.
   public func purgeExpired(now date: Date) async throws -> [DocumentID] {
     let expired = try await index.all().filter { document in
       guard let deletedAt = document.deletedAt else { return false }
@@ -177,17 +199,23 @@ public actor FileDocumentLibrary: DocumentLibrary {
 
   // MARK: - Reconciling
 
+  /// Brings the index in line with the files: PDFs added outside the app (for example in the Files app) are added,
+  /// entries whose file is gone are removed.
+  ///
+  /// Returns the documents added, which still need inspecting and indexing.
   public func reconcileWithFiles() async throws -> [Document] {
     let entries = try await index.all()
     for document in entries where !fileManager.fileExists(atPath: location(of: document).path) {
       try await index.delete(document.id)
     }
     let known = Set(entries.filter { !$0.isDeleted }.map(\.fileName))
-    let files = (try? fileManager.contentsOfDirectory(at: documentsFolder, includingPropertiesForKeys: [.creationDateKey])) ?? []
+    let files =
+      (try? fileManager.contentsOfDirectory(at: documentsFolder, includingPropertiesForKeys: [.creationDateKey])) ?? []
     var added: [Document] = []
     for file in files where file.pathExtension.lowercased() == "pdf" && !known.contains(file.lastPathComponent) {
       let createdAt = (try? file.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? now()
-      let document = Document(title: file.deletingPathExtension().lastPathComponent, fileName: file.lastPathComponent, addedAt: createdAt)
+      let document = Document(
+        title: file.deletingPathExtension().lastPathComponent, fileName: file.lastPathComponent, addedAt: createdAt)
       try await index.upsert(document)
       added.append(document)
     }
@@ -208,7 +236,9 @@ public actor FileDocumentLibrary: DocumentLibrary {
   private func write(_ data: Data, to url: URL) throws {
     var coordinationError: NSError?
     var writeError: (any Error)?
-    NSFileCoordinator(filePresenter: nil).coordinate(writingItemAt: url, options: .forReplacing, error: &coordinationError) {
+    NSFileCoordinator(filePresenter: nil).coordinate(
+      writingItemAt: url, options: .forReplacing, error: &coordinationError
+    ) {
       do {
         try data.write(to: $0, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
       } catch {
@@ -222,7 +252,8 @@ public actor FileDocumentLibrary: DocumentLibrary {
     var coordinationError: NSError?
     var moveError: (any Error)?
     NSFileCoordinator(filePresenter: nil).coordinate(
-      writingItemAt: source, options: .forMoving, writingItemAt: destination, options: .forReplacing, error: &coordinationError
+      writingItemAt: source, options: .forMoving, writingItemAt: destination, options: .forReplacing,
+      error: &coordinationError
     ) { from, to in
       do { try FileManager.default.moveItem(at: from, to: to) } catch { moveError = error }
     }

@@ -12,7 +12,8 @@ struct SettingsModelTests {
   private func makeModel() -> (SettingsModel, InMemorySettingsStore, Changes) {
     let store = InMemorySettingsStore(AppSettings(hasCompletedOnboarding: true, intents: [.read]))
     let changes = Changes()
-    let model = SettingsModel(store: store, diagnostics: { "App: PDF Algo Pro 0.1.0" }) { changes.values.append($0) }
+    let model = SettingsModel(
+      store: store, diagnostics: { "App: PDF Algo Pro 0.1.0" }, onChange: { changes.values.append($0) })
     return (model, store, changes)
   }
 
@@ -52,7 +53,9 @@ struct SettingsModelTests {
 
   @Test func screenRenders() {
     let (model, _, _) = makeModel()
-    #expect(ImageRenderer(content: SettingsView(model: model, version: "0.1.0").frame(width: 390, height: 844)).uiImage != nil)
+    #expect(
+      ImageRenderer(content: SettingsView(model: model, version: "0.1.0").frame(width: 390, height: 844)).uiImage != nil
+    )
     for intent in OnboardingIntent.allCases { _ = SettingsView.intentTitle(intent) }
   }
 }

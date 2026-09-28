@@ -68,10 +68,16 @@ public struct SettingsView: View {
         } header: {
           Text("Help", bundle: .module)
         } footer: {
-          Text("The summary lists the app version, the system and error counts. It never includes your documents.", bundle: .module)
+          Text(
+            "The summary lists the app version, the system and error counts. It never includes your documents.",
+            bundle: .module)
         }
         Section {
-          LabeledContent { Text(version) } label: { Text("Version", bundle: .module) }
+          LabeledContent {
+            Text(version)
+          } label: {
+            Text("Version", bundle: .module)
+          }
           Text("Built by Algorythmos", bundle: .module).foregroundStyle(Color.ds.labelSecondary)
         } header: {
           Text("About", bundle: .module)
@@ -80,7 +86,11 @@ public struct SettingsView: View {
       .navigationTitle(Text("Settings", bundle: .module))
       .toolbar {
         ToolbarItem(placement: .confirmationAction) {
-          Button { dismiss() } label: { Text("Done", bundle: .module) }
+          Button {
+            dismiss()
+          } label: {
+            Text("Done", bundle: .module)
+          }
         }
       }
     }

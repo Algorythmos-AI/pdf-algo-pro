@@ -2,7 +2,7 @@
 import PackageDescription
 
 let settings: [SwiftSetting] = [
-        .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
+  .enableUpcomingFeature("NonisolatedNonsendingByDefault")
 ]
 
 let package = Package(
@@ -10,10 +10,10 @@ let package = Package(
   defaultLocalization: "en",
   platforms: [.iOS(.v26), .macOS(.v26)],
   products: [
-    .library(name: "OCR", targets: ["OCR"]),
+    .library(name: "OCR", targets: ["OCR"])
   ],
   dependencies: [
-    .package(path: "../Core"),
+    .package(path: "../Core")
   ],
   targets: [
     .target(

@@ -20,7 +20,9 @@ public actor SearchablePDFBuilder {
 
   /// Creates a builder over a text recogniser.
   ///
-  /// - Parameter renderPixelSize: The longest side, in pixels, of page images sent to recognition.
+  /// - Parameters:
+  ///   - recognizer: The on-device text recogniser.
+  ///   - renderPixelSize: The longest side, in pixels, of page images sent to recognition.
   public init(recognizer: any TextRecognizing, renderPixelSize: Int = 2200) {
     self.recognizer = recognizer
     self.renderPixelSize = renderPixelSize
@@ -29,7 +31,9 @@ public actor SearchablePDFBuilder {
   /// Builds a PDF from scanned page images.
   ///
   /// - Throws: `CancellationError`, `PDFEngineError.saveFailed`, or the recogniser's error.
-  public func makeSearchablePDF(from images: [CGImage], progress: @Sendable (Double) -> Void = { _ in }) async throws
+  public func makeSearchablePDF(
+    from images: [CGImage], progress: @Sendable (Double) -> Void = { _ in }
+  ) async throws
     -> RecognizedDocument
   {
     var recognized: [[RecognizedLine]] = []
@@ -39,7 +43,7 @@ public actor SearchablePDFBuilder {
       progress(Double(index + 1) / Double(images.count))
     }
     let boxes = images.map { Self.pageBox(for: $0) }
-    let data = try PDFWriter.makePDF(pageCount: images.count, mediaBox: { boxes[$0] }) { context, index, box in
+    let data = try PDFWriter.makePDF(mediaBoxes: boxes) { context, index, box in
       context.draw(images[index], in: box)
       PDFWriter.drawInvisibleText(recognized[index], in: box, context: context)
     }
@@ -50,7 +54,9 @@ public actor SearchablePDFBuilder {
   ///
   /// - Throws: `PDFEngineError.unreadable`, `.passwordRequired`, `CancellationError`, or the
   ///   recogniser's error.
-  public func addTextLayer(toPDFAt url: URL, progress: @Sendable (Double) -> Void = { _ in }) async throws
+  public func addTextLayer(
+    toPDFAt url: URL, progress: @Sendable (Double) -> Void = { _ in }
+  ) async throws
     -> RecognizedDocument
   {
     guard let source = CGPDFDocument(url as CFURL) else { throw PDFEngineError.unreadable }
@@ -64,9 +70,8 @@ public actor SearchablePDFBuilder {
       recognized.append(try await recognizer.recognizeText(in: image))
       progress(Double(index + 1) / Double(max(pageCount, 1)))
     }
-    let data = try PDFWriter.makePDF(
-      pageCount: pageCount, mediaBox: { source.page(at: $0 + 1)?.getBoxRect(.cropBox) ?? PDFWriter.letter }
-    ) { context, index, box in
+    let boxes = (0..<pageCount).map { source.page(at: $0 + 1)?.getBoxRect(.cropBox) ?? PDFWriter.letter }
+    let data = try PDFWriter.makePDF(mediaBoxes: boxes) { context, index, box in
       guard let page = source.page(at: index + 1) else { return }
       context.drawPDFPage(page)
       PDFWriter.drawInvisibleText(recognized[index], in: box, context: context)

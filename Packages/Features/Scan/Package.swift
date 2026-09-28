@@ -2,8 +2,8 @@
 import PackageDescription
 
 let settings: [SwiftSetting] = [
-        .defaultIsolation(MainActor.self),
-        .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
+  .defaultIsolation(MainActor.self),
+  .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
 ]
 
 let package = Package(
@@ -11,7 +11,7 @@ let package = Package(
   defaultLocalization: "en",
   platforms: [.iOS(.v26)],
   products: [
-    .library(name: "ScanFeature", targets: ["ScanFeature"]),
+    .library(name: "ScanFeature", targets: ["ScanFeature"])
   ],
   dependencies: [
     .package(path: "../../Core"),
@@ -22,7 +22,10 @@ let package = Package(
   targets: [
     .target(
       name: "ScanFeature",
-      dependencies: [.product(name: "Core", package: "Core"), .product(name: "DesignSystem", package: "DesignSystem"), .product(name: "PDFEngine", package: "PDFEngine"), .product(name: "Scanning", package: "Scanning")],
+      dependencies: [
+        .product(name: "Core", package: "Core"), .product(name: "DesignSystem", package: "DesignSystem"),
+        .product(name: "PDFEngine", package: "PDFEngine"), .product(name: "Scanning", package: "Scanning"),
+      ],
       resources: [.process("Resources")],
       swiftSettings: settings
     ),

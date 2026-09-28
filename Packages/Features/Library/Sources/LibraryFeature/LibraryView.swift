@@ -4,6 +4,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 /// The library: a split view with sections, the document list and the open document (ADR-0004).
+///
 /// On iPhone it collapses to a stack; layouts follow size, never device type.
 public struct LibraryView<Detail: View>: View {
   @State private var model: LibraryModel
@@ -19,6 +20,7 @@ public struct LibraryView<Detail: View>: View {
   /// Creates the library.
   ///
   /// - Parameters:
+  ///   - model: The library model.
   ///   - onScan: Starts the scanner.
   ///   - onSettings: Opens Settings.
   ///   - detail: The view for the selected document, supplied by the app so features stay independent.
@@ -27,6 +29,7 @@ public struct LibraryView<Detail: View>: View {
     @ViewBuilder detail: @escaping (DocumentSelection) -> Detail
   ) {
     _model = State(initialValue: model)
+    _compactColumn = State(initialValue: model.selection == nil ? .content : .detail)
     self.onScan = onScan
     self.onSettings = onSettings
     self.detail = detail
@@ -43,7 +46,11 @@ public struct LibraryView<Detail: View>: View {
         detail(selection).id(selection)
       } else {
         ContentUnavailableView {
-          Label { Text("No document selected", bundle: .module) } icon: { Image(systemName: "doc.text") }
+          Label {
+            Text("No document selected", bundle: .module)
+          } icon: {
+            Image(systemName: "doc.text")
+          }
         } description: {
           Text("Choose a document from the library.", bundle: .module)
         }
@@ -56,7 +63,11 @@ public struct LibraryView<Detail: View>: View {
       Text("Something went wrong", bundle: .module),
       isPresented: Binding(get: { model.errorMessage != nil }, set: { if !$0 { model.errorMessage = nil } })
     ) {
-      Button { model.errorMessage = nil } label: { Text("OK", bundle: .module) }
+      Button {
+        model.errorMessage = nil
+      } label: {
+        Text("OK", bundle: .module)
+      }
     } message: {
       Text(model.errorMessage ?? "")
     }
@@ -71,7 +82,11 @@ public struct LibraryView<Detail: View>: View {
       } label: {
         Text("Rename", bundle: .module)
       }
-      Button(role: .cancel) { renaming = nil } label: { Text("Cancel", bundle: .module) }
+      Button(role: .cancel) {
+        renaming = nil
+      } label: {
+        Text("Cancel", bundle: .module)
+      }
     }
     .onChange(of: model.selection) { compactColumn = model.selection == nil ? .content : .detail }
     .task { await model.load() }
@@ -90,9 +105,13 @@ public struct LibraryView<Detail: View>: View {
     ) {
       Section {
         ForEach(LibrarySection.fixed, id: \.self) { section in
-          Label { Self.title(for: section) } icon: { Image(systemName: Self.symbol(for: section)) }
-            .tag(section)
-            .accessibilityIdentifier("library.section.\(Self.identifier(for: section))")
+          Label {
+            Self.title(for: section)
+          } icon: {
+            Image(systemName: Self.symbol(for: section))
+          }
+          .tag(section)
+          .accessibilityIdentifier("library.section.\(Self.identifier(for: section))")
         }
       }
       if !model.tags.isEmpty {
@@ -109,7 +128,11 @@ public struct LibraryView<Detail: View>: View {
     .toolbar {
       ToolbarItem(placement: .topBarTrailing) {
         Button(action: onSettings) {
-          Label { Text("Settings", bundle: .module) } icon: { Image(systemName: "gearshape") }
+          Label {
+            Text("Settings", bundle: .module)
+          } icon: {
+            Image(systemName: "gearshape")
+          }
         }
         .accessibilityIdentifier("library.settings")
       }
@@ -151,14 +174,28 @@ public struct LibraryView<Detail: View>: View {
             Text("Sort by", bundle: .module)
           }
         } label: {
-          Label { Text("Sort", bundle: .module) } icon: { Image(systemName: "arrow.up.arrow.down") }
+          Label {
+            Text("Sort", bundle: .module)
+          } icon: {
+            Image(systemName: "arrow.up.arrow.down")
+          }
         }
         Button(action: onScan) {
-          Label { Text("Scan", bundle: .module) } icon: { Image(systemName: "doc.viewfinder") }
+          Label {
+            Text("Scan", bundle: .module)
+          } icon: {
+            Image(systemName: "doc.viewfinder")
+          }
         }
         .accessibilityIdentifier("library.scan")
-        Button { isPickingFiles = true } label: {
-          Label { Text("Import", bundle: .module) } icon: { Image(systemName: "plus") }
+        Button {
+          isPickingFiles = true
+        } label: {
+          Label {
+            Text("Import", bundle: .module)
+          } icon: {
+            Image(systemName: "plus")
+          }
         }
         .accessibilityIdentifier("library.import")
       }
@@ -211,22 +248,46 @@ public struct LibraryView<Detail: View>: View {
     .accessibilityIdentifier("library.document.\(document.title)")
     .swipeActions(edge: .trailing) {
       if document.isDeleted {
-        Button(role: .destructive) { Task { await model.deletePermanently(document.id) } } label: {
-          Label { Text("Delete now", bundle: .module) } icon: { Image(systemName: "trash") }
+        Button(role: .destructive) {
+          Task { await model.deletePermanently(document.id) }
+        } label: {
+          Label {
+            Text("Delete now", bundle: .module)
+          } icon: {
+            Image(systemName: "trash")
+          }
         }
-        Button { Task { await model.restore(document.id) } } label: {
-          Label { Text("Restore", bundle: .module) } icon: { Image(systemName: "arrow.uturn.backward") }
+        Button {
+          Task { await model.restore(document.id) }
+        } label: {
+          Label {
+            Text("Restore", bundle: .module)
+          } icon: {
+            Image(systemName: "arrow.uturn.backward")
+          }
         }
       } else {
-        Button(role: .destructive) { Task { await model.delete(document.id) } } label: {
-          Label { Text("Delete", bundle: .module) } icon: { Image(systemName: "trash") }
+        Button(role: .destructive) {
+          Task { await model.delete(document.id) }
+        } label: {
+          Label {
+            Text("Delete", bundle: .module)
+          } icon: {
+            Image(systemName: "trash")
+          }
         }
       }
     }
     .swipeActions(edge: .leading) {
       if !document.isDeleted {
-        Button { Task { await model.toggleFavorite(document) } } label: {
-          Label { Text("Favourite", bundle: .module) } icon: { Image(systemName: document.isFavorite ? "star.slash" : "star") }
+        Button {
+          Task { await model.toggleFavorite(document) }
+        } label: {
+          Label {
+            Text("Favourite", bundle: .module)
+          } icon: {
+            Image(systemName: document.isFavorite ? "star.slash" : "star")
+          }
         }
         .tint(Color.ds.brandTint)
       }
@@ -237,17 +298,30 @@ public struct LibraryView<Detail: View>: View {
           newTitle = document.title
           renaming = document
         } label: {
-          Label { Text("Rename", bundle: .module) } icon: { Image(systemName: "pencil") }
-        }
-        Button { Task { await model.toggleFavorite(document) } } label: {
           Label {
-            document.isFavorite ? Text("Remove from favourites", bundle: .module) : Text("Add to favourites", bundle: .module)
+            Text("Rename", bundle: .module)
+          } icon: {
+            Image(systemName: "pencil")
+          }
+        }
+        Button {
+          Task { await model.toggleFavorite(document) }
+        } label: {
+          Label {
+            document.isFavorite
+              ? Text("Remove from favourites", bundle: .module) : Text("Add to favourites", bundle: .module)
           } icon: {
             Image(systemName: "star")
           }
         }
-        Button(role: .destructive) { Task { await model.delete(document.id) } } label: {
-          Label { Text("Delete", bundle: .module) } icon: { Image(systemName: "trash") }
+        Button(role: .destructive) {
+          Task { await model.delete(document.id) }
+        } label: {
+          Label {
+            Text("Delete", bundle: .module)
+          } icon: {
+            Image(systemName: "trash")
+          }
         }
       }
     }
@@ -257,19 +331,46 @@ public struct LibraryView<Detail: View>: View {
 
   private var emptyState: some View {
     ContentUnavailableView {
-      Label { Self.emptyTitle(for: model.section) } icon: { Image(systemName: Self.symbol(for: model.section)) }
+      Label {
+        Self.emptyTitle(for: model.section)
+      } icon: {
+        Image(systemName: Self.symbol(for: model.section))
+      }
     } description: {
       if model.section == .all {
-        Text("Import a PDF from Files, scan a paper document, or try a sample. Everything stays on this device.", bundle: .module)
+        Text(
+          "Import a PDF from Files, scan a paper document, or try a sample. Everything stays on this device.",
+          bundle: .module)
       }
     } actions: {
       if model.section == .all {
-        Button { isPickingFiles = true } label: { Text("Import a PDF", bundle: .module) }
-          .buttonStyle(.primary)
+        // The onboarding choice decides which action is prominent (FR-ONB-003).
+        if model.primaryAction == .scanDocument {
+          Button(action: onScan) { Text("Scan a document", bundle: .module) }
+            .buttonStyle(.primary)
+            .accessibilityIdentifier("library.empty.primary.scan")
+          Button {
+            isPickingFiles = true
+          } label: {
+            Text("Import a PDF", bundle: .module)
+          }
           .accessibilityIdentifier("library.empty.import")
-        Button(action: onScan) { Text("Scan a document", bundle: .module) }
-        Button { Task { await model.addSample() } } label: { Text("Try a sample", bundle: .module) }
-          .accessibilityIdentifier("library.empty.sample")
+        } else {
+          Button {
+            isPickingFiles = true
+          } label: {
+            Text("Import a PDF", bundle: .module)
+          }
+          .buttonStyle(.primary)
+          .accessibilityIdentifier("library.empty.primary.import")
+          Button(action: onScan) { Text("Scan a document", bundle: .module) }
+        }
+        Button {
+          Task { await model.addSample() }
+        } label: {
+          Text("Try a sample", bundle: .module)
+        }
+        .accessibilityIdentifier("library.empty.sample")
       }
     }
   }
@@ -284,7 +385,11 @@ public struct LibraryView<Detail: View>: View {
         case .scanDocument:
           Button(action: onScan) { Text("Scan", bundle: .module) }.buttonStyle(.primary)
         case .importDocument, .openAssistant:
-          Button { isPickingFiles = true } label: { Text("Import a PDF", bundle: .module) }.buttonStyle(.primary)
+          Button {
+            isPickingFiles = true
+          } label: {
+            Text("Import a PDF", bundle: .module)
+          }.buttonStyle(.primary)
         }
       }
     }
@@ -349,7 +454,8 @@ public struct LibraryView<Detail: View>: View {
     switch action {
     case .importDocument: Text("Import from Files, or drag PDFs here.", bundle: .module)
     case .scanDocument: Text("Your scan becomes a searchable PDF, recognised on this device.", bundle: .module)
-    case .openAssistant: Text("Open a document, then tap Ask in the toolbar. Answers cite their pages.", bundle: .module)
+    case .openAssistant:
+      Text("Open a document, then tap Ask in the toolbar. Answers cite their pages.", bundle: .module)
     }
   }
 }

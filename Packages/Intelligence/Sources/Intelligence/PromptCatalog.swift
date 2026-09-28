@@ -1,8 +1,10 @@
 import Core
 import Foundation
 
-/// A prompt as a versioned artefact (ADR-0020, docs/prompt-management.md): an identifier, a semantic
-/// version and fixed instructions. A change to the text is a new version, reviewed and evaluated.
+/// A prompt as a versioned artefact (ADR-0020, docs/prompt-management.md): an identifier, a semantic version and fixed
+/// instructions.
+///
+/// A change to the text is a new version, reviewed and evaluated.
 public struct PromptTemplate: Hashable, Sendable {
   /// The stable identifier, for example `summarize.chunk`.
   public let id: String
@@ -12,8 +14,9 @@ public struct PromptTemplate: Hashable, Sendable {
   public let instructions: String
 }
 
-/// Every prompt the app uses. Document text never goes into instructions; it is passed separately,
-/// fenced, and described as data (FR-AI-011).
+/// Every prompt the app uses.
+///
+/// Document text never goes into instructions; it is passed separately, fenced, and described as data (FR-AI-011).
 public enum PromptCatalog {
   /// The rule every prompt carries: the document is untrusted data.
   static let untrustedDocumentRule = """

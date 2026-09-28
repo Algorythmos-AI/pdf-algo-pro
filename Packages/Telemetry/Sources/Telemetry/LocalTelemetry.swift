@@ -3,8 +3,8 @@ import Foundation
 import OSLog
 
 /// The event catalogue from the analytics strategy (docs/analytics-strategy.md, event catalogue).
-/// Names follow `domain.object.action`; anything else is dropped, so a typo can never create a new
-/// event (ADR-0017).
+///
+/// Names follow `domain.object.action`; anything else is dropped, so a typo can never create a new event (ADR-0017).
 public enum TelemetryEvent {
   /// Every event the app may record.
   public static let catalogue: Set<String> = [
@@ -62,14 +62,17 @@ public actor LocalTelemetry: TelemetryRecording {
   }
 }
 
-/// The diagnostics summary for "Report a problem" (FR-SET-003). It holds app, system and health
-/// facts only: never document names, content, paths or identifiers.
+/// The diagnostics summary for "Report a problem" (FR-SET-003).
+///
+/// It holds app, system and health facts only: never document names, content, paths or identifiers.
 public struct DiagnosticsSummary: Sendable, Equatable {
   /// Lines of `key: value` text.
   public let lines: [String]
 
   /// Builds the summary.
-  public init(appVersion: String, build: String, system: String, libraryIndex: String, documentCount: Int, events: [String: Int]) {
+  public init(
+    appVersion: String, build: String, system: String, libraryIndex: String, documentCount: Int, events: [String: Int]
+  ) {
     var lines = [
       "App: PDF Algo Pro \(appVersion) (\(build))",
       "System: \(system)",

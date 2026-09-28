@@ -10,5 +10,10 @@ Store notes (see the changelog strategy).
 ## [Unreleased]
 
 ### Added
+- The native iOS foundation app: onboarding with AI-first options, a library in the Files-visible
+  Documents folder with Recently Deleted, search across titles, tags and recognised text (and
+  Spotlight), a PDFKit reader with markup, notes, read aloud and on-device text recognition, scanning
+  to searchable PDFs, and on-device document intelligence that cites its pages and says when an answer
+  is not in the document.
 - Repository foundation: licence, agent rules, templates, workflows, rulesets as code, labels,
   milestones, and the process documentation for branching, releases and quality gates.

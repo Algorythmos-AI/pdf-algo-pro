@@ -40,7 +40,10 @@ struct TelemetryTests {
     let summary = DiagnosticsSummary(
       appVersion: "0.1.0", build: "7", system: "iOS 26.5", libraryIndex: "onDisk", documentCount: 42,
       events: ["task.core.completed": 3])
-    #expect(summary.text == "App: PDF Algo Pro 0.1.0 (7)\nSystem: iOS 26.5\nLibrary index: onDisk\nDocuments: 11-100\nEvent task.core.completed: 3")
+    #expect(
+      summary.text
+        == "App: PDF Algo Pro 0.1.0 (7)\nSystem: iOS 26.5\nLibrary index: onDisk\nDocuments: 11-100\nEvent task.core.completed: 3"
+    )
     #expect([0, 5, 500, 5000].map(DiagnosticsSummary.bucket) == ["0", "1-10", "101-1000", "1000+"])
   }
 }

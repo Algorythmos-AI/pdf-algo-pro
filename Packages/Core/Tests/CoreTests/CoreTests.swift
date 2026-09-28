@@ -8,7 +8,8 @@ import Testing
 struct DocumentTests {
   @Test("Tags are trimmed, de-duplicated ignoring case, and sorted")
   func tagsAreNormalized() {
-    let document = Document(title: "A", fileName: "a.pdf", addedAt: .now, tags: [" Tax ", "invoice", "tax", "", "Contracts"])
+    let document = Document(
+      title: "A", fileName: "a.pdf", addedAt: .now, tags: [" Tax ", "invoice", "tax", "", "Contracts"])
     #expect(document.tags == ["Contracts", "invoice", "Tax"])
   }
 
@@ -30,7 +31,10 @@ struct DocumentTests {
 struct LibrarySectionTests {
   let base = Date(timeIntervalSince1970: 1_000_000)
 
-  func make(_ title: String, opened: Double? = nil, added: Double = 0, favorite: Bool = false, tags: [String] = [], deleted: Bool = false) -> Document {
+  func make(
+    _ title: String, opened: Double? = nil, added: Double = 0, favorite: Bool = false, tags: [String] = [],
+    deleted: Bool = false
+  ) -> Document {
     Document(
       title: title, fileName: "\(title).pdf", addedAt: base.addingTimeInterval(added),
       lastOpenedAt: opened.map { base.addingTimeInterval($0) }, isFavorite: favorite, tags: tags,
@@ -52,7 +56,9 @@ struct LibrarySectionTests {
   }
 
   @Test func recentlyOpenedPutsOpenedDocumentsFirstThenNewestAdded() {
-    let documents = [make("old", added: 1), make("new", added: 2), make("seen", opened: 1), make("seenLater", opened: 2)]
+    let documents = [
+      make("old", added: 1), make("new", added: 2), make("seen", opened: 1), make("seenLater", opened: 2),
+    ]
     #expect(LibrarySort.recentlyOpened.sorted(documents).map(\.title) == ["seenLater", "seen", "new", "old"])
   }
 
@@ -160,7 +166,10 @@ struct IntelligenceValueTests {
 
   @Test func extractionExportsQuotedCSV() {
     let extraction = Extraction(
-      fields: [ExtractedField(key: "party", value: "Acme \"Ltd\", Paris", pageIndex: 1), ExtractedField(key: "total", value: "12", pageIndex: nil)],
+      fields: [
+        ExtractedField(key: "party", value: "Acme \"Ltd\", Paris", pageIndex: 1),
+        ExtractedField(key: "total", value: "12", pageIndex: nil),
+      ],
       tier: .onDevice)
     #expect(extraction.csv == "field,value,page\r\n\"party\",\"Acme \"\"Ltd\"\", Paris\",2\r\n\"total\",\"12\",\r\n")
     #expect(extraction.fields[0].isVerified && !extraction.fields[1].isVerified)
@@ -180,7 +189,9 @@ struct SettingsTests {
     defer { defaults.removePersistentDomain(forName: suite) }
     let store = UserDefaultsSettingsStore(defaults: defaults)
     #expect(store.load() == AppSettings())
-    let changed = AppSettings(hasCompletedOnboarding: true, intents: [.scan], isIntelligenceHidden: true, readerDisplayMode: .singlePage, librarySort: .title)
+    let changed = AppSettings(
+      hasCompletedOnboarding: true, intents: [.scan], isIntelligenceHidden: true, readerDisplayMode: .singlePage,
+      librarySort: .title)
     store.save(changed)
     #expect(UserDefaultsSettingsStore(defaults: defaults).load() == changed)
   }
@@ -200,7 +211,9 @@ struct DocumentIntakeTests {
   func importIndexesTheDocument() async throws {
     let library = FakeDocumentLibrary()
     let index = FakeIndex()
-    let inspection = PDFInspection(pageCount: 2, isEncrypted: false, pages: [PageText(pageIndex: 0, text: "Lease"), PageText(pageIndex: 1, text: "")])
+    let inspection = PDFInspection(
+      pageCount: 2, isEncrypted: false,
+      pages: [PageText(pageIndex: 0, text: "Lease"), PageText(pageIndex: 1, text: "")])
     let intake = DocumentIntake(library: library, inspector: FakeInspector(result: inspection), index: index)
     let source = FileManager.default.temporaryDirectory.appendingPathComponent("Lease \(UUID()).pdf")
     try Data("%PDF-1.7 test".utf8).write(to: source)

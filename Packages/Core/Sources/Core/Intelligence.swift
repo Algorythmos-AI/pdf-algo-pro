@@ -1,6 +1,8 @@
 import Foundation
 
-/// Where a model runs (ADR-0009). Each cloud tier is opt-in.
+/// Where a model runs (ADR-0009).
+///
+/// Each cloud tier is opt-in.
 public enum IntelligenceTier: String, CaseIterable, Codable, Sendable {
   /// Apple's on-device foundation model: private, offline, the default.
   case onDevice
@@ -80,8 +82,9 @@ public struct Answer: Hashable, Sendable {
   public let citations: [Citation]
   /// The tier that produced the answer; always shown to the user.
   public let tier: IntelligenceTier
-  /// Whether the answer is supported by the document. An ungrounded answer is shown as
-  /// "Not found in this document" instead of the text.
+  /// Whether the answer is supported by the document.
+  ///
+  /// An ungrounded answer is shown as "Not found in this document" instead of the text.
   public let isGrounded: Bool
 
   /// Creates an answer.

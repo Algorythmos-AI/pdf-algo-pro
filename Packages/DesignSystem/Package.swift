@@ -2,8 +2,8 @@
 import PackageDescription
 
 let settings: [SwiftSetting] = [
-        .defaultIsolation(MainActor.self),
-        .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
+  .defaultIsolation(MainActor.self),
+  .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
 ]
 
 let package = Package(
@@ -11,10 +11,10 @@ let package = Package(
   defaultLocalization: "en",
   platforms: [.iOS(.v26)],
   products: [
-    .library(name: "DesignSystem", targets: ["DesignSystem"]),
+    .library(name: "DesignSystem", targets: ["DesignSystem"])
   ],
   dependencies: [
-    .package(path: "../Core"),
+    .package(path: "../Core")
   ],
   targets: [
     .target(

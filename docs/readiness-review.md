@@ -14,6 +14,11 @@ complete: architecture, product, governance, security, AI and business documents
 What remains is work that only the maintainer, vendors or Apple can complete, plus the UX design
 that code needs as input.
 
+**Owner exception (PAP-028).** The native iOS foundation app is being built before the gate clears,
+with the owner's approval: PDFKit behind `PDFEngine`, no vendor SDK, no network code and on-device
+intelligence only, on an interim iOS 26 toolchain (PAP-029). The verdict stays NOT READY; the blockers
+still govern the vendor SDK, App Store submission and every cloud tier.
+
 ## Scoring rubric
 
 | Score | Meaning |
@@ -102,3 +107,4 @@ C4 and C6 keep their original IDs after reclassification, so earlier references 
 | Date | Change |
 |---|---|
 | 2026-09-28 | First review. C4 and C6 reclassified from Critical to Major: C4 is needed only for the V2 Claude tier, and CI now runs on pull requests (decision PAP-016). |
+| 2026-09-29 | Owner exception PAP-028: the foundation app is built before the gate clears; interim iOS 26 toolchain (PAP-029). Verdict unchanged. |

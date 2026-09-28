@@ -18,10 +18,13 @@ private struct Harness {
     ReaderModel(
       selection: document.id, pageIndex: pageIndex, task: task, library: library,
       intake: DocumentIntake(library: library, inspector: PDFKitInspector(), index: index), index: index,
-      settings: settings, telemetry: telemetry, builder: SearchablePDFBuilder(recognizer: FakeRecognizer(), renderPixelSize: 400))
+      settings: settings, telemetry: telemetry,
+      builder: SearchablePDFBuilder(recognizer: FakeRecognizer(), renderPixelSize: 400))
   }
 
-  func seed(_ data: Data, title: String = "Doc", lastPage: Int = 0, opened: Bool = false, textLayer: Bool = true) async -> Document {
+  func seed(
+    _ data: Data, title: String = "Doc", lastPage: Int = 0, opened: Bool = false, textLayer: Bool = true
+  ) async -> Document {
     await library.seed(
       Document(
         title: title, fileName: "\(UUID()).pdf", addedAt: .distantPast, lastOpenedAt: opened ? .distantPast : nil,

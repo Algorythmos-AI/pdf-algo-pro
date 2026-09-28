@@ -70,13 +70,16 @@ public enum DynamicColor {
 
   /// A colour with a value for each appearance.
   public static func make(light: RGB, dark: RGB, lightHighContrast: RGB, darkHighContrast: RGB) -> Color {
-    Color(uiColor: uiColor(light: light, dark: dark, lightHighContrast: lightHighContrast, darkHighContrast: darkHighContrast))
+    Color(
+      uiColor: uiColor(
+        light: light, dark: dark, lightHighContrast: lightHighContrast, darkHighContrast: darkHighContrast))
   }
 
   /// The UIKit form of `make`, used by tests to resolve each appearance.
   public static func uiColor(light: RGB, dark: RGB, lightHighContrast: RGB, darkHighContrast: RGB) -> UIColor {
     UIColor { traits in
-      let rgb = value(for: traits, light: light, dark: dark, lightHighContrast: lightHighContrast, darkHighContrast: darkHighContrast)
+      let rgb = value(
+        for: traits, light: light, dark: dark, lightHighContrast: lightHighContrast, darkHighContrast: darkHighContrast)
       return UIColor(red: rgb.red, green: rgb.green, blue: rgb.blue, alpha: 1)
     }
   }

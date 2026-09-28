@@ -2,6 +2,7 @@ import Core
 import Foundation
 
 /// Retrieval, citation parsing and grounding checks: the logic that keeps answers tied to pages.
+///
 /// It is pure and model-independent, so it is tested exhaustively (FR-AI-001, FR-AI-002, FR-AI-010).
 enum Grounding {
   /// Words that carry no meaning for matching, in English and French.
@@ -45,8 +46,10 @@ enum Grounding {
     return scored.filter { $0.score > 0 }.sorted { $0.score > $1.score }.map(\.page)
   }
 
-  /// A response split into its text and the pages it cites. Markers such as `[p3]`, `[p. 3]`,
-  /// `[P3, p4]` and `[pp3-5]` are recognised and removed; cited pages outside `validPages` are dropped.
+  /// A response split into its text and the pages it cites.
+  ///
+  /// Markers such as `[p3]`, `[p. 3]`, `[P3, p4]` and `[pp3-5]` are recognised and removed; cited pages outside
+  /// `validPages` are dropped.
   static func parseCitations(_ response: String, validPages: Set<Int>) -> (text: String, pageIndices: [Int]) {
     let pattern = /\[\s*[pP]{1,2}\.?\s*(\d{1,5})(?:\s*[-–]\s*(\d{1,5}))?((?:\s*[,;]\s*[pP]?\.?\s*\d{1,5})*)\s*\]/
     var pages: [Int] = []
@@ -75,8 +78,9 @@ enum Grounding {
     return trimmed.isEmpty || trimmed.uppercased().hasPrefix("NOT_FOUND") || trimmed.uppercased() == "NOT FOUND"
   }
 
-  /// Pages that support a text by word overlap, for sentences the model did not cite. A page must
-  /// share at least `minimumShare` of the text's content words.
+  /// Pages that support a text by word overlap, for sentences the model did not cite.
+  ///
+  /// A page must share at least `minimumShare` of the text's content words.
   static func supportingPages(for text: String, in pages: [PageText], minimumShare: Double = 0.5) -> [Int] {
     let wanted = Set(words(text))
     guard !wanted.isEmpty else { return [] }
@@ -101,9 +105,10 @@ enum Grounding {
     return String(best.0.prefix(160))
   }
 
-  /// Builds a grounded answer from a response: citations parsed, missing ones repaired by overlap,
-  /// and a verbatim quote attached to each cited page. With no supported page the answer is
-  /// not-found, never an uncited claim.
+  /// Builds a grounded answer from a response: citations parsed, missing ones repaired by overlap, and a verbatim quote
+  /// attached to each cited page.
+  ///
+  /// With no supported page the answer is not-found, never an uncited claim.
   static func answer(from response: String, pages: [PageText], tier: IntelligenceTier) -> Answer {
     guard !isNotFound(response) else { return .notFound(tier: tier) }
     let parsed = parseCitations(response, validPages: Set(pages.map(\.pageIndex)))

@@ -113,7 +113,8 @@ public final class AssistantModel {
 
   /// Edits an extracted value before export (FR-AI-003).
   public func setValue(_ value: String, forField key: String) {
-    guard case .extracted(var extraction) = phase, let index = extraction.fields.firstIndex(where: { $0.key == key }) else { return }
+    guard case .extracted(var extraction) = phase, let index = extraction.fields.firstIndex(where: { $0.key == key })
+    else { return }
     extraction.fields[index].value = value
     phase = .extracted(extraction)
   }
@@ -122,7 +123,8 @@ public final class AssistantModel {
   public var shareableText: String? {
     switch phase {
     case .answered(let answer) where answer.isGrounded:
-      let pages = answer.citations.map { String(localized: "p. \($0.pageNumber)", bundle: .module) }.joined(separator: ", ")
+      let pages = answer.citations.map { String(localized: "p. \($0.pageNumber)", bundle: .module) }.joined(
+        separator: ", ")
       return "\(answer.text)\n\n\(String(localized: "Sources: \(pages)", bundle: .module))"
     case .extracted(let extraction): return extraction.csv
     default: return nil

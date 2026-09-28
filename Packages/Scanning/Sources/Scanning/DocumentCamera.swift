@@ -5,8 +5,9 @@ import SwiftUI
 import UIKit
 import VisionKit
 
-/// The system document camera: edge detection, perspective correction and multi-page capture
-/// (FR-SCAN-001). The camera permission is requested by the system the first time it opens.
+/// The system document camera: edge detection, perspective correction and multi-page capture (FR-SCAN-001).
+///
+/// The camera permission is requested by the system the first time it opens.
 public enum DocumentCamera {
   /// Whether this device has a document camera (the simulator does not).
   @MainActor public static var isSupported: Bool { VNDocumentCameraViewController.isSupported }
@@ -50,7 +51,9 @@ public struct DocumentCameraView: UIViewControllerRepresentable {
     }
 
     /// The user saved the scan.
-    public func documentCameraViewController(_ controller: VNDocumentCameraViewController, didFinishWith scan: VNDocumentCameraScan) {
+    public func documentCameraViewController(
+      _ controller: VNDocumentCameraViewController, didFinishWith scan: VNDocumentCameraScan
+    ) {
       let pages = (0..<scan.pageCount).compactMap { scan.imageOfPage(at: $0).cgImage }
       onFinish(pages)
     }
@@ -61,7 +64,9 @@ public struct DocumentCameraView: UIViewControllerRepresentable {
     }
 
     /// The camera failed; treated like a cancel, and nothing is saved.
-    public func documentCameraViewController(_ controller: VNDocumentCameraViewController, didFailWithError error: any Error) {
+    public func documentCameraViewController(
+      _ controller: VNDocumentCameraViewController, didFailWithError error: any Error
+    ) {
       onCancel()
     }
   }
@@ -75,8 +80,11 @@ public enum ImageLoader {
       let scoped = url.startAccessingSecurityScopedResource()
       defer { if scoped { url.stopAccessingSecurityScopedResource() } }
       guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
-      let options = [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceThumbnailMaxPixelSize: 3000,
-        kCGImageSourceCreateThumbnailWithTransform: true] as CFDictionary
+      let options =
+        [
+          kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceThumbnailMaxPixelSize: 3000,
+          kCGImageSourceCreateThumbnailWithTransform: true,
+        ] as CFDictionary
       return CGImageSourceCreateThumbnailAtIndex(source, 0, options)
     }
   }

@@ -10,13 +10,15 @@ import UniformTypeIdentifiers
 struct ScanningTests {
   private func pngFile(width: Int, height: Int) throws -> URL {
     let context = try #require(
-      CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+      CGContext(
+        data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
         space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue))
     context.setFillColor(CGColor(gray: 1, alpha: 1))
     context.fill(CGRect(x: 0, y: 0, width: width, height: height))
     let image = try #require(context.makeImage())
     let url = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID()).png")
-    let destination = try #require(CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil))
+    let destination = try #require(
+      CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil))
     CGImageDestinationAddImage(destination, image, nil)
     #expect(CGImageDestinationFinalize(destination))
     return url

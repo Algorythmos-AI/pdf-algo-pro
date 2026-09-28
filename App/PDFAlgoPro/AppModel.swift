@@ -9,8 +9,9 @@ import ReaderFeature
 import ScanFeature
 import SettingsFeature
 
-/// App-level state and the one router every entry point goes through (ADR-0004). The router only
-/// navigates: opening a link never deletes, sends or changes anything.
+/// App-level state and the one router every entry point goes through (ADR-0004).
+///
+/// The router only navigates: opening a link never deletes, sends or changes anything.
 @MainActor
 @Observable
 final class AppModel {
@@ -92,7 +93,8 @@ final class AppModel {
   }
 
   func makeScan() -> ScanModel {
-    ScanModel(intake: container.intake, builder: container.builder, telemetry: container.telemetry) { [weak self] document in
+    ScanModel(intake: container.intake, builder: container.builder, telemetry: container.telemetry) {
+      [weak self] document in
       guard let self else { return }
       sheet = nil
       Task {
@@ -103,8 +105,8 @@ final class AppModel {
   }
 
   func makeSettings() -> SettingsModel {
-    SettingsModel(store: container.settings, diagnostics: { [container] in await container.diagnostics() }) { [weak self] in
-      self?.settings = $0
-    }
+    SettingsModel(
+      store: container.settings, diagnostics: { [container] in await container.diagnostics() },
+      onChange: { [weak self] in self?.settings = $0 })
   }
 }

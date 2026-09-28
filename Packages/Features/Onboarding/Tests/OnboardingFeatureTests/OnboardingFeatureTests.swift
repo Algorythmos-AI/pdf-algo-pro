@@ -8,7 +8,9 @@ import Testing
 @MainActor
 @Suite("Onboarding")
 struct OnboardingModelTests {
-  private func makeModel(availability: IntelligenceAvailability = .available(.onDevice)) -> (OnboardingModel, InMemorySettingsStore, RecordingTelemetry, Box) {
+  private func makeModel(
+    availability: IntelligenceAvailability = .available(.onDevice)
+  ) -> (OnboardingModel, InMemorySettingsStore, RecordingTelemetry, Box) {
     let settings = InMemorySettingsStore()
     let telemetry = RecordingTelemetry()
     let finished = Box()
@@ -37,7 +39,10 @@ struct OnboardingModelTests {
     #expect(settings.load().intents == [.scan, .chatWithPDF] && settings.load().hasCompletedOnboarding)
     #expect(finished.value?.intents == [.scan, .chatWithPDF])
     #expect(HomeAction.primary(for: settings.load().intents) == .scanDocument)
-    #expect(await telemetry.events == ["onboarding.intent.selected", "onboarding.intent.selected", "onboarding.flow.completed"])
+    #expect(
+      await telemetry.events == [
+        "onboarding.intent.selected", "onboarding.intent.selected", "onboarding.flow.completed",
+      ])
   }
 
   @Test("Skipping finishes onboarding without choosing anything (FR-ONB-002)")

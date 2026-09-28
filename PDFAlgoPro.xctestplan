@@ -10,7 +10,7 @@
     "codeCoverage": true,
     "targetForVariableExpansion": {
       "containerPath": "container:PDFAlgoPro.xcodeproj",
-      "identifier": "ABCC2CF1F4EDF9D89666C127",
+      "identifier": "F7ED77A099661D789A92EF15",
       "name": "PDFAlgoPro"
     }
   },
@@ -31,13 +31,6 @@
     },
     {
       "target": {
-        "containerPath": "container:Packages/PDFEngine",
-        "identifier": "PDFEngineTests",
-        "name": "PDFEngineTests"
-      }
-    },
-    {
-      "target": {
         "containerPath": "container:Packages/DocumentStore",
         "identifier": "DocumentStoreTests",
         "name": "DocumentStoreTests"
@@ -45,9 +38,65 @@
     },
     {
       "target": {
+        "containerPath": "container:Packages/Features/Assistant",
+        "identifier": "AssistantFeatureTests",
+        "name": "AssistantFeatureTests"
+      }
+    },
+    {
+      "target": {
+        "containerPath": "container:Packages/Features/Library",
+        "identifier": "LibraryFeatureTests",
+        "name": "LibraryFeatureTests"
+      }
+    },
+    {
+      "target": {
+        "containerPath": "container:Packages/Features/Onboarding",
+        "identifier": "OnboardingFeatureTests",
+        "name": "OnboardingFeatureTests"
+      }
+    },
+    {
+      "target": {
+        "containerPath": "container:Packages/Features/Reader",
+        "identifier": "ReaderFeatureTests",
+        "name": "ReaderFeatureTests"
+      }
+    },
+    {
+      "target": {
+        "containerPath": "container:Packages/Features/Scan",
+        "identifier": "ScanFeatureTests",
+        "name": "ScanFeatureTests"
+      }
+    },
+    {
+      "target": {
+        "containerPath": "container:Packages/Features/Settings",
+        "identifier": "SettingsFeatureTests",
+        "name": "SettingsFeatureTests"
+      }
+    },
+    {
+      "target": {
+        "containerPath": "container:Packages/Intelligence",
+        "identifier": "IntelligenceTests",
+        "name": "IntelligenceTests"
+      }
+    },
+    {
+      "target": {
         "containerPath": "container:Packages/OCR",
         "identifier": "OCRTests",
         "name": "OCRTests"
+      }
+    },
+    {
+      "target": {
+        "containerPath": "container:Packages/PDFEngine",
+        "identifier": "PDFEngineTests",
+        "name": "PDFEngineTests"
       }
     },
     {
@@ -66,58 +115,9 @@
     },
     {
       "target": {
-        "containerPath": "container:Packages/Intelligence",
-        "identifier": "IntelligenceTests",
-        "name": "IntelligenceTests"
-      }
-    },
-    {
-      "target": {
         "containerPath": "container:Packages/Telemetry",
         "identifier": "TelemetryTests",
         "name": "TelemetryTests"
-      }
-    },
-    {
-      "target": {
-        "containerPath": "container:Packages/Features/Onboarding",
-        "identifier": "OnboardingFeatureTests",
-        "name": "OnboardingFeatureTests"
-      }
-    },
-    {
-      "target": {
-        "containerPath": "container:Packages/Features/Library",
-        "identifier": "LibraryFeatureTests",
-        "name": "LibraryFeatureTests"
-      }
-    },
-    {
-      "target": {
-        "containerPath": "container:Packages/Features/Reader",
-        "identifier": "ReaderFeatureTests",
-        "name": "ReaderFeatureTests"
-      }
-    },
-    {
-      "target": {
-        "containerPath": "container:Packages/Features/Assistant",
-        "identifier": "AssistantFeatureTests",
-        "name": "AssistantFeatureTests"
-      }
-    },
-    {
-      "target": {
-        "containerPath": "container:Packages/Features/Scan",
-        "identifier": "ScanFeatureTests",
-        "name": "ScanFeatureTests"
-      }
-    },
-    {
-      "target": {
-        "containerPath": "container:Packages/Features/Settings",
-        "identifier": "SettingsFeatureTests",
-        "name": "SettingsFeatureTests"
       }
     },
     {

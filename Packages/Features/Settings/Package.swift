@@ -2,8 +2,8 @@
 import PackageDescription
 
 let settings: [SwiftSetting] = [
-        .defaultIsolation(MainActor.self),
-        .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
+  .defaultIsolation(MainActor.self),
+  .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
 ]
 
 let package = Package(
@@ -11,7 +11,7 @@ let package = Package(
   defaultLocalization: "en",
   platforms: [.iOS(.v26)],
   products: [
-    .library(name: "SettingsFeature", targets: ["SettingsFeature"]),
+    .library(name: "SettingsFeature", targets: ["SettingsFeature"])
   ],
   dependencies: [
     .package(path: "../../Core"),

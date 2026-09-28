@@ -10,7 +10,8 @@ public enum PageRenderer {
   ///   - pageIndex: The zero-based page.
   ///   - url: The PDF file.
   ///   - maximumPixelSize: The longest side of the result, in pixels.
-  /// - Throws: `PDFEngineError.unreadable` or `.renderFailed`.
+  /// - Returns: The page as an opaque bitmap on white.
+  /// - Throws: `PDFEngineError.unreadable`, `.passwordRequired` or `.renderFailed`.
   public static func render(pageIndex: Int, of url: URL, maximumPixelSize: Int) throws -> CGImage {
     guard let document = CGPDFDocument(url as CFURL) else { throw PDFEngineError.unreadable }
     guard !document.isEncrypted || document.isUnlocked else { throw PDFEngineError.passwordRequired }

@@ -81,7 +81,9 @@ public struct TierBadge: View {
   }
 }
 
-/// A page citation chip ("p. 12"). Tapping it opens the page with the passage highlighted.
+/// A page citation chip ("p. 12").
+///
+/// Tapping it opens the page with the passage highlighted.
 public struct CitationChip: View {
   private let citation: Citation
   private let action: () -> Void

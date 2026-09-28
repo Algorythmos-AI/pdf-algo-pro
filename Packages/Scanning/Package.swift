@@ -2,7 +2,7 @@
 import PackageDescription
 
 let settings: [SwiftSetting] = [
-        .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
+  .enableUpcomingFeature("NonisolatedNonsendingByDefault")
 ]
 
 let package = Package(
@@ -10,10 +10,10 @@ let package = Package(
   defaultLocalization: "en",
   platforms: [.iOS(.v26)],
   products: [
-    .library(name: "Scanning", targets: ["Scanning"]),
+    .library(name: "Scanning", targets: ["Scanning"])
   ],
   dependencies: [
-    .package(path: "../Core"),
+    .package(path: "../Core")
   ],
   targets: [
     .target(

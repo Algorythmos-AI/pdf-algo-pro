@@ -12,7 +12,8 @@ private actor RecordingSpotlight: SpotlightIndexing {
 }
 
 private func makeIndex(spotlight: (any SpotlightIndexing)? = nil) throws -> LocalSearchIndex {
-  LocalSearchIndex(folder: FileManager.default.temporaryDirectory.appendingPathComponent("search-\(UUID())"), spotlight: spotlight)
+  LocalSearchIndex(
+    folder: FileManager.default.temporaryDirectory.appendingPathComponent("search-\(UUID())"), spotlight: spotlight)
 }
 
 private func document(_ title: String, tags: [String] = []) -> Document {
@@ -25,7 +26,12 @@ struct LocalSearchIndexTests {
   func textMatch() async throws {
     let index = try makeIndex()
     let lease = document("Lease")
-    try await index.index(lease, pages: [PageText(pageIndex: 0, text: "Parties"), PageText(pageIndex: 1, text: "The monthly rent is due on the first day.")])
+    try await index.index(
+      lease,
+      pages: [
+        PageText(pageIndex: 0, text: "Parties"),
+        PageText(pageIndex: 1, text: "The monthly rent is due on the first day."),
+      ])
     let hits = try await index.search("RENT due", in: [lease])
     #expect(hits.count == 1)
     #expect(hits[0].pageIndex == 1)

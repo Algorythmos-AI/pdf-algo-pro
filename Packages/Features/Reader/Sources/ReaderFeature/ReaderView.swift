@@ -3,8 +3,9 @@ import DesignSystem
 import PDFEngine
 import SwiftUI
 
-/// The reader: the page surface, a floating page indicator, and tools in the toolbar. Chrome recedes
-/// so the document is the interface (design system, principle 2).
+/// The reader: the page surface, a floating page indicator, and tools in the toolbar.
+///
+/// Chrome recedes so the document is the interface (design system, principle 2).
 public struct ReaderView<Assistant: View>: View {
   @State private var model: ReaderModel
   @State private var password = ""
@@ -37,13 +38,20 @@ public struct ReaderView<Assistant: View>: View {
         } label: {
           Text("Add", bundle: .module)
         }
-        Button(role: .cancel) {} label: { Text("Cancel", bundle: .module) }
+        Button(role: .cancel) {
+        } label: {
+          Text("Cancel", bundle: .module)
+        }
       }
       .alert(
         Text("Something went wrong", bundle: .module),
         isPresented: Binding(get: { model.errorMessage != nil }, set: { if !$0 { model.errorMessage = nil } })
       ) {
-        Button { model.errorMessage = nil } label: { Text("OK", bundle: .module) }
+        Button {
+          model.errorMessage = nil
+        } label: {
+          Text("OK", bundle: .module)
+        }
       } message: {
         Text(model.errorMessage ?? "")
       }
@@ -66,7 +74,11 @@ public struct ReaderView<Assistant: View>: View {
       locked(wrongPassword: wrongPassword)
     case .failed(let message):
       ContentUnavailableView {
-        Label { Text("Can't open this document", bundle: .module) } icon: { Image(systemName: "exclamationmark.triangle") }
+        Label {
+          Text("Can't open this document", bundle: .module)
+        } icon: {
+          Image(systemName: "exclamationmark.triangle")
+        }
       } description: {
         Text(message)
       }
@@ -91,12 +103,20 @@ public struct ReaderView<Assistant: View>: View {
         .onSubmit { model.unlock(password: password) }
         .accessibilityIdentifier("reader.password")
       if wrongPassword {
-        Label { Text("That password didn't open the document.", bundle: .module) } icon: { Image(systemName: "xmark.octagon") }
-          .foregroundStyle(Color.ds.statusError)
-          .font(.footnote)
+        Label {
+          Text("That password didn't open the document.", bundle: .module)
+        } icon: {
+          Image(systemName: "xmark.octagon")
+        }
+        .foregroundStyle(Color.ds.statusError)
+        .font(.footnote)
       }
-      Button { model.unlock(password: password) } label: { Text("Open", bundle: .module) }
-        .buttonStyle(.primary)
+      Button {
+        model.unlock(password: password)
+      } label: {
+        Text("Open", bundle: .module)
+      }
+      .buttonStyle(.primary)
     }
     .padding(Spacing.s300)
     .readableWidth()
@@ -107,7 +127,11 @@ public struct ReaderView<Assistant: View>: View {
       if let progress = model.recognitionProgress {
         HStack {
           ProgressView(value: progress) { Text("Recognising text on this device…", bundle: .module) }
-          Button { model.cancelRecognition() } label: { Text("Cancel", bundle: .module) }
+          Button {
+            model.cancelRecognition()
+          } label: {
+            Text("Cancel", bundle: .module)
+          }
         }
         .padding(Spacing.s150)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -128,43 +152,103 @@ public struct ReaderView<Assistant: View>: View {
       if model.phase == .ready {
         if model.showsIntelligence {
           Menu {
-            Button { model.assistantTask = .summarize } label: {
-              Label { Text("Summarise", bundle: .module) } icon: { Image(systemName: "text.append") }
+            Button {
+              model.assistantTask = .summarize
+            } label: {
+              Label {
+                Text("Summarise", bundle: .module)
+              } icon: {
+                Image(systemName: "text.append")
+              }
             }
-            Button { model.assistantTask = .ask } label: {
-              Label { Text("Ask a question", bundle: .module) } icon: { Image(systemName: "bubble.left.and.text.bubble.right") }
+            Button {
+              model.assistantTask = .ask
+            } label: {
+              Label {
+                Text("Ask a question", bundle: .module)
+              } icon: {
+                Image(systemName: "bubble.left.and.text.bubble.right")
+              }
             }
-            Button { model.assistantTask = .extract } label: {
-              Label { Text("Extract data", bundle: .module) } icon: { Image(systemName: "tablecells") }
+            Button {
+              model.assistantTask = .extract
+            } label: {
+              Label {
+                Text("Extract data", bundle: .module)
+              } icon: {
+                Image(systemName: "tablecells")
+              }
             }
-            Button { model.assistantTask = .explainContract } label: {
-              Label { Text("Explain contract", bundle: .module) } icon: { Image(systemName: "doc.text.magnifyingglass") }
+            Button {
+              model.assistantTask = .explainContract
+            } label: {
+              Label {
+                Text("Explain contract", bundle: .module)
+              } icon: {
+                Image(systemName: "doc.text.magnifyingglass")
+              }
             }
           } label: {
-            Label { Text("Ask", bundle: .module) } icon: { Image(systemName: "sparkles") }
+            Label {
+              Text("Ask", bundle: .module)
+            } icon: {
+              Image(systemName: "sparkles")
+            }
           }
           .accessibilityIdentifier("reader.ask")
         }
         Menu {
           ForEach(TextMarkup.allCases, id: \.self) { markup in
-            Button { Task { await model.markUpSelection(markup) } } label: { Self.label(for: markup) }
+            Button {
+              Task { await model.markUpSelection(markup) }
+            } label: {
+              Self.label(for: markup)
+            }
           }
-          Button { isAddingNote = true } label: {
-            Label { Text("Add note", bundle: .module) } icon: { Image(systemName: "note.text.badge.plus") }
+          Button {
+            isAddingNote = true
+          } label: {
+            Label {
+              Text("Add note", bundle: .module)
+            } icon: {
+              Image(systemName: "note.text.badge.plus")
+            }
           }
-          Button { Task { await model.undo() } } label: {
-            Label { Text("Undo", bundle: .module) } icon: { Image(systemName: "arrow.uturn.backward") }
+          Button {
+            Task { await model.undo() }
+          } label: {
+            Label {
+              Text("Undo", bundle: .module)
+            } icon: {
+              Image(systemName: "arrow.uturn.backward")
+            }
           }
         } label: {
-          Label { Text("Markup", bundle: .module) } icon: { Image(systemName: "highlighter") }
+          Label {
+            Text("Markup", bundle: .module)
+          } icon: {
+            Image(systemName: "highlighter")
+          }
         }
         .accessibilityIdentifier("reader.markup")
         Menu {
-          Button { model.showsPages = true } label: {
-            Label { Text("Pages", bundle: .module) } icon: { Image(systemName: "square.grid.2x2") }
+          Button {
+            model.showsPages = true
+          } label: {
+            Label {
+              Text("Pages", bundle: .module)
+            } icon: {
+              Image(systemName: "square.grid.2x2")
+            }
           }
-          Button { model.showsOutline = true } label: {
-            Label { Text("Contents", bundle: .module) } icon: { Image(systemName: "list.bullet.indent") }
+          Button {
+            model.showsOutline = true
+          } label: {
+            Label {
+              Text("Contents", bundle: .module)
+            } icon: {
+              Image(systemName: "list.bullet.indent")
+            }
           }
           Picker(
             selection: Binding(get: { model.controller?.displayMode ?? .continuous }, set: { model.setDisplayMode($0) })
@@ -174,7 +258,9 @@ public struct ReaderView<Assistant: View>: View {
           } label: {
             Text("Layout", bundle: .module)
           }
-          Button { model.toggleReadAloud() } label: {
+          Button {
+            model.toggleReadAloud()
+          } label: {
             Label {
               model.speech.isSpeaking ? Text("Stop reading", bundle: .module) : Text("Read aloud", bundle: .module)
             } icon: {
@@ -182,12 +268,22 @@ public struct ReaderView<Assistant: View>: View {
             }
           }
           if model.canRecognizeText {
-            Button { model.recognizeText() } label: {
-              Label { Text("Recognise text", bundle: .module) } icon: { Image(systemName: "text.viewfinder") }
+            Button {
+              model.recognizeText()
+            } label: {
+              Label {
+                Text("Recognise text", bundle: .module)
+              } icon: {
+                Image(systemName: "text.viewfinder")
+              }
             }
           }
         } label: {
-          Label { Text("More", bundle: .module) } icon: { Image(systemName: "ellipsis.circle") }
+          Label {
+            Text("More", bundle: .module)
+          } icon: {
+            Image(systemName: "ellipsis.circle")
+          }
         }
         .accessibilityIdentifier("reader.more")
       }
@@ -200,7 +296,11 @@ public struct ReaderView<Assistant: View>: View {
         let items = model.controller?.outline ?? []
         if items.isEmpty {
           ContentUnavailableView {
-            Label { Text("No table of contents", bundle: .module) } icon: { Image(systemName: "list.bullet.indent") }
+            Label {
+              Text("No table of contents", bundle: .module)
+            } icon: {
+              Image(systemName: "list.bullet.indent")
+            }
           } description: {
             Text("This document doesn't include one. Use Pages to jump to a page.", bundle: .module)
           }
@@ -222,7 +322,11 @@ public struct ReaderView<Assistant: View>: View {
       .navigationTitle(Text("Contents", bundle: .module))
       .toolbar {
         ToolbarItem(placement: .confirmationAction) {
-          Button { model.showsOutline = false } label: { Text("Done", bundle: .module) }
+          Button {
+            model.showsOutline = false
+          } label: {
+            Text("Done", bundle: .module)
+          }
         }
       }
     }
@@ -234,7 +338,11 @@ public struct ReaderView<Assistant: View>: View {
         .navigationTitle(Text("Pages", bundle: .module))
         .toolbar {
           ToolbarItem(placement: .confirmationAction) {
-            Button { model.showsPages = false } label: { Text("Done", bundle: .module) }
+            Button {
+              model.showsPages = false
+            } label: {
+              Text("Done", bundle: .module)
+            }
           }
         }
     }
@@ -242,9 +350,24 @@ public struct ReaderView<Assistant: View>: View {
 
   static func label(for markup: TextMarkup) -> Label<Text, Image> {
     switch markup {
-    case .highlight: Label { Text("Highlight", bundle: .module) } icon: { Image(systemName: "highlighter") }
-    case .underline: Label { Text("Underline", bundle: .module) } icon: { Image(systemName: "underline") }
-    case .strikeThrough: Label { Text("Strike through", bundle: .module) } icon: { Image(systemName: "strikethrough") }
+    case .highlight:
+      Label {
+        Text("Highlight", bundle: .module)
+      } icon: {
+        Image(systemName: "highlighter")
+      }
+    case .underline:
+      Label {
+        Text("Underline", bundle: .module)
+      } icon: {
+        Image(systemName: "underline")
+      }
+    case .strikeThrough:
+      Label {
+        Text("Strike through", bundle: .module)
+      } icon: {
+        Image(systemName: "strikethrough")
+      }
     }
   }
 }
@@ -263,7 +386,8 @@ struct PageGrid: View {
             model.showsPages = false
           } label: {
             PageThumbnail(
-              pageIndex: pageIndex, url: model.fileURL, version: model.document?.modifiedAt ?? .distantPast, cache: thumbnails,
+              pageIndex: pageIndex, url: model.fileURL, version: model.document?.modifiedAt ?? .distantPast,
+              cache: thumbnails,
               isCurrent: model.controller?.currentPageIndex == pageIndex)
           }
           .buttonStyle(.plain)

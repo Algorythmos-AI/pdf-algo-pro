@@ -6,11 +6,16 @@ import ReaderFeature
 import ScanFeature
 import SettingsFeature
 import SwiftUI
+import UIKit
 
 /// PDF Algo Pro: private, on-device document intelligence for Apple platforms.
 @main
 struct PDFAlgoProApp: App {
   @State private var app = AppModel(container: AppContainer())
+
+  init() {
+    if LaunchEnvironment().disablesAnimations { UIView.setAnimationsEnabled(false) }
+  }
 
   var body: some Scene {
     WindowGroup {
@@ -26,7 +31,8 @@ struct RootView: View {
   var body: some View {
     Group {
       if app.settings.hasCompletedOnboarding {
-        LibraryView(model: app.library, onScan: { app.sheet = .scan }, onSettings: { app.sheet = .settings }) { selection in
+        LibraryView(model: app.library, onScan: { app.sheet = .scan }, onSettings: { app.sheet = .settings }) {
+          selection in
           ReaderView(model: app.makeReader(for: selection)) { context in
             AssistantView(model: app.makeAssistant(for: context))
           }

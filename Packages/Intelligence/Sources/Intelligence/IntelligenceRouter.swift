@@ -12,7 +12,9 @@ public struct IntelligenceRouter: DocumentIntelligence {
 
   /// Creates a router over tiers in preference order.
   ///
-  /// - Parameter isHidden: Whether the user hid AI features (FR-AI-009); hidden means unavailable.
+  /// - Parameters:
+  ///   - models: The tiers, most preferred first; the on-device tier leads.
+  ///   - isHidden: Whether the user hid AI features (FR-AI-009); hidden means unavailable.
   public init(models: [any LanguageModelDriving], isHidden: @escaping @Sendable () -> Bool = { false }) {
     self.models = models
     self.isHidden = isHidden
@@ -20,6 +22,7 @@ public struct IntelligenceRouter: DocumentIntelligence {
 
   // MARK: - Availability
 
+  /// Whether a tier can run now.
   public func availability() async -> IntelligenceAvailability {
     if isHidden() { return .unavailable(.hiddenBySettings) }
     var firstReason: IntelligenceUnavailableReason?
@@ -41,14 +44,19 @@ public struct IntelligenceRouter: DocumentIntelligence {
 
   // MARK: - Tasks
 
+  /// Summarises the pages, citing the pages each point draws on.
   public func summarize(_ pages: [PageText]) async throws -> Answer {
     try await summarize(pages, template: PromptCatalog.summarizeChunk)
   }
 
+  /// Explains a contract's key terms in plain language.
+  ///
+  /// The UI adds the not-legal-advice disclosure.
   public func explainContract(_ pages: [PageText]) async throws -> Answer {
     try await summarize(pages, template: PromptCatalog.explainContract)
   }
 
+  /// Answers a question from the pages, or returns a not-found answer.
   public func answer(_ question: String, from pages: [PageText]) async throws -> Answer {
     let question = question.trimmingCharacters(in: .whitespacesAndNewlines)
     let pages = Self.withText(pages)
@@ -61,17 +69,21 @@ public struct IntelligenceRouter: DocumentIntelligence {
     let chosen = try await fit(candidates, into: await model.promptBudget() - questionTokens, model: model)
       .sorted { $0.pageIndex < $1.pageIndex }
     let prompt = "\(PromptCatalog.documentBlock(chosen))\n\nQuestion: \(question)"
-    let response = try await run { try await model.respond(instructions: PromptCatalog.ask.instructions, prompt: prompt) }
+    let response = try await run {
+      try await model.respond(instructions: PromptCatalog.ask.instructions, prompt: prompt)
+    }
     return Grounding.answer(from: response, pages: chosen, tier: model.tier)
   }
 
+  /// Extracts structured fields and verifies each value against the text.
   public func extractFields(from pages: [PageText]) async throws -> Extraction {
     let pages = Self.withText(pages)
     guard !pages.isEmpty else { throw IntelligenceError.noText }
     let model = try await activeModel()
     let chosen = try await fit(pages, into: await model.promptBudget(), model: model)
     let draft = try await run {
-      try await model.extract(instructions: PromptCatalog.extract.instructions, prompt: PromptCatalog.documentBlock(chosen))
+      try await model.extract(
+        instructions: PromptCatalog.extract.instructions, prompt: PromptCatalog.documentBlock(chosen))
     }
     let fields = draft.fields.compactMap { field -> ExtractedField? in
       guard let value = field.value else { return nil }
@@ -125,7 +137,10 @@ public struct IntelligenceRouter: DocumentIntelligence {
         continue
       }
       let prompt = "<document>\n\(group.map(PromptCatalog.sanitize).joined(separator: "\n\n"))\n</document>"
-      merged.append(try await run { try await model.respond(instructions: PromptCatalog.summarizeCombine.instructions, prompt: prompt) })
+      merged.append(
+        try await run {
+          try await model.respond(instructions: PromptCatalog.summarizeCombine.instructions, prompt: prompt)
+        })
     }
     return merged
   }

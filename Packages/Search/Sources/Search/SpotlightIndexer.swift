@@ -40,8 +40,9 @@ public actor SpotlightIndexer: SpotlightIndexing {
     try? await index.deleteSearchableItems(withIdentifiers: [id.description])
   }
 
-  /// The Spotlight item for a document. The identifier is the document ID, which the app turns back
-  /// into a route when the user opens the result.
+  /// The Spotlight item for a document.
+  ///
+  /// The identifier is the document ID, which the app turns back into a route when the user opens the result.
   static func item(for document: Document, text: String) -> CSSearchableItem {
     let attributes = CSSearchableItemAttributeSet(contentType: .pdf)
     attributes.title = document.title
@@ -50,7 +51,8 @@ public actor SpotlightIndexer: SpotlightIndexing {
     attributes.textContent = String(text.prefix(textLimit))
     attributes.contentModificationDate = document.modifiedAt
     attributes.pageCount = NSNumber(value: document.pageCount)
-    let item = CSSearchableItem(uniqueIdentifier: document.id.description, domainIdentifier: domain, attributeSet: attributes)
+    let item = CSSearchableItem(
+      uniqueIdentifier: document.id.description, domainIdentifier: domain, attributeSet: attributes)
     item.expirationDate = .distantFuture
     return item
   }

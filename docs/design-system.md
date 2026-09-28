@@ -627,10 +627,12 @@ see [App Store strategy](app-store-strategy.md)).
 
 ### DesignSystem package
 
-- A generator script (`scripts/design/generate_tokens.py`) writes the asset-catalog colour sets (Any,
-  Dark, High Contrast and Dark High Contrast appearances) and a generated Swift file of typed tokens
-  (`Color.ds.brandTint`, `Spacing.s200`) into the `DesignSystem` package. Generated files are never
-  edited by hand.
+- A generator script (`scripts/design/generate_tokens.py`) writes a Swift file of typed tokens
+  (`Color.ds.brandTint`, `Spacing.s200`) into the `DesignSystem` package. Brand colours resolve per
+  appearance (light, dark, and each with Increase Contrast) through dynamic colour providers, and
+  semantic tokens return the system colour named in `tokens.json`. The same script checks every
+  declared contrast pair and the spacing grid, and CI reruns it with `--check` to catch drift.
+  Generated files are never edited by hand.
 - The package also holds the components above, `Motion`, `Haptics`, the `readableWidth()` modifier
   and preview fixtures. Features depend on `DesignSystem`; `DesignSystem` depends only on SwiftUI and
   `Core` ([ADR-0002](adr/0002-xcodegen-and-modular-spm.md)).

@@ -27,11 +27,19 @@ public struct ScanView: View {
         case .finished: ProgressView()
         case .failed:
           ContentUnavailableView {
-            Label { Text("The scan wasn't saved", bundle: .module) } icon: { Image(systemName: "exclamationmark.triangle") }
+            Label {
+              Text("The scan wasn't saved", bundle: .module)
+            } icon: {
+              Image(systemName: "exclamationmark.triangle")
+            }
           } description: {
             Text("Text recognition didn't finish. Nothing was added to your library.", bundle: .module)
           } actions: {
-            Button { model.reset() } label: { Text("Try again", bundle: .module) }
+            Button {
+              model.reset()
+            } label: {
+              Text("Try again", bundle: .module)
+            }
           }
         }
       }
@@ -57,7 +65,8 @@ public struct ScanView: View {
         }
         .ignoresSafeArea()
       }
-      .fileImporter(isPresented: $isChoosingImages, allowedContentTypes: [.image], allowsMultipleSelection: true) { result in
+      .fileImporter(isPresented: $isChoosingImages, allowedContentTypes: [.image], allowsMultipleSelection: true) {
+        result in
         if case .success(let urls) = result { Task { await model.process(ImageLoader.images(at: urls)) } }
       }
     }
@@ -65,14 +74,22 @@ public struct ScanView: View {
 
   private var ready: some View {
     VStack(spacing: Spacing.s300) {
-      Image(systemName: "doc.viewfinder").font(.system(.largeTitle)).foregroundStyle(Color.ds.brandTint).accessibilityHidden(true)
-      Text("Scanned pages become a searchable PDF. Text is recognised on this device, in English and French.", bundle: .module)
-        .multilineTextAlignment(.center)
-        .foregroundStyle(Color.ds.labelSecondary)
+      Image(systemName: "doc.viewfinder").font(.system(.largeTitle)).foregroundStyle(Color.ds.brandTint)
+        .accessibilityHidden(true)
+      Text(
+        "Scanned pages become a searchable PDF. Text is recognised on this device, in English and French.",
+        bundle: .module
+      )
+      .multilineTextAlignment(.center)
+      .foregroundStyle(Color.ds.labelSecondary)
       if DocumentCamera.isSupported {
-        Button { showsCamera = true } label: { Text("Scan with camera", bundle: .module) }
-          .buttonStyle(.primary)
-          .accessibilityIdentifier("scan.camera")
+        Button {
+          showsCamera = true
+        } label: {
+          Text("Scan with camera", bundle: .module)
+        }
+        .buttonStyle(.primary)
+        .accessibilityIdentifier("scan.camera")
       } else {
         Text("This device has no document camera. You can make a PDF from photos of pages instead.", bundle: .module)
           .font(.footnote)
@@ -80,8 +97,12 @@ public struct ScanView: View {
           .foregroundStyle(Color.ds.labelSecondary)
           .accessibilityIdentifier("scan.noCamera")
       }
-      Button { isChoosingImages = true } label: { Text("Choose images", bundle: .module) }
-        .accessibilityIdentifier("scan.images")
+      Button {
+        isChoosingImages = true
+      } label: {
+        Text("Choose images", bundle: .module)
+      }
+      .accessibilityIdentifier("scan.images")
     }
     .readableWidth()
   }
@@ -89,7 +110,11 @@ public struct ScanView: View {
   private func recognizing(_ progress: Double) -> some View {
     VStack(spacing: Spacing.s200) {
       ProgressView(value: progress) { Text("Recognising text on this device…", bundle: .module) }
-      Button { model.cancel() } label: { Text("Stop", bundle: .module) }
+      Button {
+        model.cancel()
+      } label: {
+        Text("Stop", bundle: .module)
+      }
     }
     .readableWidth()
   }

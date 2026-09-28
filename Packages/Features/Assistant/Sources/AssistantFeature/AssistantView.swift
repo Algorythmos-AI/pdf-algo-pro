@@ -37,12 +37,20 @@ public struct AssistantView: View {
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
         ToolbarItem(placement: .confirmationAction) {
-          Button { dismiss() } label: { Text("Done", bundle: .module) }
+          Button {
+            dismiss()
+          } label: {
+            Text("Done", bundle: .module)
+          }
         }
         if let text = model.shareableText {
           ToolbarItem(placement: .primaryAction) {
             ShareLink(item: text) {
-              Label { Text("Share", bundle: .module) } icon: { Image(systemName: "square.and.arrow.up") }
+              Label {
+                Text("Share", bundle: .module)
+              } icon: {
+                Image(systemName: "square.and.arrow.up")
+              }
             }
             .simultaneousGesture(TapGesture().onEnded { Task { await model.recordKept() } })
           }
@@ -60,7 +68,9 @@ public struct AssistantView: View {
         .submitLabel(.send)
         .onSubmit { Task { await model.ask() } }
         .accessibilityIdentifier("assistant.question")
-      Button { Task { await model.ask() } } label: {
+      Button {
+        Task { await model.ask() }
+      } label: {
         Image(systemName: "arrow.up.circle.fill").font(.title2)
       }
       .accessibilityLabel(Text("Ask", bundle: .module))
@@ -85,22 +95,41 @@ public struct AssistantView: View {
       extractionCard(extraction)
     case .unavailable(let reason):
       ContentUnavailableView {
-        Label { Text("Document intelligence isn't available", bundle: .module) } icon: { Image(systemName: "sparkles") }
+        Label {
+          Text("Document intelligence isn't available", bundle: .module)
+        } icon: {
+          Image(systemName: "sparkles")
+        }
       } description: {
         Self.explanation(for: reason)
       }
       .accessibilityIdentifier("assistant.unavailable")
     case .noText:
       ContentUnavailableView {
-        Label { Text("No text to read yet", bundle: .module) } icon: { Image(systemName: "text.viewfinder") }
+        Label {
+          Text("No text to read yet", bundle: .module)
+        } icon: {
+          Image(systemName: "text.viewfinder")
+        }
       } description: {
-        Text("This looks like a scan. Choose Recognise text in the reader's More menu, then try again.", bundle: .module)
+        Text(
+          "This looks like a scan. Choose Recognise text in the reader's More menu, then try again.", bundle: .module)
       }
     case .failed:
       ContentUnavailableView {
-        Label { Text("That didn't work", bundle: .module) } icon: { Image(systemName: "exclamationmark.triangle") }
+        Label {
+          Text("That didn't work", bundle: .module)
+        } icon: {
+          Image(systemName: "exclamationmark.triangle")
+        }
       } description: {
         Text("The request didn't finish. Your document hasn't changed. Try again.", bundle: .module)
+      } actions: {
+        Button {
+          Task { await model.start() }
+        } label: {
+          Text("Try again", bundle: .module)
+        }
       }
     }
   }
@@ -126,13 +155,21 @@ public struct AssistantView: View {
           UIPasteboard.general.string = model.shareableText
           Task { await model.recordKept() }
         } label: {
-          Label { Text("Copy", bundle: .module) } icon: { Image(systemName: "doc.on.doc") }
+          Label {
+            Text("Copy", bundle: .module)
+          } icon: {
+            Image(systemName: "doc.on.doc")
+          }
         }
         GeneratedFootnote()
       } else {
-        Label { Text("Not found in this document", bundle: .module) } icon: { Image(systemName: "questionmark.circle") }
-          .font(.headline)
-          .accessibilityIdentifier("assistant.notFound")
+        Label {
+          Text("Not found in this document", bundle: .module)
+        } icon: {
+          Image(systemName: "questionmark.circle")
+        }
+        .font(.headline)
+        .accessibilityIdentifier("assistant.notFound")
         Text("The answer isn't in the text of this document, so nothing was guessed.", bundle: .module)
           .font(.callout).foregroundStyle(Color.ds.labelSecondary)
       }
@@ -156,8 +193,12 @@ public struct AssistantView: View {
                 model.reveal(Citation(pageIndex: pageIndex, quote: field.value))
               }
             } else {
-              Label { Text("Check this value", bundle: .module) } icon: { Image(systemName: "exclamationmark.triangle") }
-                .font(.caption).foregroundStyle(Color.ds.statusWarning)
+              Label {
+                Text("Check this value", bundle: .module)
+              } icon: {
+                Image(systemName: "exclamationmark.triangle")
+              }
+              .font(.caption).foregroundStyle(Color.ds.statusWarning)
             }
           }
           TextField(text: Binding(get: { field.value }, set: { model.setValue($0, forField: field.key) })) {
@@ -170,7 +211,11 @@ public struct AssistantView: View {
         UIPasteboard.general.string = extraction.csv
         Task { await model.recordKept() }
       } label: {
-        Label { Text("Copy as CSV", bundle: .module) } icon: { Image(systemName: "tablecells") }
+        Label {
+          Text("Copy as CSV", bundle: .module)
+        } icon: {
+          Image(systemName: "tablecells")
+        }
       }
       GeneratedFootnote()
     }
@@ -191,15 +236,21 @@ public struct AssistantView: View {
   static func explanation(for reason: IntelligenceUnavailableReason) -> Text {
     switch reason {
     case .deviceNotEligible:
-      Text("This device doesn't support Apple Intelligence. Reading, search, markup and scanning all still work.", bundle: .module)
+      Text(
+        "This device doesn't support Apple Intelligence. Reading, search, markup and scanning all still work.",
+        bundle: .module)
     case .appleIntelligenceNotEnabled:
-      Text("Turn on Apple Intelligence in the Settings app to use it here. Everything else works without it.", bundle: .module)
+      Text(
+        "Turn on Apple Intelligence in the Settings app to use it here. Everything else works without it.",
+        bundle: .module)
     case .modelNotReady:
       Text("Apple Intelligence is still getting ready on this device. Try again in a little while.", bundle: .module)
     case .hiddenBySettings:
       Text("AI features are turned off in Settings.", bundle: .module)
     case .requestTooLarge:
-      Text("This request is too large for the on-device model. Try a shorter question or a smaller document.", bundle: .module)
+      Text(
+        "This request is too large for the on-device model. Try a shorter question or a smaller document.",
+        bundle: .module)
     }
   }
 

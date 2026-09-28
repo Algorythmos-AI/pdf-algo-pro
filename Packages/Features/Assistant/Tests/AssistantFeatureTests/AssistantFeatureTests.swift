@@ -11,11 +11,14 @@ private final class Revealed {
 }
 
 @MainActor
-private func makeModel(task: AssistantTask, intelligence: FakeIntelligence = FakeIntelligence(), telemetry: RecordingTelemetry = RecordingTelemetry()) -> (AssistantModel, Revealed) {
+private func makeModel(
+  task: AssistantTask, intelligence: FakeIntelligence = FakeIntelligence(),
+  telemetry: RecordingTelemetry = RecordingTelemetry()
+) -> (AssistantModel, Revealed) {
   let revealed = Revealed()
   let model = AssistantModel(
-    task: task, intelligence: intelligence, pages: { [PageText(pageIndex: 0, text: "testing")] }, telemetry: telemetry
-  ) { revealed.citations.append($0) }
+    task: task, intelligence: intelligence, pages: { [PageText(pageIndex: 0, text: "testing")] }, telemetry: telemetry,
+    onReveal: { revealed.citations.append($0) })
   return (model, revealed)
 }
 
@@ -100,7 +103,9 @@ struct AssistantModelTests {
     let (model, _) = makeModel(task: .ask, intelligence: intelligence)
     await model.start()
     model.task = .extract
-    for _ in 0..<100 where model.phase == .idle || model.phase == .working { try await Task.sleep(for: .milliseconds(10)) }
+    for _ in 0..<100 where model.phase == .idle || model.phase == .working {
+      try await Task.sleep(for: .milliseconds(10))
+    }
     #expect(await intelligence.tasks == [.extract])
   }
 

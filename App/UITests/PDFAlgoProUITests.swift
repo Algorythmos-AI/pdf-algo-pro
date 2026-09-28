@@ -1,8 +1,10 @@
 import XCTest
 
-/// End-to-end smoke tests on the simulator, each from a fresh, private state (temporary folders and
-/// throwaway settings, via launch arguments), with an accessibility audit on every top-level screen
-/// (NFR-A11Y-001).
+/// End-to-end journeys on the simulator.
+///
+/// Every run starts from a fresh, private state (temporary folders, throwaway settings and the scripted
+/// intelligence router, via the Debug-only launch arguments in docs/testing-strategy.md), and every
+/// top-level screen passes an accessibility audit (NFR-A11Y-001).
 final class PDFAlgoProUITests: XCTestCase {
   override func setUp() {
     continueAfterFailure = false
@@ -10,17 +12,18 @@ final class PDFAlgoProUITests: XCTestCase {
 
   private func launch(_ arguments: [String]) -> XCUIApplication {
     let app = XCUIApplication()
-    app.launchArguments = ["-ui-testing"] + arguments
+    app.launchArguments = ["-ui-testing", "-disable-animations"] + arguments
     app.launch()
     return app
   }
 
-  /// The audit, minus checks that flag system-owned views we do not draw (PDFKit's page view and
-  /// system toolbars), each named so any new issue in our own views still fails.
+  /// The accessibility audit on the current screen.
+  ///
+  /// Issues on PDFKit's own page view, which we do not draw, are excluded by identifier; everything else
+  /// fails the test.
   private func audit(_ app: XCUIApplication) throws {
-    try app.performAccessibilityAudit(for: [.dynamicType, .elementDetection, .hitRegion, .sufficientElementDescription, .textClipped, .trait]) { issue in
-      let systemOwned = issue.element?.identifier == "reader.pages" || issue.element == nil
-      return systemOwned
+    try app.performAccessibilityAudit { issue in
+      issue.element?.identifier == "reader.pages"
     }
   }
 
@@ -28,13 +31,13 @@ final class PDFAlgoProUITests: XCTestCase {
     let app = launch([])
     let first = app.buttons["onboarding.intent.chatWithPDF"]
     XCTAssertTrue(first.waitForExistence(timeout: 10))
-    let order = ["chatWithPDF", "summarizeDocument", "extractData", "analyzeContract", "editText"]
-    let frames = order.map { app.buttons["onboarding.intent.\($0)"].frame.minY }
-    XCTAssertEqual(frames, frames.sorted(), "AI-first options lead, in order (FR-ONB-001)")
+    let order = ["chatWithPDF", "summarizeDocument", "extractData", "analyzeContract"]
+    let positions = order.map { app.buttons["onboarding.intent.\($0)"].frame.minY }
+    XCTAssertEqual(positions, positions.sorted(), "AI-first options lead, in order (FR-ONB-001)")
     try audit(app)
     app.buttons["onboarding.skip"].tap()
-    XCTAssertTrue(app.buttons["library.empty.sample"].waitForExistence(timeout: 10), "Skipping leads to the library (FR-ONB-002)")
-    XCTAssertFalse(app.staticTexts["Subscribe"].exists, "No paywall before value (FR-ONB-004)")
+    XCTAssertTrue(
+      app.buttons["library.empty.sample"].waitForExistence(timeout: 10), "Skipping leads to the library (FR-ONB-002)")
   }
 
   func testChoosingAnIntentPersonalisesTheHomeScreen() throws {
@@ -43,36 +46,67 @@ final class PDFAlgoProUITests: XCTestCase {
     XCTAssertTrue(scan.waitForExistence(timeout: 10))
     scan.tap()
     app.buttons["onboarding.continue"].tap()
-    XCTAssertTrue(app.buttons["library.empty.sample"].waitForExistence(timeout: 10))
+    XCTAssertTrue(
+      app.buttons["library.empty.primary.scan"].waitForExistence(timeout: 10),
+      "The chosen intent leads the home screen (FR-ONB-003)")
   }
 
-  func testSampleDocumentOpensAndSearchFindsItsText() throws {
-    let app = launch(["-ui-skip-onboarding"])
+  func testTheSampleOpensInTheReaderWithoutAPaywall() throws {
+    let app = launch(["-skip-onboarding"])
     let sample = app.buttons["library.empty.sample"]
     XCTAssertTrue(sample.waitForExistence(timeout: 10))
     try audit(app)
     sample.tap()
-    let indicator = app.staticTexts["reader.pageIndicator"]
-    XCTAssertTrue(indicator.waitForExistence(timeout: 15), "The sample opens in the reader")
-    try audit(app)
+    XCTAssertTrue(
+      app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15), "The sample opens in the reader")
+    XCTAssertTrue(app.buttons["reader.ask"].exists)
+    XCTAssertFalse(app.buttons["Subscribe"].exists, "No paywall before value (FR-ONB-004)")
   }
 
-  func testAssistantExplainsWhenIntelligenceIsUnavailable() throws {
-    let app = launch(["-ui-skip-onboarding", "-ui-seed-sample"])
+  func testAnswersCiteTheirPageAndTheCitationOpensIt() throws {
+    let app = launch(["-skip-onboarding", "-seed-library", "sample"])
     XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
-    let ask = app.buttons["reader.ask"]
-    XCTAssertTrue(ask.waitForExistence(timeout: 5))
-    ask.tap()
+    app.buttons["reader.ask"].tap()
+    app.buttons["Ask a question"].tap()
+    let question = app.textFields["assistant.question"]
+    XCTAssertTrue(question.waitForExistence(timeout: 10))
+    question.tap()
+    question.typeText("What is the total due?\n")
+    XCTAssertTrue(app.staticTexts["assistant.answer"].waitForExistence(timeout: 10), "A grounded answer (FR-AI-002)")
+    try audit(app)
+    let citation = app.buttons["Source: page 2"]
+    XCTAssertTrue(citation.exists, "The answer cites page 2")
+    citation.tap()
+    let indicator = app.staticTexts["reader.pageIndicator"]
+    XCTAssertTrue(indicator.waitForExistence(timeout: 10))
+    expectation(for: NSPredicate(format: "label CONTAINS %@", "2 of 3"), evaluatedWith: indicator)
+    waitForExpectations(timeout: 10)
+  }
+
+  func testQuestionsTheDocumentCannotAnswerSaySo() throws {
+    let app = launch(["-skip-onboarding", "-seed-library", "sample"])
+    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
+    app.buttons["reader.ask"].tap()
+    app.buttons["Ask a question"].tap()
+    let question = app.textFields["assistant.question"]
+    XCTAssertTrue(question.waitForExistence(timeout: 10))
+    question.tap()
+    question.typeText("Who won the match?\n")
+    XCTAssertTrue(
+      app.staticTexts["Not found in this document"].waitForExistence(timeout: 10), "No guessing (FR-AI-010)")
+  }
+
+  func testUnavailableIntelligenceIsExplained() throws {
+    let app = launch(["-skip-onboarding", "-seed-library", "sample", "-intelligence-unavailable"])
+    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
+    app.buttons["reader.ask"].tap()
     app.buttons["Summarise"].firstMatch.tap()
-    let answer = app.staticTexts["assistant.answer"]
-    let unavailable = app.otherElements["assistant.unavailable"]
-    let appeared = answer.waitForExistence(timeout: 30) || unavailable.exists || app.staticTexts["Document intelligence isn't available"].exists
-    XCTAssertTrue(appeared, "Either a cited answer or a plain explanation (FR-ONB-006)")
+    XCTAssertTrue(app.staticTexts["Document intelligence isn't available"].waitForExistence(timeout: 10), "FR-ONB-006")
     try audit(app)
   }
 
   func testScannerOffersImagesWithoutACamera() throws {
-    let app = launch(["-ui-skip-onboarding"])
+    let app = launch(["-skip-onboarding"])
     let scan = app.buttons["library.scan"]
     XCTAssertTrue(scan.waitForExistence(timeout: 10))
     scan.tap()
@@ -81,12 +115,11 @@ final class PDFAlgoProUITests: XCTestCase {
   }
 
   func testSettingsCanHideAI() throws {
-    let app = launch(["-ui-skip-onboarding"])
+    let app = launch(["-skip-onboarding"])
     let settings = app.buttons["library.settings"]
     XCTAssertTrue(settings.waitForExistence(timeout: 10))
     settings.tap()
-    let toggle = app.switches["settings.hideAI"]
-    XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+    XCTAssertTrue(app.switches["settings.hideAI"].waitForExistence(timeout: 5))
     try audit(app)
   }
 }

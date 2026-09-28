@@ -47,7 +47,10 @@ struct DesignTokenTests {
 
   @Test("Spacing sits on the 8-point grid with 4-point half-steps")
   func spacingGrid() {
-    let values = [Spacing.s0, Spacing.s050, Spacing.s100, Spacing.s150, Spacing.s200, Spacing.s300, Spacing.s400, Spacing.s500, Spacing.s600, Spacing.s800]
+    let values = [
+      Spacing.s0, Spacing.s050, Spacing.s100, Spacing.s150, Spacing.s200, Spacing.s300, Spacing.s400, Spacing.s500,
+      Spacing.s600, Spacing.s800,
+    ]
     #expect(values.allSatisfy { $0.truncatingRemainder(dividingBy: 4) == 0 })
     #expect(values == values.sorted())
     #expect(Sizes.targetMinimum == 44)
@@ -55,7 +58,8 @@ struct DesignTokenTests {
 
   @Test("Every semantic token maps to its system colour", arguments: SystemColorName.allCases)
   func systemMapping(name: SystemColorName) {
-    #expect(UIColor(DynamicColor.system(name)).resolvedColor(with: .current) == name.uiColor.resolvedColor(with: .current))
+    #expect(
+      UIColor(DynamicColor.system(name)).resolvedColor(with: .current) == name.uiColor.resolvedColor(with: .current))
   }
 
   @Test func tokensAreExposedOnColor() {
@@ -86,7 +90,8 @@ struct ComponentTests {
     let views: [AnyView] = [
       AnyView(TierBadge(tier: .onDevice)), AnyView(CitationChip(citation: Citation(pageIndex: 2)) {}),
       AnyView(GeneratedFootnote()), AnyView(ContractDisclosure()),
-      AnyView(IntentCard(symbol: "doc", title: Text(verbatim: "Title"), detail: Text(verbatim: "Detail"), isSelected: true)),
+      AnyView(
+        IntentCard(symbol: "doc", title: Text(verbatim: "Title"), detail: Text(verbatim: "Detail"), isSelected: true)),
       AnyView(Button("Go") {}.buttonStyle(.primary)), AnyView(Text(verbatim: "Card").cardStyle().readableWidth()),
       AnyView(Text(verbatim: "Moving").motion(value: 1)),
     ]

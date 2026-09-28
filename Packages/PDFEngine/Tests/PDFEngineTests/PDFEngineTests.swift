@@ -42,9 +42,12 @@ struct InspectorTests {
     #expect(inspection.pageCount == 1 && !inspection.hasTextLayer)
   }
 
-  @Test("Damaged and non-PDF files are rejected, never crash (NFR-SEC-002)", arguments: [
-    Data(), Data("hello".utf8), Data("%PDF-1.7\n%%EOF".utf8), Data((0..<4096).map { UInt8(truncatingIfNeeded: $0 &* 31) }),
-  ])
+  @Test(
+    "Damaged and non-PDF files are rejected, never crash (NFR-SEC-002)",
+    arguments: [
+      Data(), Data("hello".utf8), Data("%PDF-1.7\n%%EOF".utf8),
+      Data((0..<4096).map { UInt8(truncatingIfNeeded: $0 &* 31) }),
+    ])
   func damagedFiles(data: Data) async throws {
     let url = try write(data)
     await #expect(throws: LibraryError.notAPDF) { try await PDFKitInspector().inspect(url) }
@@ -107,7 +110,8 @@ struct ControllerTests {
 
   @Test("A locked document opens only with the right password and stays encrypted when saved")
   func encryptedDocument() throws {
-    let controller = try PDFDocumentController(data: SyntheticPDF.makeEncrypted(pages: ["Secret page"], password: "pw-123"))
+    let controller = try PDFDocumentController(
+      data: SyntheticPDF.makeEncrypted(pages: ["Secret page"], password: "pw-123"))
     #expect(controller.isLocked)
     #expect(!controller.unlock(password: "wrong"))
     #expect(controller.unlock(password: "pw-123") && !controller.isLocked)
@@ -167,13 +171,19 @@ struct RenderingTests {
     let url = try write(SyntheticPDF.makeSample())
     let image = try PageRenderer.render(pageIndex: 0, of: url, maximumPixelSize: 400)
     #expect(image.height == 400 && image.width < 400)
-    #expect(throws: PDFEngineError.renderFailed) { try PageRenderer.render(pageIndex: 7, of: url, maximumPixelSize: 100) }
-    #expect(throws: PDFEngineError.unreadable) { try PageRenderer.render(pageIndex: 0, of: temporaryURL(), maximumPixelSize: 100) }
+    #expect(throws: PDFEngineError.renderFailed) {
+      try PageRenderer.render(pageIndex: 7, of: url, maximumPixelSize: 100)
+    }
+    #expect(throws: PDFEngineError.unreadable) {
+      try PageRenderer.render(pageIndex: 0, of: temporaryURL(), maximumPixelSize: 100)
+    }
   }
 
   @Test func lockedPagesDoNotRender() throws {
     let url = try write(SyntheticPDF.makeEncrypted(pages: ["x"], password: "pw"))
-    #expect(throws: PDFEngineError.passwordRequired) { try PageRenderer.render(pageIndex: 0, of: url, maximumPixelSize: 100) }
+    #expect(throws: PDFEngineError.passwordRequired) {
+      try PageRenderer.render(pageIndex: 0, of: url, maximumPixelSize: 100)
+    }
   }
 
   @Test func thumbnailsAreCachedPerVersion() async throws {
@@ -190,13 +200,18 @@ struct RenderingTests {
 struct SearchablePDFTests {
   private struct ScriptedRecognizer: TextRecognizing {
     func recognizeText(in image: CGImage) async throws -> [RecognizedLine] {
-      [RecognizedLine(text: "Quarterly report", bounds: CGRect(x: 0.1, y: 0.8, width: 0.5, height: 0.04), confidence: 0.95)]
+      [
+        RecognizedLine(
+          text: "Quarterly report", bounds: CGRect(x: 0.1, y: 0.8, width: 0.5, height: 0.04), confidence: 0.95)
+      ]
     }
   }
 
   @Test("Scans become PDFs whose text can be found and selected (FR-SCAN-002)")
   func scansGetATextLayer() async throws {
-    let images = try [#require(SyntheticPDF.makeTextImage("Page one")), #require(SyntheticPDF.makeTextImage("Page two"))]
+    let images = try [
+      #require(SyntheticPDF.makeTextImage("Page one")), #require(SyntheticPDF.makeTextImage("Page two")),
+    ]
     let progress = ProgressLog()
     let result = try await SearchablePDFBuilder(recognizer: ScriptedRecognizer()).makeSearchablePDF(from: images) {
       progress.append($0)
@@ -211,7 +226,8 @@ struct SearchablePDFTests {
   @Test("Image-only PDFs gain a text layer and keep their pages (FR-SCAN-003)")
   func imageOnlyPDFsGainText() async throws {
     let url = try write(SyntheticPDF.makeImageOnly(pages: ["One", "Two", "Three"]))
-    let result = try await SearchablePDFBuilder(recognizer: FakeRecognizer(), renderPixelSize: 600).addTextLayer(toPDFAt: url)
+    let result = try await SearchablePDFBuilder(recognizer: FakeRecognizer(), renderPixelSize: 600).addTextLayer(
+      toPDFAt: url)
     let document = try #require(PDFDocument(data: result.data))
     #expect(document.pageCount == 3)
     #expect(document.string?.contains("Recognised text") == true)

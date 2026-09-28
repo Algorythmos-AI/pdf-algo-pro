@@ -1,8 +1,9 @@
 import Core
 import Foundation
 
-/// Fields the extraction prompt asks for. Every value is optional: an empty field means the
-/// document does not state it.
+/// Fields the extraction prompt asks for.
+///
+/// Every value is optional: an empty field means the document does not state it.
 public struct ExtractionDraft: Hashable, Sendable {
   /// The kind of document, for example "invoice" or "receipt".
   public var documentType: String?
@@ -54,8 +55,10 @@ public enum ModelError: Error, Equatable, Sendable {
   case failed
 }
 
-/// One language model tier. The router drives tiers through this seam, so the grounding logic is
-/// tested with scripted models and the live tier is a thin adapter (ADR-0021).
+/// One language model tier.
+///
+/// The router drives tiers through this seam, so the grounding logic is tested with scripted models and the live tier
+/// is a thin adapter (ADR-0021).
 public protocol LanguageModelDriving: Sendable {
   /// The tier this model runs on.
   var tier: IntelligenceTier { get }

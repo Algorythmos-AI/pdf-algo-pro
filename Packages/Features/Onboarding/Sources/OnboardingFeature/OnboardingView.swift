@@ -2,7 +2,7 @@ import Core
 import DesignSystem
 import SwiftUI
 
-/// The single onboarding screen: "What do you do with PDFs most often?"
+/// The single onboarding screen, which asks what the person does with PDFs most often.
 public struct OnboardingView: View {
   @State private var model: OnboardingModel
 

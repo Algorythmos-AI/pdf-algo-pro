@@ -43,7 +43,7 @@ public enum LibrarySort: String, CaseIterable, Codable, Sendable {
     case .recentlyOpened:
       documents.sorted { lhs, rhs in
         switch (lhs.lastOpenedAt, rhs.lastOpenedAt) {
-        case let (left?, right?): left > right
+        case (let left?, let right?): left > right
         case (.some, .none): true
         case (.none, .some): false
         case (.none, .none): lhs.addedAt > rhs.addedAt

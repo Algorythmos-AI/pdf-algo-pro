@@ -30,12 +30,14 @@ public final class SpeechReader: NSObject, AVSpeechSynthesizerDelegate {
   }
 
   /// Called by the system when an utterance ends.
-  nonisolated public func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+  nonisolated public func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance)
+  {
     Task { @MainActor in self.isSpeaking = false }
   }
 
   /// Called by the system when speech is cancelled.
-  nonisolated public func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
+  nonisolated public func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance)
+  {
     Task { @MainActor in self.isSpeaking = false }
   }
 }

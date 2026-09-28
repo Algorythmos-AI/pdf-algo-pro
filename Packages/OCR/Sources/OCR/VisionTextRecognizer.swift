@@ -3,13 +3,17 @@ import CoreGraphics
 import Foundation
 import Vision
 
-/// On-device text recognition with Vision (ADR-0008). Nothing leaves the device.
+/// On-device text recognition with Vision (ADR-0008).
+///
+/// Nothing leaves the device.
 public struct VisionTextRecognizer: TextRecognizing {
   /// The languages recognised, English and French first (FR-SCAN-002).
   public let languages: [Locale.Language]
 
   /// Creates a recogniser for the given languages.
-  public init(languages: [Locale.Language] = [Locale.Language(identifier: "en-US"), Locale.Language(identifier: "fr-FR")]) {
+  public init(
+    languages: [Locale.Language] = [Locale.Language(identifier: "en-US"), Locale.Language(identifier: "fr-FR")]
+  ) {
     self.languages = languages
   }
 
@@ -22,11 +26,13 @@ public struct VisionTextRecognizer: TextRecognizing {
     request.usesLanguageCorrection = true
     request.recognitionLanguages = languages
     let observations = try await request.perform(on: image)
-    return Self.lines(from: observations.compactMap { observation in
-      guard let candidate = observation.topCandidates(1).first else { return nil }
-      return RecognizedLine(
-        text: candidate.string, bounds: observation.boundingBox.toImageCoordinates(CGSize(width: 1, height: 1)), confidence: Double(candidate.confidence))
-    })
+    return Self.lines(
+      from: observations.compactMap { observation in
+        guard let candidate = observation.topCandidates(1).first else { return nil }
+        return RecognizedLine(
+          text: candidate.string, bounds: observation.boundingBox.toImageCoordinates(CGSize(width: 1, height: 1)),
+          confidence: Double(candidate.confidence))
+      })
   }
 
   /// Orders lines as people read them: top to bottom, then left to right on the same line.

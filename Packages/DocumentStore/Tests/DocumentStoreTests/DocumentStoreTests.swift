@@ -151,7 +151,8 @@ struct FileDocumentLibraryTests {
     try await harness.library.restore(document.id)
     let stored = try #require(try await harness.library.document(withID: document.id))
     #expect(!stored.isDeleted)
-    #expect(FileManager.default.fileExists(atPath: harness.documentsFolder.appendingPathComponent(stored.fileName).path))
+    #expect(
+      FileManager.default.fileExists(atPath: harness.documentsFolder.appendingPathComponent(stored.fileName).path))
   }
 
   @Test("Permanent deletion removes the file and the entry (FR-LIB-006)")

@@ -2,8 +2,10 @@ import Core
 import Foundation
 import SwiftData
 
-/// Version 1 of the library index schema (ADR-0006). Every attribute is optional or defaulted and
-/// nothing is unique, so the schema can sync through CloudKit later without a migration.
+/// Version 1 of the library index schema (ADR-0006).
+///
+/// Every attribute is optional or defaulted and nothing is unique, so the schema can sync through CloudKit later
+/// without a migration.
 public enum LibrarySchemaV1: VersionedSchema {
   /// The schema version.
   public static let versionIdentifier = Schema.Version(1, 0, 0)
@@ -11,7 +13,9 @@ public enum LibrarySchemaV1: VersionedSchema {
   /// The models in this version.
   public static var models: [any PersistentModel.Type] { [DocumentEntry.self] }
 
-  /// One document's index entry. The file is the source of truth; this is derived data.
+  /// One document's index entry.
+  ///
+  /// The file is the source of truth; this is derived data.
   @Model
   public final class DocumentEntry {
     /// The document identifier.

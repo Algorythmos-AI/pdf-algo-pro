@@ -65,7 +65,8 @@ public final class ReaderModel {
   /// Creates a reader for a document.
   public init(
     selection documentID: DocumentID, pageIndex: Int? = nil, task: AssistantTask? = nil, library: any DocumentLibrary,
-    intake: DocumentIntake, index: any DocumentIndexing, settings: any SettingsStoring, telemetry: any TelemetryRecording,
+    intake: DocumentIntake, index: any DocumentIndexing, settings: any SettingsStoring,
+    telemetry: any TelemetryRecording,
     builder: SearchablePDFBuilder
   ) {
     self.documentID = documentID
@@ -102,7 +103,9 @@ public final class ReaderModel {
       if document.lastOpenedAt == nil { await telemetry.record("activation.first_document.opened") }
     } catch {
       phase = .failed(
-        String(localized: "This file can't be opened. It may be damaged or not a PDF. Your library hasn't changed.", bundle: .module))
+        String(
+          localized: "This file can't be opened. It may be damaged or not a PDF. Your library hasn't changed.",
+          bundle: .module))
     }
   }
 
@@ -188,7 +191,8 @@ public final class ReaderModel {
       try await library.recordModified(documentID)
       await telemetry.record("task.core.completed")
     } catch {
-      errorMessage = String(localized: "Couldn't save your changes. The document on disk hasn't changed. Try again.", bundle: .module)
+      errorMessage = String(
+        localized: "Couldn't save your changes. The document on disk hasn't changed. Try again.", bundle: .module)
       await telemetry.record("quality.operation.failed")
     }
   }
@@ -222,7 +226,8 @@ public final class ReaderModel {
       } catch is CancellationError {
         return
       } catch {
-        errorMessage = String(localized: "Text recognition didn't finish. The document hasn't changed.", bundle: .module)
+        errorMessage = String(
+          localized: "Text recognition didn't finish. The document hasn't changed.", bundle: .module)
       }
     }
   }

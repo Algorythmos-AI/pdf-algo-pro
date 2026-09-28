@@ -28,7 +28,8 @@ private func image(of lines: [String], size: CGSize = CGSize(width: 1600, height
 struct VisionTextRecognizerTests {
   @Test("English and French text is recognised on device, top to bottom (FR-SCAN-002)")
   func recognisesLinesInReadingOrder() async throws {
-    let lines = try await VisionTextRecognizer().recognizeText(in: image(of: ["Invoice total 120", "Facture numéro 42"]))
+    let lines = try await VisionTextRecognizer().recognizeText(
+      in: image(of: ["Invoice total 120", "Facture numéro 42"]))
     let text = lines.map(\.text).joined(separator: "\n").lowercased()
     #expect(text.contains("invoice total"))
     #expect(text.contains("facture"))

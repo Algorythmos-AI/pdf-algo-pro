@@ -1,15 +1,17 @@
 import CoreGraphics
 import Foundation
 
-/// Synthetic PDFs: the bundled sample and the test corpus. No real document ever enters the
-/// repository or the app bundle (AGENTS.md rule 6); these are generated from text at run time.
+/// Synthetic PDFs: the bundled sample and the test corpus.
+///
+/// No real document ever enters the repository or the app bundle (AGENTS.md rule 6); these are generated from text at
+/// run time.
 public enum SyntheticPDF {
   /// A PDF whose pages carry the given text as a real text layer.
   ///
   /// - Throws: `PDFEngineError.saveFailed` if Core Graphics cannot create the PDF.
   public static func make(pages: [String], title: String = "Synthetic document") throws -> Data {
     try PDFWriter.makePDF(
-      pageCount: pages.count, mediaBox: { _ in PDFWriter.letter },
+      mediaBoxes: Array(repeating: PDFWriter.letter, count: pages.count),
       auxiliaryInfo: [kCGPDFContextTitle: title, kCGPDFContextCreator: "PDF Algo Pro"]
     ) { context, index, box in
       PDFWriter.drawText(pages[index], in: box.insetBy(dx: 56, dy: 56), fontSize: 14, context: context)
@@ -21,7 +23,7 @@ public enum SyntheticPDF {
   /// - Throws: `PDFEngineError.saveFailed` if Core Graphics cannot create the PDF.
   public static func makeEncrypted(pages: [String], password: String) throws -> Data {
     try PDFWriter.makePDF(
-      pageCount: pages.count, mediaBox: { _ in PDFWriter.letter },
+      mediaBoxes: Array(repeating: PDFWriter.letter, count: pages.count),
       auxiliaryInfo: [kCGPDFContextUserPassword: password, kCGPDFContextOwnerPassword: password]
     ) { context, index, box in
       PDFWriter.drawText(pages[index], in: box.insetBy(dx: 56, dy: 56), fontSize: 14, context: context)
@@ -49,7 +51,8 @@ public enum SyntheticPDF {
   /// - Throws: `PDFEngineError.saveFailed` if Core Graphics cannot create the PDF.
   public static func makeImageOnly(pages: [String]) throws -> Data {
     let images = pages.compactMap { makeTextImage($0) }
-    return try PDFWriter.makePDF(pageCount: images.count, mediaBox: { _ in PDFWriter.letter }) { context, index, box in
+    return try PDFWriter.makePDF(mediaBoxes: Array(repeating: PDFWriter.letter, count: images.count)) {
+      context, index, box in
       context.draw(images[index], in: box)
     }
   }
@@ -63,8 +66,9 @@ public enum SyntheticPDF {
   }
 }
 
-/// The text of the sample document. It is written for this app and contains no real person,
-/// company or account.
+/// The text of the sample document.
+///
+/// It is written for this app and contains no real person, company or account.
 public enum SampleContent {
   /// The sample's title.
   public static let title = "Welcome to PDF Algo Pro"

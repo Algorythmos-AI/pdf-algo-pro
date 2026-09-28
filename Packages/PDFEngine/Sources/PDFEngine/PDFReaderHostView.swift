@@ -17,7 +17,9 @@ enum AnnotationPalette {
   static let red = PlatformColor.systemRed
 }
 
-/// The PDFKit page view, configured for reading. Only `PDFDocumentController` drives it.
+/// The PDFKit page view, configured for reading.
+///
+/// Only `PDFDocumentController` drives it.
 @MainActor
 final class PDFReaderHostView: PDFView {
   private var pageObserver: (any NSObjectProtocol)?

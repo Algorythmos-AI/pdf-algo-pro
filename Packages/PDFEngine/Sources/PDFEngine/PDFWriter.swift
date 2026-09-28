@@ -10,16 +10,15 @@ enum PDFWriter {
 
   /// Creates a PDF, calling `drawPage` once per page with a context set up for that page.
   static func makePDF(
-    pageCount: Int, mediaBox: (Int) -> CGRect, auxiliaryInfo: [CFString: Any] = [:],
-    drawPage: (CGContext, Int, CGRect) throws -> Void
+    mediaBoxes: [CGRect], auxiliaryInfo: [CFString: Any] = [:], drawPage: (CGContext, Int, CGRect) throws -> Void
   ) throws -> Data {
     let data = NSMutableData()
-    var firstBox = mediaBox(0)
+    var firstBox = mediaBoxes.first ?? letter
     guard let consumer = CGDataConsumer(data: data as CFMutableData),
       let context = CGContext(consumer: consumer, mediaBox: &firstBox, auxiliaryInfo as CFDictionary)
     else { throw PDFEngineError.saveFailed }
-    for index in 0..<pageCount {
-      var box = mediaBox(index)
+    for (index, mediaBox) in mediaBoxes.enumerated() {
+      var box = mediaBox
       let pageInfo = [kCGPDFContextMediaBox: Data(bytes: &box, count: MemoryLayout<CGRect>.size)] as CFDictionary
       context.beginPDFPage(pageInfo)
       try drawPage(context, index, box)
@@ -37,7 +36,8 @@ enum PDFWriter {
       NSAttributedString.Key(kCTForegroundColorAttributeName as String): CGColor(gray: 0, alpha: 1),
     ]
     let framesetter = CTFramesetterCreateWithAttributedString(NSAttributedString(string: text, attributes: attributes))
-    let frame = CTFramesetterCreateFrame(framesetter, CFRange(location: 0, length: 0), CGPath(rect: rect, transform: nil), nil)
+    let frame = CTFramesetterCreateFrame(
+      framesetter, CFRange(location: 0, length: 0), CGPath(rect: rect, transform: nil), nil)
     context.saveGState()
     context.textMatrix = .identity
     CTFrameDraw(frame, context)
