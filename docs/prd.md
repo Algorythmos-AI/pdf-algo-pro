@@ -1,0 +1,400 @@
+# Product requirements document
+
+The single source of truth for what PDF Algo Pro does. Each requirement has an ID, a MoSCoW
+priority, a phase and at least one pillar. Every Must requirement has Given/When/Then acceptance
+criteria. Architecture decisions live in the [ADRs](adr/README.md); sequencing lives in the
+[roadmap](product/roadmap.md); how requirements are tested lives in the
+[testing strategy](testing-strategy.md).
+
+Owner: Product · Reviewed: each milestone
+
+Any change to a Must requirement is recorded in the [decision register](decision-register.md).
+
+## Problem
+
+People on iPhone, iPad and Mac receive documents that matter (contracts, statements, forms, reports,
+medical and insurance papers) and need to understand, complete and act on them quickly. Established
+PDF apps already cover reading, annotation, signing, editing and conversion, but their document
+intelligence runs in the cloud, usually behind an account, and does not work offline (evidence in
+the [competitive moat](competitive-moat.md)). People who handle sensitive documents must either
+upload them or do without.
+
+**Why switch:** intelligence that understands documents without taking them off the device, with no
+account. **Why pay:** editing, redaction, conversion and deeper intelligence in one honest
+subscription, after value has been shown for free. **Why stay:** a private library that can be
+searched and questioned, improving every release. These are hypotheses with tests in
+[customer research](customer-research.md).
+
+## Vision
+
+The most intelligent native PDF productivity app on Apple platforms: it reads, understands and
+works with documents privately on the device, and feels as if Apple built it.
+
+## Goals
+
+| Goal | Pillars | Measured by |
+|---|---|---|
+| G1 Make any document understandable in under a minute, with answers that show their page | PIL-4 | Answer kept rate; citation accuracy ([success metrics](success-metrics.md)) |
+| G2 Keep documents private by default and working offline | PIL-5, PIL-6 | Privacy label; share of intelligence served on device |
+| G3 Cover the everyday PDF jobs at a quality that matches the best native apps | PIL-1, PIL-2, PIL-3 | Task success in usability tests; rating |
+| G4 Feel native on every Apple surface it supports | PIL-7 | Apple-first checklist complete per feature; accessibility audits |
+| G5 Build a sustainable subscription business without dark patterns | all | Trial conversion and renewal against the private financial model |
+
+## Non-goals
+
+See [non-goals](non-goals.md). In short: not a full Acrobat replacement, desktop publishing tool,
+document management system, cloud storage provider, CRM, real-time co-editing suite (V1),
+DocuSign-class e-signature platform, or Android or web app (V1).
+
+## Personas
+
+Derived from the onboarding intents used across the category and from the segment hypotheses in the
+[target market](target-market.md). They are hypotheses until research confirms them.
+
+| Persona | Primary intents | Needs | Segment |
+|---|---|---|---|
+| Priya, independent consultant | Chat with PDF, Analyse contract, Sign | Understand client agreements fast; sign on the go; keep client files private | S1 |
+| Marcus, finance administrator | Extract data with AI, Scan to PDF, Organise pages | Pull amounts and dates from invoices and statements; searchable archives | S2 |
+| Helen, household organiser | Scan to PDF, Summarise, Read | Make sense of bills, insurance and medical letters; find them later | S3 |
+| Tom, postgraduate researcher | Read, Annotate, Summarise | Read long papers; highlight; ask questions across a library | S4 |
+| Aisha, lawyer using a personal iPad | Read, Annotate, Edit text, Redact | Review drafts; redact before sharing; never upload client documents | S2 |
+
+## Success metrics
+
+Defined in [success metrics](success-metrics.md). Public quality targets: crash-free sessions at
+least 99.8%; the [performance budgets](performance-budgets.md); page-citation accuracy at least 95%
+on the evaluation set; OCR character error rate at most 2% on printed English and French. Business
+targets are only defined here; their values are held privately.
+
+## Requirement conventions
+
+- **ID:** `FR-<AREA>-NNN` for functional and `NFR-<AREA>-NNN` for non-functional requirements. IDs
+  are never reused.
+- **Priority (MoSCoW):** Must, Should, Could, Won't (this phase).
+- **Phase:** MVP (iPhone, internal TestFlight), V1 (first App Store release), V1.1, V2 (iPad-first,
+  Mac, the Claude tier at general availability; Private Cloud Compute arrives in V1). See the
+  [roadmap](product/roadmap.md).
+- **Pillars:** PIL-1 Document Reading · PIL-2 Document Editing · PIL-3 OCR & Scanning · PIL-4 AI
+  Document Intelligence · PIL-5 Privacy · PIL-6 Offline Capability · PIL-7 Native Apple Experience.
+- **Apple-first:** each feature area lists the Apple capabilities it must adopt
+  ([ADR-0022](adr/0022-apple-first-capability-baseline.md)). A feature is not done until its
+  checklist is complete or an exception is recorded.
+
+## Functional requirements
+
+### Onboarding (FR-ONB)
+
+| ID | Requirement | Priority | Phase | Pillars |
+|---|---|---|---|---|
+| FR-ONB-001 | On first launch, ask "What do you do with PDFs most often?" with options in this order: Chat with PDF, Summarise document, Extract data with AI, Analyse contract, Edit PDF text, Annotate or highlight, Sign, Convert PDF to Word, Excel or PowerPoint, Merge or organise pages, Read or view, Scan to PDF, All tools | Must | MVP | PIL-4, PIL-7 |
+| FR-ONB-002 | The question can be skipped; skipping leads to the library | Must | MVP | PIL-7 |
+| FR-ONB-003 | The chosen intent personalises the home screen (primary action and suggested tools) and can be changed in Settings | Must | MVP | PIL-7 |
+| FR-ONB-004 | No paywall, account or sign-in appears before the user completes a first task | Must | MVP | PIL-5 |
+| FR-ONB-005 | "Analyse contract" shows the disclosure "Not legal advice. Check important terms with a qualified professional." before its first use and on every result | Must | V1 | PIL-4 |
+| FR-ONB-006 | When the on-device model is unavailable, AI intents explain why (device not eligible, Apple Intelligence off, model not ready) and offer the non-AI tools. Devices without Apple Intelligence get the non-AI tools only until V2; from V2, Pro users on those devices can also opt in to the Claude tier, whose consent screen follows FR-ONB-004 (no paywall before first value) | Must | MVP | PIL-4, PIL-6 |
+
+**Acceptance (Must):**
+
+- *FR-ONB-001/002.* Given a fresh install, when the app launches, then the intent question shows the
+  twelve options in the order listed, and a Skip control leads to the library.
+- *FR-ONB-003.* Given the user picked "Scan to PDF", when the home screen appears, then its primary
+  action is Scan, and Settings > Home shows "Scan to PDF" as changeable.
+- *FR-ONB-004.* Given a fresh install, when the user opens a document and completes any core task,
+  then no paywall, account prompt or sign-in has appeared before that point (UI test asserts no
+  paywall view in the flow).
+- *FR-ONB-005.* Given the user chose Analyse contract, when the first analysis runs and whenever a
+  result shows, then the disclosure is visible without scrolling.
+- *FR-ONB-006.* Given a device where `SystemLanguageModel.availability` is unavailable, when the user
+  picks Chat with PDF, then the app states the reason in plain language and offers the non-AI tools;
+  it never shows a spinner that does not resolve. From V2, given a Pro user on such a device, the app
+  also offers the opt-in Claude tier, and its consent screen appears only after first value
+  (FR-ONB-004).
+
+**Apple-first:** SwiftUI; Dynamic Type at all sizes; VoiceOver labels on every option.
+
+### Library and files (FR-LIB)
+
+| ID | Requirement | Priority | Phase | Pillars |
+|---|---|---|---|---|
+| FR-LIB-001 | Documents live in the app's iCloud Drive folder (or on the device when iCloud is off) and open in place from Files and other apps without copying | Must | MVP | PIL-1, PIL-6, PIL-7 |
+| FR-LIB-002 | Library with folders, tags, recents and favourites; sort and filter | Must | MVP | PIL-1 |
+| FR-LIB-003 | Search across titles, tags and document text, including OCR text | Must | MVP | PIL-1, PIL-3 |
+| FR-LIB-004 | Import from Files, the Share sheet, drag and drop, and the document camera | Must | MVP | PIL-7 |
+| FR-LIB-005 | Documents are indexed in Core Spotlight (titles and text) and exposed as App Intents entities | Must | MVP | PIL-7 |
+| FR-LIB-006 | Deleting a document removes it from the index and from derived data (thumbnails, embeddings, extractions) | Must | MVP | PIL-5 |
+| FR-LIB-007 | Quick Look previews and thumbnails for documents in Files | Should | V1 | PIL-7 |
+
+**Acceptance (Must):**
+
+- *FR-LIB-001.* Given a PDF in Files outside the app's folder, when the user opens it with PDF Algo
+  Pro, then it opens in place and edits save to the original file (file coordination test).
+- *FR-LIB-003.* Given a scanned document with recognised text, when the user searches for a word
+  that appears only in the scan, then the document appears in results within the search budget.
+- *FR-LIB-005.* Given an indexed document, when the user searches Spotlight for its title, then it
+  appears and opening it launches the app at that document.
+- *FR-LIB-006.* Given a document with thumbnails, index entries and saved extractions, when it is
+  deleted, then none of these remain (storage inspection test).
+
+**Apple-first:** Files integration (open in place, iCloud Drive, drag out); Core Spotlight; App
+Intents entities; `Transferable` drag and drop; Share extension.
+
+### Reading (FR-READ)
+
+| ID | Requirement | Priority | Phase | Pillars |
+|---|---|---|---|---|
+| FR-READ-001 | Open and render PDFs, including large (1,000 pages), encrypted (with password) and damaged files, within the performance budgets | Must | MVP | PIL-1 |
+| FR-READ-002 | Continuous and single-page modes; zoom; outline; thumbnails; page jump | Must | MVP | PIL-1 |
+| FR-READ-003 | Text selection, copy and find in document | Must | MVP | PIL-1 |
+| FR-READ-004 | Read aloud with system voices | Should | MVP | PIL-1, PIL-7 |
+| FR-READ-005 | Night, sepia and high-contrast reading themes | Should | V1 | PIL-1 |
+| FR-READ-006 | Resume at the last page read | Must | MVP | PIL-1 |
+| FR-READ-007 | Handoff of the open document and page between devices | Should | V2 | PIL-7 |
+
+**Acceptance (Must):**
+
+- *FR-READ-001.* Given the golden corpus (large, encrypted, damaged files), when each opens, then the
+  first page appears within budget or a clear error explains the problem; no crash.
+- *FR-READ-002/003.* Given a document with an outline, when the user opens the outline and selects an
+  entry, then the reader jumps to that page; find highlights every match and steps through them.
+- *FR-READ-006.* Given the user closed a document on page 42, when they reopen it, then it opens on
+  page 42.
+
+**Apple-first:** Dynamic Type for all interface text; VoiceOver reading of page text; keyboard
+shortcuts (next page, find, zoom); pointer and trackpad support.
+
+### Annotation (FR-ANN)
+
+| ID | Requirement | Priority | Phase | Pillars |
+|---|---|---|---|---|
+| FR-ANN-001 | Highlight, underline, strike-through, notes, freehand ink, shapes and text boxes, stored as standard PDF annotations | Must | MVP | PIL-1, PIL-2 |
+| FR-ANN-002 | Annotations from other apps display and remain editable where the PDF standard allows | Must | MVP | PIL-1 |
+| FR-ANN-003 | Annotation list with jump-to-page and export as text | Should | V1 | PIL-1 |
+| FR-ANN-004 | Apple Pencil with PencilKit on iPad, including pressure | Must | V2 | PIL-7 |
+
+**Acceptance (Must):**
+
+- *FR-ANN-001/002.* Given a PDF annotated in PDF Algo Pro, when it is opened in Apple Preview, then
+  every annotation appears; and given a PDF annotated elsewhere, when opened here, then its
+  annotations appear (round-trip corpus test).
+
+### Scanning and OCR (FR-SCAN)
+
+| ID | Requirement | Priority | Phase | Pillars |
+|---|---|---|---|---|
+| FR-SCAN-001 | Scan with the system document camera (edge detection, multi-page) | Must | MVP | PIL-3, PIL-7 |
+| FR-SCAN-002 | On-device text recognition producing searchable PDFs with an invisible text layer, English and French first | Must | MVP | PIL-3, PIL-5, PIL-6 |
+| FR-SCAN-003 | OCR existing image-only PDFs on demand, in the background with progress | Must | MVP | PIL-3 |
+| FR-SCAN-004 | Recognise tables and data (dates, amounts, emails, phone numbers) for extraction | Should | V1 | PIL-3, PIL-4 |
+| FR-SCAN-005 | Control Center control and widget to start a scan | Must | V1 | PIL-7 |
+
+**Acceptance (Must):**
+
+- *FR-SCAN-002.* Given a printed English or French page from the OCR corpus, when it is scanned, then
+  the character error rate is at most 2% ([success metrics](success-metrics.md)) and the resulting
+  PDF's text is selectable and searchable.
+- *FR-SCAN-003.* Given a 100-page image-only PDF, when OCR starts and the user leaves the app, then
+  the work continues as a continued-processing task with visible progress and completes.
+- *FR-SCAN-005.* Given the control is added to Control Center, when tapped on a locked or unlocked
+  device, then the scanner opens after authentication as required.
+
+**Apple-first:** VisionKit document camera; Vision `RecognizeDocumentsRequest`; Control Center
+control; widget; background continued processing.
+
+### Intelligence (FR-AI)
+
+| ID | Requirement | Priority | Phase | Pillars |
+|---|---|---|---|---|
+| FR-AI-001 | Summarise a document; the summary cites the pages it draws on | Must | MVP | PIL-4 |
+| FR-AI-002 | Ask questions about a document; each answer cites pages, and tapping a citation opens the page with the source text highlighted | Must | MVP | PIL-4 |
+| FR-AI-003 | Extract data to structured fields (for example invoice number, dates, amounts, parties), editable before export as CSV or to the clipboard | Must | MVP | PIL-4 |
+| FR-AI-004 | Analyse a contract: parties, dates, obligations, renewal and termination terms, with citations and the not-legal-advice disclosure | Must | V1 | PIL-4 |
+| FR-AI-005 | Default processing is on device. When a request does not fit the on-device model: in the MVP the app says so and suggests a shorter request or the non-AI tools; the opt-in tiers are offered once they ship (Private Cloud Compute in V1, Claude in V2) | Must | MVP | PIL-4, PIL-5, PIL-6 |
+| FR-AI-006 | Private Cloud Compute tier, opt-in, for long documents and harder reasoning | Must | V1 | PIL-4, PIL-5 |
+| FR-AI-007 | Claude tier through the relay, opt-in with consent that names the provider and the data sent; revocable in Settings | Should | V2 | PIL-4 |
+| FR-AI-008 | Ask across the whole library with on-device retrieval | Should | V2 | PIL-4, PIL-6 |
+| FR-AI-009 | Every AI feature can be hidden in Settings; hidden AI never appears uninvited | Must | MVP | PIL-5, PIL-7 |
+| FR-AI-010 | AI output is labelled as AI-generated, and answers that cannot be grounded say "not found in this document" rather than guessing | Must | MVP | PIL-4 |
+| FR-AI-011 | Document content is treated as untrusted: instructions inside a document never change app behaviour or trigger actions | Must | MVP | PIL-4, PIL-5 |
+| FR-AI-012 | Translate a document on device | Could | V1.1 | PIL-4, PIL-6 |
+| FR-AI-013 | Writing Tools available in all text fields | Must | MVP | PIL-7 |
+
+**Acceptance (Must):**
+
+- *FR-AI-001/002.* Given the evaluation set, when summaries and answers are generated, then at least
+  95% of citations point to a page that contains the supporting text
+  ([AI evaluation framework](ai-evaluation-framework.md)); tapping a citation opens that page with
+  the text highlighted.
+- *FR-AI-003.* Given a synthetic invoice from the corpus, when the user extracts data, then the
+  fields meet the extraction accuracy threshold and every field is editable before export.
+- *FR-AI-005.* Given airplane mode on an eligible device, when the user asks a question about a
+  20-page document, then the answer is produced on device within the AI latency budget.
+- *FR-AI-006.* Given the user has not opted in, when a request exceeds the on-device context, then no
+  data leaves the device and the app explains the Private Cloud Compute option; after opting in, the
+  request succeeds and the consent is recorded locally.
+- *FR-AI-009.* Given AI features are hidden, when the user browses every screen, then no AI entry
+  point, suggestion or promotion appears.
+- *FR-AI-010.* Given a question whose answer is not in the document, when asked, then the answer
+  says it was not found and cites nothing.
+- *FR-AI-011.* Given a corpus PDF containing hidden prompt-injection text, when summarised or
+  questioned, then no instruction in it is followed and no tool or action runs (red-team suite).
+- *FR-AI-004.* Given a contract from the corpus, when analysed, then each listed term cites its page
+  and the disclosure is shown.
+
+**Apple-first:** Foundation Models (on device, Private Cloud Compute); Writing Tools; App Intents
+("Summarise document", "Ask about document") for Siri and Shortcuts; Visual Intelligence where
+applicable.
+
+### Editing (FR-EDIT)
+
+| ID | Requirement | Priority | Phase | Pillars |
+|---|---|---|---|---|
+| FR-EDIT-001 | Edit existing text (font matching where possible), images and links | Must | V1 | PIL-2 |
+| FR-EDIT-002 | Add text, images and shapes | Must | V1 | PIL-2 |
+| FR-EDIT-003 | Fill forms (AcroForms), with AutoFill for contact fields | Must | MVP | PIL-2, PIL-7 |
+| FR-EDIT-004 | Sign with saved ink signatures stored in the Keychain | Must | MVP | PIL-2, PIL-5 |
+| FR-EDIT-005 | True redaction that removes content, including text under the redaction and metadata | Must | V1 | PIL-2, PIL-5 |
+| FR-EDIT-006 | Password-protect and remove protection | Must | V1 | PIL-5 |
+| FR-EDIT-007 | Undo and redo for every edit; autosave | Must | MVP | PIL-2 |
+
+**Acceptance (Must):**
+
+- *FR-EDIT-001.* Given a corpus PDF, when a word is edited and the file is saved, then the text
+  extracted from the saved file contains the new word and not the old one, and the layout of the
+  rest of the page is unchanged (visual diff within tolerance).
+- *FR-EDIT-004.* Given a saved signature, when the app is reinstalled on the same device with the
+  same Apple Account, then the signature follows Keychain rules and is never stored inside
+  documents except where placed.
+- *FR-EDIT-005.* Given a redacted area, when the saved file is inspected with text extraction and
+  object inspection, then no redacted text, image data or metadata remains (redaction test suite).
+- *FR-EDIT-007.* Given ten sequential edits, when the user undoes ten times, then the document equals
+  the original.
+
+**Apple-first:** PencilKit for signatures on iPad; AutoFill; Keychain; undo through the system undo
+manager and keyboard shortcuts.
+
+### Organise and convert (FR-ORG)
+
+| ID | Requirement | Priority | Phase | Pillars |
+|---|---|---|---|---|
+| FR-ORG-001 | Merge, split, reorder, rotate, delete and extract pages | Must | V1 | PIL-2 |
+| FR-ORG-002 | Convert PDF to Word, Excel and PowerPoint, on device if the chosen SDK supports it; otherwise opt-in with disclosure | Must | V1 | PIL-2, PIL-5 |
+| FR-ORG-003 | Create PDFs from images, documents and web pages through the Share sheet | Should | V1 | PIL-2, PIL-7 |
+| FR-ORG-004 | Compress PDFs | Should | V1 | PIL-2 |
+| FR-ORG-005 | Compare two versions of a document | Could | V1.1 | PIL-1, PIL-4 |
+
+**Acceptance (Must):**
+
+- *FR-ORG-001.* Given two 100-page PDFs, when merged, then the result has 200 pages in the chosen
+  order, annotations are preserved, and the merge completes within budget.
+- *FR-ORG-002.* Given a corpus document, when converted to Word, then the output opens in Pages and
+  Microsoft Word with text and tables preserved within tolerance; if conversion is not on device,
+  the user sees and accepts the disclosure first.
+
+**Apple-first:** Share and Action extensions; drag and drop of pages between documents
+(`Transferable`); multi-window on iPad.
+
+### Subscriptions (FR-STORE)
+
+| ID | Requirement | Priority | Phase | Pillars |
+|---|---|---|---|---|
+| FR-STORE-001 | Free tier covers reading, annotation, form filling, signing, scanning with OCR and a fair allowance of on-device intelligence | Must | V1 | PIL-7 |
+| FR-STORE-002 | Pro subscription (monthly and annual, with trial) through StoreKit 2 | Must | V1 | PIL-7 |
+| FR-STORE-003 | The paywall states price, period, trial length, renewal terms, and links to Terms and Privacy; Restore Purchases and Manage Subscription are always available | Must | V1 | PIL-7 |
+| FR-STORE-004 | Losing Pro never locks the user out of their own documents or annotations | Must | V1 | PIL-5 |
+| FR-STORE-005 | One subscription across iPhone, iPad and Mac (universal purchase) | Must | V2 | PIL-7 |
+
+**Acceptance (Must):**
+
+- *FR-STORE-003.* Given the paywall, when reviewed against [Guideline 3.1.2](https://developer.apple.com/app-store/review/guidelines/#subscriptions)
+  and the [App Store strategy](app-store-strategy.md) checklist, then every required disclosure is
+  present (UI test and release checklist).
+- *FR-STORE-004.* Given a lapsed subscription, when the user opens any document, then it opens, reads
+  and exports; only Pro actions are unavailable.
+
+**Apple-first:** `SubscriptionStoreView`; Family Sharing decision recorded in the pricing strategy;
+App Store Server Notifications V2 (after the relay exists).
+
+### Settings, privacy and support (FR-SET)
+
+| ID | Requirement | Priority | Phase | Pillars |
+|---|---|---|---|---|
+| FR-SET-001 | Privacy centre showing each cloud tier, its consent state and what it sends; revoke with one tap | Must | V1 | PIL-5 |
+| FR-SET-002 | App lock with Face ID or Touch ID | Should | V1 | PIL-5 |
+| FR-SET-003 | "Report a problem" composing an email with an opt-in diagnostics bundle that contains no document content | Must | MVP | PIL-5 |
+| FR-SET-004 | Opt-in, aggregated usage telemetry: off by default everywhere; sent only after the user opts in ([analytics strategy](analytics-strategy.md)) | Must | V2 | PIL-5 |
+
+**Acceptance (Must):**
+
+- *FR-SET-001.* Given the user opted in to Private Cloud Compute, when they revoke it, then the next
+  long request stays on device and asks again.
+- *FR-SET-003.* Given a diagnostics bundle, when inspected, then it contains logs and device metrics
+  only, with private values redacted, and no document text or file names.
+
+## Non-functional requirements
+
+| ID | Requirement | Priority | Phase |
+|---|---|---|---|
+| NFR-PERF-001 | Meet every budget in [performance budgets](performance-budgets.md) on the reference devices | Must | MVP |
+| NFR-PERF-002 | App download size under the budget in performance budgets | Should | V1 |
+| NFR-REL-001 | Crash-free sessions at least 99.8% in TestFlight before any release | Must | MVP |
+| NFR-REL-002 | No data loss: every save is atomic, and a crash during save leaves the previous version intact | Must | MVP |
+| NFR-PRIV-001 | No document content, personal data or identifiers leave the device without the user's explicit, informed opt-in naming the recipient | Must | MVP |
+| NFR-PRIV-002 | Privacy manifest complete; App Store privacy label matches actual behaviour, verified each release | Must | V1 |
+| NFR-PRIV-003 | No third-party analytics, advertising or crash SDKs ([ADR-0012](adr/0012-on-device-observability.md)) | Must | MVP |
+| NFR-SEC-001 | Documents at rest use Data Protection class Complete Until First User Authentication or stronger; signatures in the Keychain | Must | MVP |
+| NFR-SEC-002 | Malformed and malicious PDFs never crash the app or execute content (fuzz corpus) | Must | MVP |
+| NFR-SEC-003 | Mitigations for every threat in the [threat model](threat-model.md) are traced to tests | Must | V1 |
+| NFR-OFF-001 | Reading, annotation, scanning, OCR, search and on-device intelligence work with no network | Must | MVP |
+| NFR-A11Y-001 | Every screen passes `performAccessibilityAudit()`; full VoiceOver, Voice Control and Dynamic Type support; contrast at least WCAG AA | Must | MVP |
+| NFR-L10N-001 | English and French throughout, using String Catalogs; layouts ready for right-to-left languages | Must | V1 |
+| NFR-AI-001 | AI quality gates in the [AI evaluation framework](ai-evaluation-framework.md) pass before every release and every prompt or model change | Must | MVP |
+| NFR-AI-002 | AI cost stays within the per-tier budgets in [AI governance](ai-governance.md) | Must | V1 |
+| NFR-QUAL-001 | Line coverage at least 80% overall and per first-party target ([testing strategy](testing-strategy.md)) | Must | MVP |
+
+**Acceptance.** Each NFR is verified by the gate named in the [quality gates](process/quality-gates.md)
+or the release checklist in [release management](release-management.md).
+
+## Constraints
+
+- iOS and iPadOS 27 minimum; Swift 6 with complete strict concurrency; Xcode 27
+  ([ADR-0001](adr/0001-platform-floor-and-swift-6.md)).
+- Commercial PDF SDK behind the `PDFEngine` boundary; vendor chosen by a scored spike
+  ([ADR-0007](adr/0007-pdf-sdk-boundary-and-vendor-selection.md), Proposed).
+- On-device model context of 4,096 tokens per session and device eligibility for Apple Intelligence
+  ([Managing the context window](https://developer.apple.com/documentation/foundationmodels/managing-the-context-window)).
+- App Review Guidelines, including 5.1.2(i) consent for third-party AI and 3.1.2 subscriptions.
+- A single maintainer today; scope is sized accordingly and sequenced in the roadmap.
+
+## Release criteria
+
+- **MVP (internal TestFlight):** every Must requirement in phase MVP meets its acceptance criteria;
+  NFR gates pass; no open Critical issue.
+- **V1 (App Store):** every Must in MVP and V1 passes; external TestFlight complete with crash-free
+  sessions at least 99.8% over at least three days; privacy label and manifest verified; release
+  checklist signed ([release management](release-management.md)).
+- **Later phases:** as above for their Musts, plus the platform exit criteria in
+  [platform strategy](platform-strategy.md).
+
+## Open questions
+
+| # | Question | Owner | Resolved by |
+|---|---|---|---|
+| OQ-1 | Which PDF SDK vendor, and does it convert to Office on device? | Architecture | SDK spike (readiness blocker C1) |
+| OQ-2 | Exact free-tier allowance for on-device intelligence | Product | Pricing strategy and research R5 |
+| OQ-3 | Does Private Cloud Compute need its own consent step under Guideline 5.1.2(i)? Apple's text covers third-party AI; treat it as needing consent until Apple says otherwise | Product | App Review guidance; compliance roadmap |
+| OQ-4 | Document identity across renames and iCloud moves | Architecture | Document-identity spike |
+| OQ-5 | Family Sharing for the subscription | Product | Pricing strategy |
+
+## Traceability
+
+| Requirement area | ADRs | Tests (testing strategy) |
+|---|---|---|
+| FR-ONB | ADR-0003, ADR-0004, ADR-0022 | UI tests (onboarding flows, no-paywall assertion) |
+| FR-LIB | ADR-0005, ADR-0006, ADR-0010 | File coordination, Spotlight and deletion tests |
+| FR-READ, FR-ANN | ADR-0007 | Golden corpus, round-trip annotation, performance tests |
+| FR-SCAN | ADR-0008 | OCR accuracy suite, background task tests |
+| FR-AI | ADR-0009, ADR-0020, ADR-0021 | AI evaluation suite, red-team suite, latency tests |
+| FR-EDIT, FR-ORG | ADR-0007 | Edit, redaction, conversion and merge tests |
+| FR-STORE | ADR-0011 | StoreKit configuration tests, paywall UI tests |
+| FR-SET | ADR-0012, ADR-0017 | Diagnostics bundle inspection, consent tests |
+| NFR-* | ADR-0012, ADR-0013, ADR-0014, ADR-0018 | Gates in the quality gates document |

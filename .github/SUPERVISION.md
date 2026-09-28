@@ -7,10 +7,11 @@ agents. Owner: Maintainer. Reviewed: each milestone.
 
 | Decision | Who decides | Record |
 |---|---|---|
-| Product scope, pillars, non-goals | Product | `docs/decision-register.md` |
+| Product scope, pillars, non-goals | Product | [`docs/decision-register.md`](../docs/decision-register.md) |
 | Architecture and technology choices | Architecture | ADR in `docs/adr/` |
 | Releases to TestFlight external and the App Store | Release | release PR into `main`, tag, CHANGELOG |
 | Security exceptions and third-party SDKs | Security | ADR + NOTICE.md entry |
+| Data leaving the device, consent, the App Store privacy label and the privacy manifest | Privacy | [`docs/privacy-architecture.md`](../docs/privacy-architecture.md), consent-text version, `PrivacyInfo.xcprivacy` |
 | Repository settings, rulesets, visibility | Maintainer | org decision log + `.github/rulesets/` |
 
 These are roles ("hats"). Today one maintainer holds all of them; when people join, the roles are

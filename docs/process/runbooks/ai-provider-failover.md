@@ -19,13 +19,13 @@ Owner: AI · Reviewed: each milestone, and after every failover
 ## How the tiers fail over
 
 The tiers, in order of escalation, are the on-device `SystemLanguageModel`, Apple's Private Cloud
-Compute model, and Claude through Anthropic's `ClaudeForFoundationModels` package (decision D2 of the
-planning brief). Every cloud tier is opt-in, with consent that names the provider and the data sent
+Compute model, and Claude through Anthropic's `ClaudeForFoundationModels` package (ADR-0009).
+Every cloud tier is opt-in, with consent that names the provider and the data sent
 ([App Review Guidelines 5.1.2](https://developer.apple.com/app-store/review/guidelines/#5.1.2)).
 When a request routed to a cloud tier fails, it falls back down the ladder:
 
 1. **Claude → Private Cloud Compute**, only if the user has consented to Private Cloud Compute and
-   the task fits its limits (a 32K-token context, decision D2).
+   the task fits its limits (a 32,000-token context, [model selection](../../model-selection.md)).
 2. **→ on-device model**, if it is available on the device and the task fits its limits.
 3. **→ a clear "not available right now" message**, with every non-AI feature still working offline.
 
@@ -65,8 +65,8 @@ real error data during beta; ADR-0021 records the final ones.
 | Spend approaching the limit | Provider console usage page | Plan a limit change or a switch-off before the cap is hit |
 | Evaluation regression, user reports of wrong or unsafe answers | AI evaluation suite (ADR-0020), support email, TestFlight feedback | Quality or safety problem; treat as an incident |
 
-Device-side error counts are recorded with `OSLog` and signposts, never with document content (decision
-D8). Aggregated first-party counters arrive only with `pdf-algo-pro-backend` (decision D9).
+Device-side error counts are recorded with `OSLog` and signposts, never with document content
+(ADR-0012). Aggregated first-party counters arrive only with `pdf-algo-pro-backend` (ADR-0017).
 
 ## Before you start
 
@@ -81,35 +81,55 @@ D8). Aggregated first-party counters arrive only with `pdf-algo-pro-backend` (de
 2. **Let the breaker work.** For transient rate limiting or overload, the circuit breaker and fallback
    need no action; watch for 30 minutes (Assumption: long enough to see whether a transient event
    clears) and record what happened.
-3. **Disable the tier** with the [kill switch](kill-switch.md) (`ai.provider.claude` or the Private
-   Cloud Compute key) when the problem is not transient: a confirmed outage, a spend cap, a quality or
-   safety regression, or a terms problem. Add a user notice if many users are affected.
+3. **Disable the tier** with the [kill switch](kill-switch.md) (`ai.provider.claude` or
+   `ai.provider.pcc`) when the problem is not transient: a confirmed outage, a spend cap, a quality or
+   safety regression, or a terms problem. The record's `reasonCode` chooses the notice users see.
 4. **Spend cap or limit reached.** Disable the Claude tier first, so users see a clean "not available"
    message rather than repeated failures. The Claude tier in beta authenticates with App Attest, whose
-   tokens carry no user identity, so there is no per-user quota yet (decision D2); a spend event means
+   tokens carry no user identity, so there is no per-user quota yet (ADR-0009); a spend event means
    aggregate demand, and the fix is a limit decision by the owner of the budget, taken privately. Fair-use
    credits per user need the `.proxied` relay required before general availability.
-5. **Quality or safety regression.** Disable the tier, run the evaluation suite against the last known
-   good configuration, and roll back the prompt version (prompts are versioned and eval-gated,
+5. **Quality or safety regression.** Disable the tier, or set the prompt's `ai.prompt.<id>` record to
+   `fallback` so the previous bundled version is used. Run the evaluation suite against the last known
+   good configuration, and ship the fixed prompt version (prompts are versioned and eval-gated,
    ADR-0020) through a normal pull request and release.
 6. **Communicate** as the incident severity requires.
 
 ## User-facing messages
 
-Principles: say what the user can do now; name the provider when it matters for consent; never mention
-spend, quotas or internal causes; never imply the user did something wrong. Strings live in the String
-Catalog in EN and FR; these are the EN source texts (proposed):
+This is the one set of AI notice strings; [AI governance](../../ai-governance.md#user-messaging)
+links here rather than keeping its own. Principles: say what the user can do now; name the provider
+when it matters for consent; never mention spend or internal causes; the only allowance a notice
+names is the user's own (the credits notice); never imply the user did something wrong. Messages are
+short, inline and non-blocking
+([Human Interface Guidelines: Generative AI](https://developer.apple.com/design/human-interface-guidelines/generative-ai)).
+Strings live in the String Catalog in EN and FR; a switched-off tier's notice is the string chosen by
+its kill-switch record's `reasonCode` ([kill switch](kill-switch.md#record-schema)). These are the EN
+source texts (proposed):
 
-- Fallback succeeded: "Claude isn't available right now, so this answer was prepared on your iPhone.
-  It may be shorter."
+- Fallback to the device: "Claude isn't available right now, so this answer was prepared on your
+  iPhone. It may be shorter."
 - Fallback to Private Cloud Compute: "Claude isn't available right now, so this answer used Apple
   Private Cloud Compute, as you allowed in Settings."
+- Reduced scope: "Answered on device from the <n> most relevant pages. For the whole document, try
+  again when online."
 - No tier can serve the request: "This needs Claude, which isn't available right now. Try again later.
   Everything else in PDF Algo Pro works as usual."
 - Tier switched off for a while: "Claude is temporarily unavailable in PDF Algo Pro. Summaries and
   answers on your iPhone still work."
 - On-device model unavailable: "On-device intelligence isn't available on this iPhone or in this
-  region. You can turn on a cloud option in Settings, or keep using every other tool."
+  region. Every other tool in PDF Algo Pro works as usual." A cloud option is offered only when one
+  can apply: from V2, a Pro user also sees "You can turn on Claude in Settings." Private Cloud Compute
+  is never offered here, because it also needs an eligible device
+  ([model selection](../../model-selection.md)).
+- Private Cloud Compute daily limit: no app string. The app shows Apple's quota states (approaching,
+  reached) and the system's upgrade suggestion
+  ([PrivateCloudComputeLanguageModel.QuotaUsage](https://developer.apple.com/documentation/foundationmodels/privatecloudcomputelanguagemodel/quotausage-swift.struct)).
+- Credits used (V2, Claude tier): "You've used this period's cloud AI allowance. On-device answers
+  are still available; your allowance renews on <date>." One upgrade suggestion, easy to dismiss,
+  never repeated in the same session (founder principle 5).
+- Refusal or guardrail: the model's refusal, or "This feature can't help with that content." with a
+  suggestion.
 
 ## Verify
 
@@ -123,7 +143,8 @@ Catalog in EN and FR; these are the EN source texts (proposed):
 Restoring the provider is the roll back:
 
 1. Confirm on the status page, or with a probe from a Staging build, that the provider is healthy.
-2. Turn the kill switch back on and remove the notice.
+2. Set the switch's `state` back to `enabled`, development environment first and then production
+   ([kill switch](kill-switch.md#roll-back)); the notice goes with it.
 3. Watch error rates for an hour after restoring; if they rise, switch it off again.
 4. For a quality rollback, the fixed prompt version reaches users through a release; the kill switch
    stays off until then.

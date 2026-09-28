@@ -85,4 +85,4 @@ Owner: Release · Reviewed: after each hotfix
 
 - The incident issue gets the timeline, the pull request, the version and the release time.
 - A postmortem follows for SEV1 and SEV2 ([incident response](incident-response.md#postmortem)).
-- `docs/working-memory.md` records the new production version.
+- [`docs/working-memory.md`](../../working-memory.md) records the new production version.

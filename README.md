@@ -6,10 +6,10 @@ extraction) runs on the device first. Built by Algorythmos.
 
 |                 |                                                                                                                  |
 | --------------- | ---------------------------------------------------------------------------------------------------------------- |
-| **Status**      | Planning · foundation phase · no app code yet; implementation starts when the readiness gate (`docs/readiness-review.md`) clears |
+| **Status**      | Planning · foundation phase · no app code yet; implementation starts when the readiness gate ([`docs/readiness-review.md`](docs/readiness-review.md)) clears |
 | **Owner**       | [@Algorythmos-AI/maintainers](https://github.com/orgs/Algorythmos-AI/teams/maintainers)                          |
 | **Runs at**     | iPhone and iPad (iOS/iPadOS 27+) via TestFlight and the App Store once released. No deployed service.            |
-| **Run locally** | Nothing to run yet. The planning package starts at `docs/README.md`.                                              |
+| **Run locally** | Nothing to run yet. The planning package starts at [`docs/README.md`](docs/README.md).                                              |
 | **Context**     | [Algorythmos-AI](https://github.com/Algorythmos-AI) · [Governance](docs/github-governance.md) · [Agent rules](AGENTS.md) · [Licence](LICENSE) |
 
 ---

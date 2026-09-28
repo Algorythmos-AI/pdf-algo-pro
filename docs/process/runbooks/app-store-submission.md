@@ -118,6 +118,6 @@ with the next patch version, never by moving a tag.
 
 - The release pull request holds the checklist, the evidence and the merge.
 - The GitHub Release and the `vX.Y.Z` tag are created by the workflow.
-- Update `docs/working-memory.md` with the shipped version and anything deferred.
-- Any exception to a gate is recorded in the decision register (`docs/decision-register.md`) with the
+- Update [`docs/working-memory.md`](../../working-memory.md) with the shipped version and anything deferred.
+- Any exception to a gate is recorded in the decision register ([`docs/decision-register.md`](../../decision-register.md)) with the
   hat that approved it.

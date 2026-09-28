@@ -27,6 +27,7 @@ Owner: Maintainer · Reviewed: each milestone, and whenever a ruleset, template 
 | Architecture | Architecture and technology choices (ADRs) | `ios-platform` |
 | Release | Release trains, release pull requests, TestFlight and App Store submission | `release` |
 | Security | Security exceptions, third-party SDKs, vulnerability handling | `security` |
+| Privacy | Data leaving the device, consent, the App Store privacy label and the privacy manifest | — |
 | Quality | Quality gates and thresholds, test strategy | `qa` |
 | Design | Design system, UX flows, accessibility sign-off | `design` |
 | AI | AI tiers, providers, prompts and evaluations | `ai` |
@@ -121,8 +122,8 @@ to `.github/rulesets/` plus `CODEOWNERS`, applied with the script above.
 |---|---|---|---|---|
 | Solo (today) | One maintainer | 0 | 0 | None; the maintainer merges after the checks pass |
 | Two or more maintainers | A second person with write access | 1, code-owner review on | 1, code-owner review on | — |
-| Security owner assigned | The Security hat is held by someone who is not the author | — | — | Security approval for `Intelligence`, `Commerce` and entitlements, through `CODEOWNERS` |
-| Release manager assigned | The Release hat is held separately | — | Release manager approval on every pull request into `main` | The Release hat also becomes a required reviewer of the `release` environment ([Managing environments](https://docs.github.com/en/actions/managing-workflow-runs-and-deployments/managing-deployments/managing-environments-for-deployment)) |
+| Security hat assigned | The Security hat is held by someone who is not the author | — | — | Security approval for `Intelligence`, `Commerce` and entitlements, through `CODEOWNERS` |
+| Release hat assigned | The Release hat is held separately | — | Release hat approval on every pull request into `main` | The Release hat also becomes a required reviewer of the `release` environment ([Managing environments](https://docs.github.com/en/actions/managing-workflow-runs-and-deployments/managing-deployments/managing-environments-for-deployment)) |
 
 An author never approves their own pull request; stale approvals are dismissed on new pushes (already on).
 
@@ -167,7 +168,7 @@ uv run --with pyyaml==6.0.2 python scripts/gh/sync_github.py labels --apply
 
 ## Milestones
 
-Milestones map to roadmap phases (`docs/product/roadmap.md`) and are defined in
+Milestones map to roadmap phases ([`docs/product/roadmap.md`](product/roadmap.md)) and are defined in
 [`milestones.yml`](../.github/milestones.yml): **Foundation**, **MVP**, **V1**, **V1.1**, **V2**.
 Apply them with `sync_github.py milestones` (dry run first, then `--apply`). Every issue that is
 `status:ready` has a milestone. What each phase contains is described in
@@ -222,7 +223,7 @@ takes every `status:triage` item through these steps:
 1. Check the template is complete; ask the reporter for what is missing.
 2. Move anything containing a vulnerability, personal data or document content out of public view: edit
    it out and move the report to a private security advisory.
-3. Close duplicates and non-goals (`docs/non-goals.md`) with a short reason.
+3. Close duplicates and non-goals ([`docs/non-goals.md`](non-goals.md)) with a short reason.
 4. Add platform and area labels, a priority, a size (split `size:xl` into an epic), a milestone and the
    Pillar field.
 5. Replace `status:triage` with `status:ready`, or `blocked` / `status:blocked-external` with the reason.

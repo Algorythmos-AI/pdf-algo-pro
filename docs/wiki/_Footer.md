@@ -1,0 +1,1 @@
+Mirrored from `docs/` in [Algorythmos-AI/pdf-algo-pro](https://github.com/Algorythmos-AI/pdf-algo-pro). Edits made in the Wiki tab are overwritten on the next publish. Built by [Algorythmos](https://algorythmos.com).
