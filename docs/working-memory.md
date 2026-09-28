@@ -21,7 +21,7 @@ app is being built under the owner's exception (PAP-028), on an interim iOS 26 t
 |---|---|---|
 | Foundation pull request [#1](https://github.com/Algorythmos-AI/pdf-algo-pro/pull/1) (repository, governance, CI) | Open; CI green except CodeQL upload | Owner switches CodeQL to advanced setup; merge |
 | Planning package pull request [#2](https://github.com/Algorythmos-AI/pdf-algo-pro/pull/2) (this documentation) | Open, stacked on #1 | Rebase onto `integration` after the foundation merges |
-| Foundation app pull request [#3](https://github.com/Algorythmos-AI/pdf-algo-pro/pull/3) (native iOS app, PAP-028) | Open, stacked on #2; first run of the `ios` job | Owner review; merge after #2 |
+| Foundation app pull request [#39](https://github.com/Algorythmos-AI/pdf-algo-pro/pull/39) (native iOS app, PAP-028) | Open, stacked on #2; first run of the `ios` job | Owner review; merge after #2 |
 | Organisation catalog entry | Catalog entry pending owner review | Owner review and merge |
 | Backlog issues | 36 issues synced from `docs/planning/backlog.yaml`, on the project board | Owner creates the project views and built-in workflows in the web interface |
 | Rulesets (readiness M9) | Defined as code in `.github/rulesets`; not yet applied | Apply the `integration`, `main` and tag rulesets with the checks that reported, before the second pull request merges |
