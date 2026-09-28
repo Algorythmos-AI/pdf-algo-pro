@@ -20,6 +20,7 @@ let package = Package(
     .target(
       name: "DesignSystem",
       dependencies: [.product(name: "Core", package: "Core")],
+      resources: [.process("Resources")],
       swiftSettings: settings
     ),
     .testTarget(

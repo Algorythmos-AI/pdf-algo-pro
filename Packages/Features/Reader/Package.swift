@@ -22,6 +22,7 @@ let package = Package(
     .target(
       name: "ReaderFeature",
       dependencies: [.product(name: "Core", package: "Core"), .product(name: "DesignSystem", package: "DesignSystem"), .product(name: "PDFEngine", package: "PDFEngine")],
+      resources: [.process("Resources")],
       swiftSettings: settings
     ),
     .testTarget(
