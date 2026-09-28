@@ -36,6 +36,7 @@ final class AppModel {
     library = LibraryModel(
       library: container.library, intake: container.intake, index: container.index, settings: container.settings,
       telemetry: container.telemetry, thumbnails: container.thumbnails)
+    IntentRouter.shared.attach(library: container.library) { [weak self] route in self?.navigate(to: route) }
     if container.environment.seedsSample {
       Task { await library.addSample() }
     }

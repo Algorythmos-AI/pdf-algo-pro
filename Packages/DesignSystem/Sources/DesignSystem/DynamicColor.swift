@@ -46,7 +46,7 @@ nonisolated public enum DynamicColor {
     case darkHighContrast
 
     /// The trait collection for this appearance.
-    public var traits: UITraitCollection {
+    @MainActor public var traits: UITraitCollection {
       UITraitCollection { traits in
         traits.userInterfaceStyle = self == .dark || self == .darkHighContrast ? .dark : .light
         traits.accessibilityContrast = self == .lightHighContrast || self == .darkHighContrast ? .high : .normal
