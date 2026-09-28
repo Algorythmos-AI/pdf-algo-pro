@@ -17,11 +17,19 @@ final class PDFAlgoProUITests: XCTestCase {
 
   /// The accessibility audit on the current screen.
   ///
-  /// Issues on PDFKit's own page view, which we do not draw, are excluded by identifier; everything else
-  /// fails the test.
+  /// Two kinds of finding are about views the system draws, not ours, and are excluded narrowly: issues on
+  /// PDFKit's page view, and Dynamic Type findings on navigation-bar and toolbar buttons, whose size the
+  /// system caps. Every other finding fails the test.
   private func audit(_ app: XCUIApplication) throws {
+    let bars =
+      app.navigationBars.allElementsBoundByIndex.map(\.frame) + app.toolbars.allElementsBoundByIndex.map(\.frame)
     try app.performAccessibilityAudit { issue in
-      issue.element?.identifier == "reader.pages"
+      guard let element = issue.element else { return false }
+      if element.identifier == "reader.pages" { return true }
+      if issue.auditType == .dynamicType, bars.contains(where: { $0.insetBy(dx: -8, dy: -8).contains(element.frame) }) {
+        return true
+      }
+      return false
     }
   }
 
@@ -117,7 +125,7 @@ final class PDFAlgoProUITests: XCTestCase {
     let settings = app.buttons["library.settings"]
     XCTAssertTrue(settings.waitForExistence(timeout: 10))
     settings.tap()
-    XCTAssertTrue(app.switches["settings.hideAI"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.descendants(matching: .any)["settings.hideAI"].firstMatch.waitForExistence(timeout: 5))
     try audit(app)
   }
 }

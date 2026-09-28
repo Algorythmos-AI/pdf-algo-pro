@@ -360,13 +360,13 @@ public struct LibraryView<Detail: View>: View {
       if model.section == .all {
         // The onboarding choice decides which action is prominent (FR-ONB-003).
         if model.primaryAction == .scanDocument {
-          Button(action: onScan) { Text("Scan a document", bundle: .module) }
+          Button(action: onScan) { Text("Scan a document", bundle: .module).minimumTarget() }
             .buttonStyle(.primary)
             .accessibilityIdentifier("library.empty.primary.scan")
           Button {
             isPickingFiles = true
           } label: {
-            Text("Import a PDF", bundle: .module)
+            Text("Import a PDF", bundle: .module).minimumTarget()
           }
           .accessibilityIdentifier("library.empty.import")
         } else {
@@ -377,12 +377,12 @@ public struct LibraryView<Detail: View>: View {
           }
           .buttonStyle(.primary)
           .accessibilityIdentifier("library.empty.primary.import")
-          Button(action: onScan) { Text("Scan a document", bundle: .module) }
+          Button(action: onScan) { Text("Scan a document", bundle: .module).minimumTarget() }
         }
         Button {
           Task { await model.addSample() }
         } label: {
-          Text("Try a sample", bundle: .module)
+          Text("Try a sample", bundle: .module).minimumTarget()
         }
         .accessibilityIdentifier("library.empty.sample")
       }

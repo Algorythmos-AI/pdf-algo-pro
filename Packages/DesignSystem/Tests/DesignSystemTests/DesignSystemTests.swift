@@ -94,6 +94,7 @@ struct ComponentTests {
         IntentCard(symbol: "doc", title: Text(verbatim: "Title"), detail: Text(verbatim: "Detail"), isSelected: true)),
       AnyView(Button("Go") {}.buttonStyle(.primary)), AnyView(Text(verbatim: "Card").cardStyle().readableWidth()),
       AnyView(Text(verbatim: "Moving").motion(value: 1)),
+      AnyView(Text(verbatim: "Tap").minimumTarget()),
     ]
     for view in views {
       let renderer = ImageRenderer(content: view.frame(width: 390).environment(\.dynamicTypeSize, .accessibility5))

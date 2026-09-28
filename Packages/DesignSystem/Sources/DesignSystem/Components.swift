@@ -44,6 +44,11 @@ extension View {
     modifier(CardModifier())
   }
 
+  /// Gives a control at least the 44-point target the HIG asks for (design system, accessibility).
+  public func minimumTarget() -> some View {
+    frame(minWidth: Sizes.targetMinimum, minHeight: Sizes.targetMinimum).contentShape(Rectangle())
+  }
+
   /// Limits text to a comfortable reading width and centres it on wide windows.
   public func readableWidth() -> some View {
     frame(maxWidth: Sizes.readableWidth).frame(maxWidth: .infinity)

@@ -38,7 +38,7 @@ public struct ScanView: View {
             Button {
               model.reset()
             } label: {
-              Text("Try again", bundle: .module)
+              Text("Try again", bundle: .module).minimumTarget()
             }
           }
         }
@@ -100,7 +100,7 @@ public struct ScanView: View {
       Button {
         isChoosingImages = true
       } label: {
-        Text("Choose images", bundle: .module)
+        Text("Choose images", bundle: .module).minimumTarget()
       }
       .accessibilityIdentifier("scan.images")
     }
@@ -113,7 +113,7 @@ public struct ScanView: View {
       Button {
         model.cancel()
       } label: {
-        Text("Stop", bundle: .module)
+        Text("Stop", bundle: .module).minimumTarget()
       }
     }
     .readableWidth()

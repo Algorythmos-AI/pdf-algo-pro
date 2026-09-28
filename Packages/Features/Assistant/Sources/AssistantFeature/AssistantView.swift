@@ -128,7 +128,7 @@ public struct AssistantView: View {
         Button {
           Task { await model.start() }
         } label: {
-          Text("Try again", bundle: .module)
+          Text("Try again", bundle: .module).minimumTarget()
         }
       }
     }
@@ -141,7 +141,10 @@ public struct AssistantView: View {
       }
       TierBadge(tier: answer.tier)
       if answer.isGrounded {
-        Text(answer.text).font(.body).textSelection(.enabled).accessibilityIdentifier("assistant.answer")
+        Text(answer.text).font(.body).textSelection(.enabled).frame(
+          minHeight: Sizes.targetMinimum, alignment: .topLeading
+        )
+        .accessibilityIdentifier("assistant.answer")
         ScrollView(.horizontal, showsIndicators: false) {
           HStack(spacing: Spacing.s100) {
             ForEach(answer.citations) { citation in
@@ -156,7 +159,7 @@ public struct AssistantView: View {
           Task { await model.recordKept() }
         } label: {
           Label {
-            Text("Copy", bundle: .module)
+            Text("Copy", bundle: .module).minimumTarget()
           } icon: {
             Image(systemName: "doc.on.doc")
           }
@@ -212,7 +215,7 @@ public struct AssistantView: View {
         Task { await model.recordKept() }
       } label: {
         Label {
-          Text("Copy as CSV", bundle: .module)
+          Text("Copy as CSV", bundle: .module).minimumTarget()
         } icon: {
           Image(systemName: "tablecells")
         }
