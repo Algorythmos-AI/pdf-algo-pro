@@ -31,7 +31,7 @@ let package = Package(
     ),
     .testTarget(
       name: "ScanFeatureTests",
-      dependencies: ["ScanFeature", .product(name: "CoreTestSupport", package: "Core")],
+      dependencies: ["ScanFeature", .product(name: "CoreTestSupport", package: "Core"), .product(name: "Core", package: "Core"), .product(name: "PDFEngine", package: "PDFEngine")],
       swiftSettings: settings
     ),
   ]

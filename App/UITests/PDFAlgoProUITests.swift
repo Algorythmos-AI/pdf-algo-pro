@@ -5,12 +5,10 @@ import XCTest
 /// Every run starts from a fresh, private state (temporary folders, throwaway settings and the scripted
 /// intelligence router, via the Debug-only launch arguments in docs/testing-strategy.md), and every
 /// top-level screen passes an accessibility audit (NFR-A11Y-001).
+@MainActor
 final class PDFAlgoProUITests: XCTestCase {
-  override func setUp() {
-    continueAfterFailure = false
-  }
-
   private func launch(_ arguments: [String]) -> XCUIApplication {
+    continueAfterFailure = false
     let app = XCUIApplication()
     app.launchArguments = ["-ui-testing", "-disable-animations"] + arguments
     app.launch()

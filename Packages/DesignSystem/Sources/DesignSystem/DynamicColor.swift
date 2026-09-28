@@ -2,7 +2,7 @@ import SwiftUI
 import UIKit
 
 /// An sRGB colour value from the token file.
-public struct RGB: Hashable, Sendable {
+nonisolated public struct RGB: Hashable, Sendable {
   /// Red, 0 to 1.
   public let red: Double
   /// Green, 0 to 1.
@@ -33,7 +33,7 @@ public struct RGB: Hashable, Sendable {
 }
 
 /// Builds colours that resolve per appearance: light, dark, and each with Increase Contrast.
-public enum DynamicColor {
+nonisolated public enum DynamicColor {
   /// The appearance a colour resolves in.
   public enum Appearance: CaseIterable, Sendable {
     /// Light mode.
@@ -91,7 +91,7 @@ public enum DynamicColor {
 }
 
 /// The system colours semantic tokens resolve to; the HIG asks apps to keep their meaning.
-public enum SystemColorName: String, CaseIterable, Sendable {
+nonisolated public enum SystemColorName: String, CaseIterable, Sendable {
   /// `systemBackground`.
   case systemBackground
   /// `secondarySystemBackground`.

@@ -25,7 +25,7 @@ let package = Package(
     ),
     .testTarget(
       name: "DesignSystemTests",
-      dependencies: ["DesignSystem", .product(name: "CoreTestSupport", package: "Core")],
+      dependencies: ["DesignSystem", .product(name: "CoreTestSupport", package: "Core"), .product(name: "Core", package: "Core")],
       swiftSettings: settings
     ),
   ]

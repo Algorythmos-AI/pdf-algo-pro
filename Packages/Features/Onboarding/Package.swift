@@ -26,7 +26,7 @@ let package = Package(
     ),
     .testTarget(
       name: "OnboardingFeatureTests",
-      dependencies: ["OnboardingFeature", .product(name: "CoreTestSupport", package: "Core")],
+      dependencies: ["OnboardingFeature", .product(name: "CoreTestSupport", package: "Core"), .product(name: "Core", package: "Core")],
       swiftSettings: settings
     ),
   ]
