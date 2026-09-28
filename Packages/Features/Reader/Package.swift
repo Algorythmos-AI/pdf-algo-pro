@@ -30,7 +30,10 @@ let package = Package(
     ),
     .testTarget(
       name: "ReaderFeatureTests",
-      dependencies: ["ReaderFeature", .product(name: "CoreTestSupport", package: "Core"), .product(name: "Core", package: "Core"), .product(name: "PDFEngine", package: "PDFEngine")],
+      dependencies: [
+        "ReaderFeature", .product(name: "CoreTestSupport", package: "Core"), .product(name: "Core", package: "Core"),
+        .product(name: "PDFEngine", package: "PDFEngine"),
+      ],
       swiftSettings: settings
     ),
   ]

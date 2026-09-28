@@ -23,7 +23,9 @@ let package = Package(
     ),
     .testTarget(
       name: "PDFEngineTests",
-      dependencies: ["PDFEngine", .product(name: "CoreTestSupport", package: "Core"), .product(name: "Core", package: "Core")],
+      dependencies: [
+        "PDFEngine", .product(name: "CoreTestSupport", package: "Core"), .product(name: "Core", package: "Core"),
+      ],
       swiftSettings: settings
     ),
   ]

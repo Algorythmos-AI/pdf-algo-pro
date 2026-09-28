@@ -23,7 +23,9 @@ let package = Package(
     ),
     .testTarget(
       name: "IntelligenceTests",
-      dependencies: ["Intelligence", .product(name: "CoreTestSupport", package: "Core"), .product(name: "Core", package: "Core")],
+      dependencies: [
+        "Intelligence", .product(name: "CoreTestSupport", package: "Core"), .product(name: "Core", package: "Core"),
+      ],
       swiftSettings: settings
     ),
   ]

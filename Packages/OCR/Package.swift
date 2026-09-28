@@ -23,7 +23,9 @@ let package = Package(
     ),
     .testTarget(
       name: "OCRTests",
-      dependencies: ["OCR", .product(name: "CoreTestSupport", package: "Core"), .product(name: "Core", package: "Core")],
+      dependencies: [
+        "OCR", .product(name: "CoreTestSupport", package: "Core"), .product(name: "Core", package: "Core"),
+      ],
       swiftSettings: settings
     ),
   ]

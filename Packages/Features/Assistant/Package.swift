@@ -26,7 +26,9 @@ let package = Package(
     ),
     .testTarget(
       name: "AssistantFeatureTests",
-      dependencies: ["AssistantFeature", .product(name: "CoreTestSupport", package: "Core"), .product(name: "Core", package: "Core")],
+      dependencies: [
+        "AssistantFeature", .product(name: "CoreTestSupport", package: "Core"), .product(name: "Core", package: "Core"),
+      ],
       swiftSettings: settings
     ),
   ]

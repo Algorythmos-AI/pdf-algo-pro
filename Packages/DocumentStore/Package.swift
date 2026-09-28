@@ -23,7 +23,9 @@ let package = Package(
     ),
     .testTarget(
       name: "DocumentStoreTests",
-      dependencies: ["DocumentStore", .product(name: "CoreTestSupport", package: "Core"), .product(name: "Core", package: "Core")],
+      dependencies: [
+        "DocumentStore", .product(name: "CoreTestSupport", package: "Core"), .product(name: "Core", package: "Core"),
+      ],
       swiftSettings: settings
     ),
   ]

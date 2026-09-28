@@ -23,7 +23,9 @@ let package = Package(
     ),
     .testTarget(
       name: "SearchTests",
-      dependencies: ["Search", .product(name: "CoreTestSupport", package: "Core"), .product(name: "Core", package: "Core")],
+      dependencies: [
+        "Search", .product(name: "CoreTestSupport", package: "Core"), .product(name: "Core", package: "Core"),
+      ],
       swiftSettings: settings
     ),
   ]
