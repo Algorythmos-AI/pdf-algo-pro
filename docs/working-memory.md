@@ -19,9 +19,10 @@ exists.
 
 | Item | State | Next step |
 |---|---|---|
-| Foundation pull request (repository, governance, CI) | Open; CI green except CodeQL upload | Owner switches CodeQL to advanced setup; merge |
-| Planning package pull request (this documentation) | Open, stacked on the foundation pull request | Rebase onto `integration` after the foundation merges |
+| Foundation pull request [#1](https://github.com/Algorythmos-AI/pdf-algo-pro/pull/1) (repository, governance, CI) | Open; CI green except CodeQL upload | Owner switches CodeQL to advanced setup; merge |
+| Planning package pull request [#2](https://github.com/Algorythmos-AI/pdf-algo-pro/pull/2) (this documentation) | Open, stacked on #1 | Rebase onto `integration` after the foundation merges |
 | Organisation catalog entry | Catalog entry pending owner review | Owner review and merge |
+| Backlog issues | 36 issues synced from `docs/planning/backlog.yaml`, on the project board | Owner creates the project views and built-in workflows in the web interface |
 | Rulesets (readiness M9) | Defined as code in `.github/rulesets`; not yet applied | Apply the `integration`, `main` and tag rulesets with the checks that reported, before the second pull request merges |
 
 ## Top risks
