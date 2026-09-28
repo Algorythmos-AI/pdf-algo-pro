@@ -191,7 +191,7 @@ struct LibraryIndexTests {
     let url = FileManager.default.temporaryDirectory.appendingPathComponent("index-\(UUID())/library.store")
     let document = Document(title: "Persisted", fileName: "p.pdf", addedAt: .now, tags: ["a"])
     let first = LibraryIndex(storeURL: url)
-    #expect(await first.level == .onDisk)
+    #expect(first.level == .onDisk)
     try await first.upsert(document)
     let reopened = LibraryIndex(storeURL: url)
     #expect(try await reopened.document(document.id) == document)
@@ -207,7 +207,7 @@ struct LibraryIndexTests {
     let url = folder.appendingPathComponent("library.store")
     try Data("this is not a database".utf8).write(to: url)
     let index = LibraryIndex(storeURL: url)
-    #expect(await index.level == .recreated)
+    #expect(index.level == .recreated)
     let document = Document(title: "After", fileName: "a.pdf", addedAt: .now)
     try await index.upsert(document)
     #expect(try await index.all() == [document])
@@ -215,7 +215,7 @@ struct LibraryIndexTests {
 
   @Test func withoutAURLTheIndexLivesInMemory() async throws {
     let index = LibraryIndex(storeURL: nil)
-    #expect(await index.level == .inMemory)
+    #expect(index.level == .inMemory)
     let document = Document(title: "Memory", fileName: "m.pdf", addedAt: .now)
     try await index.upsert(document)
     var changed = document
