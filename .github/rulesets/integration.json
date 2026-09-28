@@ -51,9 +51,6 @@
             "context": "dependency-review"
           },
           {
-            "context": "codeql (actions)"
-          },
-          {
             "context": "ios"
           }
         ]

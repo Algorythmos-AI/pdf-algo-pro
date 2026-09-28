@@ -30,14 +30,21 @@ Owner: Quality · Reviewed: each milestone, and with any change to a workflow, r
 | `invariants` | `ci.yml` → `invariants` | [`scripts/ci/invariants.py`](../../scripts/ci/invariants.py) | Pull requests, pushes | Yes | Yes | PDFs only under `Tests/Fixtures/Synthetic/`; Swift rules listed below | PDF rule active; Swift rules dormant |
 | `changes` | `ci.yml` → `changes` | `git diff` | Pull requests, pushes | No | No | Decides whether `ios` runs | Active |
 | `ios` | `ci.yml` → `ios` | Xcode 27, XcodeGen 2.46.0 (checksum-verified), `swift-format`, `xcodebuild`, `.xctestplan`, [`coverage_gate.py`](../../scripts/ci/coverage_gate.py) | When `changes` reports Swift or project input changes | Yes | Yes | Lockfile unchanged; format clean (strict); build with warnings as errors; unit, UI, accessibility-audit and snapshot tests pass; line coverage at least 80% overall and per first-party target (ADR-0014) | Dormant: reports *skipped* |
-| `codeql (actions)` | `codeql.yml` → `actions` | CodeQL, `security-extended` queries | Pull requests, pushes, weekly | Yes | Yes | Analysis completes; findings appear as code-scanning alerts | Active |
+| `codeql (actions)` | `codeql.yml` → `actions` | CodeQL, `security-extended` queries | Pull requests, pushes, weekly | Not yet | Not yet | Analysis completes; findings appear as code-scanning alerts | Runs, but its upload is rejected while CodeQL default setup is enabled on the repository; becomes required when the repository switches to advanced setup |
 | `codeql (swift)` | `codeql.yml` → `swift` | CodeQL, `security-extended`, manual build | When `project.yml` and Swift files exist | No | No | Analysis completes; findings appear as code-scanning alerts | Dormant |
 | `dependency-review` | `dependency-review.yml` → `dependency-review` | [Dependency review](https://docs.github.com/en/code-security/supply-chain-security/understanding-your-software-supply-chain/about-dependency-review) | Pull requests | Yes | Yes | No newly added dependency with a known vulnerability of high or critical severity (`fail-on-severity: high`) | Active |
 
 The rulesets add three non-check rules on both branches: changes arrive only by pull request,
 review conversations must be resolved before merging, and force pushes and deletion are blocked. On
-`main`, the pull request must also be up to date with the base branch. Approvals are zero while there
-is one maintainer ([GitHub governance](../github-governance.md#pull-request-approvals)).
+`main`, checks must pass on the release pull request's head, but the head need not be up to date with
+`main` ([keeping `integration` level with `main`](branching.md#keeping-integration-level-with-main)).
+Approvals are zero while there is one maintainer
+([GitHub governance](../github-governance.md#pull-request-approvals)).
+
+The rulesets in `.github/rulesets/` are the intended configuration. They are applied (by the
+maintainer, because rulesets need human approval) after the pull request that introduces them has
+merged and every listed check has reported at least once; until then, the table above describes
+what the checks do, not what GitHub enforces.
 
 ### The `invariants` rules
 
