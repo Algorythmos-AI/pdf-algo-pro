@@ -30,7 +30,7 @@ def test_modules_come_from_paths_and_exclusions_apply():
     assert coverage_gate.module_of(f"{ROOT}/App/PDFAlgoPro/AppModel.swift") == "App"
     for excluded in [
         "Packages/Core/Tests/CoreTests/CoreTests.swift", "Packages/Core/Sources/CoreTestSupport/Fakes.swift",
-        "Packages/DesignSystem/Sources/DesignSystem/Generated/Tokens.swift", "App/UITests/PDFAlgoProUITests.swift",
+        "Packages/DesignSystem/Sources/DesignSystem/Generated/Tokens.swift", "App/UITests/UITestCase.swift",
         "Packages/Features/Library/Sources/LibraryFeature/LibraryView+Previews.swift",
     ]:
         assert coverage_gate.module_of(f"{ROOT}/{excluded}") is None
