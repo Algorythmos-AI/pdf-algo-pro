@@ -58,6 +58,8 @@ public final class ScanModel {
             if case .recognizing = self.phase { self.phase = .recognizing(progress) }
           }
         }
+        // Cancelled during the last page: the builder has finished, but nothing is saved.
+        try Task.checkCancellation()
         let document = try await intake.add(data: result.data, title: defaultTitle)
         phase = .finished(document)
         await telemetry.record("task.core.completed")
