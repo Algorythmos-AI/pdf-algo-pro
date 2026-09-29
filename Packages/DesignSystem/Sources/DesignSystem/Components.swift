@@ -53,6 +53,20 @@ extension View {
   public func readableWidth() -> some View {
     frame(maxWidth: Sizes.readableWidth).frame(maxWidth: .infinity)
   }
+
+  /// Centres the view in the space it is given, and scrolls it when it does not fit, for example at
+  /// large Dynamic Type sizes, so no text is ever clipped.
+  ///
+  /// Use it for the whole content of a screen or sheet, never inside another vertical scroll view:
+  /// there it is given no height and collapses.
+  public func centeredScrolling() -> some View {
+    GeometryReader { proxy in
+      ScrollView {
+        frame(maxWidth: .infinity).frame(minHeight: proxy.size.height)
+      }
+      .scrollBounceBehavior(.basedOnSize)
+    }
+  }
 }
 
 /// The badge naming the tier that produced an answer; always shown (design system, AI answer cards).
@@ -230,7 +244,8 @@ private struct MotionModifier<Value: Equatable>: ViewModifier {
 /// Use it instead of `ContentUnavailableView`, which draws its description in `secondaryLabel`
 /// (3.3:1 on grouped backgrounds) and cannot scroll, so long text is clipped at large Dynamic Type
 /// sizes. This view keeps the same layout, scrolls when the content does not fit, and uses
-/// `labelSecondary` for the description (accessibility, NFR-A11Y-001).
+/// `labelSecondary` for the description (accessibility, NFR-A11Y-001). Like `centeredScrolling()`,
+/// it fills a screen or sheet and must not be placed inside another vertical scroll view.
 public struct EmptyState<Description: View, Actions: View>: View {
   private let title: Text
   private let systemImage: String
@@ -250,30 +265,25 @@ public struct EmptyState<Description: View, Actions: View>: View {
 
   /// The state, centred when it fits and scrollable when it does not.
   public var body: some View {
-    GeometryReader { proxy in
-      ScrollView {
-        VStack(spacing: Spacing.s200) {
-          Image(systemName: systemImage)
-            .font(.largeTitle)
-            .foregroundStyle(Color.ds.labelSecondary)
-            .accessibilityHidden(true)
-          title
-            .font(.title2.bold())
-            .foregroundStyle(Color.ds.labelPrimary)
-            .accessibilityAddTraits(.isHeader)
-          description
-            .font(.callout)
-            .foregroundStyle(Color.ds.labelSecondary)
-          VStack(spacing: Spacing.s100) { actions }
-        }
-        .multilineTextAlignment(.center)
-        .fixedSize(horizontal: false, vertical: true)
-        .padding(Spacing.s300)
-        .readableWidth()
-        .frame(minHeight: proxy.size.height)
-      }
-      .scrollBounceBehavior(.basedOnSize)
+    VStack(spacing: Spacing.s200) {
+      Image(systemName: systemImage)
+        .font(.largeTitle)
+        .foregroundStyle(Color.ds.labelSecondary)
+        .accessibilityHidden(true)
+      title
+        .font(.title2.bold())
+        .foregroundStyle(Color.ds.labelPrimary)
+        .accessibilityAddTraits(.isHeader)
+      description
+        .font(.callout)
+        .foregroundStyle(Color.ds.labelSecondary)
+      VStack(spacing: Spacing.s100) { actions }
     }
+    .multilineTextAlignment(.center)
+    .fixedSize(horizontal: false, vertical: true)
+    .padding(Spacing.s300)
+    .readableWidth()
+    .centeredScrolling()
   }
 }
 

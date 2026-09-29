@@ -43,12 +43,14 @@ final class PDFAlgoProUITests: XCTestCase {
     }
   }
 
-  /// One line per finding: what the audit found and which element it is about.
+  /// One line per finding: what the audit found, which element it is about, and the audit's explanation.
   private static func describe(_ issue: XCUIAccessibilityAuditIssue) -> String {
-    guard let element = issue.element else { return "- \(issue.compactDescription) (no element)" }
+    let detail = "\n    \(issue.detailedDescription)"
+    guard let element = issue.element else { return "- \(issue.compactDescription) (no element)\(detail)" }
     let frame = element.frame
     return "- \(issue.compactDescription): \(element.elementType) id='\(element.identifier)' "
       + "label='\(element.label)' frame=(\(Int(frame.minX)),\(Int(frame.minY)) \(Int(frame.width))x\(Int(frame.height)))"
+      + detail
   }
 
   func testOnboardingOffersAIFirstOptionsAndCanBeSkipped() throws {

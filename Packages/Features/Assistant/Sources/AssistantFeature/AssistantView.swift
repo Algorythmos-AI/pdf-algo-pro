@@ -16,21 +16,26 @@ public struct AssistantView: View {
   /// The sheet.
   public var body: some View {
     NavigationStack {
-      ScrollView {
-        VStack(alignment: .leading, spacing: Spacing.s200) {
-          Picker(selection: $model.task) {
-            ForEach(AssistantTask.allCases) { task in Self.title(for: task).tag(task) }
-          } label: {
-            Text("Task", bundle: .module)
+      Group {
+        if model.phase.isEmptyState {
+          // An empty state fills and scrolls the space below the task picker itself; inside the
+          // scroll view below it would get no height.
+          VStack(spacing: 0) {
+            taskPicker.padding(Spacing.s200).readableWidth()
+            content
           }
-          .pickerStyle(.segmented)
-          .accessibilityIdentifier("assistant.task")
-          if model.task == .explainContract { ContractDisclosure() }
-          if model.task == .ask { questionField }
-          content
+        } else {
+          ScrollView {
+            VStack(alignment: .leading, spacing: Spacing.s200) {
+              taskPicker
+              if model.task == .explainContract { ContractDisclosure() }
+              if model.task == .ask { questionField }
+              content
+            }
+            .padding(Spacing.s200)
+            .readableWidth()
+          }
         }
-        .padding(Spacing.s200)
-        .readableWidth()
       }
       .background(Color.ds.backgroundGrouped)
       .navigationTitle(Self.title(for: model.task))
@@ -59,6 +64,19 @@ public struct AssistantView: View {
       .task { await model.start() }
     }
     .presentationDetents([.medium, .large])
+    // Scroll before resizing: at the medium detent a long answer, or any answer at large Dynamic
+    // Type sizes, can be read without the sheet first jumping to full height.
+    .presentationContentInteraction(.scrolls)
+  }
+
+  private var taskPicker: some View {
+    Picker(selection: $model.task) {
+      ForEach(AssistantTask.allCases) { task in Self.title(for: task).tag(task) }
+    } label: {
+      Text("Task", bundle: .module)
+    }
+    .pickerStyle(.segmented)
+    .accessibilityIdentifier("assistant.task")
   }
 
   private var questionField: some View {
@@ -250,6 +268,16 @@ public struct AssistantView: View {
     case "seller": Text("From", bundle: .module)
     case "buyer": Text("To", bundle: .module)
     default: Text(key)
+    }
+  }
+}
+
+extension AssistantModel.Phase {
+  /// Whether the phase is shown as a full empty, unavailable or error state.
+  fileprivate var isEmptyState: Bool {
+    switch self {
+    case .unavailable, .noText, .failed: true
+    case .idle, .working, .answered, .extracted: false
     }
   }
 }

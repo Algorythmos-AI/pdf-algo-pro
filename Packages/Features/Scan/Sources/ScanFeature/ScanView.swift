@@ -99,6 +99,7 @@ public struct ScanView: View {
       .accessibilityIdentifier("scan.images")
     }
     .readableWidth()
+    .centeredScrolling()
   }
 
   private func recognizing(_ progress: Double) -> some View {
@@ -111,5 +112,6 @@ public struct ScanView: View {
       }
     }
     .readableWidth()
+    .centeredScrolling()
   }
 }

@@ -14,35 +14,19 @@ public struct OnboardingView: View {
   /// The screen.
   public var body: some View {
     NavigationStack {
-      ScrollView {
-        VStack(alignment: .leading, spacing: Spacing.s300) {
-          VStack(alignment: .leading, spacing: Spacing.s100) {
-            Text("What do you do with PDFs most often?", bundle: .module)
-              .font(.largeTitle.bold())
-              .accessibilityAddTraits(.isHeader)
-            Text("Choose as many as you like. You can change this later in Settings.", bundle: .module)
-              .font(.callout)
-              .foregroundStyle(Color.ds.labelSecondary)
-          }
-          group(title: Text("Ask and understand", bundle: .module), intents: model.askAndUnderstand)
-          if model.intelligenceNeedsNote {
-            Label {
-              Text(
-                "AI options need Apple Intelligence, which is off or not available on this device. The other tools work without it.",
-                bundle: .module)
-            } icon: {
-              Image(systemName: "info.circle")
-            }
-            .font(.footnote)
-            .foregroundStyle(Color.ds.labelSecondary)
-            .accessibilityIdentifier("onboarding.intelligenceNote")
-          }
-          group(title: Text("Work with PDFs", bundle: .module), intents: model.workWithPDFs)
+      VStack(spacing: 0) {
+        options
+        // Below the list, not over it: text scrolled under a translucent bar loses its contrast.
+        Button {
+          Task { await model.finish() }
+        } label: {
+          Text("Continue", bundle: .module)
         }
+        .buttonStyle(.primary)
         .padding(Spacing.s200)
-        .readableWidth()
+        .background(.bar)
+        .accessibilityIdentifier("onboarding.continue")
       }
-      .background(Color.ds.backgroundGrouped)
       .navigationTitle(Text("Welcome", bundle: .module))
       .toolbarTitleDisplayMode(.inline)
       .toolbar {
@@ -55,19 +39,40 @@ public struct OnboardingView: View {
           .accessibilityIdentifier("onboarding.skip")
         }
       }
-      .safeAreaInset(edge: .bottom) {
-        Button {
-          Task { await model.finish() }
-        } label: {
-          Text("Continue", bundle: .module)
-        }
-        .buttonStyle(.primary)
-        .padding(Spacing.s200)
-        .background(.bar)
-        .accessibilityIdentifier("onboarding.continue")
-      }
       .task { await model.load() }
     }
+  }
+
+  private var options: some View {
+    ScrollView {
+      VStack(alignment: .leading, spacing: Spacing.s300) {
+        VStack(alignment: .leading, spacing: Spacing.s100) {
+          Text("What do you do with PDFs most often?", bundle: .module)
+            .font(.largeTitle.bold())
+            .accessibilityAddTraits(.isHeader)
+          Text("Choose as many as you like. You can change this later in Settings.", bundle: .module)
+            .font(.callout)
+            .foregroundStyle(Color.ds.labelSecondary)
+        }
+        group(title: Text("Ask and understand", bundle: .module), intents: model.askAndUnderstand)
+        if model.intelligenceNeedsNote {
+          Label {
+            Text(
+              "AI options need Apple Intelligence, which is off or not available on this device. The other tools work without it.",
+              bundle: .module)
+          } icon: {
+            Image(systemName: "info.circle")
+          }
+          .font(.footnote)
+          .foregroundStyle(Color.ds.labelSecondary)
+          .accessibilityIdentifier("onboarding.intelligenceNote")
+        }
+        group(title: Text("Work with PDFs", bundle: .module), intents: model.workWithPDFs)
+      }
+      .padding(Spacing.s200)
+      .readableWidth()
+    }
+    .background(Color.ds.backgroundGrouped)
   }
 
   private func group(title: Text, intents: [OnboardingIntent]) -> some View {
