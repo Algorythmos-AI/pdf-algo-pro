@@ -58,6 +58,9 @@ section and drafts the store text. Then the release pull request is opened from 
 - [ ] Every required check is green, including promotion-guard
 - [ ] No open priority:p0 / priority:p1 issue in the milestone, or each is deferred here with a reason
 - [ ] Staging build of this commit used on a real iPhone (and iPad if touched)
+- [ ] Device-only code, excluded from coverage ([testing strategy](testing-strategy.md#coverage)),
+      checked on that iPhone: scan two pages with the document camera and save them, then open the
+      camera again and cancel
 - [ ] Performance budgets: results linked
 - [ ] Golden PDF corpus: no regressions (results linked)
 - [ ] OCR accuracy (EN, FR): within thresholds (results linked)

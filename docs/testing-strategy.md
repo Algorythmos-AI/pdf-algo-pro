@@ -335,6 +335,15 @@ fake passes it too, so feature tests rely on a fake that behaves like the real e
   `Tests`); files ending in `Previews.swift`; paths containing `/Generated/`, `/Tests/`, `/.build/`
   or `/DerivedData/`. Previews therefore go in `<View>+Previews.swift`
   ([Swift style guide](swift-style-guide.md#files-and-type-layout)).
+- **Device-only files** (`DEVICE_ONLY` in the script) are excluded too, because they need hardware the
+  simulator does not have: today only the document camera adapter, since `VNDocumentCameraViewController`
+  raises "Document camera is not available" on the simulator. Each entry states its reason, every CI run
+  prints the list, and each has an on-device check in the
+  [release checklist](release-management.md). Keep such a file to the adapter alone; logic that can run
+  on the simulator goes in another file, where it counts.
+- **Never create hardware-only system controllers in tests** (the document camera, a capture
+  session): on the simulator they raise an Objective-C exception, which ends the whole test process and
+  fails every test in the bundle.
 - **Coverage is a floor, not a goal.** Reviewers judge whether the covered lines are meaningfully
   asserted; a test that executes code without checking its result does not count in review.
 - Excluding more code needs a pull request to the script, explained in its description; lowering

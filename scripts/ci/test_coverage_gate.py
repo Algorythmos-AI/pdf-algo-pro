@@ -36,6 +36,17 @@ def test_modules_come_from_paths_and_exclusions_apply():
         assert coverage_gate.module_of(f"{ROOT}/{excluded}") is None
 
 
+def test_device_only_files_are_excluded_and_named(tmp_path, capsys):
+    device_only = next(iter(coverage_gate.DEVICE_ONLY))
+    assert coverage_gate.module_of(f"{ROOT}/{device_only}") is None
+    path = report(tmp_path, [{"name": "PDFAlgoPro.app", "files": [
+        file(device_only, 0, 40), file("Packages/Scanning/Sources/Scanning/ImageLoader.swift", 12, 12),
+    ]}])
+    assert coverage_gate.main([path, "--min", "80"]) == 0
+    out = capsys.readouterr().out
+    assert f"excluded, device only: {device_only}" in out and "Scanning: 100.0% (12/12)" in out
+
+
 def test_best_result_per_file_across_binaries(tmp_path, capsys):
     path = report(tmp_path, [
         {"name": "CoreTests.xctest", "files": [file("Packages/Core/Sources/Core/Document.swift", 40, 50)]},
