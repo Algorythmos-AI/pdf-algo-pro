@@ -1,3 +1,4 @@
+import AVFoundation
 import Core
 import CoreTestSupport
 import Foundation
@@ -172,6 +173,70 @@ struct ReaderModelTests {
     #expect(reader.showsIntelligence)
     harness.settings.save(AppSettings(isIntelligenceHidden: true))
     #expect(!reader.showsIntelligence)
+  }
+
+  @Test("The locked, failed and recognising states draw at a large text size")
+  func statesDraw() async throws {
+    let harness = Harness()
+    func draws(_ reader: ReaderModel) -> Bool {
+      let view = ReaderView(model: reader) { _ in EmptyView() }
+        .frame(width: 390, height: 700).environment(\.dynamicTypeSize, .accessibility3)
+      return ImageRenderer(content: view).uiImage != nil
+    }
+    let locked = harness.reader(
+      for: await harness.seed(try SyntheticPDF.makeEncrypted(pages: ["Private"], password: "pw")))
+    await locked.load()
+    #expect(draws(locked))
+    locked.unlock(password: "nope")
+    #expect(draws(locked))
+    let damaged = harness.reader(for: await harness.seed(Data("%PDF-garbage".utf8)))
+    await damaged.load()
+    #expect(draws(damaged))
+    let recognizer = GatedRecognizer()
+    let scanned = harness.reader(
+      for: await harness.seed(try SyntheticPDF.makeImageOnly(pages: ["Scanned"]), textLayer: false),
+      recognizer: recognizer)
+    await scanned.load()
+    scanned.recognizeText()
+    for _ in 0..<200 where await !recognizer.isWaiting { try await Task.sleep(for: .milliseconds(10)) }
+    #expect(scanned.recognitionProgress != nil)
+    #expect(draws(scanned))
+    await recognizer.open()
+    for _ in 0..<200 where scanned.recognitionProgress != nil { try await Task.sleep(for: .milliseconds(20)) }
+  }
+
+  @Test("Stopping recognition, even on the last page, leaves the file as it was")
+  func stoppingRecognition() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.makeImageOnly(pages: ["Scanned"]), textLayer: false)
+    let url = try await harness.library.fileURL(for: document.id)
+    let original = try Data(contentsOf: url)
+    let recognizer = GatedRecognizer()
+    let reader = harness.reader(for: document, recognizer: recognizer)
+    await reader.load()
+    reader.recognizeText()
+    for _ in 0..<200 where await !recognizer.isWaiting { try await Task.sleep(for: .milliseconds(10)) }
+    reader.cancelRecognition()
+    await recognizer.open()
+    for _ in 0..<200 where reader.recognitionProgress != nil { try await Task.sleep(for: .milliseconds(20)) }
+    #expect(reader.recognitionProgress == nil && reader.errorMessage == nil)
+    #expect(try Data(contentsOf: url) == original)
+    #expect(reader.canRecognizeText)
+  }
+
+  @Test("Read aloud ends when the system finishes or cancels speech")
+  func speechEnds() async throws {
+    let speech = SpeechReader()
+    let synthesizer = AVSpeechSynthesizer()
+    speech.speak("One")
+    speech.speechSynthesizer(synthesizer, didFinish: AVSpeechUtterance(string: "One"))
+    for _ in 0..<100 where speech.isSpeaking { try await Task.sleep(for: .milliseconds(10)) }
+    #expect(!speech.isSpeaking)
+    speech.speak("Two")
+    speech.speechSynthesizer(synthesizer, didCancel: AVSpeechUtterance(string: "Two"))
+    for _ in 0..<100 where speech.isSpeaking { try await Task.sleep(for: .milliseconds(10)) }
+    #expect(!speech.isSpeaking)
+    speech.stop()
   }
 
   @Test func readAloudToggles() async throws {

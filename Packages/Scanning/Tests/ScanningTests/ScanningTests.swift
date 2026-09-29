@@ -3,6 +3,7 @@ import Foundation
 import ImageIO
 import Testing
 import UniformTypeIdentifiers
+import VisionKit
 
 @testable import Scanning
 
@@ -42,5 +43,18 @@ struct ScanningTests {
       #expect(!DocumentCamera.isSupported)
     #endif
     _ = DocumentCameraView(onFinish: { _ in }, onCancel: {}).makeCoordinator()
+  }
+
+  @MainActor
+  @Test("Cancelling the camera, or a camera failure, saves nothing")
+  func cameraCancelAndFailure() {
+    var finished = 0
+    var cancelled = 0
+    let coordinator = DocumentCameraView(onFinish: { _ in finished += 1 }, onCancel: { cancelled += 1 })
+      .makeCoordinator()
+    let camera = VNDocumentCameraViewController()
+    coordinator.documentCameraViewControllerDidCancel(camera)
+    coordinator.documentCameraViewController(camera, didFailWithError: CocoaError(.featureUnsupported))
+    #expect(cancelled == 2 && finished == 0)
   }
 }

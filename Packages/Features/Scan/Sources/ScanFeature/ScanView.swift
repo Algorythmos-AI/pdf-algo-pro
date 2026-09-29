@@ -20,48 +20,51 @@ public struct ScanView: View {
   /// The sheet.
   public var body: some View {
     NavigationStack {
-      Group {
-        switch model.phase {
-        case .ready: ready
-        case .recognizing(let progress): recognizing(progress)
-        case .finished: ProgressView()
-        case .failed:
-          EmptyState(Text("The scan wasn't saved", bundle: .module), systemImage: "exclamationmark.triangle") {
-            Text("Text recognition didn't finish. Nothing was added to your library.", bundle: .module)
-          } actions: {
+      content
+        .padding(Spacing.s200)
+        .navigationTitle(Text("Scan", bundle: .module))
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+          ToolbarItem(placement: .cancellationAction) {
             Button {
-              model.reset()
+              model.cancel()
+              dismiss()
             } label: {
-              Text("Try again", bundle: .module).minimumTarget()
+              Text("Cancel", bundle: .module)
             }
           }
         }
-      }
-      .padding(Spacing.s200)
-      .navigationTitle(Text("Scan", bundle: .module))
-      .navigationBarTitleDisplayMode(.inline)
-      .toolbar {
-        ToolbarItem(placement: .cancellationAction) {
-          Button {
-            model.cancel()
-            dismiss()
-          } label: {
-            Text("Cancel", bundle: .module)
+        .fullScreenCover(isPresented: $showsCamera) {
+          DocumentCameraView { images in
+            showsCamera = false
+            Task { await model.process(images) }
+          } onCancel: {
+            showsCamera = false
           }
+          .ignoresSafeArea()
         }
-      }
-      .fullScreenCover(isPresented: $showsCamera) {
-        DocumentCameraView { images in
-          showsCamera = false
-          Task { await model.process(images) }
-        } onCancel: {
-          showsCamera = false
+        .fileImporter(isPresented: $isChoosingImages, allowedContentTypes: [.image], allowsMultipleSelection: true) {
+          result in
+          if case .success(let urls) = result { Task { await model.process(ImageLoader.images(at: urls)) } }
         }
-        .ignoresSafeArea()
-      }
-      .fileImporter(isPresented: $isChoosingImages, allowedContentTypes: [.image], allowsMultipleSelection: true) {
-        result in
-        if case .success(let urls) = result { Task { await model.process(ImageLoader.images(at: urls)) } }
+    }
+  }
+
+  /// What the current phase shows; outside the navigation stack so tests can draw every phase.
+  @ViewBuilder var content: some View {
+    switch model.phase {
+    case .ready: ready
+    case .recognizing(let progress): recognizing(progress)
+    case .finished: ProgressView()
+    case .failed:
+      EmptyState(Text("The scan wasn't saved", bundle: .module), systemImage: "exclamationmark.triangle") {
+        Text("Text recognition didn't finish. Nothing was added to your library.", bundle: .module)
+      } actions: {
+        Button {
+          model.reset()
+        } label: {
+          Text("Try again", bundle: .module).minimumTarget()
+        }
       }
     }
   }
