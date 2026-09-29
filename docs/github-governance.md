@@ -88,7 +88,11 @@ human approval ([SUPERVISION.md](../.github/SUPERVISION.md)). A change to a rule
 code; the file and the live ruleset must never disagree for longer than it takes to apply.
 
 `codeql (swift)` is not a required check yet. It becomes one in the pull request after it first runs on
-Swift code.
+Swift code. It builds the app under CodeQL's tracer on a macOS runner, which takes far longer than a
+normal build, so it runs only when Swift or project inputs change (the `ios` job's rule), and weekly; it
+builds one simulator architecture; and a newer commit cancels an older analysis, except on `main`. Like
+`ios`, a run skipped by its condition reports success, so it will not block a documentation change once
+it is required.
 
 ## Code owners
 
