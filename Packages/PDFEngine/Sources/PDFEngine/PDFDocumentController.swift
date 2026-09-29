@@ -57,6 +57,8 @@ public final class PDFDocumentController {
   @ObservationIgnored private var pendingPageIndex: Int?
   @ObservationIgnored var password: String?
   @ObservationIgnored let wasEncrypted: Bool
+  /// Form fields and their values when the document was opened, unlocked or last saved.
+  @ObservationIgnored var formValues: [(widget: PDFAnnotation, value: FormValue)] = []
   /// Undo for every annotation change (FR-EDIT-007).
   @ObservationIgnored public let undoManager = UndoManager()
 
@@ -70,6 +72,7 @@ public final class PDFDocumentController {
     self.document = document
     isLocked = document.isLocked
     wasEncrypted = document.isEncrypted
+    recordFormValues()
   }
 
   /// Opens a PDF from data (used by tests and previews).
@@ -80,6 +83,7 @@ public final class PDFDocumentController {
     self.document = document
     isLocked = document.isLocked
     wasEncrypted = document.isEncrypted
+    recordFormValues()
   }
 
   /// Unlocks an encrypted document; returns whether the password was right.
@@ -88,6 +92,7 @@ public final class PDFDocumentController {
     guard document.unlock(withPassword: password) else { return false }
     self.password = password
     isLocked = false
+    recordFormValues()
     view?.reload()
     return true
   }

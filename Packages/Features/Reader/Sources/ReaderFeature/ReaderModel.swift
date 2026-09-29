@@ -184,8 +184,12 @@ public final class ReaderModel {
   }
 
   /// Writes changes atomically (autosave, FR-EDIT-007); a failed save changes nothing on disk.
+  ///
+  /// Form entries count as changes, including text still being typed into a field (defect D1).
   public func save() async {
-    guard let controller, controller.hasUnsavedChanges else { return }
+    guard let controller else { return }
+    controller.endEditing()
+    guard controller.needsSaving else { return }
     do {
       try controller.save(to: try await library.fileURL(for: documentID))
       try await library.recordModified(documentID)
@@ -207,7 +211,7 @@ public final class ReaderModel {
 
   /// Recognises text on device and replaces the file with a searchable version, with progress.
   ///
-  /// Unsaved notes and markup are saved first, so the searchable version includes them. If the
+  /// Unsaved notes, markup and form entries are saved first, so the searchable version includes them. If the
   /// document changes while recognition runs, the file is left alone, so nothing added meanwhile is lost.
   public func recognizeText() {
     guard recognitionProgress == nil else { return }
@@ -217,7 +221,7 @@ public final class ReaderModel {
       do {
         await save()
         // A failed save has already said so; replacing the file now would lose those changes.
-        guard controller?.hasUnsavedChanges != true else { return }
+        guard controller?.needsSaving != true else { return }
         let url = try await library.fileURL(for: documentID)
         let version = try FileVersion(url)
         let result = try await builder.addTextLayer(toPDFAt: url) { progress in
@@ -226,7 +230,7 @@ public final class ReaderModel {
         // Stopped during the last page: the builder has finished, but the file is left as it was.
         try Task.checkCancellation()
         // No suspension between this check and the write, so no save can slip in between.
-        guard controller?.hasUnsavedChanges != true, try FileVersion(url) == version else {
+        guard controller?.needsSaving != true, try FileVersion(url) == version else {
           errorMessage = String(
             localized: "The document changed while its text was being recognised, so it wasn't replaced. Try again.",
             bundle: .module)

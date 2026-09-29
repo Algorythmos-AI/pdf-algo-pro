@@ -2,6 +2,7 @@ import Core
 import CoreGraphics
 import CoreTestSupport
 import Foundation
+import PDFEngineTestSupport
 import PDFKit
 import Testing
 
@@ -96,6 +97,39 @@ struct ControllerTests {
     let reopened = try PDFDocumentController(url: url)
     #expect(reopened.annotationCount(onPage: 1) == 1)
     #expect(reopened.annotationCount(onPage: 0) == 1)
+  }
+
+  @Test("Form entries count as changes and are saved (defect D1)")
+  func formEntriesAreSaved() throws {
+    let controller = try PDFDocumentController(data: TestPDFs.makeForm())
+    #expect(!controller.needsSaving, "Opening a form changes nothing")
+    let widgets = try #require(controller.document.page(at: 0)?.annotations)
+    let name = try #require(widgets.first { $0.fieldName == "name" })
+    let agree = try #require(widgets.first { $0.fieldName == "agree" })
+
+    name.widgetStringValue = "Ada Lovelace"
+    #expect(controller.hasChangedFormValues && controller.needsSaving && !controller.hasUnsavedChanges)
+    agree.buttonWidgetState = .onState
+    controller.endEditing()
+    let url = temporaryURL()
+    try controller.save(to: url)
+    #expect(!controller.needsSaving, "Saved values are the new baseline")
+
+    #expect(TestPDFs.storedValue(of: "name", in: url) == "Ada Lovelace")
+    #expect(TestPDFs.storedValue(of: "agree", in: url) == "Yes")
+    let reopened = try PDFDocumentController(url: url)
+    #expect(!reopened.needsSaving)
+    let field = try #require(reopened.document.page(at: 0)?.annotations.first { $0.fieldName == "name" })
+    field.widgetStringValue = "Ada Lovelace"
+    #expect(!reopened.needsSaving, "Typing the same value again is not a change")
+  }
+
+  @Test("Documents without a form are not walked for fields")
+  func noFormNoFields() throws {
+    let controller = try PDFDocumentController(data: SyntheticPDF.makeSample())
+    #expect(controller.formValues.isEmpty && !controller.needsSaving)
+    let locked = try PDFDocumentController(data: SyntheticPDF.makeEncrypted(pages: ["Secret"], password: "pw-123"))
+    #expect(locked.formValues.isEmpty && !locked.needsSaving)
   }
 
   @Test("Every markup kind becomes a standard PDF annotation", arguments: TextMarkup.allCases)

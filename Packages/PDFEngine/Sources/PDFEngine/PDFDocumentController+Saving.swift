@@ -32,5 +32,6 @@ extension PDFDocumentController {
     }
     guard coordinationError == nil, writeError == nil else { throw PDFEngineError.saveFailed }
     hasUnsavedChanges = false
+    recordFormValues()
   }
 }

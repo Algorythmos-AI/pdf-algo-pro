@@ -2,10 +2,11 @@ import AVFoundation
 import Core
 import CoreTestSupport
 import Foundation
-import PDFEngine
+import PDFEngineTestSupport
 import SwiftUI
 import Testing
 
+@testable import PDFEngine
 @testable import ReaderFeature
 
 @MainActor
@@ -103,6 +104,26 @@ struct ReaderModelTests {
     #expect(reader.errorMessage != nil)
     await reader.undo()
     #expect(try PDFDocumentController(url: url).annotationCount(onPage: 0) == 0)
+    #expect(await harness.telemetry.events.contains("task.core.completed"))
+  }
+
+  @Test("Form entries save automatically, with nothing else changed (defect D1)")
+  func formEntriesSave() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try TestPDFs.makeForm())
+    let reader = harness.reader(for: document)
+    await reader.load()
+    let url = try await harness.library.fileURL(for: document.id)
+    let before = try Data(contentsOf: url)
+    await reader.save()
+    #expect(try Data(contentsOf: url) == before, "Nothing to save, nothing written")
+
+    let widgets = try #require(reader.controller?.document.page(at: 0)?.annotations)
+    try #require(widgets.first { $0.fieldName == "name" }).widgetStringValue = "Ada Lovelace"
+    await reader.save()
+
+    #expect(TestPDFs.storedValue(of: "name", in: url) == "Ada Lovelace")
+    #expect(reader.controller?.needsSaving == false)
     #expect(await harness.telemetry.events.contains("task.core.completed"))
   }
 

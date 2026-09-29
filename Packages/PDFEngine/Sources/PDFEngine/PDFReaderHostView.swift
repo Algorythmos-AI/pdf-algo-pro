@@ -67,6 +67,15 @@ final class PDFReaderHostView: PDFView {
     go(to: selection)
   }
 
+  /// Ends text entry in a form field, which writes the text into the field.
+  func endEditing() {
+    #if canImport(UIKit)
+      _ = endEditing(true)
+    #else
+      window?.makeFirstResponder(nil)
+    #endif
+  }
+
   func reload() {
     let current = document
     document = nil
