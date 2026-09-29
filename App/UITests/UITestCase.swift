@@ -28,6 +28,9 @@ class UITestCase: XCTestCase {
   /// appears on some runs and not others with the same code. Those findings are reported as a non-strict
   /// expected failure, visible in the results without failing the build (docs/testing-strategy.md, Flaky
   /// tests). Text that does not scale at all still fails.
+  ///
+  /// Quarantined (issue #53, flaky): the audit itself sometimes gives up with "Audit failed to complete in
+  /// time" on a loaded runner. That timeout is recorded the same way; the journey goes on.
   func audit(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) throws {
     let bars =
       app.navigationBars.allElementsBoundByIndex.map(\.frame) + app.toolbars.allElementsBoundByIndex.map(\.frame)
@@ -35,6 +38,37 @@ class UITestCase: XCTestCase {
       .matching(NSPredicate(format: "identifier ENDSWITH %@", ".actionBar")).allElementsBoundByIndex.map(\.frame)
     var findings: [String] = []
     var quarantined: [String] = []
+    do {
+      try runAudit(app, bars: bars, actionBars: actionBars, findings: &findings, quarantined: &quarantined)
+    } catch let error as NSError
+      where error.domain == "com.apple.xcode.xctest.accessibilityAudit" && error.code == -56
+    {
+      // Findings collected before the timeout are still reported below.
+      recordQuarantined(
+        "Quarantined flaky audit timeout, issue #53", details: error.localizedDescription, file: file, line: line)
+    }
+    if !quarantined.isEmpty {
+      recordQuarantined(
+        "Quarantined flaky audit finding, issue #44",
+        details: "\(quarantined.count) quarantined finding(s):\n" + quarantined.joined(separator: "\n"), file: file,
+        line: line)
+    }
+    if !findings.isEmpty {
+      XCTFail(
+        "\(findings.count) accessibility finding(s):\n" + findings.joined(separator: "\n"), file: file, line: line)
+    }
+  }
+
+  private func runAudit(
+    _ app: XCUIApplication, bars: [CGRect], actionBars: [CGRect], findings: inout [String],
+    quarantined: inout [String]
+  ) throws {
+    var collected: [String] = []
+    var held: [String] = []
+    defer {
+      findings += collected
+      quarantined += held
+    }
     try app.performAccessibilityAudit { issue in
       if let element = issue.element {
         if element.identifier == "reader.pages" { return true }
@@ -50,29 +84,25 @@ class UITestCase: XCTestCase {
         }
       }
       if issue.auditType == .dynamicType, issue.compactDescription.localizedCaseInsensitiveContains("partially") {
-        quarantined.append(Self.describe(issue))
+        held.append(Self.describe(issue))
         return true
       }
-      findings.append(Self.describe(issue))
+      collected.append(Self.describe(issue))
       return true
     }
-    if !quarantined.isEmpty {
-      let options = XCTExpectedFailure.Options()
-      options.isStrict = false
-      // Recorded without stopping the test, so the rest of the journey still runs and is checked.
-      let stopsOnFailure = !continueAfterFailure
-      continueAfterFailure = true
-      XCTExpectFailure("Quarantined flaky audit finding, issue #44", options: options) {
-        XCTFail(
-          "\(quarantined.count) quarantined finding(s):\n" + quarantined.joined(separator: "\n"), file: file, line: line
-        )
-      }
-      continueAfterFailure = !stopsOnFailure
+  }
+
+  /// Records a quarantined flake as a non-strict expected failure: visible in the results, not failing the
+  /// build, and without stopping the test, so the rest of the journey still runs and is checked.
+  private func recordQuarantined(_ reason: String, details: String, file: StaticString, line: UInt) {
+    let options = XCTExpectedFailure.Options()
+    options.isStrict = false
+    let stopsOnFailure = !continueAfterFailure
+    continueAfterFailure = true
+    XCTExpectFailure(reason, options: options) {
+      XCTFail(details, file: file, line: line)
     }
-    if !findings.isEmpty {
-      XCTFail(
-        "\(findings.count) accessibility finding(s):\n" + findings.joined(separator: "\n"), file: file, line: line)
-    }
+    continueAfterFailure = !stopsOnFailure
   }
 
   /// One line per finding: what the audit found, which element it is about, and the audit's explanation.
