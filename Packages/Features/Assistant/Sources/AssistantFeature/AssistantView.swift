@@ -188,6 +188,16 @@ public struct AssistantView: View {
             Image(systemName: "doc.on.doc")
           }
         }
+        if answer.omittedClaims > 0 {
+          Label {
+            Text("Part of the answer wasn't supported by this document, so it was left out.", bundle: .module)
+          } icon: {
+            Image(systemName: "scissors")
+          }
+          .font(.footnote)
+          .foregroundStyle(Color.ds.labelSecondary)
+          .accessibilityIdentifier("assistant.omitted")
+        }
         GeneratedFootnote()
       } else {
         Label {

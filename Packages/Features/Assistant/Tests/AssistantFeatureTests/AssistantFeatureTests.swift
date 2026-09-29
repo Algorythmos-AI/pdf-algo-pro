@@ -229,6 +229,13 @@ struct AssistantModelTests {
       (.ask, FakeIntelligence()),
       (.summarize, FakeIntelligence()),
       (.summarize, FakeIntelligence(answer: .notFound(tier: .onDevice))),
+      (
+        .summarize,
+        FakeIntelligence(
+          answer: Answer(
+            text: "Partly supported.", citations: [Citation(pageIndex: 0, quote: nil)], tier: .onDevice,
+            isGrounded: true, omittedClaims: 2))
+      ),
       (.extract, FakeIntelligence(extraction: checked)),
       (.extract, FakeIntelligence(extraction: Extraction(fields: [], tier: .onDevice))),
     ]

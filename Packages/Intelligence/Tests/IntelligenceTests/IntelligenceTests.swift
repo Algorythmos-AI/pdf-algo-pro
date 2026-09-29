@@ -93,6 +93,35 @@ struct GroundingTests {
     #expect(!unsupported.isGrounded && unsupported.text.isEmpty)
   }
 
+  @Test("Every sentence is checked: unsupported ones are left out and counted (defect D10)")
+  func claimLevelGrounding() {
+    let mixed = Grounding.answer(
+      from: "The total due is 120.00 [p2]. The seller is based in Paris [p2].", pages: invoicePages, tier: .onDevice)
+    #expect(mixed.isGrounded && mixed.text == "The total due is 120.00." && mixed.omittedClaims == 1)
+    #expect(mixed.citations.map(\.pageIndex) == [1])
+
+    let wrongNumber = Grounding.answer(from: "The total due is 999.00 [p2].", pages: invoicePages, tier: .onDevice)
+    #expect(!wrongNumber.isGrounded, "A number not on the page is never presented as grounded")
+
+    let miscited = Grounding.answer(from: "The total due is 120.00 [p1].", pages: invoicePages, tier: .onDevice)
+    #expect(miscited.citations.map(\.pageIndex) == [1], "The citation moves to the page that supports it")
+    #expect(miscited.omittedClaims == 0)
+  }
+
+  @Test("Markers after the full stop, lists and lead-ins keep their place")
+  func claimsAndLayout() {
+    let answer = Grounding.answer(
+      from:
+        "In short:\n- The total due is 120.00. [p2] Your documents stay on your device [p3].\n- Seller: Example [p2]",
+      pages: invoicePages, tier: .onDevice)
+    #expect(
+      answer.text == "In short:\n- The total due is 120.00. Your documents stay on your device.\n- Seller: Example",
+      "\(answer.text)")
+    #expect(answer.citations.map(\.pageIndex) == [1, 2] && answer.omittedClaims == 0)
+    #expect(Grounding.sentences(in: "Paid 120.00 on time. Next!  Done") == ["Paid 120.00 on time.", "Next!", "Done"])
+    #expect(Grounding.claims(in: "[p2] Leading marker only.", validPages: [1]).map(\.cited) == [[1]])
+  }
+
   @Test("Citations carry a verbatim quote the reader can highlight")
   func quotes() throws {
     let answer = Grounding.answer(from: "The total due is 120.00 [p2].", pages: invoicePages, tier: .onDevice)
@@ -209,7 +238,7 @@ struct IntelligenceRouterTests {
     }
     let replies =
       (1...12).map { "Part about topic \($0) [p\($0)]." }
-      + Array(repeating: "Combined topics [p1][p7][p12].", count: 12)
+      + Array(repeating: "The sections cover topics 1 to 12 [p1][p7][p12].", count: 12)
     let model = ScriptedModel(budget: 400, replies: replies)
     let summary = try await IntelligenceRouter(models: [model]).summarize(pages)
     let prompts = await model.prompts

@@ -156,6 +156,11 @@ Notes on the definitions:
   metrics are computed per claim without asking a model to split the text first.
 - **Deterministic checks come first.** A number, date or amount that does not appear on the cited
   page fails the claim without asking a judge. Judges handle paraphrase.
+- **The app applies the same check before showing an answer.** Each sentence must be supported by
+  the pages it cites: every number on them, and at least half its content words (`Assumption:`
+  threshold, checked by the live suite). A sentence that fails is left out, the answer says that
+  part was left out, and `Answer.omittedClaims` counts it for these metrics. An answer with no
+  supported sentence is "Not found in this document".
 - **Binary judgements** are used wherever the question is pass or fail, which Apple identifies as the
   most reliable scale for model judges
   ([Designing effective model-judge evaluators](https://developer.apple.com/documentation/evaluations/designing-effective-model-judges)).

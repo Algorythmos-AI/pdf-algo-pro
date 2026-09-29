@@ -86,13 +86,18 @@ public struct Answer: Hashable, Sendable {
   ///
   /// An ungrounded answer is shown as "Not found in this document" instead of the text.
   public let isGrounded: Bool
+  /// Sentences left out of `text` because the document did not support them (defect D10).
+  ///
+  /// The assistant says that part of the answer was left out; the AI evaluation counts them.
+  public let omittedClaims: Int
 
   /// Creates an answer.
-  public init(text: String, citations: [Citation], tier: IntelligenceTier, isGrounded: Bool) {
+  public init(text: String, citations: [Citation], tier: IntelligenceTier, isGrounded: Bool, omittedClaims: Int = 0) {
     self.text = text
     self.citations = citations
     self.tier = tier
     self.isGrounded = isGrounded
+    self.omittedClaims = omittedClaims
   }
 
   /// The answer for a question the document does not answer.
