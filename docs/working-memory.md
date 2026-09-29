@@ -7,24 +7,25 @@ lives in the linked documents.
 
 Owner: Maintainer · Reviewed: every pull request that changes state; at least monthly
 
-Last updated: 2026-09-29
+Last updated: 2026-09-30
 
 ## Current phase
 
-**Foundation.** The planning package is written; the implementation readiness gate is **NOT READY**
-with four Critical blockers open ([readiness review](readiness-review.md)). The native iOS foundation
-app is being built under the owner's exception (PAP-028), on an interim iOS 26 toolchain (PAP-029).
+**Foundation → MVP.** The planning package and the native iOS foundation app are on `integration`
+(built under the owner's exception PAP-028, on the interim iOS 26 toolchain PAP-029). The readiness
+gate is still **NOT READY** for the App Store ([readiness review](readiness-review.md)); the owner
+approved the push to the first internal TestFlight build at the V1 quality bar (PAP-030), tracked in
+[#47](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/47).
 
 ## In flight
 
 | Item | State | Next step |
 |---|---|---|
-| Foundation pull request [#1](https://github.com/Algorythmos-AI/pdf-algo-pro/pull/1) (repository, governance, CI) | Open; CI green except CodeQL upload | Owner switches CodeQL to advanced setup; merge |
-| Planning package pull request [#2](https://github.com/Algorythmos-AI/pdf-algo-pro/pull/2) (this documentation) | Open, stacked on #1 | Rebase onto `integration` after the foundation merges |
-| Foundation app pull request [#39](https://github.com/Algorythmos-AI/pdf-algo-pro/pull/39) (native iOS app, PAP-028) | Open, stacked on #2; first run of the `ios` job | Owner review; merge after #2 |
+| TestFlight readiness ([#47](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/47)) | Plan approved; bar B1–B13; work in four lanes, one pull request per item | Items ticked in #47 as they merge; validation build after the first night |
+| Flaky accessibility audit ([#44](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/44)) | Quarantined (#45) | Root cause and remove the quarantine by 2026-10-06 |
 | Organisation catalog entry | Catalog entry pending owner review | Owner review and merge |
 | Backlog issues | 36 issues synced from `docs/planning/backlog.yaml`, on the project board | Owner creates the project views and built-in workflows in the web interface |
-| Rulesets (readiness M9) | Defined as code in `.github/rulesets`; not yet applied | Apply the `integration`, `main` and tag rulesets with the checks that reported, before the second pull request merges |
+| Xcode Cloud Staging workflow (readiness M5) | Designed; post-clone script and Staging scheme in progress | Owner onboards the Staging product in Xcode; the workflow is configured through the App Store Connect API (PAP-030) |
 
 ## Top risks
 
@@ -50,6 +51,7 @@ The last ten, newest first; all decisions are in the [decision register](decisio
 
 | ID | Decision |
 |---|---|
+| PAP-030 | Push to the first internal TestFlight build; agents merge green PRs into `integration`; single window; iCloud and folders deferred |
 | PAP-029 | Interim iOS 26 floor and Xcode 26 in CI until Xcode 27 builds (C2) |
 | PAP-028 | Owner exception: the foundation app is built before the readiness gate clears |
 | PAP-027 | Phases aligned to the PRD; opt-in telemetry moves to V2 |
@@ -59,12 +61,13 @@ The last ten, newest first; all decisions are in the [decision register](decisio
 | PAP-023 | Comply with the Australian Privacy Principles regardless of exemption |
 | PAP-022 | JavaScript in PDFs disabled |
 | PAP-021 | Extensions use the on-device tier only |
-| PAP-020 | Analyse Contract never uses the Claude tier |
 
 ## Known issues
 
-- `codeql (actions)` analysis succeeds but its upload is rejected while CodeQL default setup is
-  enabled on the repository; not a required check until fixed (backlog F-010).
+- CodeQL Swift analysis takes 30–50 minutes (the tracer, not the build); it is moving to a nightly
+  schedule (#47, P2). `codeql (actions)` runs and uploads, but is not yet a required check.
+- The accessibility audit intermittently reports "Dynamic Type partially unsupported" on text in
+  sheets; quarantined as a non-strict expected failure (#44, #45).
 - The iOS job runs on the interim Xcode 26 toolchain with an `iPhone 17` on the iOS 26 runtime, and
   creates that simulator if the runner image lacks it (PAP-029, backlog F-002).
 - The live on-device model tests (`LiveModelTests`) are opt-in: the development Mac has Apple

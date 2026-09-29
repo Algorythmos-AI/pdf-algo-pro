@@ -13,3 +13,8 @@
 **Pillars served.** PIL-1, PIL-7
 
 **References.** [What's new in SwiftUI, WWDC26](https://developer.apple.com/videos/play/wwdc2026/269/)
+
+**Addendum (2026-09-30, PAP-030).** Until iPad multi-window ships (#34), the app declares a single
+scene (`UIApplicationSupportsMultipleScenes = false`). Today one `AppModel` is shared by every window,
+so two windows on the same document would overwrite each other's saves; the MVP is iPhone-first.
+Multi-window returns with a per-window model over the shared container.
