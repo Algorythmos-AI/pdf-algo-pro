@@ -70,6 +70,13 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: Source and privacy-manifest invariants
         run: python3 scripts/ci/invariants.py
+      - name: Design tokens match the generated Swift (drift and contrast)
+        run: python3 scripts/design/generate_tokens.py --check
+      - name: Script unit tests (sync, docs gate, coverage gate)
+        run: |
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --quiet pytest==8.4.2 pyyaml==6.0.2
+          "$RUNNER_TEMP/venv/bin/python" -m pytest -q -p no:cacheprovider scripts
 
   changes:
     name: changes
@@ -108,18 +115,20 @@ jobs:
     env:
       XCODEGEN_VERSION: "2.46.0"
       XCODEGEN_SHA256: 4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806
-      # Verified on the first code pull request, when this job first runs (it is dormant until then).
+      # Interim toolchain until Xcode 27 is available (readiness blocker C2, decision PAP-029): the
+      # newest Xcode 26 and the iOS 26 simulator. Raise both to 27 together with ADR-0001's floor.
+      XCODE_MAJOR: "26"
       SIMULATOR_NAME: iPhone 17
-      SIMULATOR_RUNTIME: com.apple.CoreSimulator.SimRuntime.iOS-27
+      SIMULATOR_RUNTIME: com.apple.CoreSimulator.SimRuntime.iOS-26
       SCHEME: PDFAlgoPro
       TEST_PLAN: PDFAlgoPro
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      - name: Select Xcode 27 (fail if missing)
+      - name: Select the pinned Xcode major version (fail if missing)
         run: |
-          xcode="$(find /Applications -maxdepth 1 -name 'Xcode_27*.app' 2>/dev/null | sort -V | tail -1)"
+          xcode="$(find /Applications -maxdepth 1 -name "Xcode_${XCODE_MAJOR}*.app" 2>/dev/null | sort -V | tail -1)"
           if [ -z "$xcode" ]; then
-            echo "::error::Xcode 27 is not installed on this runner image; the iOS 27 SDK is required"
+            echo "::error::Xcode ${XCODE_MAJOR} is not installed on this runner image"
             exit 1
           fi
           sudo xcode-select -s "$xcode/Contents/Developer"
@@ -130,9 +139,10 @@ jobs:
           echo "${XCODEGEN_SHA256}  xcodegen.zip" | shasum -a 256 -c -
           unzip -q xcodegen.zip -d "$RUNNER_TEMP/xcodegen"
           echo "$RUNNER_TEMP/xcodegen/xcodegen/bin" >> "$GITHUB_PATH"
-      - name: Generate project and check the package lockfile
+      - name: Generate project and test plan, and check the package lockfile
         run: |
           xcodegen generate
+          python3 scripts/ci/write_testplan.py
           xcodebuild -resolvePackageDependencies -scheme "$SCHEME"
           git diff --exit-code -- '*Package.resolved'
       - name: Format (swift format, strict)
@@ -141,7 +151,12 @@ jobs:
         run: |
           # Pinned device and runtime: snapshot references are recorded on exactly this simulator.
           device="$(xcrun simctl list devices available -j | SIM_NAME="$SIMULATOR_NAME" SIM_RUNTIME="$SIMULATOR_RUNTIME" python3 -c 'import json,os,sys; d=json.load(sys.stdin)["devices"]; ids=[x["udid"] for k in d if k.startswith(os.environ["SIM_RUNTIME"]) for x in d[k] if x["name"] == os.environ["SIM_NAME"]]; print(ids[0] if ids else "")')"
-          if [ -z "$device" ]; then echo "::error::simulator '$SIMULATOR_NAME' on runtime $SIMULATOR_RUNTIME* not found on this runner"; exit 1; fi
+          if [ -z "$device" ]; then
+            runtime="$(xcrun simctl list runtimes available -j | SIM_RUNTIME="$SIMULATOR_RUNTIME" python3 -c 'import json,os,sys; r=[x["identifier"] for x in json.load(sys.stdin)["runtimes"] if x["identifier"].startswith(os.environ["SIM_RUNTIME"])]; print(sorted(r)[-1] if r else "")')"
+            if [ -z "$runtime" ]; then echo "::error::no simulator runtime $SIMULATOR_RUNTIME* on this runner"; exit 1; fi
+            device="$(xcrun simctl create "$SIMULATOR_NAME" "$SIMULATOR_NAME" "$runtime")"
+            echo "created $SIMULATOR_NAME on $runtime"
+          fi
           echo "SIM=$device" >> "$GITHUB_ENV"
           xcodebuild build-for-testing -scheme "$SCHEME" -testPlan "$TEST_PLAN" \
             -destination "id=$device" CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
@@ -149,7 +164,7 @@ jobs:
         run: |
           xcodebuild test-without-building -scheme "$SCHEME" -testPlan "$TEST_PLAN" \
             -destination "id=$SIM" -enableCodeCoverage YES -resultBundlePath Tests.xcresult
-      - name: Coverage gate (80% overall and per target)
+      - name: Coverage gate (80% overall and per module)
         run: |
           xcrun xccov view --report --json Tests.xcresult > coverage.json
           python3 scripts/ci/coverage_gate.py coverage.json --min 80

@@ -79,7 +79,9 @@ citations, subscribe and restore, and the privacy centre.
   elements by accessibility identifier and exposes actions (`open(documentNamed:)`). Tests read as
   journeys; element queries live in one place.
 - **Launch arguments select a test world.** In Debug builds only, the app reads arguments such as
-  `-ui-testing`, `-seed-library <fixture-set>`, `-reset-state` and `-disable-animations`, and swaps
+  `-ui-testing` (which also resets state: temporary folders and throwaway settings),
+  `-seed-library <fixture-set>`, `-skip-onboarding`, `-intelligence-unavailable` and
+  `-disable-animations`, and swaps
   in a container with fakes: a scripted intelligence router, StoreKit Testing, a local-only
   document store. Language, region and text size come from `-AppleLanguages`, `-AppleLocale` and
   `-UIPreferredContentSizeCategoryName`. Release builds contain none of this.

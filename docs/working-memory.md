@@ -12,8 +12,8 @@ Last updated: 2026-09-29
 ## Current phase
 
 **Foundation.** The planning package is written; the implementation readiness gate is **NOT READY**
-with four Critical blockers open ([readiness review](readiness-review.md)). No application code
-exists.
+with four Critical blockers open ([readiness review](readiness-review.md)). The native iOS foundation
+app is being built under the owner's exception (PAP-028), on an interim iOS 26 toolchain (PAP-029).
 
 ## In flight
 
@@ -21,6 +21,7 @@ exists.
 |---|---|---|
 | Foundation pull request [#1](https://github.com/Algorythmos-AI/pdf-algo-pro/pull/1) (repository, governance, CI) | Open; CI green except CodeQL upload | Owner switches CodeQL to advanced setup; merge |
 | Planning package pull request [#2](https://github.com/Algorythmos-AI/pdf-algo-pro/pull/2) (this documentation) | Open, stacked on #1 | Rebase onto `integration` after the foundation merges |
+| Foundation app pull request [#39](https://github.com/Algorythmos-AI/pdf-algo-pro/pull/39) (native iOS app, PAP-028) | Open, stacked on #2; first run of the `ios` job | Owner review; merge after #2 |
 | Organisation catalog entry | Catalog entry pending owner review | Owner review and merge |
 | Backlog issues | 36 issues synced from `docs/planning/backlog.yaml`, on the project board | Owner creates the project views and built-in workflows in the web interface |
 | Rulesets (readiness M9) | Defined as code in `.github/rulesets`; not yet applied | Apply the `integration`, `main` and tag rulesets with the checks that reported, before the second pull request merges |
@@ -49,6 +50,8 @@ The last ten, newest first; all decisions are in the [decision register](decisio
 
 | ID | Decision |
 |---|---|
+| PAP-029 | Interim iOS 26 floor and Xcode 26 in CI until Xcode 27 builds (C2) |
+| PAP-028 | Owner exception: the foundation app is built before the readiness gate clears |
 | PAP-027 | Phases aligned to the PRD; opt-in telemetry moves to V2 |
 | PAP-026 | Phased PDF SDK licence allowed if the quote requires it |
 | PAP-025 | `main` requires checks on the release head, not up to date with `main` |
@@ -57,14 +60,16 @@ The last ten, newest first; all decisions are in the [decision register](decisio
 | PAP-022 | JavaScript in PDFs disabled |
 | PAP-021 | Extensions use the on-device tier only |
 | PAP-020 | Analyse Contract never uses the Claude tier |
-| PAP-019 | One paid tier at launch |
-| PAP-018 | US spelling in code identifiers |
 
 ## Known issues
 
 - `codeql (actions)` analysis succeeds but its upload is rejected while CodeQL default setup is
   enabled on the repository; not a required check until fixed (backlog F-010).
-- The iOS job's pinned simulator (`iPhone 17`, iOS 27 runtime) is verified only when the first code
-  pull request runs it (backlog F-002).
+- The iOS job runs on the interim Xcode 26 toolchain with an `iPhone 17` on the iOS 26 runtime, and
+  creates that simulator if the runner image lacks it (PAP-029, backlog F-002).
+- The live on-device model tests (`LiveModelTests`) are opt-in: the development Mac has Apple
+  Intelligence turned off, and CI runners have no model. Run them with `PDFALGOPRO_LIVE_MODEL=1`.
+- The simulator reports the on-device model as available but has no model assets, so real answers
+  fail there with the "didn't finish" message; UI tests use the scripted router instead.
 - Release and performance test plans run in Xcode Cloud, not GitHub Actions; the performance-budget
   comparison script is still to be written ([testing strategy](testing-strategy.md)).

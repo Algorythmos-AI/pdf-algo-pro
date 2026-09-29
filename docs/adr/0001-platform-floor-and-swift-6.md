@@ -10,6 +10,8 @@
 
 **Consequences.** Reach is limited to devices on iOS 27 at launch. `Assumption:` paying users of premium productivity apps skew to current iOS versions; validated with App Store Connect adoption data before launch. Every framework call can assume iOS 27 APIs, which keeps the codebase small for years. Readiness blocker C2 (Xcode 27 locally and in CI) follows from this decision.
 
+**Interim deviation.** Until Xcode 27 builds locally and in CI, the app builds with Xcode 26 and a temporary iOS 26 floor, using no iOS 27-only API; the floor, toolchain and simulator return to 27 together (decision PAP-029, 2026-09-29).
+
 **Pillars served.** PIL-4, PIL-7
 
 **References.** [What's new in the Foundation Models framework, WWDC26](https://developer.apple.com/videos/play/wwdc2026/241/) · [What's new in SwiftUI, WWDC26](https://developer.apple.com/videos/play/wwdc2026/269/)

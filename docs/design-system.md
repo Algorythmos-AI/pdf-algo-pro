@@ -74,7 +74,7 @@ to redefine the meaning of dynamic system colours, so each token keeps the syste
 | `color.background.grouped` | `systemGroupedBackground` | Settings and form backgrounds |
 | `color.background.groupedElevated` | `secondarySystemGroupedBackground` | Rows and cards on grouped backgrounds |
 | `color.label.primary` | `label` | Primary text |
-| `color.label.secondary` | `secondaryLabel` | Supporting text |
+| `color.label.secondary` | `#5E5E66` light, `#A1A1A8` dark (`#45454C` / `#C4C4CC` with Increase Contrast), not `secondaryLabel`, which is 3.3:1 on grouped backgrounds; at least 4.5:1 on every system background | Supporting text, including empty states (`EmptyState`, not `ContentUnavailableView`) |
 | `color.label.tertiary` | `tertiaryLabel` | Disabled text and placeholders only |
 | `color.separator` | `separator` | Dividers |
 | `color.fill.primary` / `.secondary` / `.tertiary` | `systemFill` family | Control fills |
@@ -627,10 +627,12 @@ see [App Store strategy](app-store-strategy.md)).
 
 ### DesignSystem package
 
-- A generator script (`scripts/design/generate_tokens.py`) writes the asset-catalog colour sets (Any,
-  Dark, High Contrast and Dark High Contrast appearances) and a generated Swift file of typed tokens
-  (`Color.ds.brandTint`, `Spacing.s200`) into the `DesignSystem` package. Generated files are never
-  edited by hand.
+- A generator script (`scripts/design/generate_tokens.py`) writes a Swift file of typed tokens
+  (`Color.ds.brandTint`, `Spacing.s200`) into the `DesignSystem` package. Brand colours resolve per
+  appearance (light, dark, and each with Increase Contrast) through dynamic colour providers, and
+  semantic tokens return the system colour named in `tokens.json`. The same script checks every
+  declared contrast pair and the spacing grid, and CI reruns it with `--check` to catch drift.
+  Generated files are never edited by hand.
 - The package also holds the components above, `Motion`, `Haptics`, the `readableWidth()` modifier
   and preview fixtures. Features depend on `DesignSystem`; `DesignSystem` depends only on SwiftUI and
   `Core` ([ADR-0002](adr/0002-xcodegen-and-modular-spm.md)).
