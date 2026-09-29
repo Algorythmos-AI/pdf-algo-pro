@@ -161,11 +161,20 @@ jobs:
           xcodebuild build-for-testing -scheme "$SCHEME" -testPlan "$TEST_PLAN" \
             -destination "id=$device" CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
       - name: Tests (unit, UI, accessibility audit, snapshots)
+        id: tests
         run: |
           xcodebuild test-without-building -scheme "$SCHEME" -testPlan "$TEST_PLAN" \
             -destination "id=$SIM" -enableCodeCoverage YES -resultBundlePath Tests.xcresult
       - name: Coverage gate (80% overall and per module)
+        # Runs even when a test failed, so one run reports every problem. A test bundle that crashed
+        # records no coverage, so its module can look low until the crash is fixed.
+        if: ${{ !cancelled() && hashFiles('Tests.xcresult/Info.plist') != '' }}
+        env:
+          TESTS_OUTCOME: ${{ steps.tests.outcome }}
         run: |
+          if [ "$TESTS_OUTCOME" != "success" ]; then
+            echo "::warning::Tests did not pass, so the coverage below may be incomplete"
+          fi
           xcrun xccov view --report --json Tests.xcresult > coverage.json
           python3 scripts/ci/coverage_gate.py coverage.json --min 80
       - name: Keep the result bundle on failure
