@@ -12,8 +12,10 @@ contributions are by invitation. The rules below apply to everyone, people and c
 3. Keep each pull request to one change. For code, aim for under 400 changed lines.
 4. Title the pull request as a Conventional Commit (`feat(ocr): add French recognition`). Fill in
    the template, including how you tested it.
-5. The pull request is squash-merged into `integration` once the required checks pass. Releases
-   reach `main` through a release pull request; see [release management](../docs/release-management.md).
+5. Run `scripts/dev/preflight.sh` before you push: every check a Mac can run, in CI's order.
+6. The pull request is squash-merged into `integration` once the required checks pass, the `ios`
+   check included: never while a check is red or still running. Releases reach `main` through a
+   release pull request; see [release management](../docs/release-management.md).
 
 ## Rules
 

@@ -91,7 +91,13 @@ hotfix/* from main ─► squash-merge into main ─► back-merge into integrat
 3. **Branch.** From `integration`, named as in [branches](#branch-names).
 4. **Build and check locally.** Generate the project with XcodeGen, build with Xcode 27, format with
    `swift-format`, and run the tests for the packages you touched
-   ([Swift style guide](swift-style-guide.md#formatting-with-swift-format)).
+   ([Swift style guide](swift-style-guide.md#formatting-with-swift-format)). Before every push, run
+   [`scripts/dev/preflight.sh`](../scripts/dev/preflight.sh): every check a Mac can run, in the order
+   CI runs them (format, design tokens, docs, invariants, script tests, workflow lint, a typecheck of
+   every module for the iOS simulator, and the tests of each package that builds for macOS), in about
+   two minutes and with little disk. The UI tests, accessibility audits and coverage gate run only in
+   the `ios` job, so a pull request is merged only when that check is green, never while it is red or
+   still running.
 5. **Pull request.** Open it early as a draft if you want feedback. The title is a Conventional
    Commit; the [template](../.github/PULL_REQUEST_TEMPLATE.md) is filled in; the issue is linked
    (`Closes #123`).
