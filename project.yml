@@ -101,8 +101,7 @@ targets:
         UISupportsDocumentBrowser: false
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: true
-        UILaunchScreen:
-          UIColorName: ""
+        UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft
