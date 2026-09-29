@@ -6,6 +6,7 @@ import UIKit
 /// The assistant sheet over the reader.
 public struct AssistantView: View {
   @State private var model: AssistantModel
+  @State private var detent: PresentationDetent = .large
   @Environment(\.dismiss) private var dismiss
 
   /// Creates the sheet for a model.
@@ -63,7 +64,9 @@ public struct AssistantView: View {
       }
       .task { await model.start() }
     }
-    .presentationDetents([.medium, .large])
+    // Opens at full height, where answers have room at every text size; the medium detent keeps the
+    // page in view for anyone who drags the sheet down.
+    .presentationDetents([.medium, .large], selection: $detent)
     // Scroll before resizing: at the medium detent a long answer, or any answer at large Dynamic
     // Type sizes, can be read without the sheet first jumping to full height.
     .presentationContentInteraction(.scrolls)
