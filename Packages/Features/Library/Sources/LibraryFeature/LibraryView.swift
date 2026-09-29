@@ -12,7 +12,11 @@ public struct LibraryView<Detail: View>: View {
   @State private var compactColumn = NavigationSplitViewColumn.content
   @Environment(\.horizontalSizeClass) private var sizeClass
   @State private var isPickingFiles = false
+  /// The assistant task to start on a single imported file: set by the home screen's primary action.
+  @State private var importTask: AssistantTask?
   @State private var renaming: Document?
+  @State private var tagging: Document?
+  @State private var confirmingPermanentDelete: Document?
   @State private var newTitle = ""
   private let onScan: () -> Void
   private let onSettings: () -> Void
@@ -51,8 +55,13 @@ public struct LibraryView<Detail: View>: View {
         }
       }
     }
+    .sheet(item: $tagging) { document in
+      TagEditor(document: document, available: model.tags) { tags in
+        Task { await model.setTags(tags, for: document.id) }
+      }
+    }
     .fileImporter(isPresented: $isPickingFiles, allowedContentTypes: [.pdf], allowsMultipleSelection: true) { result in
-      if case .success(let urls) = result { Task { await model.importFiles(urls) } }
+      if case .success(let urls) = result { Task { await model.importFiles(urls, task: importTask) } }
     }
     .alert(
       Text("Something went wrong", bundle: .module),
@@ -82,6 +91,21 @@ public struct LibraryView<Detail: View>: View {
       } label: {
         Text("Cancel", bundle: .module)
       }
+    }
+    .confirmationDialog(
+      Text("Delete permanently?", bundle: .module),
+      isPresented: Binding(
+        get: { confirmingPermanentDelete != nil }, set: { if !$0 { confirmingPermanentDelete = nil } }),
+      titleVisibility: .visible,
+      presenting: confirmingPermanentDelete
+    ) { document in
+      Button(role: .destructive) {
+        Task { await model.deletePermanently(document.id) }
+      } label: {
+        Text("Delete permanently", bundle: .module)
+      }
+    } message: { document in
+      Text("\(document.title) will be removed from this device. This can't be undone.", bundle: .module)
     }
     .onChange(of: model.selection) { compactColumn = model.selection == nil ? .content : .detail }
     .task { await model.load() }
@@ -197,7 +221,7 @@ public struct LibraryView<Detail: View>: View {
         }
         .accessibilityIdentifier("library.scan")
         Button {
-          isPickingFiles = true
+          pick(task: nil)
         } label: {
           Label {
             Text("Import", bundle: .module)
@@ -254,10 +278,11 @@ public struct LibraryView<Detail: View>: View {
     }
     .buttonStyle(.plain)
     .accessibilityIdentifier("library.document.\(document.title)")
-    .swipeActions(edge: .trailing) {
+    // A full swipe moves a document to Recently Deleted; deleting for good always asks first.
+    .swipeActions(edge: .trailing, allowsFullSwipe: !document.isDeleted) {
       if document.isDeleted {
         Button(role: .destructive) {
-          Task { await model.deletePermanently(document.id) }
+          confirmingPermanentDelete = document
         } label: {
           Label {
             Text("Delete now", bundle: .module)
@@ -292,7 +317,8 @@ public struct LibraryView<Detail: View>: View {
           Task { await model.toggleFavorite(document) }
         } label: {
           Label {
-            Text("Favourite", bundle: .module)
+            document.isFavorite
+              ? Text("Remove from favourites", bundle: .module) : Text("Add to favourites", bundle: .module)
           } icon: {
             Image(systemName: document.isFavorite ? "star.slash" : "star")
           }
@@ -320,6 +346,15 @@ public struct LibraryView<Detail: View>: View {
               ? Text("Remove from favourites", bundle: .module) : Text("Add to favourites", bundle: .module)
           } icon: {
             Image(systemName: "star")
+          }
+        }
+        Button {
+          tagging = document
+        } label: {
+          Label {
+            Text("Tags", bundle: .module)
+          } icon: {
+            Image(systemName: "tag")
           }
         }
         Button(role: .destructive) {
@@ -352,14 +387,14 @@ public struct LibraryView<Detail: View>: View {
             .buttonStyle(.primary)
             .accessibilityIdentifier("library.empty.primary.scan")
           Button {
-            isPickingFiles = true
+            pick(task: model.primaryTask)
           } label: {
             Text("Import a PDF", bundle: .module).minimumTarget()
           }
           .accessibilityIdentifier("library.empty.import")
         } else {
           Button {
-            isPickingFiles = true
+            pick(task: model.primaryTask)
           } label: {
             Text("Import a PDF", bundle: .module)
           }
@@ -368,13 +403,19 @@ public struct LibraryView<Detail: View>: View {
           Button(action: onScan) { Text("Scan a document", bundle: .module).minimumTarget() }
         }
         Button {
-          Task { await model.addSample() }
+          Task { await model.addSample(task: model.primaryTask) }
         } label: {
           Text("Try a sample", bundle: .module).minimumTarget()
         }
         .accessibilityIdentifier("library.empty.sample")
       }
     }
+  }
+
+  /// Opens the file picker; a single file picked opens with `task` started in the assistant (F9).
+  private func pick(task: AssistantTask?) {
+    importTask = task
+    isPickingFiles = true
   }
 
   private var primaryActionCard: some View {
@@ -386,11 +427,17 @@ public struct LibraryView<Detail: View>: View {
         switch action {
         case .scanDocument:
           Button(action: onScan) { Text("Scan", bundle: .module) }.buttonStyle(.primary)
-        case .importDocument, .openAssistant:
+        case .importDocument:
           Button {
-            isPickingFiles = true
+            pick(task: nil)
           } label: {
             Text("Import a PDF", bundle: .module)
+          }.buttonStyle(.primary)
+        case .openAssistant:
+          Button {
+            pick(task: model.primaryTask)
+          } label: {
+            Text("Choose a PDF", bundle: .module)
           }.buttonStyle(.primary)
         }
       }
@@ -457,7 +504,7 @@ public struct LibraryView<Detail: View>: View {
     case .importDocument: Text("Import from Files, or drag PDFs here.", bundle: .module)
     case .scanDocument: Text("Your scan becomes a searchable PDF, recognised on this device.", bundle: .module)
     case .openAssistant:
-      Text("Open a document, then tap Ask in the toolbar. Answers cite their pages.", bundle: .module)
+      Text("Choose a PDF and the assistant opens with it. Answers cite their pages.", bundle: .module)
     }
   }
 }

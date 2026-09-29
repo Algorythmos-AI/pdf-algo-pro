@@ -140,6 +140,35 @@ struct LibraryModelTests {
     #expect(Harness().model.primaryAction == .importDocument)
   }
 
+  @Test("With AI hidden, an AI intent offers importing instead (FR-AI-009)")
+  func primaryActionRespectsHiddenAI() {
+    let harness = Harness(intents: [.chatWithPDF])
+    harness.settings.save(
+      AppSettings(hasCompletedOnboarding: true, intents: [.chatWithPDF], isIntelligenceHidden: true))
+    #expect(harness.model.primaryAction == .importDocument)
+    let scanning = Harness(intents: [.scan])
+    scanning.settings.save(AppSettings(hasCompletedOnboarding: true, intents: [.scan], isIntelligenceHidden: true))
+    #expect(scanning.model.primaryAction == .scanDocument)
+  }
+
+  @Test("An AI intent from onboarding opens the assistant on the document it brings in (F9)")
+  func intentsOpenTheAssistant() async throws {
+    let summarising = Harness(intents: [.summarizeDocument])
+    #expect(summarising.model.primaryTask == .summarize)
+    await summarising.model.addSample(task: summarising.model.primaryTask)
+    #expect(summarising.model.selection?.task == .summarize)
+    await summarising.model.importFiles(
+      [try summarising.file("Lease.pdf", data: Data("%PDF-1.7".utf8))], task: .explainContract)
+    #expect(summarising.model.selection?.task == .explainContract)
+    await summarising.model.importFiles([try summarising.file("Plain.pdf", data: Data("%PDF-1.7".utf8))])
+    #expect(summarising.model.selection?.task == nil, "Imports from the toolbar just open the document")
+
+    let hidden = Harness(intents: [.chatWithPDF])
+    hidden.settings.save(AppSettings(hasCompletedOnboarding: true, intents: [.chatWithPDF], isIntelligenceHidden: true))
+    #expect(hidden.model.primaryTask == nil, "Hidden AI never opens uninvited (FR-AI-009)")
+    #expect(Harness(intents: [.scan]).model.primaryTask == nil)
+  }
+
   @Test("Thumbnails render from the document's file")
   func thumbnails() async throws {
     let harness = Harness()
@@ -160,6 +189,38 @@ struct LibraryModelTests {
     for action in [HomeAction.importDocument, .scanDocument] + AssistantTask.allCases.map(HomeAction.openAssistant) {
       _ = LibraryView<EmptyView>.primaryTitle(for: action)
       _ = LibraryView<EmptyView>.primaryDetail(for: action)
+    }
+  }
+}
+
+@MainActor
+@Suite("Tag editor")
+struct TagEditorTests {
+  @Test("Tags are trimmed, never doubled by case, and suggested from other documents (F7a, FR-LIB-002)")
+  func editing() {
+    var editing = TagEditing(tags: ["Work", " tax "], available: ["Tax", "Travel", "Home", "work"])
+    #expect(editing.tags == ["tax", "Work"])
+    #expect(editing.suggestions == ["Home", "Travel"])
+    editing.draft = "tr"
+    #expect(editing.suggestions == ["Travel"])
+    editing.draft = "  Receipts "
+    editing.addDraft()
+    #expect(editing.tags == ["Receipts", "tax", "Work"] && editing.draft.isEmpty)
+    editing.draft = "   "
+    editing.addDraft()
+    editing.add("WORK")
+    #expect(editing.tags == ["Receipts", "tax", "Work"])
+    editing.remove("tax")
+    #expect(editing.tags == ["Receipts", "Work"])
+  }
+
+  @Test("The editor draws at a large text size, with and without tags")
+  func draws() {
+    for tags in [[], ["Tax", "Work"]] {
+      let document = Document(title: "Lease", fileName: "l.pdf", addedAt: .now, tags: tags)
+      let view = TagEditor(document: document, available: ["Home"]) { _ in }
+        .frame(width: 390, height: 700).environment(\.dynamicTypeSize, .accessibility3)
+      #expect(ImageRenderer(content: view).uiImage != nil)
     }
   }
 }
