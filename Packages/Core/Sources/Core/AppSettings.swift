@@ -35,6 +35,29 @@ public struct AppSettings: Hashable, Codable, Sendable {
     self.readerDisplayMode = readerDisplayMode
     self.librarySort = librarySort
   }
+
+  private enum CodingKeys: String, CodingKey {
+    case hasCompletedOnboarding, intents, isIntelligenceHidden, readerDisplayMode, librarySort
+  }
+
+  /// Decodes leniently, so settings survive updates in both directions.
+  ///
+  /// A missing key, or a value this version does not know (a setting added or a case renamed by
+  /// another version), keeps that one setting's default; the others are kept as stored. Unknown
+  /// intents are dropped. Only data that is not a settings object at all fails to decode.
+  public init(from decoder: any Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    func value<T: Decodable>(_ type: T.Type, _ key: CodingKeys) -> T? {
+      (try? container.decodeIfPresent(type, forKey: key)) ?? nil
+    }
+    let defaults = AppSettings()
+    hasCompletedOnboarding = value(Bool.self, .hasCompletedOnboarding) ?? defaults.hasCompletedOnboarding
+    intents = value([String].self, .intents)?.compactMap(OnboardingIntent.init(rawValue:)) ?? defaults.intents
+    isIntelligenceHidden = value(Bool.self, .isIntelligenceHidden) ?? defaults.isIntelligenceHidden
+    readerDisplayMode =
+      value(String.self, .readerDisplayMode).flatMap(ReaderDisplayMode.init(rawValue:)) ?? defaults.readerDisplayMode
+    librarySort = value(String.self, .librarySort).flatMap(LibrarySort.init(rawValue:)) ?? defaults.librarySort
+  }
 }
 
 /// Where settings are kept.
@@ -57,11 +80,15 @@ public final class UserDefaultsSettingsStore: SettingsStoring, @unchecked Sendab
     self.key = key
   }
 
-  /// The stored settings, or defaults when none are stored or they cannot be decoded.
+  /// The stored settings; defaults when none are stored.
+  ///
+  /// Stored data that cannot be read at all also gives defaults, except that onboarding stays done:
+  /// someone with stored settings has used the app, and onboarding never returns uninvited.
   public func load() -> AppSettings {
-    guard let data = defaults.data(forKey: key),
-      let settings = try? JSONDecoder().decode(AppSettings.self, from: data)
-    else { return AppSettings() }
+    guard let data = defaults.data(forKey: key) else { return AppSettings() }
+    guard let settings = try? JSONDecoder().decode(AppSettings.self, from: data) else {
+      return AppSettings(hasCompletedOnboarding: true)
+    }
     return settings
   }
 
