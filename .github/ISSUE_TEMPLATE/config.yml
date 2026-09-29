@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability (private)
+    url: https://github.com/Algorythmos-AI/pdf-algo-pro/security/advisories/new
+    about: 'Never report vulnerabilities in a public issue. Use private reporting, or email info@algorythmos.com.au with the subject "SECURITY: pdf-algo-pro".'
+  - name: App support
+    url: https://github.com/Algorythmos-AI/pdf-algo-pro/blob/integration/.github/SUPPORT.md
+    about: Questions about using the app.

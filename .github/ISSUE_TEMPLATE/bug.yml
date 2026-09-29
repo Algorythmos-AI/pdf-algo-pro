@@ -1,0 +1,59 @@
+name: Bug
+description: Something doesn't work as expected (functionality, accessibility, performance or AI quality)
+title: "[Bug]: "
+labels: ["bug", "status:triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. **Don't attach real documents or personal data**; describe the file instead
+        (page count, scanned or digital, forms, encryption). Security problems go through private reporting.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind of problem
+      options:
+        - Functional
+        - Accessibility
+        - Performance or battery
+        - AI answer quality (wrong, uncited or unsafe output)
+        - Crash
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. Open a 300-page scanned PDF\n2. …"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: App version and build
+      placeholder: "1.0.0 (42)"
+  - type: input
+    id: device
+    attributes:
+      label: Device and OS version
+      placeholder: "iPhone 16 Pro, iOS 27.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options: [iPhone, iPad, Mac, Vision Pro]
+      multiple: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Diagnostics (optional)
+      description: The diagnostics summary from the app, or crash logs. Never document content.
+      render: text

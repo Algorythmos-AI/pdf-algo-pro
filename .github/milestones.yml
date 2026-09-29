@@ -1,0 +1,12 @@
+# Milestones map to roadmap phases (docs/product/roadmap.md). Apply with `uv run --with pyyaml==6.0.2 python scripts/gh/sync_github.py milestones` (dry run; add --apply).
+milestones:
+  - title: Foundation
+    description: "Planning package, readiness gate, repository and toolchain foundations. No app features."
+  - title: MVP
+    description: "First TestFlight build: read, annotate, scan and OCR, and on-device document intelligence on iPhone."
+  - title: V1
+    description: "First App Store release: editing, signing, organising, subscriptions, EN + FR."
+  - title: V1.1
+    description: "Refinement after launch: quality, performance, accessibility and the most requested gaps."
+  - title: V2
+    description: "iPad-first experience and Mac; opt-in cloud intelligence tiers at GA."

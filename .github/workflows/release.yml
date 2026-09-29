@@ -1,0 +1,74 @@
+name: release
+
+# Run by the release manager after the release pull request (integration -> main) is merged and
+# the build is approved on the App Store. Tags main, publishes the GitHub Release from the
+# CHANGELOG section, and mirrors docs/ to the wiki. See docs/release-management.md.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version being released (X.Y.Z or X.Y.Z-rc.N), matching a CHANGELOG section"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: release
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+      - name: Release gates
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]] || { echo "::error::version must be X.Y.Z or X.Y.Z-rc.N"; exit 1; }
+          if git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then echo "::error::tag v$VERSION already exists"; exit 1; fi
+          grep -Eq "^## \[$VERSION\]" CHANGELOG.md || { echo "::error::CHANGELOG.md has no '## [$VERSION]' section"; exit 1; }
+          if [ -f project.yml ]; then
+            base="${VERSION%%-*}"
+            grep -Eq "MARKETING_VERSION: *\"?$base\"?" project.yml || { echo "::error::project.yml MARKETING_VERSION is not $base"; exit 1; }
+          fi
+          python3 scripts/ci/check_docs.py
+          python3 scripts/ci/invariants.py
+      - name: Release notes from the CHANGELOG section
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          awk -v v="$VERSION" '
+            $0 ~ "^## \\[" v "\\]" {on=1; next}
+            on && /^## \[/ {exit}
+            on {print}
+          ' CHANGELOG.md > release-notes.md
+          test -s release-notes.md || { echo "::error::empty release notes"; exit 1; }
+      - name: Tag and publish the GitHub Release
+        env:
+          VERSION: ${{ inputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          prerelease=""
+          [[ "$VERSION" == *-rc.* ]] && prerelease="--prerelease"
+          gh release create "v$VERSION" --target "$GITHUB_SHA" --title "v$VERSION" \
+            --notes-file release-notes.md $prerelease
+      - name: Mirror docs/ to the wiki
+        env:
+          WIKI_TOKEN: ${{ secrets.WIKI_TOKEN }}
+        run: |
+          if [ -z "$WIKI_TOKEN" ]; then
+            echo "::warning::WIKI_TOKEN is not set; wiki not published (GITHUB_TOKEN cannot push to wikis)"
+            exit 0
+          fi
+          python3 scripts/gh/publish_wiki.py --push

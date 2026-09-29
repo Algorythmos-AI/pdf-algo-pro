@@ -1,0 +1,54 @@
+name: Feature or epic
+description: Propose a capability, an improvement, or an epic that groups several issues
+title: "[Feature]: "
+labels: ["enhancement", "status:triage"]
+body:
+  - type: dropdown
+    id: type
+    attributes:
+      label: Type
+      options: [Feature, Epic]
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Who has this problem and when? Link evidence (research issue, support email, review) where you can.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Proposed outcome
+      description: What the user can do afterwards. Acceptance criteria as Given / When / Then if you have them.
+    validations:
+      required: true
+  - type: dropdown
+    id: pillars
+    attributes:
+      label: Pillars served
+      multiple: true
+      options:
+        - PIL-1 Document Reading
+        - PIL-2 Document Editing
+        - PIL-3 OCR & Scanning
+        - PIL-4 AI Document Intelligence
+        - PIL-5 Privacy
+        - PIL-6 Offline Capability
+        - PIL-7 Native Apple Experience
+    validations:
+      required: true
+  - type: dropdown
+    id: platforms
+    attributes:
+      label: Platforms
+      multiple: true
+      options: [iPhone, iPad, Mac, Vision Pro]
+  - type: checkboxes
+    id: guardrails
+    attributes:
+      label: Guardrails
+      options:
+        - label: It is not one of the documented non-goals
+        - label: Document content stays on the device, or the cloud use is opt-in and named
