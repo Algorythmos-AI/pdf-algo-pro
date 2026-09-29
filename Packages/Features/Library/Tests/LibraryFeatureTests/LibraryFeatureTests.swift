@@ -140,6 +140,17 @@ struct LibraryModelTests {
     #expect(Harness().model.primaryAction == .importDocument)
   }
 
+  @Test("With AI hidden, an AI intent offers importing instead (FR-AI-009)")
+  func primaryActionRespectsHiddenAI() {
+    let harness = Harness(intents: [.chatWithPDF])
+    harness.settings.save(
+      AppSettings(hasCompletedOnboarding: true, intents: [.chatWithPDF], isIntelligenceHidden: true))
+    #expect(harness.model.primaryAction == .importDocument)
+    let scanning = Harness(intents: [.scan])
+    scanning.settings.save(AppSettings(hasCompletedOnboarding: true, intents: [.scan], isIntelligenceHidden: true))
+    #expect(scanning.model.primaryAction == .scanDocument)
+  }
+
   @Test("Thumbnails render from the document's file")
   func thumbnails() async throws {
     let harness = Harness()

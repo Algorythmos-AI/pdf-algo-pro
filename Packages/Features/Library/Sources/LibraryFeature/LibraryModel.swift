@@ -128,8 +128,13 @@ public final class LibraryModel {
   }
 
   /// The home action, personalised by onboarding (FR-ONB-003).
+  ///
+  /// With AI hidden, an AI intent falls back to importing: AI never appears uninvited (FR-AI-009).
   public var primaryAction: HomeAction {
-    HomeAction.primary(for: settings.load().intents)
+    let current = settings.load()
+    let action = HomeAction.primary(for: current.intents)
+    if current.isIntelligenceHidden, case .openAssistant = action { return .importDocument }
+    return action
   }
 
   /// Whether AI features are hidden (FR-AI-009).

@@ -13,6 +13,7 @@ public struct LibraryView<Detail: View>: View {
   @Environment(\.horizontalSizeClass) private var sizeClass
   @State private var isPickingFiles = false
   @State private var renaming: Document?
+  @State private var confirmingPermanentDelete: Document?
   @State private var newTitle = ""
   private let onScan: () -> Void
   private let onSettings: () -> Void
@@ -82,6 +83,21 @@ public struct LibraryView<Detail: View>: View {
       } label: {
         Text("Cancel", bundle: .module)
       }
+    }
+    .confirmationDialog(
+      Text("Delete permanently?", bundle: .module),
+      isPresented: Binding(
+        get: { confirmingPermanentDelete != nil }, set: { if !$0 { confirmingPermanentDelete = nil } }),
+      titleVisibility: .visible,
+      presenting: confirmingPermanentDelete
+    ) { document in
+      Button(role: .destructive) {
+        Task { await model.deletePermanently(document.id) }
+      } label: {
+        Text("Delete permanently", bundle: .module)
+      }
+    } message: { document in
+      Text("\(document.title) will be removed from this device. This can't be undone.", bundle: .module)
     }
     .onChange(of: model.selection) { compactColumn = model.selection == nil ? .content : .detail }
     .task { await model.load() }
@@ -254,10 +270,11 @@ public struct LibraryView<Detail: View>: View {
     }
     .buttonStyle(.plain)
     .accessibilityIdentifier("library.document.\(document.title)")
-    .swipeActions(edge: .trailing) {
+    // A full swipe moves a document to Recently Deleted; deleting for good always asks first.
+    .swipeActions(edge: .trailing, allowsFullSwipe: !document.isDeleted) {
       if document.isDeleted {
         Button(role: .destructive) {
-          Task { await model.deletePermanently(document.id) }
+          confirmingPermanentDelete = document
         } label: {
           Label {
             Text("Delete now", bundle: .module)
@@ -292,7 +309,8 @@ public struct LibraryView<Detail: View>: View {
           Task { await model.toggleFavorite(document) }
         } label: {
           Label {
-            Text("Favourite", bundle: .module)
+            document.isFavorite
+              ? Text("Remove from favourites", bundle: .module) : Text("Add to favourites", bundle: .module)
           } icon: {
             Image(systemName: document.isFavorite ? "star.slash" : "star")
           }
