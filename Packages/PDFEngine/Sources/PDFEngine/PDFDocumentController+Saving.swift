@@ -35,6 +35,9 @@ extension PDFDocumentController {
   /// Whether the document's author allows notes and markup; always true for unencrypted documents.
   public var allowsAnnotating: Bool { document.allowsCommenting }
 
+  /// Whether the document's author allows printing; always true for unencrypted documents.
+  public var allowsPrinting: Bool { document.allowsPrinting }
+
   /// The write options that keep an encrypted document's protection (defect D9).
   ///
   /// - Opened with the owner password: that password keeps protecting it and opens it.

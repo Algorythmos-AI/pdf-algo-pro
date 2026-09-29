@@ -1,6 +1,7 @@
 import DesignSystem
 import PDFEngine
 import SwiftUI
+import UIKit
 
 /// The table of contents; choosing an entry jumps to its page (FR-READ-002).
 struct OutlineSheet: View {
@@ -117,4 +118,17 @@ private struct PageThumbnail: View {
       image = await cache.thumbnail(for: url, pageIndex: pageIndex, version: version, maximumPixelSize: 256)
     }
   }
+}
+
+/// The system share sheet for a saved document; Print is left out when the author does not allow it.
+struct ShareSheet: UIViewControllerRepresentable {
+  let file: SharedFile
+
+  func makeUIViewController(context: Context) -> UIActivityViewController {
+    let controller = UIActivityViewController(activityItems: [file.url], applicationActivities: nil)
+    if !file.allowsPrinting { controller.excludedActivityTypes = [.print] }
+    return controller
+  }
+
+  func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
 }

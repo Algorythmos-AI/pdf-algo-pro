@@ -205,6 +205,31 @@ struct ReaderModelTests {
     reader.controller?.showFind()
   }
 
+  @Test("Sharing and printing save first, and respect the author's printing restriction")
+  func shareAndPrint() async throws {
+    let harness = Harness()
+    let form = await harness.seed(try TestPDFs.makeForm())
+    let reader = harness.reader(for: form)
+    #expect(await reader.fileForSharing() == nil, "Nothing to share before the document opens")
+    await reader.load()
+    let widgets = try #require(reader.controller?.document.page(at: 0)?.annotations)
+    try #require(widgets.first { $0.fieldName == "name" }).widgetStringValue = "Katherine Johnson"
+
+    await reader.share()
+
+    let url = try await harness.library.fileURL(for: form.id)
+    #expect(reader.sharing == SharedFile(url: url, allowsPrinting: true))
+    #expect(TestPDFs.storedValue(of: "name", in: url) == "Katherine Johnson", "Shared as the person sees it")
+
+    let restricted = await harness.seed(
+      try TestPDFs.makeProtected(userPassword: nil, ownerPassword: "owner-\(UUID())", permissions: [.allowsCommenting]))
+    let noPrinting = harness.reader(for: restricted)
+    await noPrinting.load()
+    #expect(!noPrinting.allowsPrinting)
+    await noPrinting.share()
+    #expect(noPrinting.sharing?.allowsPrinting == false)
+  }
+
   @Test("Layout choices are remembered")
   func displayMode() async throws {
     let harness = Harness()

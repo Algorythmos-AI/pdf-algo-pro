@@ -1,6 +1,7 @@
 import Core
 import PDFEngine
 import SwiftUI
+import UIKit
 
 /// The reader's tools: Ask (when intelligence is shown), Markup and More.
 struct ReaderToolbar: ToolbarContent {
@@ -113,6 +114,32 @@ struct ReaderToolbar: ToolbarContent {
             }
           }
           .keyboardShortcut("f")
+          Button {
+            Task { await model.share() }
+          } label: {
+            Label {
+              Text("Share", bundle: .module)
+            } icon: {
+              Image(systemName: "square.and.arrow.up")
+            }
+          }
+          if model.allowsPrinting {
+            Button {
+              Task {
+                guard let url = await model.fileForSharing() else { return }
+                let printer = UIPrintInteractionController.shared
+                printer.printingItem = url
+                printer.present(animated: true)
+              }
+            } label: {
+              Label {
+                Text("Print", bundle: .module)
+              } icon: {
+                Image(systemName: "printer")
+              }
+            }
+            .keyboardShortcut("p")
+          }
           Button {
             model.showsGoToPage = true
           } label: {

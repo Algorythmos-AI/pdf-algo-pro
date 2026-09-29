@@ -13,6 +13,16 @@ public struct ReaderAssistantContext {
   public let reveal: (Citation) -> Void
 }
 
+/// A saved document file offered to the share sheet.
+public struct SharedFile: Identifiable, Equatable {
+  /// The file.
+  public let url: URL
+  /// Whether the share sheet may offer Print.
+  public let allowsPrinting: Bool
+  /// The file's identity.
+  public var id: URL { url }
+}
+
 /// One open document (FR-READ-001 to FR-READ-006, FR-ANN-001, FR-SCAN-003).
 @MainActor
 @Observable
@@ -51,6 +61,8 @@ public final class ReaderModel {
   public var showsPages = false
   /// Whether "Go to page" is asking for a page number.
   public var showsGoToPage = false
+  /// The saved file the share sheet is showing, if it is open.
+  public var sharing: SharedFile?
   /// Whether there is an annotation change to undo.
   public private(set) var canUndo = false
   /// Whether there is an undone annotation change to redo.
@@ -250,14 +262,18 @@ public final class ReaderModel {
   /// Writes changes atomically (autosave, FR-EDIT-007); a failed save changes nothing on disk.
   ///
   /// Form entries count as changes, including text still being typed into a field (defect D1).
-  public func save() async {
-    guard let controller else { return }
+  ///
+  /// Returns whether the file on disk now has every change; a failure has already been explained.
+  @discardableResult
+  public func save() async -> Bool {
+    guard let controller else { return false }
     controller.endEditing()
-    guard controller.needsSaving else { return }
+    guard controller.needsSaving else { return true }
     do {
       try controller.save(to: try await library.fileURL(for: documentID))
       try await library.recordModified(documentID)
       await telemetry.record("task.core.completed")
+      return true
     } catch PDFEngineError.restricted {
       errorMessage = Self.restrictedMessage
     } catch {
@@ -265,6 +281,25 @@ public final class ReaderModel {
         localized: "Couldn't save your changes. The document on disk hasn't changed. Try again.", bundle: .module)
       await telemetry.record("quality.operation.failed")
     }
+    return false
+  }
+
+  // MARK: - Sharing
+
+  /// The saved file, ready to share or print: changes are saved first, so what leaves the app is what
+  /// the person sees. `nil` when saving failed, which has been explained.
+  public func fileForSharing() async -> URL? {
+    guard phase == .ready, await save() else { return nil }
+    return try? await library.fileURL(for: documentID)
+  }
+
+  /// Whether the document's author allows printing; always true for unencrypted documents.
+  public var allowsPrinting: Bool { controller?.allowsPrinting ?? false }
+
+  /// Saves, then opens the share sheet with the file.
+  public func share() async {
+    guard let url = await fileForSharing() else { return }
+    sharing = SharedFile(url: url, allowsPrinting: allowsPrinting)
   }
 
   // MARK: - Recognition
