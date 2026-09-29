@@ -67,6 +67,13 @@ final class PDFReaderHostView: PDFView {
     go(to: selection)
   }
 
+  /// Shows the system find bar (FR-READ-003).
+  func presentFind() {
+    #if canImport(UIKit)
+      findInteraction.presentFindNavigator(showingReplace: false)
+    #endif
+  }
+
   /// Ends text entry in a form field, which writes the text into the field.
   func endEditing() {
     #if canImport(UIKit)

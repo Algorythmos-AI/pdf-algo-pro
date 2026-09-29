@@ -104,6 +104,25 @@ struct ReaderToolbar: ToolbarContent {
         .accessibilityIdentifier("reader.markup")
         Menu {
           Button {
+            model.controller?.showFind()
+          } label: {
+            Label {
+              Text("Find", bundle: .module)
+            } icon: {
+              Image(systemName: "magnifyingglass")
+            }
+          }
+          .keyboardShortcut("f")
+          Button {
+            model.showsGoToPage = true
+          } label: {
+            Label {
+              Text("Go to page", bundle: .module)
+            } icon: {
+              Image(systemName: "number")
+            }
+          }
+          Button {
             model.showsPages = true
           } label: {
             Label {

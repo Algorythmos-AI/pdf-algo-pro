@@ -12,6 +12,7 @@ public struct ReaderView<Assistant: View>: View {
   @State private var password = ""
   @State private var noteText = ""
   @State private var isAddingNote = false
+  @State private var pageNumber = ""
   @Environment(\.scenePhase) private var scenePhase
   private let assistant: (ReaderAssistantContext) -> Assistant
 
@@ -44,6 +45,24 @@ public struct ReaderView<Assistant: View>: View {
         } label: {
           Text("Cancel", bundle: .module)
         }
+      }
+      .alert(Text("Go to page", bundle: .module), isPresented: $model.showsGoToPage) {
+        TextField(text: $pageNumber) { Text("Page number", bundle: .module) }
+          .keyboardType(.numberPad)
+          .accessibilityIdentifier("reader.goToPage.number")
+        Button {
+          model.goToPage(pageNumber)
+          pageNumber = ""
+        } label: {
+          Text("Go", bundle: .module)
+        }
+        Button(role: .cancel) {
+          pageNumber = ""
+        } label: {
+          Text("Cancel", bundle: .module)
+        }
+      } message: {
+        Text("This document has \(model.controller?.pageCount ?? 0) pages.", bundle: .module)
       }
       .alert(
         Text("Something went wrong", bundle: .module),

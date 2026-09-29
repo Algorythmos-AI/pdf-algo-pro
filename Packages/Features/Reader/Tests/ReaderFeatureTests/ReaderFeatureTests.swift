@@ -187,6 +187,24 @@ struct ReaderModelTests {
     #expect(!reader.canUndo)
   }
 
+  @Test("Go to page takes a page number from 1, and says when there is no such page (FR-READ-002, FR-READ-003)")
+  func goToPage() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.makeSample())
+    let reader = harness.reader(for: document)
+    #expect(!reader.goToPage("1"), "Nothing happens before the document opens")
+    await reader.load()
+    #expect(reader.goToPage(" 3 "))
+    #expect(reader.controller?.currentPageIndex == 2)
+    for invalid in ["0", "4", "two", ""] {
+      reader.errorMessage = nil
+      #expect(!reader.goToPage(invalid))
+      #expect(reader.errorMessage?.contains("from 1 to 3") == true, "\(invalid)")
+    }
+    #expect(reader.controller?.currentPageIndex == 2)
+    reader.controller?.showFind()
+  }
+
   @Test("Layout choices are remembered")
   func displayMode() async throws {
     let harness = Harness()

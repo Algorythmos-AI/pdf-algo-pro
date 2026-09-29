@@ -164,6 +164,11 @@ public final class PDFDocumentController {
     return true
   }
 
+  /// Shows the system find bar, which finds text and moves between matches (FR-READ-003).
+  public func showFind() {
+    view?.presentFind()
+  }
+
   func attach(_ view: PDFReaderHostView) {
     self.view = view
     view.apply(displayMode)

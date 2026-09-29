@@ -49,6 +49,8 @@ public final class ReaderModel {
   public var showsOutline = false
   /// Whether the page grid is open.
   public var showsPages = false
+  /// Whether "Go to page" is asking for a page number.
+  public var showsGoToPage = false
   /// Whether there is an annotation change to undo.
   public private(set) var canUndo = false
   /// Whether there is an undone annotation change to redo.
@@ -142,6 +144,20 @@ public final class ReaderModel {
     var current = settings.load()
     current.readerDisplayMode = mode
     settings.save(current)
+  }
+
+  /// Goes to the page a person typed, counting from 1 (FR-READ-002); says so when there is no such page.
+  @discardableResult
+  public func goToPage(_ text: String) -> Bool {
+    guard let controller else { return false }
+    guard let number = Int(text.trimmingCharacters(in: .whitespacesAndNewlines)), (1...controller.pageCount) ~= number
+    else {
+      errorMessage = String(
+        localized: "Enter a page number from 1 to \(controller.pageCount).", bundle: .module)
+      return false
+    }
+    controller.goTo(pageIndex: number - 1)
+    return true
   }
 
   /// Records the reading position; called when the page changes and when the reader closes.
