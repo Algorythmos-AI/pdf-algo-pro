@@ -414,7 +414,7 @@ is the release checklist on reference devices.
 Today the `ios` job in [ci.yml](../.github/workflows/ci.yml) runs one test plan, `PDFAlgoPro`
 ("unit, UI, accessibility audit, snapshots"), for every pull request. Running the `Release` and
 `Performance` plans on release pull requests, and the nightly Xcode Cloud workflow, are the target
-design listed in the open questions. The `codeql (swift)` job runs once Swift exists; when it becomes
+design listed in the open questions. The `codeql (swift)` job runs when Swift or project inputs change, and weekly; when it becomes
 a required check is decided in [GitHub governance](github-governance.md#protected-branches-rulesets-as-code).
 
 ## Open questions

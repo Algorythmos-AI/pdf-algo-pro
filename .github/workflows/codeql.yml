@@ -12,7 +12,8 @@ permissions:
 
 concurrency:
   group: codeql-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  # A newer commit supersedes an older analysis, except on main, where every release is analysed.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   actions:
@@ -38,9 +39,24 @@ jobs:
       swift: ${{ steps.detect.outputs.swift }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
       - id: detect
+        name: Did Swift or project inputs change?
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
-          if [ -f project.yml ] && git ls-files '*.swift' | grep -q .; then
+          # The Swift inputs of the ios job in ci.yml, plus this workflow. The Swift analysis occupies a
+          # macOS runner for tens of minutes, so it runs only when they change; a scheduled run has no
+          # base and analyses everything.
+          pattern='(\.swift$|^project\.yml$|^Packages/|^App/|Package\.resolved$|^\.github/workflows/codeql\.yml$)'
+          if [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ] \
+             || ! git cat-file -e "$BASE_SHA" 2>/dev/null; then
+            changed="$(git ls-files)"
+          else
+            changed="$(git diff --name-only "$BASE_SHA" HEAD)"
+          fi
+          if printf '%s\n' "$changed" | grep -Eq "$pattern" && [ -f project.yml ]; then
             echo "swift=true" >> "$GITHUB_OUTPUT"
           else
             echo "swift=false" >> "$GITHUB_OUTPUT"
@@ -78,8 +94,12 @@ jobs:
           echo "${XCODEGEN_SHA256}  xcodegen.zip" | shasum -a 256 -c -
           unzip -q xcodegen.zip -d "$RUNNER_TEMP/xcodegen"
           echo "$RUNNER_TEMP/xcodegen/xcodegen/bin" >> "$GITHUB_PATH"
-      - name: Build (unsigned)
+      - name: Build (unsigned, one architecture)
+        # CodeQL traces every compiler call, so this build is most of the job's time. It needs each
+        # source compiled once: one simulator architecture (the generic destination otherwise builds
+        # arm64 and x86_64) and no index store (docs.github.com, CodeQL build options for Swift).
         run: |
           xcodegen generate
-          xcodebuild build -scheme PDFAlgoPro -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO
+          xcodebuild build -scheme PDFAlgoPro -destination 'generic/platform=iOS Simulator' \
+            ARCHS=arm64 ONLY_ACTIVE_ARCH=YES COMPILER_INDEX_STORE_ENABLE=NO CODE_SIGNING_ALLOWED=NO
       - uses: github/codeql-action/analyze@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
