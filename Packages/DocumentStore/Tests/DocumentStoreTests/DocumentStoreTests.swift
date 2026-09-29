@@ -165,6 +165,21 @@ struct FileDocumentLibraryTests {
     await #expect(throws: LibraryError.notFound) { try await harness.library.fileURL(for: document.id) }
   }
 
+  @Test("Changes to one document at the same time never undo each other")
+  func concurrentChangesAllLand() async throws {
+    let library = try Harness().library
+    for round in 0..<20 {
+      let document = try await library.addDocument(data: pdf, title: "Round \(round)")
+      async let opened: Void = library.recordOpened(document.id, pageIndex: 3)
+      async let tagged: Void = library.setTags(["Tax"], for: document.id)
+      async let deleted: Void = library.moveToRecentlyDeleted(document.id)
+      _ = try await (opened, tagged, deleted)
+      let stored = try #require(try await library.document(withID: document.id))
+      #expect(stored.isDeleted && stored.lastPageIndex == 3 && stored.tags == ["Tax"], "round \(round)")
+      #expect(FileManager.default.fileExists(atPath: try await library.fileURL(for: document.id).path))
+    }
+  }
+
   @Test("Files added in the Files app appear; entries without a file disappear")
   func reconcile() async throws {
     let harness = try Harness()

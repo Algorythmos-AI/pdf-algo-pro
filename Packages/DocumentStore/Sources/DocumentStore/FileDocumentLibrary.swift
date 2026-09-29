@@ -3,7 +3,8 @@ import Foundation
 
 /// The library: PDFs as real files in a folder the user can see in the Files app, plus the index
 /// (ADR-0005, ADR-0006). Every file operation is coordinated and atomic, so a crash or a failed
-/// write never leaves a half-written document (NFR-REL-002).
+/// write never leaves a half-written document (NFR-REL-002), and changes run one at a time, so two
+/// changes to the same document never undo each other.
 public actor FileDocumentLibrary: DocumentLibrary {
   /// How long a document stays in Recently Deleted before it is purged.
   public static let retention: TimeInterval = 30 * 24 * 60 * 60
@@ -13,6 +14,8 @@ public actor FileDocumentLibrary: DocumentLibrary {
   private let index: LibraryIndex
   private let now: @Sendable () -> Date
   private let fileManager = FileManager.default
+  private var isChanging = false
+  private var waiting: [CheckedContinuation<Void, Never>] = []
 
   /// Creates a library.
   ///
@@ -72,12 +75,12 @@ public actor FileDocumentLibrary: DocumentLibrary {
       data = try? Data(contentsOf: $0, options: .mappedIfSafe)
     }
     guard coordinationError == nil, let data else { throw LibraryError.fileAccessFailed }
-    return try await add(data, title: url.deletingPathExtension().lastPathComponent)
+    return try await exclusively { try await add(data, title: url.deletingPathExtension().lastPathComponent) }
   }
 
   /// Adds PDF data (for example a new scan) as a document.
   public func addDocument(data: Data, title: String) async throws -> Document {
-    try await add(data, title: title)
+    try await exclusively { try await add(data, title: title) }
   }
 
   private func add(_ data: Data, title: String) async throws -> Document {
@@ -92,87 +95,106 @@ public actor FileDocumentLibrary: DocumentLibrary {
 
   /// Records what inspection learnt about a document's file.
   public func updateInspection(_ inspection: PDFInspection, for id: DocumentID) async throws {
-    var document = try await existing(id)
-    document.pageCount = inspection.pageCount
-    document.isEncrypted = inspection.isEncrypted
-    document.hasTextLayer = inspection.hasTextLayer
-    try await index.upsert(document)
+    try await exclusively {
+      var document = try await existing(id)
+      document.pageCount = inspection.pageCount
+      document.isEncrypted = inspection.isEncrypted
+      document.hasTextLayer = inspection.hasTextLayer
+      try await index.upsert(document)
+    }
   }
 
   // MARK: - Changing
 
   /// Renames a document; the title is trimmed and must not be empty.
   public func rename(_ id: DocumentID, to title: String) async throws -> Document {
-    var document = try await existing(id)
-    let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !trimmed.isEmpty else { throw LibraryError.emptyTitle }
-    let cleanTitle = Self.cleanTitle(trimmed)
-    if !document.isDeleted, cleanTitle != document.title {
-      let newName = uniqueFileName(for: cleanTitle, in: documentsFolder)
-      try move(location(of: document), to: documentsFolder.appendingPathComponent(newName))
-      document.fileName = newName
+    try await exclusively {
+      var document = try await existing(id)
+      let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+      guard !trimmed.isEmpty else { throw LibraryError.emptyTitle }
+      let cleanTitle = Self.cleanTitle(trimmed)
+      if !document.isDeleted, cleanTitle != document.title {
+        let newName = uniqueFileName(for: cleanTitle, in: documentsFolder)
+        try move(location(of: document), to: documentsFolder.appendingPathComponent(newName))
+        document.fileName = newName
+      }
+      document.title = cleanTitle
+      try await index.upsert(document)
+      return document
     }
-    document.title = cleanTitle
-    try await index.upsert(document)
-    return document
   }
 
   /// Marks or unmarks a favourite.
   public func setFavorite(_ isFavorite: Bool, for id: DocumentID) async throws {
-    var document = try await existing(id)
-    document.isFavorite = isFavorite
-    try await index.upsert(document)
+    try await exclusively {
+      var document = try await existing(id)
+      document.isFavorite = isFavorite
+      try await index.upsert(document)
+    }
   }
 
   /// Replaces a document's tags.
   public func setTags(_ tags: [String], for id: DocumentID) async throws {
-    var document = try await existing(id)
-    document.tags = Document.normalizedTags(tags)
-    try await index.upsert(document)
+    try await exclusively {
+      var document = try await existing(id)
+      document.tags = Document.normalizedTags(tags)
+      try await index.upsert(document)
+    }
   }
 
   /// Records that a document was opened and the page it showed.
   public func recordOpened(_ id: DocumentID, pageIndex: Int) async throws {
-    var document = try await existing(id)
-    document.lastOpenedAt = now()
-    document.lastPageIndex = max(0, pageIndex)
-    try await index.upsert(document)
+    try await exclusively {
+      var document = try await existing(id)
+      document.lastOpenedAt = now()
+      document.lastPageIndex = max(0, pageIndex)
+      try await index.upsert(document)
+    }
   }
 
   /// Records that the file's contents changed (after a save).
   public func recordModified(_ id: DocumentID) async throws {
-    var document = try await existing(id)
-    document.modifiedAt = now()
-    try await index.upsert(document)
+    try await exclusively {
+      var document = try await existing(id)
+      document.modifiedAt = now()
+      try await index.upsert(document)
+    }
   }
 
   // MARK: - Deleting
 
   /// Moves a document to Recently Deleted, where it stays for 30 days.
   public func moveToRecentlyDeleted(_ id: DocumentID) async throws {
-    var document = try await existing(id)
-    guard !document.isDeleted else { return }
-    let newName = uniqueFileName(for: document.title, in: deletedFolder)
-    try move(location(of: document), to: deletedFolder.appendingPathComponent(newName))
-    document.fileName = newName
-    document.deletedAt = now()
-    try await index.upsert(document)
+    try await exclusively {
+      var document = try await existing(id)
+      guard !document.isDeleted else { return }
+      let newName = uniqueFileName(for: document.title, in: deletedFolder)
+      try move(location(of: document), to: deletedFolder.appendingPathComponent(newName))
+      document.fileName = newName
+      document.deletedAt = now()
+      try await index.upsert(document)
+    }
   }
 
   /// Restores a document from Recently Deleted.
   public func restore(_ id: DocumentID) async throws {
-    var document = try await existing(id)
-    guard document.isDeleted else { return }
-    let newName = uniqueFileName(for: document.title, in: documentsFolder)
-    try move(location(of: document), to: documentsFolder.appendingPathComponent(newName))
-    document.fileName = newName
-    document.deletedAt = nil
-    try await index.upsert(document)
+    try await exclusively {
+      var document = try await existing(id)
+      guard document.isDeleted else { return }
+      let newName = uniqueFileName(for: document.title, in: documentsFolder)
+      try move(location(of: document), to: documentsFolder.appendingPathComponent(newName))
+      document.fileName = newName
+      document.deletedAt = nil
+      try await index.upsert(document)
+    }
   }
 
   /// Deletes a document's file and index entry permanently.
   public func deletePermanently(_ id: DocumentID) async throws {
-    let document = try await existing(id)
+    try await exclusively { try await remove(existing(id)) }
+  }
+
+  private func remove(_ document: Document) async throws {
     let url = location(of: document)
     if fileManager.fileExists(atPath: url.path) {
       var coordinationError: NSError?
@@ -184,17 +206,19 @@ public actor FileDocumentLibrary: DocumentLibrary {
       }
       guard coordinationError == nil, removeError == nil else { throw LibraryError.fileAccessFailed }
     }
-    try await index.delete(id)
+    try await index.delete(document.id)
   }
 
   /// Permanently deletes documents that have been in Recently Deleted for 30 days or more.
   public func purgeExpired(now date: Date) async throws -> [DocumentID] {
-    let expired = try await index.all().filter { document in
-      guard let deletedAt = document.deletedAt else { return false }
-      return date.timeIntervalSince(deletedAt) >= Self.retention
+    try await exclusively {
+      let expired = try await index.all().filter { document in
+        guard let deletedAt = document.deletedAt else { return false }
+        return date.timeIntervalSince(deletedAt) >= Self.retention
+      }
+      for document in expired { try await remove(document) }
+      return expired.map(\.id)
     }
-    for document in expired { try await deletePermanently(document.id) }
-    return expired.map(\.id)
   }
 
   // MARK: - Reconciling
@@ -204,22 +228,45 @@ public actor FileDocumentLibrary: DocumentLibrary {
   ///
   /// Returns the documents added, which still need inspecting and indexing.
   public func reconcileWithFiles() async throws -> [Document] {
-    let entries = try await index.all()
-    for document in entries where !fileManager.fileExists(atPath: location(of: document).path) {
-      try await index.delete(document.id)
+    try await exclusively {
+      let entries = try await index.all()
+      for document in entries where !fileManager.fileExists(atPath: location(of: document).path) {
+        try await index.delete(document.id)
+      }
+      let known = Set(entries.filter { !$0.isDeleted }.map(\.fileName))
+      let files =
+        (try? fileManager.contentsOfDirectory(at: documentsFolder, includingPropertiesForKeys: [.creationDateKey]))
+        ?? []
+      var added: [Document] = []
+      for file in files where file.pathExtension.lowercased() == "pdf" && !known.contains(file.lastPathComponent) {
+        let createdAt = (try? file.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? now()
+        let document = Document(
+          title: file.deletingPathExtension().lastPathComponent, fileName: file.lastPathComponent, addedAt: createdAt)
+        try await index.upsert(document)
+        added.append(document)
+      }
+      return added
     }
-    let known = Set(entries.filter { !$0.isDeleted }.map(\.fileName))
-    let files =
-      (try? fileManager.contentsOfDirectory(at: documentsFolder, includingPropertiesForKeys: [.creationDateKey])) ?? []
-    var added: [Document] = []
-    for file in files where file.pathExtension.lowercased() == "pdf" && !known.contains(file.lastPathComponent) {
-      let createdAt = (try? file.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? now()
-      let document = Document(
-        title: file.deletingPathExtension().lastPathComponent, fileName: file.lastPathComponent, addedAt: createdAt)
-      try await index.upsert(document)
-      added.append(document)
+  }
+
+  // MARK: - One change at a time
+
+  /// Runs a change once every earlier change has finished, in arrival order.
+  ///
+  /// Actor isolation alone is not enough: a change reads an entry, may move its file, and writes the
+  /// entry back, and each index call is a suspension point. Without this, a second change could read
+  /// the same entry in between and later write back its stale copy, undoing a deletion or a rename.
+  private func exclusively<T>(_ change: () async throws -> T) async rethrows -> T {
+    if isChanging {
+      // The finishing change hands over directly, so `isChanging` stays true.
+      await withCheckedContinuation { waiting.append($0) }
+    } else {
+      isChanging = true
     }
-    return added
+    defer {
+      if waiting.isEmpty { isChanging = false } else { waiting.removeFirst().resume() }
+    }
+    return try await change()
   }
 
   // MARK: - Files
