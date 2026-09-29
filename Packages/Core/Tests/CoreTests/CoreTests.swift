@@ -296,3 +296,34 @@ struct DocumentIntakeTests {
 private struct CancelledInspector: PDFInspecting {
   func inspect(_ url: URL) async throws -> PDFInspection { throw CancellationError() }
 }
+
+@Suite("Signatures")
+struct SignatureTests {
+  @Test("Drawn strokes are fitted to a unit box that keeps their shape (FR-EDIT-004)")
+  func fitting() throws {
+    let signature = try #require(
+      SavedSignature(drawn: [[CGPoint(x: 10, y: 20), CGPoint(x: 210, y: 70)], [], [CGPoint(x: 110, y: 45)]]))
+    #expect(signature.aspectRatio == 4)
+    #expect(signature.strokes == [[.init(x: 0, y: 0), .init(x: 1, y: 1)], [.init(x: 0.5, y: 0.5)]])
+    let line = try #require(SavedSignature(drawn: [[CGPoint(x: 0, y: 5), CGPoint(x: 100, y: 5)]]))
+    #expect(line.aspectRatio == 10, "A straight line still gets some height")
+    #expect(SavedSignature(drawn: []) == nil)
+    #expect(SavedSignature(drawn: [[CGPoint(x: 3, y: 3)]]) == nil, "A dot is not a signature")
+  }
+
+  @Test("The in-memory store keeps signatures in order, replaces by identity and can fail")
+  func fakeStore() async throws {
+    let store = InMemorySignatureStore()
+    let older = SavedSignature(strokes: [], aspectRatio: 1, createdAt: .distantPast)
+    var newer = SavedSignature(strokes: [], aspectRatio: 2, createdAt: .now)
+    try await store.save(newer)
+    try await store.save(older)
+    newer.aspectRatio = 3
+    try await store.save(newer)
+    #expect(try await store.signatures().map(\.aspectRatio) == [1, 3])
+    try await store.delete(older.id)
+    #expect(try await store.signatures() == [newer])
+    await store.failNext(with: .keychain(-25300))
+    await #expect(throws: SignatureStoreError.keychain(-25300)) { try await store.signatures() }
+  }
+}

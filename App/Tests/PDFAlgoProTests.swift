@@ -1,6 +1,8 @@
 import AppIntents
 import Core
+import CoreGraphics
 import CoreSpotlight
+import DocumentStore
 import Foundation
 import LibraryFeature
 import Testing
@@ -149,4 +151,30 @@ private struct FakeLibrary: DocumentLibrary {
   func deletePermanently(_ id: DocumentID) async throws {}
   func purgeExpired(now: Date) async throws -> [DocumentID] { [] }
   func reconcileWithFiles() async throws -> [Document] { [] }
+}
+
+/// The Keychain adapter runs here, hosted by the app, because the Keychain needs the app's
+/// entitlements; the simulator test build is signed ad hoc for that (ci.yml, A5 in #47).
+@Suite("Signatures in the Keychain", .serialized)
+struct KeychainSignatureStoreTests {
+  @Test("Signatures are kept on this device, replaced by identity and deleted (FR-EDIT-004)")
+  func roundTrip() async throws {
+    let store = KeychainSignatureStore(service: "tests-\(UUID())")
+    #expect(try await store.signatures().isEmpty)
+    let first = try #require(
+      SavedSignature(drawn: [[CGPoint(x: 10, y: 10), CGPoint(x: 110, y: 30)]], createdAt: .distantPast))
+    var second = SavedSignature(strokes: [[.init(x: 0, y: 0), .init(x: 1, y: 1)]], aspectRatio: 2, createdAt: .now)
+    try await store.save(second)
+    try await store.save(first)
+    #expect(try await store.signatures() == [first, second])
+
+    second.aspectRatio = 3
+    try await store.save(second)
+    #expect(try await store.signatures().map(\.aspectRatio) == [5, 3])
+    try await store.delete(first.id)
+    try await store.delete(first.id)
+    #expect(try await store.signatures() == [second])
+    try await store.delete(second.id)
+    #expect(try await store.signatures().isEmpty)
+  }
 }
