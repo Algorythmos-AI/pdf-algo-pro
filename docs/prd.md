@@ -261,6 +261,13 @@ applicable.
 - *FR-EDIT-001.* Given a corpus PDF, when a word is edited and the file is saved, then the text
   extracted from the saved file contains the new word and not the old one, and the layout of the
   rest of the page is unchanged (visual diff within tolerance).
+- *FR-EDIT-003.* Given a form PDF, when fields are filled and the document is closed or the app
+  moves to the background, then the saved file holds every entry, as read by another PDF reader
+  (`PDFEngineTests.formEntriesAreSaved`). **AutoFill:** PDFKit has no public API to set a text
+  content type on a form field (the Xcode 26.5 SDK's PDFKit headers define none), so the app cannot
+  request AutoFill itself. Contact AutoFill in forms is whatever the system offers inside PDFKit's
+  page view, checked on a device for each release. Field-level control is a V1 question, to be
+  revisited if PDFKit adds it or a custom form overlay is built.
 - *FR-EDIT-004.* Given a saved signature, when the app is reinstalled on the same device with the
   same Apple Account, then the signature follows Keychain rules and is never stored inside
   documents except where placed.
