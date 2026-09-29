@@ -7,6 +7,7 @@ import UIKit
 public struct AssistantView: View {
   @State private var model: AssistantModel
   @State private var detent: PresentationDetent = .large
+  @FocusState private var isEditingQuestion: Bool
   @Environment(\.dismiss) private var dismiss
 
   /// Creates the sheet for a model.
@@ -92,22 +93,29 @@ public struct AssistantView: View {
         .textFieldStyle(.roundedBorder)
         .frame(minHeight: Sizes.targetMinimum)
         .submitLabel(.send)
+        .focused($isEditingQuestion)
         .onChange(of: model.question) { _, question in
           guard question.contains(where: \.isNewline) else { return }
           let sends = question.last?.isNewline == true
           model.question = question.split(whereSeparator: \.isNewline).joined(separator: " ")
-          if sends { Task { await model.ask() } }
+          if sends { ask() }
         }
-        .onSubmit { Task { await model.ask() } }
+        .onSubmit { ask() }
         .accessibilityIdentifier("assistant.question")
       Button {
-        Task { await model.ask() }
+        ask()
       } label: {
         Image(systemName: "arrow.up.circle.fill").font(.title2).minimumTarget()
       }
       .accessibilityLabel(Text("Ask", bundle: .module))
       .disabled(model.question.trimmingCharacters(in: .whitespaces).isEmpty)
     }
+  }
+
+  /// Sends the question and closes the keyboard, so the answer has the room.
+  private func ask() {
+    isEditingQuestion = false
+    Task { await model.ask() }
   }
 
   @ViewBuilder private var content: some View {
