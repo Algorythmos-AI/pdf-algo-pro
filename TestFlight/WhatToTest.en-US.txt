@@ -1,0 +1,6 @@
+Internal build of PDF Algo Pro (Staging). Please try:
+- Import a PDF from Files, open it, highlight text and add a note, then reopen it: your changes should be there.
+- Scan a page (or choose images), then search the library for a word on it.
+- Ask a question about a document: the answer must cite a page, and tapping the citation opens it.
+- Turn on airplane mode: everything above still works.
+Report problems with Settings > Report a problem, or with a TestFlight screenshot.
