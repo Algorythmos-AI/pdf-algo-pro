@@ -244,4 +244,28 @@ struct DocumentIntakeTests {
     #expect(refreshed.modifiedAt > seeded.modifiedAt)
     await #expect(throws: LibraryError.notFound) { try await intake.refresh(DocumentID()) }
   }
+
+  @Test("A document already in the library is kept when it cannot be re-read")
+  func refreshNeverDeletesTheDocument() async throws {
+    let library = FakeDocumentLibrary()
+    let seeded = await library.seed(Document(title: "Lease", fileName: "lease.pdf", addedAt: .distantPast))
+    let intake = DocumentIntake(library: library, inspector: FakeInspector(fails: true), index: FakeIndex())
+    await #expect(throws: LibraryError.notAPDF) { try await intake.refresh(seeded.id) }
+    #expect(try await library.document(withID: seeded.id) != nil)
+  }
+
+  @Test("A cancelled import is rolled back and reports the cancellation, not a bad file")
+  func cancelledImportIsRolledBack() async throws {
+    let library = FakeDocumentLibrary()
+    let intake = DocumentIntake(library: library, inspector: CancelledInspector(), index: FakeIndex())
+    await #expect(throws: CancellationError.self) {
+      try await intake.add(data: Data("%PDF-1.7\n".utf8), title: "Scan")
+    }
+    #expect(try await library.documents(in: .all, sortedBy: .title).isEmpty)
+  }
+}
+
+/// An inspector whose task was cancelled.
+private struct CancelledInspector: PDFInspecting {
+  func inspect(_ url: URL) async throws -> PDFInspection { throw CancellationError() }
 }
