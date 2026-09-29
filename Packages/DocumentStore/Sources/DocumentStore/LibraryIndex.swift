@@ -1,6 +1,7 @@
 import Core
 import Foundation
 import SwiftData
+import Synchronization
 
 /// Version 1 of the library index schema (ADR-0006).
 ///
@@ -138,27 +139,34 @@ public actor LibraryIndex {
   private var memory: [DocumentID: Document] = [:]
 
   /// Opens the index at a store URL, or in memory when the URL is `nil`.
+  ///
+  /// One store opens at a time in the process: Core Data crashes (SIGSEGV in
+  /// `_generateTriggerSQL`) when two containers for the same model load at the same moment, which
+  /// parallel tests did. The app opens one store, so this costs it nothing.
   public init(storeURL: URL?) {
+    (store, level) = Self.opening.withLock { _ in Self.open(storeURL) }
+  }
+
+  private static let opening = Mutex(())
+
+  private static func open(_ storeURL: URL?) -> (SwiftDataIndexStore?, StoreLevel) {
     let schema = Schema(versionedSchema: LibrarySchemaV1.self)
-    if let storeURL, let container = try? Self.makeContainer(schema: schema, url: storeURL) {
-      (store, level) = (SwiftDataIndexStore(modelContainer: container), .onDisk)
-      return
+    if let storeURL, let container = try? makeContainer(schema: schema, url: storeURL) {
+      return (SwiftDataIndexStore(modelContainer: container), .onDisk)
     }
     if let storeURL {
       for suffix in ["", "-shm", "-wal"] {
         try? FileManager.default.removeItem(at: URL(fileURLWithPath: storeURL.path + suffix))
       }
-      if let container = try? Self.makeContainer(schema: schema, url: storeURL) {
-        (store, level) = (SwiftDataIndexStore(modelContainer: container), .recreated)
-        return
+      if let container = try? makeContainer(schema: schema, url: storeURL) {
+        return (SwiftDataIndexStore(modelContainer: container), .recreated)
       }
     }
     let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
     if let container = try? ModelContainer(for: schema, configurations: configuration) {
-      (store, level) = (SwiftDataIndexStore(modelContainer: container), .inMemory)
-    } else {
-      (store, level) = (nil, .withoutStore)
+      return (SwiftDataIndexStore(modelContainer: container), .inMemory)
     }
+    return (nil, .withoutStore)
   }
 
   private static func makeContainer(schema: Schema, url: URL) throws -> ModelContainer {
