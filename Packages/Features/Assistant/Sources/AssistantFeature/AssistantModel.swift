@@ -41,6 +41,8 @@ public final class AssistantModel {
   private let telemetry: any TelemetryRecording
   private let onReveal: (Citation) -> Void
   private var request: Task<Void, Never>?
+  /// Counts requests; only the latest may change what is shown (defect D8).
+  private var generation = 0
 
   /// Creates the assistant for a document's pages.
   public init(
@@ -54,9 +56,14 @@ public final class AssistantModel {
     self.onReveal = onReveal
   }
 
+  /// Whether a request is running; Ask waits until it finishes.
+  public var isWorking: Bool { phase == .working }
+
   /// Starts the task: summaries, extraction and explanations run at once; Ask waits for a question.
+  ///
+  /// A request still running is cancelled, and its result, if it arrives anyway, is ignored.
   public func start() async {
-    request?.cancel()
+    supersede()
     answeredQuestion = nil
     if case .unavailable(let reason) = await intelligence.availability() {
       phase = .unavailable(reason)
@@ -69,37 +76,62 @@ public final class AssistantModel {
     await run()
   }
 
-  /// Asks the current question.
+  /// Asks the current question; ignored while a request is running.
   public func ask() async {
     let trimmed = question.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !trimmed.isEmpty else { return }
+    guard !trimmed.isEmpty, !isWorking else { return }
     answeredQuestion = trimmed
     await run()
   }
 
+  /// Stops the running request, for example when the assistant closes, so generation does not go on
+  /// unseen.
+  public func cancel() {
+    supersede()
+    guard isWorking else { return }
+    phase = .idle
+    answeredQuestion = nil
+  }
+
+  private func supersede() {
+    request?.cancel()
+    request = nil
+    generation += 1
+  }
+
   private func run() async {
+    supersede()
+    let token = generation
     phase = .working
     let task = task
     let question = answeredQuestion ?? ""
     let request = Task {
+      let outcome: Phase
       do {
         let pages = await self.pages()
+        try Task.checkCancellation()
         switch task {
-        case .summarize: phase = .answered(try await intelligence.summarize(pages))
-        case .ask: phase = .answered(try await intelligence.answer(question, from: pages))
-        case .extract: phase = .extracted(try await intelligence.extractFields(from: pages))
-        case .explainContract: phase = .answered(try await intelligence.explainContract(pages))
+        case .summarize: outcome = .answered(try await intelligence.summarize(pages))
+        case .ask: outcome = .answered(try await intelligence.answer(question, from: pages))
+        case .extract: outcome = .extracted(try await intelligence.extractFields(from: pages))
+        case .explainContract: outcome = .answered(try await intelligence.explainContract(pages))
         }
-        await telemetry.record("intelligence.request.completed")
       } catch is CancellationError {
         return
       } catch IntelligenceError.unavailable(let reason) {
-        phase = .unavailable(reason)
+        outcome = .unavailable(reason)
       } catch IntelligenceError.noText {
-        phase = .noText
+        outcome = .noText
       } catch {
-        phase = .failed
-        await telemetry.record("quality.operation.failed")
+        outcome = .failed
+      }
+      // A model may finish after being cancelled: a newer request or a closed sheet wins (defect D8).
+      guard token == generation, !Task.isCancelled else { return }
+      phase = outcome
+      switch outcome {
+      case .answered, .extracted: await telemetry.record("intelligence.request.completed")
+      case .failed: await telemetry.record("quality.operation.failed")
+      default: break
       }
     }
     self.request = request

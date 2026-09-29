@@ -22,6 +22,50 @@ private func makeModel(
   return (model, revealed)
 }
 
+/// An intelligence whose results wait until the test releases them, and that finishes even when
+/// cancelled, as an on-device model can.
+private actor GatedIntelligence: DocumentIntelligence {
+  private var waiting: [AssistantTask: CheckedContinuation<Void, Never>] = [:]
+
+  func isWaiting(_ task: AssistantTask) -> Bool { waiting[task] != nil }
+  func release(_ task: AssistantTask) { waiting.removeValue(forKey: task)?.resume() }
+
+  func availability() async -> IntelligenceAvailability { .available(.onDevice) }
+  func summarize(_ pages: [PageText]) async throws -> Answer {
+    await gate(.summarize)
+    return grounded("Summary")
+  }
+  func answer(_ question: String, from pages: [PageText]) async throws -> Answer {
+    await gate(.ask)
+    return grounded(question)
+  }
+  func extractFields(from pages: [PageText]) async throws -> Extraction {
+    await gate(.extract)
+    return Extraction(fields: [], tier: .onDevice)
+  }
+  func explainContract(_ pages: [PageText]) async throws -> Answer {
+    await gate(.explainContract)
+    return grounded("Contract")
+  }
+
+  private func gate(_ task: AssistantTask) async {
+    await withCheckedContinuation { waiting[task] = $0 }
+  }
+
+  private func grounded(_ text: String) -> Answer {
+    Answer(text: text, citations: [Citation(pageIndex: 0, quote: "testing")], tier: .onDevice, isGrounded: true)
+  }
+}
+
+@MainActor
+private func waitUntil(_ condition: () async -> Bool) async throws {
+  for _ in 0..<400 {
+    if await condition() { return }
+    try await Task.sleep(for: .milliseconds(5))
+  }
+  Issue.record("The condition never held")
+}
+
 @MainActor
 @Suite("Assistant model")
 struct AssistantModelTests {
@@ -107,6 +151,53 @@ struct AssistantModelTests {
       try await Task.sleep(for: .milliseconds(10))
     }
     #expect(await intelligence.tasks == [.extract])
+  }
+
+  @Test("A result that arrives late never replaces a newer one (defect D8)")
+  func lateResultsAreIgnored() async throws {
+    let gated = GatedIntelligence()
+    let telemetry = RecordingTelemetry()
+    let model = AssistantModel(
+      task: .summarize, intelligence: gated, pages: { [PageText(pageIndex: 0, text: "testing")] },
+      telemetry: telemetry, onReveal: { _ in })
+    let first = Task { await model.start() }
+    try await waitUntil { await gated.isWaiting(.summarize) }
+
+    model.task = .extract
+    try await waitUntil { await gated.isWaiting(.extract) }
+    await gated.release(.extract)
+    try await waitUntil { if case .extracted = model.phase { true } else { false } }
+    await gated.release(.summarize)
+    await first.value
+
+    guard case .extracted = model.phase else { throw Failure.unexpected }
+    #expect(await telemetry.events == ["intelligence.request.completed"])
+  }
+
+  @Test("Ask waits while a request runs, and closing the assistant stops it (defect D8)")
+  func askWhileWorkingAndCancel() async throws {
+    let gated = GatedIntelligence()
+    let telemetry = RecordingTelemetry()
+    let model = AssistantModel(
+      task: .ask, intelligence: gated, pages: { [PageText(pageIndex: 0, text: "testing")] }, telemetry: telemetry,
+      onReveal: { _ in })
+    await model.start()
+    model.question = "First question"
+    let asking = Task { await model.ask() }
+    try await waitUntil { await gated.isWaiting(.ask) }
+    #expect(model.isWorking)
+    model.question = "Second question"
+    await model.ask()
+    #expect(model.answeredQuestion == "First question", "Ask is ignored while working")
+
+    model.cancel()
+    #expect(model.phase == .idle && model.answeredQuestion == nil)
+    await gated.release(.ask)
+    await asking.value
+    #expect(model.phase == .idle, "The cancelled answer is not shown")
+    #expect(await telemetry.events.isEmpty)
+    model.cancel()
+    #expect(model.phase == .idle)
   }
 
   @Test("Copy exists for every task and field")
