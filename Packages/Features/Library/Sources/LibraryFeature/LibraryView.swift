@@ -15,6 +15,7 @@ public struct LibraryView<Detail: View>: View {
   /// The assistant task to start on a single imported file: set by the home screen's primary action.
   @State private var importTask: AssistantTask?
   @State private var renaming: Document?
+  @State private var tagging: Document?
   @State private var confirmingPermanentDelete: Document?
   @State private var newTitle = ""
   private let onScan: () -> Void
@@ -52,6 +53,11 @@ public struct LibraryView<Detail: View>: View {
         EmptyState(Text("No document selected", bundle: .module), systemImage: "doc.text") {
           Text("Choose a document from the library.", bundle: .module)
         }
+      }
+    }
+    .sheet(item: $tagging) { document in
+      TagEditor(document: document, available: model.tags) { tags in
+        Task { await model.setTags(tags, for: document.id) }
       }
     }
     .fileImporter(isPresented: $isPickingFiles, allowedContentTypes: [.pdf], allowsMultipleSelection: true) { result in
@@ -340,6 +346,15 @@ public struct LibraryView<Detail: View>: View {
               ? Text("Remove from favourites", bundle: .module) : Text("Add to favourites", bundle: .module)
           } icon: {
             Image(systemName: "star")
+          }
+        }
+        Button {
+          tagging = document
+        } label: {
+          Label {
+            Text("Tags", bundle: .module)
+          } icon: {
+            Image(systemName: "tag")
           }
         }
         Button(role: .destructive) {

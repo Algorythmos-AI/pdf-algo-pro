@@ -192,3 +192,35 @@ struct LibraryModelTests {
     }
   }
 }
+
+@MainActor
+@Suite("Tag editor")
+struct TagEditorTests {
+  @Test("Tags are trimmed, never doubled by case, and suggested from other documents (F7a, FR-LIB-002)")
+  func editing() {
+    var editing = TagEditing(tags: ["Work", " tax "], available: ["Tax", "Travel", "Home", "work"])
+    #expect(editing.tags == ["tax", "Work"])
+    #expect(editing.suggestions == ["Home", "Travel"])
+    editing.draft = "tr"
+    #expect(editing.suggestions == ["Travel"])
+    editing.draft = "  Receipts "
+    editing.addDraft()
+    #expect(editing.tags == ["Receipts", "tax", "Work"] && editing.draft.isEmpty)
+    editing.draft = "   "
+    editing.addDraft()
+    editing.add("WORK")
+    #expect(editing.tags == ["Receipts", "tax", "Work"])
+    editing.remove("tax")
+    #expect(editing.tags == ["Receipts", "Work"])
+  }
+
+  @Test("The editor draws at a large text size, with and without tags")
+  func draws() {
+    for tags in [[], ["Tax", "Work"]] {
+      let document = Document(title: "Lease", fileName: "l.pdf", addedAt: .now, tags: tags)
+      let view = TagEditor(document: document, available: ["Home"]) { _ in }
+        .frame(width: 390, height: 700).environment(\.dynamicTypeSize, .accessibility3)
+      #expect(ImageRenderer(content: view).uiImage != nil)
+    }
+  }
+}
