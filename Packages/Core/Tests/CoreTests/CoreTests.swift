@@ -204,12 +204,31 @@ struct SettingsTests {
     #expect(UserDefaultsSettingsStore(defaults: defaults).load() == changed)
   }
 
-  @Test func corruptSettingsFallBackToDefaults() throws {
+  @Test("Unreadable settings fall back to defaults without reopening onboarding")
+  func corruptSettingsFallBackToDefaults() throws {
     let suite = "settings-test-\(UUID())"
     let defaults = try #require(UserDefaults(suiteName: suite))
     defer { defaults.removePersistentDomain(forName: suite) }
     defaults.set(Data("{".utf8), forKey: "app.settings.v1")
-    #expect(UserDefaultsSettingsStore(defaults: defaults).load() == AppSettings())
+    #expect(UserDefaultsSettingsStore(defaults: defaults).load() == AppSettings(hasCompletedOnboarding: true))
+  }
+
+  @Test("Settings from another version keep every value this version understands")
+  func settingsSurviveVersionChanges() throws {
+    // An older build that had no library sort yet, and a newer one with an unknown sort, intent and key.
+    let older =
+      #"{"hasCompletedOnboarding":true,"intents":["scan"],"isIntelligenceHidden":true,"readerDisplayMode":"singlePage"}"#
+    let newer =
+      #"{"hasCompletedOnboarding":true,"intents":["scan","teleport"],"isIntelligenceHidden":false,"readerDisplayMode":"continuous","librarySort":"byMood","futureSetting":42}"#
+    let decodedOlder = try JSONDecoder().decode(AppSettings.self, from: Data(older.utf8))
+    #expect(
+      decodedOlder
+        == AppSettings(
+          hasCompletedOnboarding: true, intents: [.scan], isIntelligenceHidden: true, readerDisplayMode: .singlePage))
+    let decodedNewer = try JSONDecoder().decode(AppSettings.self, from: Data(newer.utf8))
+    #expect(decodedNewer == AppSettings(hasCompletedOnboarding: true, intents: [.scan]))
+    let roundTrip = try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(decodedNewer))
+    #expect(roundTrip == decodedNewer)
   }
 }
 
