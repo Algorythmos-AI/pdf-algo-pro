@@ -49,6 +49,10 @@ public final class ReaderModel {
   public var showsOutline = false
   /// Whether the page grid is open.
   public var showsPages = false
+  /// Whether there is an annotation change to undo.
+  public private(set) var canUndo = false
+  /// Whether there is an undone annotation change to redo.
+  public private(set) var canRedo = false
   /// Read aloud.
   public let speech = SpeechReader()
 
@@ -165,6 +169,7 @@ public final class ReaderModel {
       errorMessage = String(localized: "Select some text first, then choose how to mark it.", bundle: .module)
       return false
     }
+    updateUndoState()
     await save()
     return true
   }
@@ -174,13 +179,40 @@ public final class ReaderModel {
     let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
     guard let controller, !trimmed.isEmpty else { return }
     controller.addNote(trimmed, onPage: controller.currentPageIndex)
+    updateUndoState()
     await save()
   }
 
   /// Undoes the last annotation change and saves.
   public func undo() async {
-    controller?.undoManager.undo()
+    guard let controller, controller.undoManager.canUndo else { return }
+    controller.undoManager.undo()
+    updateUndoState()
     await save()
+  }
+
+  /// Redoes the last undone annotation change and saves.
+  public func redo() async {
+    guard let controller, controller.undoManager.canRedo else { return }
+    controller.undoManager.redo()
+    updateUndoState()
+    await save()
+  }
+
+  private func updateUndoState() {
+    canUndo = controller?.undoManager.canUndo ?? false
+    canRedo = controller?.undoManager.canRedo ?? false
+  }
+
+  /// Saves before the app is suspended, so nothing typed or marked is lost if the system ends it.
+  ///
+  /// `keepAlive` asks the system for time to finish (on iOS, a background task) and returns the call
+  /// that ends it; the reader ends it once the save and the reading position are written (defect D2).
+  public func saveBeforeSuspending(keepAlive: () -> (@MainActor () -> Void)) async {
+    let finished = keepAlive()
+    await save()
+    await recordPosition()
+    finished()
   }
 
   /// Writes changes atomically (autosave, FR-EDIT-007); a failed save changes nothing on disk.
@@ -241,6 +273,7 @@ public final class ReaderModel {
         let reopened = try PDFDocumentController(url: url)
         reopened.displayMode = settings.load().readerDisplayMode
         controller = reopened
+        updateUndoState()
         show(reopened)
         await telemetry.record("task.core.completed")
       } catch is CancellationError {

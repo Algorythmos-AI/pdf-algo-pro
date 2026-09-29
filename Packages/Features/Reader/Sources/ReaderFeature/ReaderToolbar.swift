@@ -83,6 +83,17 @@ struct ReaderToolbar: ToolbarContent {
               Image(systemName: "arrow.uturn.backward")
             }
           }
+          .disabled(!model.canUndo)
+          Button {
+            Task { await model.redo() }
+          } label: {
+            Label {
+              Text("Redo", bundle: .module)
+            } icon: {
+              Image(systemName: "arrow.uturn.forward")
+            }
+          }
+          .disabled(!model.canRedo)
         } label: {
           Label {
             Text("Markup", bundle: .module)

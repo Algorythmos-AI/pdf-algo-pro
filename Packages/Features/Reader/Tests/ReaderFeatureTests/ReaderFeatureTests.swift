@@ -107,6 +107,47 @@ struct ReaderModelTests {
     #expect(await harness.telemetry.events.contains("task.core.completed"))
   }
 
+  @Test("Undo and redo follow the annotation history and save each step (FR-EDIT-007)")
+  func undoAndRedo() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.makeSample())
+    let reader = harness.reader(for: document)
+    await reader.load()
+    #expect(!reader.canUndo && !reader.canRedo)
+    await reader.redo()
+    await reader.undo()
+    await reader.addNote("First")
+    #expect(reader.canUndo && !reader.canRedo)
+    let url = try await harness.library.fileURL(for: document.id)
+
+    await reader.undo()
+    #expect(!reader.canUndo && reader.canRedo)
+    #expect(try PDFDocumentController(url: url).annotationCount(onPage: 0) == 0)
+    await reader.redo()
+    #expect(reader.canUndo && !reader.canRedo)
+    #expect(try PDFDocumentController(url: url).annotationCount(onPage: 0) == 1)
+  }
+
+  @Test("Moving to the background saves, keeping the app alive until the save is written (defect D2)")
+  func saveBeforeSuspending() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try TestPDFs.makeForm())
+    let reader = harness.reader(for: document)
+    await reader.load()
+    let widgets = try #require(reader.controller?.document.page(at: 0)?.annotations)
+    try #require(widgets.first { $0.fieldName == "name" }).widgetStringValue = "Grace Hopper"
+    let url = try await harness.library.fileURL(for: document.id)
+    var steps: [String] = []
+
+    await reader.saveBeforeSuspending {
+      steps.append("began")
+      return { steps.append("ended, saved: \(TestPDFs.storedValue(of: "name", in: url) ?? "nothing")") }
+    }
+
+    #expect(steps == ["began", "ended, saved: Grace Hopper"])
+    #expect(try await harness.library.document(withID: document.id)?.lastOpenedAt != nil, "The position is kept too")
+  }
+
   @Test("Form entries save automatically, with nothing else changed (defect D1)")
   func formEntriesSave() async throws {
     let harness = Harness()

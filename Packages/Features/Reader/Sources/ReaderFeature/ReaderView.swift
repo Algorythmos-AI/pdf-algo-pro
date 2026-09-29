@@ -2,6 +2,7 @@ import Core
 import DesignSystem
 import PDFEngine
 import SwiftUI
+import UIKit
 
 /// The reader: the page surface, a floating page indicator, and tools in the toolbar.
 ///
@@ -11,6 +12,7 @@ public struct ReaderView<Assistant: View>: View {
   @State private var password = ""
   @State private var noteText = ""
   @State private var isAddingNote = false
+  @Environment(\.scenePhase) private var scenePhase
   private let assistant: (ReaderAssistantContext) -> Assistant
 
   /// Creates the reader; `assistant` builds the assistant sheet, supplied by the app.
@@ -57,6 +59,10 @@ public struct ReaderView<Assistant: View>: View {
       }
       .task { await model.load() }
       .onChange(of: model.controller?.currentPageIndex) { Task { await model.recordPosition() } }
+      .onChange(of: scenePhase) { _, phase in
+        guard phase == .background else { return }
+        Task { await model.saveBeforeSuspending(keepAlive: Self.beginBackgroundTask) }
+      }
       .onDisappear {
         model.speech.stop()
         Task {
@@ -64,6 +70,22 @@ public struct ReaderView<Assistant: View>: View {
           await model.recordPosition()
         }
       }
+  }
+
+  /// Asks iOS for time to finish saving after the app moves to the background.
+  ///
+  /// Returns the call that ends the request. If the time runs out first, the request is ended then.
+  private static func beginBackgroundTask() -> @MainActor () -> Void {
+    var identifier = UIBackgroundTaskIdentifier.invalid
+    identifier = UIApplication.shared.beginBackgroundTask(withName: "Save document") {
+      UIApplication.shared.endBackgroundTask(identifier)
+      identifier = .invalid
+    }
+    return {
+      guard identifier != .invalid else { return }
+      UIApplication.shared.endBackgroundTask(identifier)
+      identifier = .invalid
+    }
   }
 
   @ViewBuilder private var content: some View {
