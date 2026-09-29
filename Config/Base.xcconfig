@@ -1,0 +1,6 @@
+// Shared by every configuration (project.yml, configFiles).
+//
+// The Team ID is never committed (ADR-0015, AGENTS.md rule 5). Config/Team.xcconfig is git-ignored:
+// Xcode Cloud's ci_scripts/ci_post_clone.sh writes it from CI_TEAM_ID, and for a device build on your
+// Mac you create it yourself with one line: DEVELOPMENT_TEAM = <your Team ID>.
+#include? "Team.xcconfig"

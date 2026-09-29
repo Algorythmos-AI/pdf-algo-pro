@@ -136,6 +136,14 @@ struct DeepLinkTests {
     #expect(DeepLink.route(for: try #require(URL(string: string))) == nil)
   }
 
+  @Test("The Staging app's scheme opens the same routes")
+  func stagingSchemeIsAccepted() throws {
+    #expect(DeepLink.route(for: try #require(URL(string: "pdfalgopro-staging://scan"))) == .scan)
+    #expect(
+      DeepLink.route(for: try #require(URL(string: "pdfalgopro-staging://library/favorites"))) == .library(.favorites))
+    #expect(DeepLink.route(for: try #require(URL(string: "pdfalgopro-other://scan"))) == nil)
+  }
+
   @Test func zeroOrNegativePagesAreIgnored() throws {
     let url = try #require(URL(string: "pdfalgopro://document/\(id)?page=0"))
     #expect(DeepLink.route(for: url) == .document(id, pageIndex: nil))
