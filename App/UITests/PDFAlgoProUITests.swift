@@ -23,12 +23,18 @@ final class PDFAlgoProUITests: XCTestCase {
   /// `.actionBar`), which hides it, so the pixels the audit measures are the bar's. The bar's own controls
   /// are still audited. Every other finding fails the test. All findings on the screen are collected and
   /// reported together, with the element each one is about, instead of stopping at the first.
+  ///
+  /// Quarantined (issue #44, flaky): "Dynamic Type font sizes are partially unsupported" on text in sheets
+  /// appears on some runs and not others with the same code. Those findings are reported as a non-strict
+  /// expected failure, visible in the results without failing the build (docs/testing-strategy.md, Flaky
+  /// tests). Text that does not scale at all still fails.
   private func audit(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) throws {
     let bars =
       app.navigationBars.allElementsBoundByIndex.map(\.frame) + app.toolbars.allElementsBoundByIndex.map(\.frame)
     let actionBars = app.descendants(matching: .any)
       .matching(NSPredicate(format: "identifier ENDSWITH %@", ".actionBar")).allElementsBoundByIndex.map(\.frame)
     var findings: [String] = []
+    var quarantined: [String] = []
     try app.performAccessibilityAudit { issue in
       if let element = issue.element {
         if element.identifier == "reader.pages" { return true }
@@ -43,8 +49,25 @@ final class PDFAlgoProUITests: XCTestCase {
           return true
         }
       }
+      if issue.auditType == .dynamicType, issue.compactDescription.localizedCaseInsensitiveContains("partially") {
+        quarantined.append(Self.describe(issue))
+        return true
+      }
       findings.append(Self.describe(issue))
       return true
+    }
+    if !quarantined.isEmpty {
+      let options = XCTExpectedFailure.Options()
+      options.isStrict = false
+      // Recorded without stopping the test, so the rest of the journey still runs and is checked.
+      let stopsOnFailure = !continueAfterFailure
+      continueAfterFailure = true
+      XCTExpectFailure("Quarantined flaky audit finding, issue #44", options: options) {
+        XCTFail(
+          "\(quarantined.count) quarantined finding(s):\n" + quarantined.joined(separator: "\n"), file: file, line: line
+        )
+      }
+      continueAfterFailure = !stopsOnFailure
     }
     if !findings.isEmpty {
       XCTFail(
