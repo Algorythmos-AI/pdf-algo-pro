@@ -2,9 +2,12 @@
 """Source invariants for the ci.yml `invariants` job (gurbani-soul-ios pattern). Standard library only.
 
 Always active:
-  * no PDF is committed outside Tests/Fixtures/Synthetic/ (real documents never enter git).
+  * no PDF is committed outside Tests/Fixtures/Synthetic/ (real documents never enter git);
+  * once an app icon exists, its default image is a 1024 x 1024 PNG without an alpha channel or
+    transparency, as App Store Connect requires (upload error 90717).
 
-Active once Swift sources exist (dormant before the first code pull request):
+Active once Swift sources exist (dormant before the first code pull request); the rules apply to the
+app and its packages, not to developer tools under scripts/:
   * no `try!` and no `as!` outside tests;
   * `print(` only inside `#if DEBUG` blocks;
   * networking APIs only in the Intelligence, Commerce and Telemetry packages;
@@ -16,7 +19,9 @@ Exit 1 on any violation.
 """
 from __future__ import annotations
 
+import json
 import re
+import struct
 import subprocess
 import sys
 from pathlib import Path
@@ -32,6 +37,7 @@ REQUIRED_REASON = {
     "NSPrivacyAccessedAPICategorySystemBootTime": re.compile(r"systemUptime|mach_absolute_time"),
     "NSPrivacyAccessedAPICategoryDiskSpace": re.compile(r"volumeAvailableCapacity|systemFreeSize|systemSize\b"),
 }
+APP_ICON = "App/PDFAlgoPro/Resources/Assets.xcassets/AppIcon.appiconset"
 ALLOWED = {
     "network": ("Packages/Intelligence/", "Packages/Commerce/", "Packages/Telemetry/"),
     "colour": ("Packages/DesignSystem/",),
@@ -48,6 +54,42 @@ def tracked(*patterns: str) -> list[str]:
 
 def is_test(path: str) -> bool:
     return "/Tests/" in f"/{path}" or path.endswith("Tests.swift")
+
+
+def png_problems(data: bytes, name: str) -> list[str]:
+    """Why a PNG cannot be the default app icon: wrong size, an alpha channel, or transparency."""
+    if data[:8] != b"\x89PNG\r\n\x1a\n" or data[12:16] != b"IHDR":
+        return [f"{name}: not a PNG"]
+    width, height, _depth, colour_type = struct.unpack(">IIBB", data[16:26])
+    problems = []
+    if (width, height) != (1024, 1024):
+        problems.append(f"{name}: {width} x {height}, not 1024 x 1024")
+    if colour_type in (4, 6):
+        problems.append(f"{name}: has an alpha channel; the default app icon must be opaque")
+    offset = 8
+    while offset + 8 <= len(data):
+        length, kind = struct.unpack(">I4s", data[offset:offset + 8])
+        if kind == b"tRNS":
+            problems.append(f"{name}: has transparency (tRNS); the default app icon must be opaque")
+        if kind == b"IEND":
+            break
+        offset += 12 + length
+    return problems
+
+
+def icon_problems() -> list[str]:
+    contents = ROOT / APP_ICON / "Contents.json"
+    if not contents.exists():
+        return []
+    images = json.loads(contents.read_text(encoding="utf-8")).get("images", [])
+    default = [i for i in images if not i.get("appearances") and i.get("filename")]
+    if not default:
+        return [f"{APP_ICON}: no default image; App Store Connect rejects a build without an app icon"]
+    name = default[0]["filename"]
+    path = ROOT / APP_ICON / name
+    if not path.exists():
+        return [f"{APP_ICON}/{name}: listed in Contents.json but missing"]
+    return png_problems(path.read_bytes(), f"{APP_ICON}/{name}")
 
 
 def print_outside_debug(text: str) -> list[int]:
@@ -70,7 +112,9 @@ def main() -> int:
         if not pdf.startswith("Tests/Fixtures/Synthetic/") and "/Tests/Fixtures/Synthetic/" not in pdf:
             errors.append(f"{pdf}: PDFs may only live in Tests/Fixtures/Synthetic/ (no real documents in git)")
 
-    swift = [p for p in tracked("*.swift")]
+    errors.extend(icon_problems())
+
+    swift = [p for p in tracked("*.swift") if not p.startswith("scripts/")]
     if not swift:
         print("invariants: no Swift sources yet; Swift rules are dormant")
     else:

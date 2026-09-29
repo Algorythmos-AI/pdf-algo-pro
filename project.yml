@@ -99,10 +99,11 @@ targets:
         LSSupportsOpeningDocumentsInPlace: true
         UIFileSharingEnabled: true
         UISupportsDocumentBrowser: false
+        # One window until iPad multi-window (#34): every window shares one AppModel today, so two
+        # windows on the same document would overwrite each other's saves (ADR-0004 addendum, PAP-030).
         UIApplicationSceneManifest:
-          UIApplicationSupportsMultipleScenes: true
-        UILaunchScreen:
-          UIColorName: ""
+          UIApplicationSupportsMultipleScenes: false
+        UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft
