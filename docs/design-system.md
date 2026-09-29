@@ -74,7 +74,7 @@ to redefine the meaning of dynamic system colours, so each token keeps the syste
 | `color.background.grouped` | `systemGroupedBackground` | Settings and form backgrounds |
 | `color.background.groupedElevated` | `secondarySystemGroupedBackground` | Rows and cards on grouped backgrounds |
 | `color.label.primary` | `label` | Primary text |
-| `color.label.secondary` | `secondaryLabel` | Supporting text |
+| `color.label.secondary` | `#5E5E66` light, `#A1A1A8` dark (`#45454C` / `#C4C4CC` with Increase Contrast), not `secondaryLabel`, which is 3.3:1 on grouped backgrounds; at least 4.5:1 on every system background | Supporting text, including empty states (`EmptyState`, not `ContentUnavailableView`) |
 | `color.label.tertiary` | `tertiaryLabel` | Disabled text and placeholders only |
 | `color.separator` | `separator` | Dividers |
 | `color.fill.primary` / `.secondary` / `.tertiary` | `systemFill` family | Control fills |

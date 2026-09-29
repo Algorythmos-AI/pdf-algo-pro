@@ -28,8 +28,8 @@ public struct DesignColors: Sendable {
   public var backgroundGroupedElevated: Color { DynamicColor.system(.secondarySystemGroupedBackground) }
   /// Resolves to the system colour `label`.
   public var labelPrimary: Color { DynamicColor.system(.label) }
-  /// Resolves to the system colour `secondaryLabel`.
-  public var labelSecondary: Color { DynamicColor.system(.secondaryLabel) }
+  /// `color.system.labelSecondary`: light #5E5E66, dark #A1A1A8, lightHighContrast #45454C, darkHighContrast #C4C4CC (replaces `secondaryLabel` for 4.5:1 text contrast).
+  public var labelSecondary: Color { DynamicColor.make(light: RGB(0.3686, 0.3686, 0.4000), dark: RGB(0.6314, 0.6314, 0.6588), lightHighContrast: RGB(0.2706, 0.2706, 0.2980), darkHighContrast: RGB(0.7686, 0.7686, 0.8000)) }
   /// Resolves to the system colour `tertiaryLabel`.
   public var labelTertiary: Color { DynamicColor.system(.tertiaryLabel) }
   /// Resolves to the system colour `separator`.

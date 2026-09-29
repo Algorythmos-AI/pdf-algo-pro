@@ -73,13 +73,7 @@ public struct ReaderView<Assistant: View>: View {
     case .locked(let wrongPassword):
       locked(wrongPassword: wrongPassword)
     case .failed(let message):
-      ContentUnavailableView {
-        Label {
-          Text("Can't open this document", bundle: .module)
-        } icon: {
-          Image(systemName: "exclamationmark.triangle")
-        }
-      } description: {
+      EmptyState(Text("Can't open this document", bundle: .module), systemImage: "exclamationmark.triangle") {
         Text(message)
       }
     case .ready:
@@ -295,13 +289,7 @@ public struct ReaderView<Assistant: View>: View {
       Group {
         let items = model.controller?.outline ?? []
         if items.isEmpty {
-          ContentUnavailableView {
-            Label {
-              Text("No table of contents", bundle: .module)
-            } icon: {
-              Image(systemName: "list.bullet.indent")
-            }
-          } description: {
+          EmptyState(Text("No table of contents", bundle: .module), systemImage: "list.bullet.indent") {
             Text("This document doesn't include one. Use Pages to jump to a page.", bundle: .module)
           }
         } else {

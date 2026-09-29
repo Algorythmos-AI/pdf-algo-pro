@@ -65,13 +65,14 @@ public struct AssistantView: View {
     HStack {
       TextField(text: $model.question) { Text("Ask about this document", bundle: .module) }
         .textFieldStyle(.roundedBorder)
+        .frame(minHeight: Sizes.targetMinimum)
         .submitLabel(.send)
         .onSubmit { Task { await model.ask() } }
         .accessibilityIdentifier("assistant.question")
       Button {
         Task { await model.ask() }
       } label: {
-        Image(systemName: "arrow.up.circle.fill").font(.title2)
+        Image(systemName: "arrow.up.circle.fill").font(.title2).minimumTarget()
       }
       .accessibilityLabel(Text("Ask", bundle: .module))
       .disabled(model.question.trimmingCharacters(in: .whitespaces).isEmpty)
@@ -94,35 +95,17 @@ public struct AssistantView: View {
     case .extracted(let extraction):
       extractionCard(extraction)
     case .unavailable(let reason):
-      ContentUnavailableView {
-        Label {
-          Text("Document intelligence isn't available", bundle: .module)
-        } icon: {
-          Image(systemName: "sparkles")
-        }
-      } description: {
+      EmptyState(Text("Document intelligence isn't available", bundle: .module), systemImage: "sparkles") {
         Self.explanation(for: reason)
       }
       .accessibilityIdentifier("assistant.unavailable")
     case .noText:
-      ContentUnavailableView {
-        Label {
-          Text("No text to read yet", bundle: .module)
-        } icon: {
-          Image(systemName: "text.viewfinder")
-        }
-      } description: {
+      EmptyState(Text("No text to read yet", bundle: .module), systemImage: "text.viewfinder") {
         Text(
           "This looks like a scan. Choose Recognise text in the reader's More menu, then try again.", bundle: .module)
       }
     case .failed:
-      ContentUnavailableView {
-        Label {
-          Text("That didn't work", bundle: .module)
-        } icon: {
-          Image(systemName: "exclamationmark.triangle")
-        }
-      } description: {
+      EmptyState(Text("That didn't work", bundle: .module), systemImage: "exclamationmark.triangle") {
         Text("The request didn't finish. Your document hasn't changed. Try again.", bundle: .module)
       } actions: {
         Button {
@@ -141,10 +124,10 @@ public struct AssistantView: View {
       }
       TierBadge(tier: answer.tier)
       if answer.isGrounded {
-        Text(answer.text).font(.body).textSelection(.enabled).frame(
-          minHeight: Sizes.targetMinimum, alignment: .topLeading
-        )
-        .accessibilityIdentifier("assistant.answer")
+        // Plain text, not selectable: selection made the one-line answer an interactive element
+        // below the 44-point target. Copy (below) copies the whole answer.
+        Text(answer.text).font(.body).fixedSize(horizontal: false, vertical: true)
+          .accessibilityIdentifier("assistant.answer")
         ScrollView(.horizontal, showsIndicators: false) {
           HStack(spacing: Spacing.s100) {
             ForEach(answer.citations) { citation in

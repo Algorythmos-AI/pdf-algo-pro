@@ -46,13 +46,7 @@ public struct LibraryView<Detail: View>: View {
       if let selection = model.selection {
         detail(selection).id(selection)
       } else {
-        ContentUnavailableView {
-          Label {
-            Text("No document selected", bundle: .module)
-          } icon: {
-            Image(systemName: "doc.text")
-          }
-        } description: {
+        EmptyState(Text("No document selected", bundle: .module), systemImage: "doc.text") {
           Text("Choose a document from the library.", bundle: .module)
         }
       }
@@ -344,13 +338,7 @@ public struct LibraryView<Detail: View>: View {
   // MARK: - Empty and personalised states
 
   private var emptyState: some View {
-    ContentUnavailableView {
-      Label {
-        Self.emptyTitle(for: model.section)
-      } icon: {
-        Image(systemName: Self.symbol(for: model.section))
-      }
-    } description: {
+    EmptyState(Self.emptyTitle(for: model.section), systemImage: Self.symbol(for: model.section)) {
       if model.section == .all {
         Text(
           "Import a PDF from Files, scan a paper document, or try a sample. Everything stays on this device.",

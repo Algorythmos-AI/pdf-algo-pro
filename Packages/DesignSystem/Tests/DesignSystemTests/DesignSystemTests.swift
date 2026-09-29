@@ -40,6 +40,23 @@ struct DesignTokenTests {
     }
   }
 
+  @Test("Secondary label meets 4.5:1 on every system background in every appearance (WCAG 2.2 AA)")
+  func secondaryLabelContrast() {
+    // design/tokens.json: color.system.labelSecondary (secondaryLabel is 3.3:1 on grouped backgrounds).
+    let label = DynamicColor.uiColor(
+      light: RGB(0.3686, 0.3686, 0.4000), dark: RGB(0.6314, 0.6314, 0.6588),
+      lightHighContrast: RGB(0.2706, 0.2706, 0.2980), darkHighContrast: RGB(0.7686, 0.7686, 0.8000))
+    let backgrounds: [SystemColorName] = [
+      .systemBackground, .secondarySystemBackground, .systemGroupedBackground, .secondarySystemGroupedBackground,
+    ]
+    for appearance in DynamicColor.Appearance.allCases {
+      for background in backgrounds {
+        let ratio = RGB.contrast(rgb(label, in: appearance), rgb(background.uiColor, in: appearance))
+        #expect(ratio >= 4.5, "\(appearance) on \(background): \(ratio)")
+      }
+    }
+  }
+
   @Test func contrastFormulaMatchesKnownValues() {
     #expect(abs(RGB.contrast(RGB(0, 0, 0), RGB(1, 1, 1)) - 21) < 0.01)
     #expect(abs(RGB.contrast(RGB(0.5, 0.5, 0.5), RGB(0.5, 0.5, 0.5)) - 1) < 0.01)

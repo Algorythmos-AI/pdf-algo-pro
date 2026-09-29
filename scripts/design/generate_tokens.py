@@ -56,6 +56,13 @@ def check(tokens: dict) -> list[str]:
             missing = [a for a in APPEARANCES if a not in values]
             if missing:
                 errors.append(f"color.{group}.{name} lacks {missing}")
+    # A system token may override its system colour with explicit values; then it needs all four.
+    for name, token in tokens["color"]["system"].items():
+        values = token.get("$extensions", {}).get(EXTENSION)
+        if values is not None:
+            missing = [a for a in APPEARANCES if a not in values]
+            if missing:
+                errors.append(f"color.system.{name} lacks {missing}")
     for pair in tokens.get("contrastPairs", []):
         fg = lookup(tokens, pair["foreground"])["$extensions"][EXTENSION]
         bg = lookup(tokens, pair["background"])["$extensions"][EXTENSION]
@@ -94,6 +101,12 @@ def render(tokens: dict) -> str:
             lines += [f"  /// `color.{group}.{name}`: {summary}.",
                       f"  public var {swift_name}: Color {{ DynamicColor.make({swift_color(values)}) }}"]
     for name, token in tokens["color"]["system"].items():
+        values = token.get("$extensions", {}).get(EXTENSION)
+        if values is not None:
+            summary = ", ".join(f"{a} {values[a]}" for a in APPEARANCES)
+            lines += [f"  /// `color.system.{name}`: {summary} (replaces `{token['$value']}` for 4.5:1 text contrast).",
+                      f"  public var {name}: Color {{ DynamicColor.make({swift_color(values)}) }}"]
+            continue
         lines += [f"  /// Resolves to the system colour `{token['$value']}`.",
                   f"  public var {name}: Color {{ DynamicColor.system(.{token['$value']}) }}"]
     lines += ["}", "", "/// Spacing tokens: an 8-point grid with 4-point half-steps.", "public enum Spacing {"]

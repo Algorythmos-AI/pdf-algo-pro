@@ -19,6 +19,19 @@ public struct SettingsView: View {
   public var body: some View {
     NavigationStack {
       Form {
+        // First, so the AI switch is on screen without scrolling (privacy by default).
+        Section {
+          Toggle(isOn: $model.isIntelligenceHidden) { Text("Hide AI features", bundle: .module) }
+            .accessibilityIdentifier("settings.hideAI")
+        } header: {
+          Text("Document intelligence", bundle: .module).foregroundStyle(Color.ds.labelSecondary)
+        } footer: {
+          Text(
+            "Summaries, answers and extraction run on this device with Apple Intelligence. Nothing is sent anywhere.",
+            bundle: .module
+          )
+          .foregroundStyle(Color.ds.labelSecondary)
+        }
         Section {
           ForEach(OnboardingIntent.allCases) { intent in
             Toggle(isOn: Binding(get: { model.isChosen(intent) }, set: { _ in model.toggle(intent) })) {
@@ -26,19 +39,9 @@ public struct SettingsView: View {
             }
           }
         } header: {
-          Text("What you do most", bundle: .module)
+          Text("What you do most", bundle: .module).foregroundStyle(Color.ds.labelSecondary)
         } footer: {
-          Text("The first choice leads the home screen.", bundle: .module)
-        }
-        Section {
-          Toggle(isOn: $model.isIntelligenceHidden) { Text("Hide AI features", bundle: .module) }
-            .accessibilityIdentifier("settings.hideAI")
-        } header: {
-          Text("Document intelligence", bundle: .module)
-        } footer: {
-          Text(
-            "Summaries, answers and extraction run on this device with Apple Intelligence. Nothing is sent anywhere.",
-            bundle: .module)
+          Text("The first choice leads the home screen.", bundle: .module).foregroundStyle(Color.ds.labelSecondary)
         }
         Section {
           Picker(selection: $model.readerDisplayMode) {
@@ -48,14 +51,14 @@ public struct SettingsView: View {
             Text("Page layout", bundle: .module)
           }
         } header: {
-          Text("Reading", bundle: .module)
+          Text("Reading", bundle: .module).foregroundStyle(Color.ds.labelSecondary)
         }
         Section {
           Text(
             "Your documents stay on this device, in the PDF Algo Pro folder you can see in the Files app. The app has no account, no advertising and no tracking.",
             bundle: .module)
         } header: {
-          Text("Privacy", bundle: .module)
+          Text("Privacy", bundle: .module).foregroundStyle(Color.ds.labelSecondary)
         }
         Section {
           Toggle(isOn: $model.includesDiagnostics) { Text("Include a diagnostics summary", bundle: .module) }
@@ -66,21 +69,23 @@ public struct SettingsView: View {
           }
           .accessibilityIdentifier("settings.report")
         } header: {
-          Text("Help", bundle: .module)
+          Text("Help", bundle: .module).foregroundStyle(Color.ds.labelSecondary)
         } footer: {
           Text(
             "The summary lists the app version, the system and error counts. It never includes your documents.",
-            bundle: .module)
+            bundle: .module
+          )
+          .foregroundStyle(Color.ds.labelSecondary)
         }
         Section {
           LabeledContent {
-            Text(version)
+            Text(version).foregroundStyle(Color.ds.labelSecondary)
           } label: {
             Text("Version", bundle: .module)
           }
           Text("Built by Algorythmos", bundle: .module).foregroundStyle(Color.ds.labelSecondary)
         } header: {
-          Text("About", bundle: .module)
+          Text("About", bundle: .module).foregroundStyle(Color.ds.labelSecondary)
         }
       }
       .navigationTitle(Text("Settings", bundle: .module))

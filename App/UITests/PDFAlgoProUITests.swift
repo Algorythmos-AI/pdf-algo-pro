@@ -19,18 +19,36 @@ final class PDFAlgoProUITests: XCTestCase {
   ///
   /// Two kinds of finding are about views the system draws, not ours, and are excluded narrowly: issues on
   /// PDFKit's page view, and Dynamic Type findings on navigation-bar and toolbar buttons, whose size the
-  /// system caps. Every other finding fails the test.
-  private func audit(_ app: XCUIApplication) throws {
+  /// system caps. Every other finding fails the test. All findings on the screen are collected and reported
+  /// together, with the element each one is about, instead of stopping at the first.
+  private func audit(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) throws {
     let bars =
       app.navigationBars.allElementsBoundByIndex.map(\.frame) + app.toolbars.allElementsBoundByIndex.map(\.frame)
+    var findings: [String] = []
     try app.performAccessibilityAudit { issue in
-      guard let element = issue.element else { return false }
-      if element.identifier == "reader.pages" { return true }
-      if issue.auditType == .dynamicType, bars.contains(where: { $0.insetBy(dx: -8, dy: -8).contains(element.frame) }) {
-        return true
+      if let element = issue.element {
+        if element.identifier == "reader.pages" { return true }
+        if issue.auditType == .dynamicType,
+          bars.contains(where: { $0.insetBy(dx: -8, dy: -8).contains(element.frame) })
+        {
+          return true
+        }
       }
-      return false
+      findings.append(Self.describe(issue))
+      return true
     }
+    if !findings.isEmpty {
+      XCTFail(
+        "\(findings.count) accessibility finding(s):\n" + findings.joined(separator: "\n"), file: file, line: line)
+    }
+  }
+
+  /// One line per finding: what the audit found and which element it is about.
+  private static func describe(_ issue: XCUIAccessibilityAuditIssue) -> String {
+    guard let element = issue.element else { return "- \(issue.compactDescription) (no element)" }
+    let frame = element.frame
+    return "- \(issue.compactDescription): \(element.elementType) id='\(element.identifier)' "
+      + "label='\(element.label)' frame=(\(Int(frame.minX)),\(Int(frame.minY)) \(Int(frame.width))x\(Int(frame.height)))"
   }
 
   func testOnboardingOffersAIFirstOptionsAndCanBeSkipped() throws {

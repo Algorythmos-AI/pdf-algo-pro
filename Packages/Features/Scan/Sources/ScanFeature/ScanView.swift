@@ -26,13 +26,7 @@ public struct ScanView: View {
         case .recognizing(let progress): recognizing(progress)
         case .finished: ProgressView()
         case .failed:
-          ContentUnavailableView {
-            Label {
-              Text("The scan wasn't saved", bundle: .module)
-            } icon: {
-              Image(systemName: "exclamationmark.triangle")
-            }
-          } description: {
+          EmptyState(Text("The scan wasn't saved", bundle: .module), systemImage: "exclamationmark.triangle") {
             Text("Text recognition didn't finish. Nothing was added to your library.", bundle: .module)
           } actions: {
             Button {

@@ -224,3 +224,62 @@ private struct MotionModifier<Value: Equatable>: ViewModifier {
     content.animation(Motion.standard(reduceMotion: reduceMotion), value: value)
   }
 }
+
+/// A full-screen empty, unavailable or error state.
+///
+/// Use it instead of `ContentUnavailableView`, which draws its description in `secondaryLabel`
+/// (3.3:1 on grouped backgrounds) and cannot scroll, so long text is clipped at large Dynamic Type
+/// sizes. This view keeps the same layout, scrolls when the content does not fit, and uses
+/// `labelSecondary` for the description (accessibility, NFR-A11Y-001).
+public struct EmptyState<Description: View, Actions: View>: View {
+  private let title: Text
+  private let systemImage: String
+  private let description: Description
+  private let actions: Actions
+
+  /// Creates an empty state with a description and actions.
+  public init(
+    _ title: Text, systemImage: String, @ViewBuilder description: () -> Description,
+    @ViewBuilder actions: () -> Actions
+  ) {
+    self.title = title
+    self.systemImage = systemImage
+    self.description = description()
+    self.actions = actions()
+  }
+
+  /// The state, centred when it fits and scrollable when it does not.
+  public var body: some View {
+    GeometryReader { proxy in
+      ScrollView {
+        VStack(spacing: Spacing.s200) {
+          Image(systemName: systemImage)
+            .font(.largeTitle)
+            .foregroundStyle(Color.ds.labelSecondary)
+            .accessibilityHidden(true)
+          title
+            .font(.title2.bold())
+            .foregroundStyle(Color.ds.labelPrimary)
+            .accessibilityAddTraits(.isHeader)
+          description
+            .font(.callout)
+            .foregroundStyle(Color.ds.labelSecondary)
+          VStack(spacing: Spacing.s100) { actions }
+        }
+        .multilineTextAlignment(.center)
+        .fixedSize(horizontal: false, vertical: true)
+        .padding(Spacing.s300)
+        .readableWidth()
+        .frame(minHeight: proxy.size.height)
+      }
+      .scrollBounceBehavior(.basedOnSize)
+    }
+  }
+}
+
+extension EmptyState where Actions == EmptyView {
+  /// Creates an empty state with a description and no actions.
+  public init(_ title: Text, systemImage: String, @ViewBuilder description: () -> Description) {
+    self.init(title, systemImage: systemImage, description: description, actions: { EmptyView() })
+  }
+}
