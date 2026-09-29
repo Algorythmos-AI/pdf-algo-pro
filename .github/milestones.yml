@@ -3,10 +3,10 @@ milestones:
   - title: Foundation
     description: "Planning package, readiness gate, repository and toolchain foundations. No app features."
   - title: MVP
-    description: "First TestFlight build: read, annotate, scan and OCR, and on-device document intelligence on iPhone."
+    description: "First TestFlight build: read, annotate, fill forms and sign, scan and OCR, and on-device document intelligence on iPhone."
   - title: V1
-    description: "First App Store release: editing, signing, organising, subscriptions, EN + FR."
+    description: "First App Store release: editing, organising, subscriptions, EN + FR."
   - title: V1.1
-    description: "Refinement after launch: quality, performance, accessibility and the most requested gaps."
+    description: "Refinement after launch: quality, performance, accessibility, on-device translation, document compare and the most requested gaps."
   - title: V2
-    description: "iPad-first experience and Mac; opt-in cloud intelligence tiers at GA."
+    description: "iPad-first experience and Mac; the opt-in Claude tier at general availability."

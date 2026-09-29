@@ -17,9 +17,9 @@ Owner: Release · Reviewed: each milestone
 | Staging | `integration` | Staging | `com.algorythmos.pdfalgopro.staging` | Xcode Cloud, Staging workflow | TestFlight internal testers |
 | Production | `main` | Release | `com.algorythmos.pdfalgopro` | Xcode Cloud, Release workflow | TestFlight external testers, then the App Store with phased release |
 
-Identifiers follow decision D12 of the planning brief and ADR-0015 (identifiers and signing):
-App Group `group.com.algorythmos.pdfalgopro`, iCloud container `iCloud.com.algorythmos.pdfalgopro`,
-URL scheme `pdfalgopro://`.
+Identifiers follow ADR-0015 (identifiers and signing): App Group
+`group.com.algorythmos.pdfalgopro`, iCloud container `iCloud.com.algorythmos.pdfalgopro`, URL scheme
+`pdfalgopro://`.
 
 ## Local (Debug)
 
@@ -45,7 +45,7 @@ not an environment anyone uses; it exists to run the gates in [quality gates](qu
 ## Staging (`integration`)
 
 The Xcode Cloud workflows below are designed but not yet configured; setting them up is one of the
-readiness items tracked in `docs/readiness-review.md`.
+readiness items tracked in [`docs/readiness-review.md`](../readiness-review.md).
 
 - Every merge into `integration` starts the Xcode Cloud Staging workflow (a Branch Changes start
   condition on `integration`), which archives with the Staging configuration and distributes to
@@ -77,6 +77,10 @@ readiness items tracked in `docs/readiness-review.md`.
 - After the release gates pass, the same build is submitted for App Store review and released with
   phased release ([release management](../release-management.md),
   [App Store submission runbook](runbooks/app-store-submission.md)).
+- **Claude tier.** In the Release configuration the Claude tier is off in App Store builds until V2
+  general availability; before then it is available only in the external TestFlight beta, and only to
+  testers who opt in ([ADR-0009](../adr/0009-tiered-ai-and-consent.md),
+  [AI governance](../ai-governance.md)).
 - App Store builds can reach only the CloudKit production environment
   ([Deploying an iCloud container's schema](https://developer.apple.com/documentation/cloudkit/deploying-an-icloud-container-s-schema)).
   Assumption: TestFlight builds also use the production environment; verified on the first Staging
@@ -94,6 +98,7 @@ readiness items tracked in `docs/readiness-review.md`.
 | Signing | Automatic, maintainer's local identity | Xcode Cloud managed | Xcode Cloud managed |
 | Build number | Local placeholder | `CI_BUILD_NUMBER` | `CI_BUILD_NUMBER` |
 | Logging | `OSLog`, verbose categories allowed | `OSLog` with privacy redaction | `OSLog` with privacy redaction |
+| Claude tier | When opted in | When opted in (internal TestFlight) | Off in App Store builds until V2 general availability; before then only in the external TestFlight beta, when opted in |
 
 Build numbers come from Xcode Cloud's `CI_BUILD_NUMBER` ("the number of the current build")
 ([Environment variable reference](https://developer.apple.com/documentation/xcode/environment-variable-reference));
@@ -113,7 +118,7 @@ treated as confidential for this public repository and is injected at build time
 Signing material (`*.p8`, `*.p12`, `*.mobileprovision`, `*.cer`) is excluded by `.gitignore`, and the
 `secrets / Secret scan` check blocks credentials in pull requests. No AI provider key is ever embedded
 in the app: in beta the Claude tier authenticates with App Attest, and before general availability a
-relay (`pdf-algo-pro-backend`) holds provider credentials server-side (decision D2, ADR-0009).
+relay (`pdf-algo-pro-backend`) holds provider credentials server-side (ADR-0009).
 
 ## What each environment may talk to
 
@@ -123,21 +128,21 @@ Today the product is on-device only. Networking is allowed in three packages onl
 | Destination | Local | Staging | Production | Notes |
 |---|---|---|---|---|
 | On-device Apple models (`SystemLanguageModel`) | Yes | Yes | Yes | No network. Availability depends on device and region support for Apple Intelligence ([SystemLanguageModel](https://developer.apple.com/documentation/foundationmodels/systemlanguagemodel)). |
-| iCloud Drive (documents) and CloudKit private database (library metadata) | Development environment | Production | Production | The user's own data only (decision D5, ADR-0005, ADR-0006). |
-| App Store (StoreKit 2) | Sandbox or local configuration | Sandbox | Production | Decision D7, ADR-0011. |
+| iCloud Drive (documents) and CloudKit private database (library metadata) | Development environment | Production | Production | The user's own data only (ADR-0005, ADR-0006). |
+| App Store (StoreKit 2) | Sandbox or local configuration | Sandbox | Production | ADR-0011. |
 | Apple Private Cloud Compute | Yes, when opted in | Yes, when opted in | Yes, when opted in | Opt-in, with consent that names the provider and the data (ADR-0009). |
-| Anthropic (Claude tier) | Yes, when opted in | Yes, when opted in | Yes, when opted in | Beta only, App Attest, workspace spend caps; see the [failover runbook](runbooks/ai-provider-failover.md). |
+| Anthropic (Claude tier) | Yes, when opted in | Yes, when opted in | Off in App Store builds until V2 general availability; before then only in the external TestFlight beta, when opted in | Beta only, App Attest, workspace spend caps until general availability ([ADR-0009](../adr/0009-tiered-ai-and-consent.md)); see the [failover runbook](runbooks/ai-provider-failover.md). |
 | CloudKit public database (remote configuration, kill switch) | Development environment | See open questions | Production | Designed, not yet built: [kill switch runbook](runbooks/kill-switch.md). |
 | `pdf-algo-pro-backend` relay | Later | Later (staging endpoint) | Later (production endpoint) | Required before the Claude tier reaches general availability. |
-| Third-party analytics or crash SDKs | Never | Never | Never | MetricKit and `OSLog` only (decision D8, ADR-0012). |
+| Third-party analytics or crash SDKs | Never | Never | Never | MetricKit and `OSLog` only (ADR-0012). |
 
-Diagnostics and telemetry never include document content, personal data or business data (decision
-D9, ADR-0017).
+Diagnostics and telemetry never include document content, personal data or business data
+(ADR-0017).
 
 ## Open questions
 
-1. **Debug bundle identifier.** The brief fixes only the Staging suffix. A `.debug` suffix would let a
-   development build sit beside the App Store build on the same device; decide in ADR-0015.
+1. **Debug bundle identifier.** ADR-0015 fixes only the Staging suffix. A `.debug` suffix would let a
+   development build sit beside the App Store build on the same device; decide in a new ADR.
 2. **Staging App Group and iCloud container.** Whether Staging shares
    `group.com.algorythmos.pdfalgopro` and `iCloud.com.algorythmos.pdfalgopro` or gets `.staging`
    variants. Separate containers keep tester data and remote configuration apart from production.

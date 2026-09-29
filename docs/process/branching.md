@@ -65,6 +65,10 @@ Examples: `feat(ocr): add French recognition`, `fix(pdf)!: store annotations in 
 the changelog ([changelog strategy](../changelog-strategy.md)). The job re-runs when the title is
 edited, so a failing title is fixed by editing it.
 
+`build`, `revert` and `release` are pull request title types, not branch prefixes. That work sits on
+a branch with one of the eight prefixes in [work branches](#work-branches) (for example a revert on
+`fix/revert-save-conflict`), and the release pull request's head is `integration` itself.
+
 ## Merge methods
 
 | Pull request | Base | Method | Why |
@@ -139,7 +143,7 @@ Rejected: allowing merge commits on `integration` (invites merge commits on ordi
 ## Why this overrides the organisation default
 
 The organisation standard is that apps use `main` only. This repository keeps a second long-lived
-branch. The exception is recorded in ADR-0016 (`docs/adr/0016-two-branch-model.md`), in
+branch. The exception is recorded in ADR-0016 ([`docs/adr/0016-two-branch-model.md`](../adr/0016-two-branch-model.md)), in
 [AGENTS.md](../../AGENTS.md) (hard rule 2) and in org decision D-023.
 
 - **Rationale.** An iOS app cannot be rolled back once users have installed it (see

@@ -1,0 +1,434 @@
+# PDF Algo Pro planned backlog (backlog as code). See docs/project-management.md#backlog-as-code.
+#
+# Sync to GitHub issues (keyed by `id`; re-running never duplicates):
+#   uv run --with pyyaml==6.0.2 python scripts/gh/sync_github.py backlog            # dry run
+#   uv run --with pyyaml==6.0.2 python scripts/gh/sync_github.py backlog --apply
+#
+# Fields
+#   id           stable identifier, never reused (F- foundation, M- MVP, V- V1, P- V1.1, W- V2)
+#   title        issue title (sentence case, no trailing full stop)
+#   type         epic | spike | task
+#   milestone    Foundation | MVP | V1 | V1.1 | V2 (must exist in .github/milestones.yml)
+#   priority     p0 | p1 | p2 | p3            -> label priority:<value>
+#   size         s | m | l | xl               -> label size:<value>
+#   pillars      PIL-1 … PIL-7 (at least one)
+#   labels       extra labels (must exist in .github/labels.yml or the org label set)
+#   refs         PRD requirement IDs, ADRs, readiness blockers
+#   acceptance   what must be true to close the issue
+#
+# PUBLIC REPOSITORY: only engineering and product work belongs here. Account, agreement, vendor-
+# commercial, billing and business items are tracked privately and never appear in this file.
+
+items:
+  # ---------------- Foundation ----------------
+  - id: F-001
+    title: PDF SDK vendor spike and scored selection
+    type: spike
+    milestone: Foundation
+    priority: p0
+    size: l
+    pillars: [PIL-1, PIL-2, PIL-3]
+    labels: [pdf]
+    refs: [ADR-0007, readiness C1]
+    acceptance:
+      - Both candidate SDKs scored on the ADR-0007 criteria with a prototype for text editing, redaction and Office export
+      - Privacy manifest and network behaviour of each SDK audited (no telemetry, JavaScript can be disabled)
+      - ADR-0007 moves from Proposed to Accepted or is superseded
+  - id: F-002
+    title: Xcode 27 toolchain locally and in CI
+    type: task
+    milestone: Foundation
+    priority: p0
+    size: m
+    pillars: [PIL-7]
+    labels: [devops]
+    refs: [ADR-0001, ADR-0013, readiness C2]
+    acceptance:
+      - Xcode 27 installed locally and selected on the CI runner image used by the ios job
+      - Pinned simulator name and runtime in ci.yml verified to exist on the runner
+  - id: F-003
+    title: Information architecture, key flows and Figma library
+    type: epic
+    milestone: Foundation
+    priority: p0
+    size: xl
+    pillars: [PIL-7]
+    labels: [design]
+    refs: [readiness C5, design-system.md]
+    acceptance:
+      - Navigation map and key flows for every MVP intent, including the onboarding intent picker
+      - Figma library matching the design tokens and components in design-system.md
+  - id: F-004
+    title: Document identity spike (renames, moves, iCloud)
+    type: spike
+    milestone: Foundation
+    priority: p1
+    size: m
+    pillars: [PIL-1, PIL-6]
+    refs: [ADR-0005, PRD OQ-4, readiness M4]
+    acceptance:
+      - A prototype keeps annotations, index entries and recents attached across rename, move and iCloud eviction
+  - id: F-005
+    title: Golden PDF corpus and OCR corpus (synthetic and licence-clean)
+    type: task
+    milestone: Foundation
+    priority: p0
+    size: l
+    pillars: [PIL-1, PIL-3]
+    labels: [pdf, ocr]
+    refs: [testing-strategy.md, NFR-SEC-002, readiness M2]
+    acceptance:
+      - Corpus covers large, encrypted, damaged, form, scanned and malicious files, all generated or licence-clean
+      - OCR corpus in English and French with ground-truth text
+  - id: F-006
+    title: AI evaluation sets in English and French
+    type: task
+    milestone: Foundation
+    priority: p1
+    size: l
+    pillars: [PIL-4]
+    labels: [ai]
+    refs: [ai-evaluation-framework.md, NFR-AI-001, readiness M2]
+    acceptance:
+      - Golden question sets with page-level answers for summaries, questions and extraction
+      - Prompt-injection red-team set
+  - id: F-007
+    title: Customer research studies R1 to R3
+    type: epic
+    milestone: Foundation
+    priority: p1
+    size: l
+    pillars: [PIL-4, PIL-5]
+    refs: [customer-research.md]
+    acceptance:
+      - Review mining, problem interviews and message test completed; hypotheses updated
+  - id: F-008
+    title: Privacy policy, terms and support pages live
+    type: task
+    milestone: Foundation
+    priority: p1
+    size: m
+    pillars: [PIL-5]
+    labels: [compliance]
+    refs: [compliance-roadmap.md, app-store-strategy.md, readiness M1]
+    acceptance:
+      - Privacy policy, terms of use and support URLs published on algorythmos.com and linked from the App Store record
+  - id: F-009
+    title: Wiki bootstrap and first publish
+    type: task
+    milestone: Foundation
+    priority: p2
+    size: s
+    pillars: [PIL-7]
+    labels: [documentation]
+    refs: [wiki-plan.md, readiness M6]
+    acceptance:
+      - Wiki created, published from docs/wiki, sidebar renders
+  - id: F-010
+    title: Switch CodeQL to advanced setup and require it
+    type: task
+    milestone: Foundation
+    priority: p1
+    size: s
+    pillars: [PIL-5]
+    labels: [security, devops]
+    refs: [quality-gates.md, readiness C6]
+    acceptance:
+      - codeql (actions) passes on a pull request and is added to the required checks
+
+  # ---------------- MVP (iPhone, internal TestFlight) ----------------
+  - id: M-001
+    title: Project skeleton, packages and dormant gates proven
+    type: epic
+    milestone: MVP
+    priority: p0
+    size: l
+    pillars: [PIL-7]
+    labels: [ios, devops]
+    refs: [ADR-0002, ADR-0003, ADR-0013, ADR-0014, NFR-QUAL-001]
+    acceptance:
+      - XcodeGen project with the package graph; the ios job, coverage gate and invariants run green on the first code pull request
+  - id: M-002
+    title: Onboarding intent picker with AI-first options
+    type: epic
+    milestone: MVP
+    priority: p0
+    size: m
+    pillars: [PIL-4, PIL-7]
+    labels: [ios, design]
+    refs: [FR-ONB-001, FR-ONB-002, FR-ONB-003, FR-ONB-004, FR-ONB-006]
+    acceptance:
+      - Acceptance criteria of the listed requirements pass in UI tests
+  - id: M-003
+    title: Library, files and search
+    type: epic
+    milestone: MVP
+    priority: p0
+    size: xl
+    pillars: [PIL-1, PIL-6, PIL-7]
+    labels: [ios]
+    refs: [FR-LIB-001, FR-LIB-002, FR-LIB-003, FR-LIB-004, FR-LIB-005, FR-LIB-006, NFR-SEC-001, NFR-OFF-001, ADR-0005, ADR-0006, ADR-0010]
+    acceptance:
+      - Acceptance criteria of the listed requirements pass
+  - id: M-004
+    title: Reader
+    type: epic
+    milestone: MVP
+    priority: p0
+    size: xl
+    pillars: [PIL-1]
+    labels: [ios, pdf, performance]
+    refs: [FR-READ-001, FR-READ-002, FR-READ-003, FR-READ-004, FR-READ-006, NFR-PERF-001, NFR-SEC-002]
+    acceptance:
+      - Acceptance criteria pass; document budgets met on reference devices
+  - id: M-005
+    title: Annotation, forms and signatures
+    type: epic
+    milestone: MVP
+    priority: p0
+    size: l
+    pillars: [PIL-1, PIL-2]
+    labels: [ios, pdf]
+    refs: [FR-ANN-001, FR-ANN-002, FR-EDIT-003, FR-EDIT-004, FR-EDIT-007, NFR-REL-002, NFR-SEC-001]
+    acceptance:
+      - Round-trip annotation corpus passes; signatures stored in the Keychain
+  - id: M-006
+    title: Scanning and on-device OCR
+    type: epic
+    milestone: MVP
+    priority: p0
+    size: l
+    pillars: [PIL-3, PIL-5, PIL-6]
+    labels: [ios, ocr]
+    refs: [FR-SCAN-001, FR-SCAN-002, FR-SCAN-003, NFR-OFF-001, ADR-0008]
+    acceptance:
+      - OCR accuracy and speed budgets met; background OCR completes with progress
+  - id: M-007
+    title: On-device intelligence with page citations
+    type: epic
+    milestone: MVP
+    priority: p0
+    size: xl
+    pillars: [PIL-4, PIL-5, PIL-6]
+    labels: [ai]
+    refs: [FR-AI-001, FR-AI-002, FR-AI-003, FR-AI-005, FR-AI-009, FR-AI-010, FR-AI-011, FR-AI-013, NFR-OFF-001, ADR-0009, ADR-0020, ADR-0021]
+    acceptance:
+      - AI evaluation thresholds met; red-team suite passes; works in airplane mode on eligible devices
+  - id: M-008
+    title: System integration (Share extension, App Intents, Spotlight, Files)
+    type: epic
+    milestone: MVP
+    priority: p1
+    size: l
+    pillars: [PIL-7]
+    labels: [ios]
+    refs: [ADR-0022, FR-LIB-004, FR-LIB-005]
+    acceptance:
+      - Apple-first checklist complete for every MVP feature
+  - id: M-009
+    title: Privacy manifest, diagnostics and accessibility baseline
+    type: epic
+    milestone: MVP
+    priority: p0
+    size: m
+    pillars: [PIL-5, PIL-7]
+    labels: [accessibility, compliance]
+    refs: [NFR-PRIV-001, NFR-PRIV-003, NFR-A11Y-001, FR-SET-003, ADR-0012]
+    acceptance:
+      - Accessibility audits pass on every screen; diagnostics bundle contains no document content
+
+  - id: M-010
+    title: First TestFlight build through Xcode Cloud with a crash-free gate
+    type: task
+    milestone: MVP
+    priority: p1
+    size: m
+    pillars: [PIL-7]
+    labels: [release]
+    refs: [NFR-REL-001, ADR-0013, readiness M5]
+    acceptance:
+      - Xcode Cloud Staging workflow builds integration and uploads to TestFlight internal
+      - Crash-free sessions of at least 99.8% over three days are checked before any release (release checklist)
+
+  # ---------------- V1 (App Store) ----------------
+  - id: V-001
+    title: Text and image editing, redaction and password protection
+    type: epic
+    milestone: V1
+    priority: p0
+    size: xl
+    pillars: [PIL-2, PIL-5]
+    labels: [pdf]
+    refs: [FR-EDIT-001, FR-EDIT-002, FR-EDIT-005, FR-EDIT-006]
+    acceptance:
+      - Redaction suite proves removed content cannot be recovered
+  - id: V-002
+    title: Organise pages and convert to Office formats
+    type: epic
+    milestone: V1
+    priority: p0
+    size: l
+    pillars: [PIL-2]
+    labels: [pdf]
+    refs: [FR-ORG-001, FR-ORG-002, FR-ORG-003, FR-ORG-004]
+    acceptance:
+      - Acceptance criteria of the listed requirements pass
+  - id: V-003
+    title: Subscriptions with StoreKit 2 and an honest paywall
+    type: epic
+    milestone: V1
+    priority: p0
+    size: l
+    pillars: [PIL-7]
+    refs: [FR-STORE-001, FR-STORE-002, FR-STORE-003, FR-STORE-004, ADR-0011]
+    acceptance:
+      - Paywall meets every Guideline 3.1.2 disclosure; lapsed users keep full access to their documents
+  - id: V-004
+    title: Private Cloud Compute tier with consent
+    type: epic
+    milestone: V1
+    priority: p1
+    size: m
+    pillars: [PIL-4, PIL-5]
+    labels: [ai, compliance]
+    refs: [FR-AI-006, FR-SET-001, NFR-AI-002, ADR-0021]
+    acceptance:
+      - Opt-in, revocable; quota exhaustion falls back to on-device processing
+  - id: V-005
+    title: Analyse contract with not-legal-advice disclosure
+    type: epic
+    milestone: V1
+    priority: p1
+    size: m
+    pillars: [PIL-4]
+    labels: [ai]
+    refs: [FR-AI-004, FR-ONB-005]
+    acceptance:
+      - Every term cites its page; disclosure visible on every result
+  - id: V-006
+    title: Widgets, Control Center scan and Action extension
+    type: epic
+    milestone: V1
+    priority: p1
+    size: m
+    pillars: [PIL-7]
+    labels: [ios]
+    refs: [FR-SCAN-005, ADR-0022]
+    acceptance:
+      - Controls and widgets work from the lock screen with the required authentication
+  - id: V-007
+    title: French localisation throughout
+    type: epic
+    milestone: V1
+    priority: p1
+    size: m
+    pillars: [PIL-7]
+    labels: [i18n]
+    refs: [NFR-L10N-001]
+    acceptance:
+      - Every string localised; pseudo-localisation and right-to-left layout checks pass
+  - id: V-008
+    title: App Store launch (listing, screenshots, phased release)
+    type: epic
+    milestone: V1
+    priority: p0
+    size: l
+    pillars: [PIL-7]
+    labels: [release]
+    refs: [NFR-PRIV-002, app-store-strategy.md, release-management.md]
+    acceptance:
+      - Release checklist signed; external TestFlight crash-free sessions at least 99.8% over three days
+
+  - id: V-009
+    title: Threat-model mitigations traced to tests
+    type: task
+    milestone: V1
+    priority: p1
+    size: m
+    pillars: [PIL-5]
+    labels: [security]
+    refs: [NFR-SEC-003, threat-model.md]
+    acceptance:
+      - Every mitigation in the threat model names the test that proves it, and that test runs in CI or the release gate
+
+  # ---------------- V1.1 ----------------
+  - id: P-001
+    title: Translate documents on device
+    type: epic
+    milestone: V1.1
+    priority: p2
+    size: m
+    pillars: [PIL-4, PIL-6]
+    labels: [ai]
+    refs: [FR-AI-012]
+    acceptance:
+      - Translation runs offline on supported devices
+  - id: P-002
+    title: Compare two versions of a document
+    type: epic
+    milestone: V1.1
+    priority: p3
+    size: l
+    pillars: [PIL-1, PIL-4]
+    refs: [FR-ORG-005]
+    acceptance:
+      - Differences highlighted with page references
+
+  # ---------------- V2 ----------------
+  - id: W-001
+    title: iPad-first experience (three columns, multiple windows, Apple Pencil)
+    type: epic
+    milestone: V2
+    priority: p1
+    size: xl
+    pillars: [PIL-1, PIL-2, PIL-7]
+    labels: [ipad]
+    refs: [FR-ANN-004, platform-strategy.md]
+    acceptance:
+      - iPad exit criteria in the platform strategy met
+  - id: W-002
+    title: Native Mac app with universal purchase
+    type: epic
+    milestone: V2
+    priority: p1
+    size: xl
+    pillars: [PIL-7]
+    labels: [macos]
+    refs: [FR-STORE-005, platform-strategy.md]
+    acceptance:
+      - Mac exit criteria in the platform strategy met
+  - id: W-003
+    title: Relay and opt-in Claude tier
+    type: epic
+    milestone: V2
+    priority: p1
+    size: xl
+    pillars: [PIL-4]
+    labels: [ai, security]
+    refs: [FR-AI-007, ADR-0009, ADR-0021, privacy-architecture.md]
+    acceptance:
+      - Per-user entitlements and fair-use quotas enforced at the relay; consent names the provider and data
+  - id: W-004
+    title: Ask across the whole library
+    type: epic
+    milestone: V2
+    priority: p2
+    size: l
+    pillars: [PIL-4, PIL-6]
+    labels: [ai]
+    refs: [FR-AI-008]
+    acceptance:
+      - On-device retrieval across the library within the retrieval budget
+  - id: W-005
+    title: Opt-in aggregated telemetry through the relay
+    type: epic
+    milestone: V2
+    priority: p2
+    size: l
+    pillars: [PIL-5]
+    labels: [compliance]
+    refs: [FR-SET-004, ADR-0017]
+    acceptance:
+      - Off by default; asked once after first value; revocable in Settings with the last batch shown in readable form
+      - Only allow-listed, on-device-aggregated counters are sent, with no document content or identifiers
+      - Privacy label, privacy manifest and privacy impact assessment updated in the release that ships it

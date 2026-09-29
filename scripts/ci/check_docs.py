@@ -29,6 +29,12 @@ HEADING = re.compile(r"^(#{1,6})\s+\S")
 FENCE = re.compile(r"^\s*(```|~~~)")
 NUMBER_CLAIM = re.compile(r"(\b\d+(?:[.,]\d+)?\s?%|[$€£]\s?\d|\bA\$\s?\d|\bUS\$\s?\d)")
 INDEXED_DIRS = ("", "product", "process", "planning")
+# Mirrors the hat tables in .github/SUPERVISION.md (decision rights) and docs/github-governance.md
+# (roles); change all three together.
+ALLOWED_HATS = ("Maintainer", "Product", "Architecture", "Release", "Security", "Privacy", "Quality",
+                "Design", "AI", "PDF engine", "Operations")
+OWNER_LINE = re.compile(r"^Owner: (?P<hats>.+?) · Reviewed: \S")
+UNOWNED_DIRS = ("adr", "wiki")
 
 
 def tracked_markdown() -> list[Path]:
@@ -80,6 +86,23 @@ def check_headings(path: Path, lines: list[str], errors: list[str]) -> None:
             errors.append(f"{rel}:{no}: heading level jumps from H{prev} to H{lvl}")
 
 
+def owner_errors(rel: Path, lines: list[str]) -> list[str]:
+    """One `Owner: <hat>[ and <hat>] · Reviewed: <cadence>` line, with known hats only."""
+    if rel.parts[0] != "docs" or (len(rel.parts) > 2 and rel.parts[1] in UNOWNED_DIRS):
+        return []
+    found = [(no, line) for no, line in enumerate(lines, 1) if line.startswith("Owner:")]
+    if len(found) != 1:
+        return [f"{rel}: needs exactly one 'Owner: <hat> · Reviewed: <cadence>' line (found {len(found)})"]
+    no, line = found[0]
+    m = OWNER_LINE.match(line)
+    if not m:
+        return [f"{rel}:{no}: owner line must read 'Owner: <hat>[ and <hat>] · Reviewed: <cadence>'"]
+    unknown = [hat for hat in m.group("hats").split(" and ") if hat not in ALLOWED_HATS]
+    if unknown:
+        return [f"{rel}:{no}: unknown hat(s) {unknown}; allowed: {', '.join(ALLOWED_HATS)}"]
+    return []
+
+
 def linked_targets(index: Path) -> set[Path]:
     text = "\n".join(strip_code(index.read_text(encoding="utf-8").splitlines()))
     return {(index.parent / t.split("#", 1)[0]).resolve() for t in LINK.findall(text) if not re.match(r"^(https?:|mailto:|#)", t)}
@@ -124,23 +147,37 @@ def warn_freshness(warnings: list[str]) -> None:
 
 
 def warn_evidence(path: Path, lines: list[str], raw: list[str], warnings: list[str]) -> None:
-    """Numbers are read from prose (code stripped); labels and links may sit in inline code."""
-    paragraph: list[tuple[int, str]] = []
+    """Numbers are read from prose (code stripped); labels and links may sit in inline code.
 
-    def flush() -> None:
-        text = " ".join(line for _, line in paragraph)
-        source = " ".join(raw[no - 1] for no, _ in paragraph)
-        if NUMBER_CLAIM.search(text) and not re.search(r"\]\(|Assumption:|Source:|\[\^|ADR-\d{4}", source):
-            warnings.append(f"{path.relative_to(ROOT)}:{paragraph[0][0]}: number without a source or 'Assumption:' label")
-        paragraph.clear()
-
+    A table's source or `Assumption:` label may also sit in the paragraph directly before or
+    after the table, which is how most documents caption their tables.
+    """
+    label = re.compile(r"\]\(|Assumption:|Source:|\[\^|ADR-\d{4}")
+    paragraphs: list[list[int]] = []
+    current: list[int] = []
     for no, line in enumerate(lines, 1):
         if line.strip():
-            paragraph.append((no, line))
-        elif paragraph:
-            flush()
-    if paragraph:
-        flush()
+            current.append(no)
+        elif current:
+            paragraphs.append(current)
+            current = []
+    if current:
+        paragraphs.append(current)
+
+    def text(nos: list[int]) -> str:
+        return " ".join(lines[n - 1] for n in nos)
+
+    def source(nos: list[int]) -> str:
+        return " ".join(raw[n - 1] for n in nos)
+
+    for i, nos in enumerate(paragraphs):
+        if not NUMBER_CLAIM.search(text(nos)) or label.search(source(nos)):
+            continue
+        is_table = all(lines[n - 1].lstrip().startswith("|") for n in nos)
+        neighbours = [paragraphs[j] for j in (i - 1, i + 1) if 0 <= j < len(paragraphs)]
+        if is_table and any(label.search(source(nb)) for nb in neighbours):
+            continue
+        warnings.append(f"{path.relative_to(ROOT)}:{nos[0]}: number without a source or 'Assumption:' label")
 
 
 def main() -> int:
@@ -152,6 +189,7 @@ def main() -> int:
         lines = strip_code(raw)
         check_links(path, lines, errors)
         check_headings(path, lines, errors)
+        errors.extend(owner_errors(path.relative_to(ROOT), lines))
         if path.relative_to(ROOT).parts[0] == "docs":
             warn_evidence(path, lines, raw, warnings)
     check_index(errors)

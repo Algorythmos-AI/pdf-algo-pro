@@ -54,7 +54,7 @@ CHANGELOG.md  [Unreleased]  ──── release prep: becomes ## [X.Y.Z] - date
 
 The GitHub Release body is the CHANGELOG section verbatim: `release.yml` extracts it and fails on an
 empty section ([release management](release-management.md#the-release-workflow)). The wiki release
-notes page lives under `docs/wiki/` (it arrives with the wiki plan, `docs/wiki-plan.md`), so it is
+notes page lives under `docs/wiki/` ([wiki plan](wiki-plan.md)), so it is
 written in the release preparation pull request and mirrored when `release.yml` publishes the wiki.
 
 ## Tone and examples

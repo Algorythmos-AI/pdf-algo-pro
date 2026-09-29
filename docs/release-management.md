@@ -174,5 +174,5 @@ New in EN and FR, and the wiki release notes. Who writes what, and when, is in t
 | What changed | [CHANGELOG.md](../CHANGELOG.md) and the GitHub Release |
 | Evidence that gates passed | The release pull request |
 | What shipped | The `vX.Y.Z` tag and the build number in App Store Connect |
-| Current production version and anything deferred | `docs/working-memory.md` |
-| Exceptions to a gate | `docs/decision-register.md` |
+| Current production version and anything deferred | [`docs/working-memory.md`](working-memory.md) |
+| Exceptions to a gate | [`docs/decision-register.md`](decision-register.md) |

@@ -51,15 +51,23 @@ Two commitments are already published and take precedence: vulnerability reports
 within five business days ([SECURITY.md](../../../.github/SECURITY.md)), and support email is
 answered within two business days ([SUPPORT.md](../../../.github/SUPPORT.md)).
 
-## Roles (hats)
+## Incident roles
 
-| Hat | Does |
+These are incident roles: each is taken for one incident and handed back when it closes. They are
+not hats; the hats and their decision rights are in [SUPERVISION](../../../.github/SUPERVISION.md)
+and [GitHub governance](../../github-governance.md#roles-hats). The Incident lead is always a named
+person, recorded in the incident record.
+
+| Role | Does |
 |---|---|
 | Incident lead | Declares the incident, sets severity, decides on containment, owns it until closed |
 | Subject expert | Diagnoses and fixes (PDF engine, AI, storage, purchases, as needed) |
 | Communications | Replies to affected users, writes public notes and App Store text |
 | Scribe | Keeps the timeline in the incident record |
-| Security | Joins every privacy or security incident; decides on disclosure and notification duties |
+
+The Security hat joins every privacy or security incident and decides on disclosure and
+notification duties, with the Privacy hat's assessment when personal information is involved
+([AI governance](../../ai-governance.md)).
 
 The maintainer holds all of them today. When working alone, keep this order: contain first, then
 record the timeline, then communicate, then fix properly. Write a line in the timeline at every

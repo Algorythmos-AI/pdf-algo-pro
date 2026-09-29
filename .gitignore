@@ -41,3 +41,6 @@ __pycache__/
 .venv/
 node_modules/
 .pytest_cache/
+
+# Local agent worktrees
+.claude/worktrees/

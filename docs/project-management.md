@@ -14,9 +14,9 @@ Owner: Product · Reviewed: each milestone
 | A unit of work | A GitHub issue, from a template ([GitHub governance](github-governance.md#issue-taxonomy)) |
 | A phase of the roadmap | A milestone (Foundation, MVP, V1, V1.1, V2) |
 | Flow and priority | The project board |
-| The planned backlog | `docs/planning/backlog.yaml`, synced to issues (arrives with the planning package) |
-| Decisions | ADRs in `docs/adr/` and the decision register `docs/decision-register.md` |
-| Current state | `docs/working-memory.md` |
+| The planned backlog | [`docs/planning/backlog.yaml`](planning/backlog.yaml), synced to issues |
+| Decisions | ADRs in `docs/adr/` and the decision register [`docs/decision-register.md`](decision-register.md) |
+| Current state | [`docs/working-memory.md`](working-memory.md) |
 
 ## Projects: fields, views and automation
 
@@ -53,11 +53,11 @@ both; where they disagree, the board field wins and the label is corrected.
 
 | Milestone | Scope (from [`milestones.yml`](../.github/milestones.yml)) | Exit criterion |
 |---|---|---|
-| Foundation | Planning package, readiness gate, repository and toolchain foundations; no app features | `docs/readiness-review.md` shows no open Critical blocker |
-| MVP | First TestFlight build: read, annotate, scan and OCR, on-device document intelligence on iPhone | An internal TestFlight build passes the MVP acceptance criteria in `docs/prd.md` |
-| V1 | First App Store release: editing, signing, organising, subscriptions, EN + FR | Version 1.0.0 approved and released |
-| V1.1 | Quality, performance, accessibility and the most requested gaps after launch | The V1.1 scope in `docs/product/roadmap.md` shipped |
-| V2 | iPad-first experience and Mac; opt-in cloud intelligence tiers at general availability | The V2 scope in `docs/product/roadmap.md` shipped |
+| Foundation | Planning package, readiness gate, repository and toolchain foundations; no app features | [`docs/readiness-review.md`](readiness-review.md) shows no open Critical blocker |
+| MVP | First TestFlight build: read, annotate, fill forms and sign, scan and OCR, on-device document intelligence on iPhone | An internal TestFlight build passes the MVP acceptance criteria in [`docs/prd.md`](prd.md) |
+| V1 | First App Store release: editing, organising, subscriptions, EN + FR | Version 1.0.0 approved and released |
+| V1.1 | Quality, performance, accessibility and the most requested gaps after launch | The V1.1 scope in [`docs/product/roadmap.md`](product/roadmap.md) shipped |
+| V2 | iPad-first experience and Mac; the opt-in Claude tier at general availability | The V2 scope in [`docs/product/roadmap.md`](product/roadmap.md) shipped |
 
 Milestones carry no due dates until the roadmap sets them; a date is added only when the Product hat
 commits to it.
@@ -75,16 +75,17 @@ Each iteration:
    priority first, within the WIP limit and recent throughput.
 2. **Work**: move items across the board; each merged pull request closes its issue.
 3. **Review** (end): try the Staging build from TestFlight internal; record what shipped and what slipped
-   in `docs/working-memory.md`.
+   in [`docs/working-memory.md`](working-memory.md).
 4. **Retrospect**: one change to try next iteration, recorded in the same place.
 
 ## Backlog as code
 
-The planned backlog is kept in `docs/planning/backlog.yaml`, which arrives with the planning package.
+The planned backlog is kept in [`docs/planning/backlog.yaml`](planning/backlog.yaml).
 Each item has a stable identifier, a milestone, a priority, a size, its pillars and platforms, labels,
-and acceptance criteria. The file is changed by pull request like any document, and a sync tool that
-arrives with it creates or updates the matching issues and board items, keyed by the identifier, so
-re-running it never duplicates anything. The file's own header is the authority on its fields.
+and acceptance criteria. The file is changed by pull request like any document, and
+`scripts/gh/sync_github.py backlog` creates or updates the matching issues, keyed by the identifier,
+so re-running it never duplicates anything; the board's auto-add workflow brings new issues onto the
+board. The file's own header is the authority on its fields.
 
 Issues raised directly on GitHub (bugs, ideas from users) do not need a backlog entry; the backlog holds
 planned work, the issues hold all work.
@@ -139,7 +140,7 @@ An item can move to Ready when:
 - dependencies and open questions are known, and none blocks starting;
 - UI work has a design to build from;
 - the privacy impact is stated: whether any content leaves the device, and under which consent;
-- it has been checked against the non-goals (`docs/non-goals.md`).
+- it has been checked against the non-goals ([`docs/non-goals.md`](non-goals.md)).
 
 ## Definition of done
 
@@ -151,7 +152,7 @@ An item is done when:
 - tests cover the changed behaviour;
 - user-facing strings are in the String Catalog in EN and FR;
 - accessibility is checked (VoiceOver, Dynamic Type, contrast) for UI changes;
-- the privacy manifest, docs, CHANGELOG `[Unreleased]` and `docs/working-memory.md` are updated where
+- the privacy manifest, docs, CHANGELOG `[Unreleased]` and [`docs/working-memory.md`](working-memory.md) are updated where
   they are affected;
 - the acceptance criteria are verified on a real device with the Staging build;
 - the issue is closed by the pull request.

@@ -26,13 +26,14 @@ Owner: Quality · Reviewed: each milestone, and with any change to a workflow, r
 | `pr-title` | `ci.yml` → `pr-title` | Shell pattern | Pull requests (opened, edited, synchronised, reopened) | Yes | Yes | Title is a Conventional Commit ([pattern](branching.md#pull-request-titles)) | Active |
 | `promotion-guard` | `ci.yml` → `promotion-guard` | Shell | Every pull request; can fail only when the base is `main` | No | Yes | Head is `integration` or `hotfix/*` | Active |
 | `secrets / Secret scan` | `ci.yml` → `secrets` (the organisation's shared security workflow, pinned by commit SHA, Semgrep off) | Organisation secret scanner | Pull requests, pushes, merge queue | Yes | Yes | No secret in the change | Active |
-| `docs` | `ci.yml` → `docs` | [`scripts/ci/check_docs.py`](../../scripts/ci/check_docs.py) | Pull requests, pushes | Yes | Yes | Relative links resolve; exactly one H1, first; no skipped heading levels; every document indexed once `docs/README.md` exists | Active |
+| `docs` | `ci.yml` → `docs` | [`scripts/ci/check_docs.py`](../../scripts/ci/check_docs.py) | Pull requests, pushes | Yes | Yes | Relative links resolve; exactly one H1, first; no skipped heading levels; every document indexed once [`docs/README.md`](../README.md) exists | Active |
 | `invariants` | `ci.yml` → `invariants` | [`scripts/ci/invariants.py`](../../scripts/ci/invariants.py) | Pull requests, pushes | Yes | Yes | PDFs only under `Tests/Fixtures/Synthetic/`; Swift rules listed below | PDF rule active; Swift rules dormant |
 | `changes` | `ci.yml` → `changes` | `git diff` | Pull requests, pushes | No | No | Decides whether `ios` runs | Active |
 | `ios` | `ci.yml` → `ios` | Xcode 27, XcodeGen 2.46.0 (checksum-verified), `swift-format`, `xcodebuild`, `.xctestplan`, [`coverage_gate.py`](../../scripts/ci/coverage_gate.py) | When `changes` reports Swift or project input changes | Yes | Yes | Lockfile unchanged; format clean (strict); build with warnings as errors; unit, UI, accessibility-audit and snapshot tests pass; line coverage at least 80% overall and per first-party target (ADR-0014) | Dormant: reports *skipped* |
 | `codeql (actions)` | `codeql.yml` → `actions` | CodeQL, `security-extended` queries | Pull requests, pushes, weekly | Not yet | Not yet | Analysis completes; findings appear as code-scanning alerts | Runs, but its upload is rejected while CodeQL default setup is enabled on the repository; becomes required when the repository switches to advanced setup |
 | `codeql (swift)` | `codeql.yml` → `swift` | CodeQL, `security-extended`, manual build | When `project.yml` and Swift files exist | No | No | Analysis completes; findings appear as code-scanning alerts | Dormant |
 | `dependency-review` | `dependency-review.yml` → `dependency-review` | [Dependency review](https://docs.github.com/en/code-security/supply-chain-security/understanding-your-software-supply-chain/about-dependency-review) | Pull requests | Yes | Yes | No newly added dependency with a known vulnerability of high or critical severity (`fail-on-severity: high`) | Active |
+| `ai-eval` | `ci.yml` → `ai-eval` (planned) | Apple's Evaluations framework, or the committed on-device result checked against the prompt and schema content hashes ([AI evaluation framework](../ai-evaluation-framework.md#on-device-gate-in-continuous-integration)) | When a new `changes` output, `intelligence`, reports changes under `Packages/Intelligence/` | Once added | Once added | The on-device suite for changed prompts and schemas meets the thresholds in the [AI evaluation framework](../ai-evaluation-framework.md#what-blocks-what) | **Planned**: not in `ci.yml` yet; added in the same pull request as the first `Intelligence` code |
 
 The rulesets add three non-check rules on both branches: changes arrive only by pull request,
 review conversations must be resolved before merging, and force pushes and deletion are blocked. On
@@ -59,6 +60,16 @@ Active once the first Swift file exists (dormant before then):
 - the commercial PDF SDK imported only in `PDFEngine`;
 - a `PrivacyInfo.xcprivacy` exists and declares every required-reason API category the code uses
   ([Privacy manifest files](https://developer.apple.com/documentation/bundleresources/privacy-manifest-files)).
+
+Planned (not in `invariants.py` yet; each is added with the first code it checks):
+
+- **AI tool allow-list:** a `Tool` conformance or a tool passed to a `LanguageModelSession` must be
+  on the read-only allow-list, and server-side tools on the Claude model must stay empty
+  ([AI governance](../ai-governance.md), [prompt management](../prompt-management.md));
+- **`.public` data-class lint:** `privacy: .public` is flagged on any interpolated value, unless it
+  is a static identifier, an enumeration case, an error code or a duration, so no document or user
+  value reaches a log unredacted ([data classification](../data-classification.md),
+  [coding standards](../coding-standards.md)).
 
 ### Code-scanning findings
 
@@ -98,7 +109,8 @@ This is why the repository uses a `changes` job rather than `paths:` filters on 
 workflow skipped by path filtering leaves its required checks pending and blocks the merge
 ([Troubleshooting required status checks](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/troubleshooting-required-status-checks)).
 `codeql.yml` uses the same pattern for `codeql (swift)`, keyed on the presence of `project.yml` and
-Swift files.
+Swift files. The planned `ai-eval` job will use it too, through a `changes` output named
+`intelligence`, added to `ci.yml` together with the first `Intelligence` code.
 
 The cost of this design is that a skipped `ios` looks green. Two safeguards apply: the pattern
 includes `ci.yml`, so editing the gate re-runs it; and the first code pull request must show `ios`
@@ -112,7 +124,7 @@ the source layout changes, the pattern in `changes` is reviewed in the same pull
 - **Evidence scan.** A paragraph containing a percentage or currency amount with no link, citation,
   `Source:`, `Assumption:` label or ADR reference. It flags possible unsourced numbers for the
   reviewer; it cannot judge whether a source is good.
-- **Working-memory freshness.** `docs/working-memory.md` not updated for more than 30 days (once that
+- **Working-memory freshness.** [`docs/working-memory.md`](../working-memory.md) not updated for more than 30 days (once that
   file exists). Time passing never breaks the build.
 
 Run `python3 scripts/ci/check_docs.py --strict-warnings` locally to treat warnings as errors. The
@@ -142,10 +154,10 @@ each has a planned automation.
 
 | Gate | Evidence and tool | Threshold | Today | Planned automation | Owner hat |
 |---|---|---|---|---|---|
-| Performance budgets | XCTest performance tests, `OSSignposter` intervals, [MetricKit](https://developer.apple.com/documentation/metrickit) reports from TestFlight | Budgets in `docs/performance-budgets.md` | Manual | Performance test plan in Xcode Cloud | Quality |
+| Performance budgets | XCTest performance tests, `OSSignposter` intervals, [MetricKit](https://developer.apple.com/documentation/metrickit) reports from TestFlight | Budgets in [`docs/performance-budgets.md`](../performance-budgets.md) | Manual | Performance test plan in Xcode Cloud | Quality |
 | Golden PDF corpus | Open, render, search, annotate and save round trips over the synthetic corpus | No regression against the recorded baseline | Manual | Test plan over `Tests/Fixtures/Synthetic/` | Quality |
-| OCR accuracy | Recognition over the synthetic EN and FR scan corpus | Error-rate thresholds in `docs/testing-strategy.md` | Manual | Test plan with a scored report | Quality |
-| AI evaluation suite | Versioned prompts scored against the evaluation set (ADR-0020) | Thresholds in `docs/ai-evaluation-framework.md` | Manual | Evaluation run attached to the release pull request | AI |
+| OCR accuracy | Recognition over the synthetic EN and FR scan corpus | Error-rate thresholds in [`docs/testing-strategy.md`](../testing-strategy.md) | Manual | Test plan with a scored report | Quality |
+| AI evaluation suite | Versioned prompts scored against the evaluation set (ADR-0020) | Thresholds in [`docs/ai-evaluation-framework.md`](../ai-evaluation-framework.md) | Manual | Evaluation run attached to the release pull request | AI |
 | Version and CHANGELOG consistency | `release.yml` gates above | Exact match | Automated (the marketing-version check activates with `project.yml`) | — | Release |
 | TestFlight stability | Crash reports for the Release build in external TestFlight ([Acquiring crash reports](https://developer.apple.com/documentation/xcode/acquiring-crash-reports-and-diagnostic-logs)) | Crash-free sessions of at least 99.8% over at least 3 days of external testing | Manual | — | Release |
 | Store listing | App Store Connect: description, keywords, screenshots, What's New in EN and FR (up to 4000 characters each, [Platform version information](https://developer.apple.com/help/app-store-connect/reference/app-information/platform-version-information)), App Privacy answers | Complete and accurate | Manual | — | Release |
@@ -171,6 +183,7 @@ The checklist that collects this evidence is in [release management](../release-
 | `ios` | Read the failing step. The `Tests.xcresult` bundle is uploaded on failure and kept for 7 days. For coverage, add tests; do not exclude files. If Xcode 27 is missing on the runner, the job fails on purpose: raise it as a toolchain blocker rather than pinning an older Xcode. |
 | `codeql (…)` | Fix the finding, or ask the Security hat to dismiss it with a reason. An analysis failure is a CI problem to fix, not to skip. |
 | `dependency-review` | Upgrade or replace the dependency. Accepting a known vulnerability needs a Security decision recorded in an ADR. |
+| `ai-eval` (planned) | Read the per-sample results, fix the prompt or schema, and re-run the on-device suite. A threshold changes only as the [AI evaluation framework](../ai-evaluation-framework.md) allows. |
 | A `release.yml` gate | Fix the cause on `integration` (or through a hotfix), then dispatch the workflow again. |
 | A release-only gate | Do not submit. Fix on `integration`, ship a new build through the release pull request, and re-collect the evidence. |
 
