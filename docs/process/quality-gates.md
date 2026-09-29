@@ -31,7 +31,7 @@ Owner: Quality · Reviewed: each milestone, and with any change to a workflow, r
 | `changes` | `ci.yml` → `changes` | `git diff` | Pull requests, pushes | No | No | Decides whether `ios` runs | Active |
 | `ios` | `ci.yml` → `ios` | Xcode 27, XcodeGen 2.46.0 (checksum-verified), `swift-format`, `xcodebuild`, `.xctestplan`, [`coverage_gate.py`](../../scripts/ci/coverage_gate.py) | When `changes` reports Swift or project input changes | Yes | Yes | Lockfile unchanged; format clean (strict); build with warnings as errors; unit, UI, accessibility-audit and snapshot tests pass; line coverage at least 80% overall and per first-party target (ADR-0014) | Dormant: reports *skipped* |
 | `codeql (actions)` | `codeql.yml` → `actions` | CodeQL, `security-extended` queries | Pull requests, pushes, weekly | Not yet | Not yet | Analysis completes; findings appear as code-scanning alerts | Runs, but its upload is rejected while CodeQL default setup is enabled on the repository; becomes required when the repository switches to advanced setup |
-| `codeql (swift)` | `codeql.yml` → `swift` | CodeQL, `security-extended`, manual build | When `project.yml` and Swift files exist | No | No | Analysis completes; findings appear as code-scanning alerts | Dormant |
+| `codeql (swift)` | `codeql.yml` → `swift` | CodeQL, `security-extended`, manual build (one architecture) | Nightly on `integration`, on demand, and release pushes to `main` that change Swift | No | No | Analysis completes; findings appear as code-scanning alerts | Active; 30–50 minutes under the tracer, so not per pull request |
 | `dependency-review` | `dependency-review.yml` → `dependency-review` | [Dependency review](https://docs.github.com/en/code-security/supply-chain-security/understanding-your-software-supply-chain/about-dependency-review) | Pull requests | Yes | Yes | No newly added dependency with a known vulnerability of high or critical severity (`fail-on-severity: high`) | Active |
 | `ai-eval` | `ci.yml` → `ai-eval` (planned) | Apple's Evaluations framework, or the committed on-device result checked against the prompt and schema content hashes ([AI evaluation framework](../ai-evaluation-framework.md#on-device-gate-in-continuous-integration)) | When a new `changes` output, `intelligence`, reports changes under `Packages/Intelligence/` | Once added | Once added | The on-device suite for changed prompts and schemas meets the thresholds in the [AI evaluation framework](../ai-evaluation-framework.md#what-blocks-what) | **Planned**: not in `ci.yml` yet; added in the same pull request as the first `Intelligence` code |
 
@@ -108,8 +108,8 @@ without them. They are kept dormant, not absent, by a job-level condition:
 This is why the repository uses a `changes` job rather than `paths:` filters on the workflow: a
 workflow skipped by path filtering leaves its required checks pending and blocks the merge
 ([Troubleshooting required status checks](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/troubleshooting-required-status-checks)).
-`codeql.yml` uses the same pattern for `codeql (swift)`, keyed on the presence of `project.yml` and
-Swift files. The planned `ai-eval` job will use it too, through a `changes` output named
+`codeql.yml` keeps a `changes` job for release pushes to `main`; its Swift analysis otherwise runs on a
+nightly schedule. The planned `ai-eval` job will use it too, through a `changes` output named
 `intelligence`, added to `ci.yml` together with the first `Intelligence` code.
 
 The cost of this design is that a skipped `ios` looks green. Two safeguards apply: the pattern
