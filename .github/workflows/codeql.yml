@@ -5,14 +5,16 @@ on:
   push:
     branches: [integration, main]
   schedule:
-    - cron: "0 19 * * 0" # weekly, Monday 05:00 Sydney
+    - cron: "0 19 * * *" # nightly, 05:00 Sydney
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: codeql-${{ github.ref }}
-  # A newer commit supersedes an older analysis, except on main, where every release is analysed.
+  # A newer commit supersedes an older analysis of the same kind, except on main, where every release is
+  # analysed; the event is part of the key, so the nightly run is never cancelled by a push.
+  group: codeql-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
@@ -46,9 +48,8 @@ jobs:
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
-          # The Swift inputs of the ios job in ci.yml, plus this workflow. The Swift analysis occupies a
-          # macOS runner for tens of minutes, so it runs only when they change; a scheduled run has no
-          # base and analyses everything.
+          # The Swift inputs of the ios job in ci.yml, plus this workflow; used for pushes to main. A
+          # scheduled or manual run has no base and analyses everything.
           pattern='(\.swift$|^project\.yml$|^Packages/|^App/|Package\.resolved$|^\.github/workflows/codeql\.yml$)'
           if [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ] \
              || ! git cat-file -e "$BASE_SHA" 2>/dev/null; then
@@ -65,9 +66,14 @@ jobs:
   swift:
     name: codeql (swift)
     needs: changes
-    if: needs.changes.outputs.swift == 'true'
+    # Building under CodeQL's tracer takes 30-50 minutes on a macOS runner, so the Swift analysis runs
+    # nightly on integration, on demand, and on every release push to main that changes Swift, not on
+    # each pull request (ADR-0013 addendum). It is not a required check.
+    if: >-
+      github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+      || (github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.swift == 'true')
     runs-on: macos-26
-    timeout-minutes: 60
+    timeout-minutes: 90
     permissions:
       contents: read
       security-events: write
