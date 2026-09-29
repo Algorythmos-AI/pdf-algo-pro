@@ -158,6 +158,66 @@ struct ControllerTests {
     #expect(reopened.annotationCount(onPage: 0) == 1)
   }
 
+  @Test("Restrictions set without an open password survive a save (defect D9)")
+  func ownerOnlyRestrictionsSurvive() throws {
+    let controller = try PDFDocumentController(
+      data: TestPDFs.makeProtected(
+        userPassword: nil, ownerPassword: "owner-\(UUID())", permissions: [.allowsCommenting, .allowsFormFieldEntry]))
+    #expect(!controller.isLocked && controller.allowsAnnotating)
+    #expect(controller.markUp(text: "Protected", as: .highlight))
+    let url = temporaryURL()
+    try controller.save(to: url)
+
+    let reopened = try #require(PDFDocument(url: url))
+    #expect(reopened.isEncrypted && !reopened.isLocked, "Still encrypted, still opens without a password")
+    #expect(!reopened.allowsPrinting && !reopened.allowsCopying, "The author's restrictions are kept")
+    #expect(reopened.page(at: 0)?.annotations.count == 1)
+  }
+
+  @Test("The user password never becomes the owner password (defect D9)")
+  func userPasswordKeepsItsLimits() throws {
+    let owner = "owner-\(UUID())"
+    let controller = try PDFDocumentController(
+      data: TestPDFs.makeProtected(
+        userPassword: "user-pw", ownerPassword: owner, permissions: [.allowsCommenting, .allowsFormFieldEntry]))
+    #expect(controller.unlock(password: "user-pw"))
+    #expect(controller.markUp(text: "Protected", as: .underline))
+    let url = temporaryURL()
+    try controller.save(to: url)
+
+    let reopened = try #require(PDFDocument(url: url))
+    #expect(reopened.isLocked, "The user password is still needed to open it")
+    #expect(reopened.unlock(withPassword: "user-pw"))
+    #expect(reopened.permissionsStatus == .user && !reopened.allowsPrinting, "It grants no more than before")
+    #expect(reopened.page(at: 0)?.annotations.count == 1)
+  }
+
+  @Test("A document opened with its owner password stays protected by it")
+  func ownerPasswordProtectsTheSave() throws {
+    let controller = try PDFDocumentController(
+      data: TestPDFs.makeProtected(userPassword: "user-pw", ownerPassword: "owner-pw", permissions: []))
+    #expect(controller.unlock(password: "owner-pw") && controller.allowsAnnotating)
+    controller.addNote("Owner's note", onPage: 0)
+    let url = temporaryURL()
+    try controller.save(to: url)
+
+    let reopened = try #require(PDFDocument(url: url))
+    #expect(reopened.isLocked && reopened.unlock(withPassword: "owner-pw"))
+    #expect(reopened.permissionsStatus == .owner)
+  }
+
+  @Test("Changes the author does not allow are refused and the file is left alone (defect D9)")
+  func restrictedChangesAreRefused() throws {
+    let data = try TestPDFs.makeProtected(
+      userPassword: nil, ownerPassword: "owner-\(UUID())", permissions: [.allowsLowQualityPrinting])
+    let url = try write(data)
+    let controller = try PDFDocumentController(url: url)
+    #expect(!controller.allowsAnnotating)
+    controller.addNote("Not allowed", onPage: 0)
+    #expect(throws: PDFEngineError.restricted) { try controller.save(to: url) }
+    #expect(try Data(contentsOf: url) == data)
+  }
+
   @Test("A failed save leaves the file as it was (NFR-REL-002)")
   func failedSaveKeepsFile() throws {
     let controller = try PDFDocumentController(data: SyntheticPDF.makeSample())
@@ -310,6 +370,13 @@ struct SearchablePDFTests {
     let locked = try write(SyntheticPDF.makeEncrypted(pages: ["x"], password: "pw"))
     await #expect(throws: PDFEngineError.passwordRequired) { try await builder.addTextLayer(toPDFAt: locked) }
     await #expect(throws: PDFEngineError.unreadable) { try await builder.addTextLayer(toPDFAt: temporaryURL()) }
+  }
+  @Test("Encrypted PDFs are not given a text layer, which would drop their protection (defect D9)")
+  func encryptedPDFsAreNotRebuilt() async throws {
+    let url = try write(
+      TestPDFs.makeProtected(userPassword: nil, ownerPassword: "owner-\(UUID())", permissions: [.allowsCommenting]))
+    let builder = SearchablePDFBuilder(recognizer: FakeRecognizer(), renderPixelSize: 400)
+    await #expect(throws: PDFEngineError.restricted) { try await builder.addTextLayer(toPDFAt: url) }
   }
 
   @Test("Cancelling stops recognition between pages")

@@ -10,4 +10,7 @@ public enum PDFEngineError: Error, Equatable, Sendable {
   case saveFailed
   /// A page could not be rendered.
   case renderFailed
+  /// The document's protection does not allow the change: its author restricted it, or writing it
+  /// would remove the document's encryption.
+  case restricted
 }

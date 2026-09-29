@@ -168,6 +168,25 @@ struct ReaderModelTests {
     #expect(await harness.telemetry.events.contains("task.core.completed"))
   }
 
+  @Test("Documents whose author forbids changes say so and stay as they were (defect D9)")
+  func restrictedDocuments() async throws {
+    let harness = Harness()
+    let data = try TestPDFs.makeProtected(
+      userPassword: nil, ownerPassword: "owner-\(UUID())", permissions: [.allowsLowQualityPrinting])
+    let document = await harness.seed(data)
+    let reader = harness.reader(for: document)
+    await reader.load()
+    #expect(reader.phase == .ready)
+
+    await reader.addNote("Not allowed")
+    #expect(reader.errorMessage?.contains("doesn't allow") == true)
+    reader.errorMessage = nil
+    #expect(await !reader.markUpSelection(.highlight))
+    #expect(reader.errorMessage?.contains("doesn't allow") == true)
+    #expect(try Data(contentsOf: try await harness.library.fileURL(for: document.id)) == data)
+    #expect(!reader.canUndo)
+  }
+
   @Test("Layout choices are remembered")
   func displayMode() async throws {
     let harness = Harness()

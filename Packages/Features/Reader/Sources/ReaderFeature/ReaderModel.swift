@@ -165,7 +165,8 @@ public final class ReaderModel {
   /// Marks up the selected text and saves; returns whether anything was selected.
   @discardableResult
   public func markUpSelection(_ markup: TextMarkup) async -> Bool {
-    guard let controller, controller.markUpSelection(markup) else {
+    guard let controller, checkAnnotatingIsAllowed(controller) else { return false }
+    guard controller.markUpSelection(markup) else {
       errorMessage = String(localized: "Select some text first, then choose how to mark it.", bundle: .module)
       return false
     }
@@ -177,7 +178,7 @@ public final class ReaderModel {
   /// Adds a note to the current page and saves.
   public func addNote(_ text: String) async {
     let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard let controller, !trimmed.isEmpty else { return }
+    guard let controller, !trimmed.isEmpty, checkAnnotatingIsAllowed(controller) else { return }
     controller.addNote(trimmed, onPage: controller.currentPageIndex)
     updateUndoState()
     await save()
@@ -197,6 +198,21 @@ public final class ReaderModel {
     controller.undoManager.redo()
     updateUndoState()
     await save()
+  }
+
+  /// Says so when the document's author does not allow notes and markup (defect D9).
+  private func checkAnnotatingIsAllowed(_ controller: PDFDocumentController) -> Bool {
+    guard controller.allowsAnnotating else {
+      errorMessage = Self.restrictedMessage
+      return false
+    }
+    return true
+  }
+
+  private static var restrictedMessage: String {
+    String(
+      localized: "The author of this document doesn't allow notes, markup or changes to it, so nothing was changed.",
+      bundle: .module)
   }
 
   private func updateUndoState() {
@@ -226,6 +242,8 @@ public final class ReaderModel {
       try controller.save(to: try await library.fileURL(for: documentID))
       try await library.recordModified(documentID)
       await telemetry.record("task.core.completed")
+    } catch PDFEngineError.restricted {
+      errorMessage = Self.restrictedMessage
     } catch {
       errorMessage = String(
         localized: "Couldn't save your changes. The document on disk hasn't changed. Try again.", bundle: .module)

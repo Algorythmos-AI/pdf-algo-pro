@@ -1,3 +1,4 @@
+import CoreText
 import Foundation
 import PDFEngine
 import PDFKit
@@ -28,6 +29,36 @@ public enum TestPDFs {
     page.addAnnotation(agree)
     guard let data = document.dataRepresentation() else { throw Failure() }
     return data
+  }
+
+  /// A one-page encrypted PDF with the text "Protected page".
+  ///
+  /// - Parameters:
+  ///   - userPassword: The password that opens it, or `nil` to open without one.
+  ///   - ownerPassword: The password that lifts the restrictions.
+  ///   - permissions: What someone with the user password may do.
+  /// - Returns: The PDF's data.
+  /// - Throws: `Failure` if Core Graphics cannot create the PDF.
+  public static func makeProtected(
+    userPassword: String?, ownerPassword: String, permissions: CGPDFAccessPermissions
+  ) throws -> Data {
+    let data = NSMutableData()
+    var box = CGRect(x: 0, y: 0, width: 612, height: 792)
+    var info: [CFString: Any] = [
+      kCGPDFContextOwnerPassword: ownerPassword, kCGPDFContextAccessPermissions: permissions.rawValue,
+    ]
+    if let userPassword { info[kCGPDFContextUserPassword] = userPassword }
+    guard let consumer = CGDataConsumer(data: data as CFMutableData),
+      let context = CGContext(consumer: consumer, mediaBox: &box, info as CFDictionary)
+    else { throw Failure() }
+    context.beginPDFPage(nil)
+    let text = NSAttributedString(
+      string: "Protected page", attributes: [.font: CTFontCreateWithName("Helvetica" as CFString, 18, nil)])
+    context.textPosition = CGPoint(x: 72, y: 700)
+    CTLineDraw(CTLineCreateWithAttributedString(text), context)
+    context.endPDFPage()
+    context.closePDF()
+    return data as Data
   }
 
   /// The `/V` entry of a field on the first page, read with Core Graphics rather than PDFKit, so a
