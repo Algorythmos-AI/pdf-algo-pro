@@ -206,15 +206,29 @@ public final class ReaderModel {
   }
 
   /// Recognises text on device and replaces the file with a searchable version, with progress.
+  ///
+  /// Unsaved notes and markup are saved first, so the searchable version includes them. If the
+  /// document changes while recognition runs, the file is left alone, so nothing added meanwhile is lost.
   public func recognizeText() {
     guard recognitionProgress == nil else { return }
     recognitionProgress = 0
     recognition = Task {
       defer { recognitionProgress = nil }
       do {
+        await save()
+        // A failed save has already said so; replacing the file now would lose those changes.
+        guard controller?.hasUnsavedChanges != true else { return }
         let url = try await library.fileURL(for: documentID)
+        let version = try FileVersion(url)
         let result = try await builder.addTextLayer(toPDFAt: url) { progress in
           Task { @MainActor in self.recognitionProgress = progress }
+        }
+        // No suspension between this check and the write, so no save can slip in between.
+        guard controller?.hasUnsavedChanges != true, try FileVersion(url) == version else {
+          errorMessage = String(
+            localized: "The document changed while its text was being recognised, so it wasn't replaced. Try again.",
+            bundle: .module)
+          return
         }
         try result.data.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
         document = try await intake.refresh(documentID)
@@ -264,5 +278,22 @@ public final class ReaderModel {
 extension Array {
   fileprivate subscript(safe index: Int) -> Element? {
     indices.contains(index) ? self[index] : nil
+  }
+}
+
+/// One version of a file on disk.
+///
+/// Saves are atomic and replace the file, so its file number changes; the modification date and size
+/// catch in-place writes.
+private struct FileVersion: Equatable {
+  let number: Int?
+  let modified: Date?
+  let size: Int?
+
+  init(_ url: URL) throws {
+    let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+    number = (attributes[.systemFileNumber] as? NSNumber)?.intValue
+    modified = attributes[.modificationDate] as? Date
+    size = (attributes[.size] as? NSNumber)?.intValue
   }
 }

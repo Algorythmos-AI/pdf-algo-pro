@@ -235,6 +235,42 @@ struct SearchablePDFTests {
     #expect(inspection.hasTextLayer)
   }
 
+  @Test("Adding a text layer keeps annotations, links, rotation, the outline and the metadata")
+  func textLayerKeepsWhatWasAdded() async throws {
+    let source = try #require(PDFDocument(data: SyntheticPDF.makeImageOnly(pages: ["One", "Two"])))
+    let first = try #require(source.page(at: 0))
+    let second = try #require(source.page(at: 1))
+    let note = PDFAnnotation(bounds: CGRect(x: 40, y: 40, width: 24, height: 24), forType: .text, withProperties: nil)
+    note.contents = "Check the total"
+    first.addAnnotation(note)
+    let link = PDFAnnotation(bounds: CGRect(x: 80, y: 80, width: 100, height: 20), forType: .link, withProperties: nil)
+    link.destination = PDFDestination(page: second, at: CGPoint(x: 0, y: 500))
+    first.addAnnotation(link)
+    second.rotation = 90
+    let outline = PDFOutline()
+    let entry = PDFOutline()
+    entry.label = "Totals"
+    entry.destination = PDFDestination(page: second, at: .zero)
+    outline.insertChild(entry, at: 0)
+    source.outlineRoot = outline
+    source.documentAttributes = [PDFDocumentAttribute.titleAttribute: "Invoice"]
+    let url = try write(try #require(source.dataRepresentation()))
+
+    let result = try await SearchablePDFBuilder(recognizer: FakeRecognizer(), renderPixelSize: 600).addTextLayer(
+      toPDFAt: url)
+
+    let document = try #require(PDFDocument(data: result.data))
+    let page = try #require(document.page(at: 0))
+    #expect(document.string?.contains("Recognised text") == true)
+    #expect(page.annotations.contains { $0.type == "Text" && $0.contents == "Check the total" })
+    let movedLink = try #require(page.annotations.first { $0.type == "Link" })
+    #expect(movedLink.destination?.page.map { document.index(for: $0) } == 1)
+    #expect(document.page(at: 1)?.rotation == 90)
+    let movedEntry = try #require(document.outlineRoot?.child(at: 0))
+    #expect(movedEntry.label == "Totals" && movedEntry.destination?.page.map { document.index(for: $0) } == 1)
+    #expect(document.documentAttributes?[PDFDocumentAttribute.titleAttribute] as? String == "Invoice")
+  }
+
   @Test func lockedAndUnreadablePDFsAreRejected() async throws {
     let builder = SearchablePDFBuilder(recognizer: FakeRecognizer())
     let locked = try write(SyntheticPDF.makeEncrypted(pages: ["x"], password: "pw"))

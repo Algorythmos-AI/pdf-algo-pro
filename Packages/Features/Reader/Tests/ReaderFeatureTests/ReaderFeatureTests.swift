@@ -14,12 +14,15 @@ private struct Harness {
   let settings = InMemorySettingsStore()
   let telemetry = RecordingTelemetry()
 
-  func reader(for document: Document, pageIndex: Int? = nil, task: AssistantTask? = nil) -> ReaderModel {
+  func reader(
+    for document: Document, pageIndex: Int? = nil, task: AssistantTask? = nil,
+    recognizer: any TextRecognizing = FakeRecognizer()
+  ) -> ReaderModel {
     ReaderModel(
       selection: document.id, pageIndex: pageIndex, task: task, library: library,
       intake: DocumentIntake(library: library, inspector: PDFKitInspector(), index: index), index: index,
       settings: settings, telemetry: telemetry,
-      builder: SearchablePDFBuilder(recognizer: FakeRecognizer(), renderPixelSize: 400))
+      builder: SearchablePDFBuilder(recognizer: recognizer, renderPixelSize: 400))
   }
 
   func seed(
@@ -127,6 +130,24 @@ struct ReaderModelTests {
     #expect(await reader.pageTexts().first?.text == "Recognised text")
   }
 
+  @Test("A note saved while text is being recognised is kept, not overwritten")
+  func recognitionKeepsChangesMadeMeanwhile() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.makeImageOnly(pages: ["Scanned"]), textLayer: false)
+    let recognizer = GatedRecognizer()
+    let reader = harness.reader(for: document, recognizer: recognizer)
+    await reader.load()
+    reader.recognizeText()
+    for _ in 0..<200 where await !recognizer.isWaiting { try await Task.sleep(for: .milliseconds(10)) }
+    await reader.addNote("Added meanwhile")
+    await recognizer.open()
+    for _ in 0..<200 where reader.recognitionProgress != nil { try await Task.sleep(for: .milliseconds(20)) }
+    let url = try await harness.library.fileURL(for: document.id)
+    #expect(try PDFDocumentController(url: url).annotationCount(onPage: 0) == 1)
+    #expect(reader.errorMessage != nil)
+    #expect(reader.canRecognizeText)
+  }
+
   @Test("The assistant gets the page texts and can reveal a citation")
   func assistantContext() async throws {
     let harness = Harness()
@@ -170,3 +191,24 @@ struct ReaderModelTests {
 }
 
 private enum Failure: Error { case unexpected }
+
+/// A recogniser that waits until the test lets it finish.
+private actor GatedRecognizer: TextRecognizing {
+  private(set) var isWaiting = false
+  private var isOpen = false
+  private var gate: CheckedContinuation<Void, Never>?
+
+  func open() {
+    isOpen = true
+    gate?.resume()
+    gate = nil
+  }
+
+  func recognizeText(in image: CGImage) async throws -> [RecognizedLine] {
+    if !isOpen {
+      isWaiting = true
+      await withCheckedContinuation { gate = $0 }
+    }
+    return FakeRecognizer().lines
+  }
+}
