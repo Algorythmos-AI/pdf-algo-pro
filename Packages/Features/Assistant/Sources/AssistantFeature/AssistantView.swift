@@ -84,10 +84,20 @@ public struct AssistantView: View {
 
   private var questionField: some View {
     HStack {
-      TextField(text: $model.question) { Text("Ask about this document", bundle: .module) }
+      // Wraps and grows, so a long question stays readable at every text size. The software keyboard's
+      // Return then inserts a line break instead of submitting: a break at the end sends the question,
+      // any other becomes a space. A hardware keyboard's Return submits directly.
+      TextField(text: $model.question, axis: .vertical) { Text("Ask about this document", bundle: .module) }
+        .lineLimit(1...)
         .textFieldStyle(.roundedBorder)
         .frame(minHeight: Sizes.targetMinimum)
         .submitLabel(.send)
+        .onChange(of: model.question) { _, question in
+          guard question.contains(where: \.isNewline) else { return }
+          let sends = question.last?.isNewline == true
+          model.question = question.split(whereSeparator: \.isNewline).joined(separator: " ")
+          if sends { Task { await model.ask() } }
+        }
         .onSubmit { Task { await model.ask() } }
         .accessibilityIdentifier("assistant.question")
       Button {

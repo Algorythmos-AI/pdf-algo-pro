@@ -103,7 +103,7 @@ final class PDFAlgoProUITests: XCTestCase {
     XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
     app.buttons["reader.ask"].tap()
     app.buttons["Ask a question"].tap()
-    let question = app.textFields["assistant.question"]
+    let question = app.descendants(matching: .any)["assistant.question"].firstMatch
     XCTAssertTrue(question.waitForExistence(timeout: 10))
     question.tap()
     question.typeText("What is the total due?\n")
@@ -123,7 +123,7 @@ final class PDFAlgoProUITests: XCTestCase {
     XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
     app.buttons["reader.ask"].tap()
     app.buttons["Ask a question"].tap()
-    let question = app.textFields["assistant.question"]
+    let question = app.descendants(matching: .any)["assistant.question"].firstMatch
     XCTAssertTrue(question.waitForExistence(timeout: 10))
     question.tap()
     question.typeText("Who won the match?\n")
