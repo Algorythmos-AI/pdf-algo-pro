@@ -6,6 +6,7 @@ import UIKit
 /// The assistant sheet over the reader.
 public struct AssistantView: View {
   @State private var model: AssistantModel
+  @State private var detent: PresentationDetent = .large
   @Environment(\.dismiss) private var dismiss
 
   /// Creates the sheet for a model.
@@ -63,7 +64,9 @@ public struct AssistantView: View {
       }
       .task { await model.start() }
     }
-    .presentationDetents([.medium, .large])
+    // Opens at full height, where answers have room at every text size; the medium detent keeps the
+    // page in view for anyone who drags the sheet down.
+    .presentationDetents([.medium, .large], selection: $detent)
     // Scroll before resizing: at the medium detent a long answer, or any answer at large Dynamic
     // Type sizes, can be read without the sheet first jumping to full height.
     .presentationContentInteraction(.scrolls)
@@ -81,10 +84,20 @@ public struct AssistantView: View {
 
   private var questionField: some View {
     HStack {
-      TextField(text: $model.question) { Text("Ask about this document", bundle: .module) }
+      // Wraps and grows, so a long question stays readable at every text size. The software keyboard's
+      // Return then inserts a line break instead of submitting: a break at the end sends the question,
+      // any other becomes a space. A hardware keyboard's Return submits directly.
+      TextField(text: $model.question, axis: .vertical) { Text("Ask about this document", bundle: .module) }
+        .lineLimit(1...)
         .textFieldStyle(.roundedBorder)
         .frame(minHeight: Sizes.targetMinimum)
         .submitLabel(.send)
+        .onChange(of: model.question) { _, question in
+          guard question.contains(where: \.isNewline) else { return }
+          let sends = question.last?.isNewline == true
+          model.question = question.split(whereSeparator: \.isNewline).joined(separator: " ")
+          if sends { Task { await model.ask() } }
+        }
         .onSubmit { Task { await model.ask() } }
         .accessibilityIdentifier("assistant.question")
       Button {

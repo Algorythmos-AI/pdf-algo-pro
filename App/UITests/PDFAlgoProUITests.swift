@@ -17,19 +17,28 @@ final class PDFAlgoProUITests: XCTestCase {
 
   /// The accessibility audit on the current screen.
   ///
-  /// Two kinds of finding are about views the system draws, not ours, and are excluded narrowly: issues on
-  /// PDFKit's page view, and Dynamic Type findings on navigation-bar and toolbar buttons, whose size the
-  /// system caps. Every other finding fails the test. All findings on the screen are collected and reported
-  /// together, with the element each one is about, instead of stopping at the first.
+  /// Three kinds of finding are excluded narrowly, because they are not about anything a person sees:
+  /// issues on PDFKit's page view; Dynamic Type findings on navigation-bar and toolbar buttons, whose size
+  /// the system caps; and contrast findings on text scrolled behind a bottom action bar (identifier ending
+  /// `.actionBar`), which hides it, so the pixels the audit measures are the bar's. The bar's own controls
+  /// are still audited. Every other finding fails the test. All findings on the screen are collected and
+  /// reported together, with the element each one is about, instead of stopping at the first.
   private func audit(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) throws {
     let bars =
       app.navigationBars.allElementsBoundByIndex.map(\.frame) + app.toolbars.allElementsBoundByIndex.map(\.frame)
+    let actionBars = app.descendants(matching: .any)
+      .matching(NSPredicate(format: "identifier ENDSWITH %@", ".actionBar")).allElementsBoundByIndex.map(\.frame)
     var findings: [String] = []
     try app.performAccessibilityAudit { issue in
       if let element = issue.element {
         if element.identifier == "reader.pages" { return true }
         if issue.auditType == .dynamicType,
           bars.contains(where: { $0.insetBy(dx: -8, dy: -8).contains(element.frame) })
+        {
+          return true
+        }
+        if issue.auditType == .contrast, element.elementType == .staticText,
+          actionBars.contains(where: { $0.intersects(element.frame) })
         {
           return true
         }
@@ -94,7 +103,7 @@ final class PDFAlgoProUITests: XCTestCase {
     XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
     app.buttons["reader.ask"].tap()
     app.buttons["Ask a question"].tap()
-    let question = app.textFields["assistant.question"]
+    let question = app.descendants(matching: .any)["assistant.question"].firstMatch
     XCTAssertTrue(question.waitForExistence(timeout: 10))
     question.tap()
     question.typeText("What is the total due?\n")
@@ -114,7 +123,7 @@ final class PDFAlgoProUITests: XCTestCase {
     XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
     app.buttons["reader.ask"].tap()
     app.buttons["Ask a question"].tap()
-    let question = app.textFields["assistant.question"]
+    let question = app.descendants(matching: .any)["assistant.question"].firstMatch
     XCTAssertTrue(question.waitForExistence(timeout: 10))
     question.tap()
     question.typeText("Who won the match?\n")

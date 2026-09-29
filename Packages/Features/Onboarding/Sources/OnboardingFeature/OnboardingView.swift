@@ -23,9 +23,11 @@ public struct OnboardingView: View {
           Text("Continue", bundle: .module)
         }
         .buttonStyle(.primary)
+        .accessibilityIdentifier("onboarding.continue")
         .padding(Spacing.s200)
         .background(.bar)
-        .accessibilityIdentifier("onboarding.continue")
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("onboarding.actionBar")
       }
       .navigationTitle(Text("Welcome", bundle: .module))
       .toolbarTitleDisplayMode(.inline)
