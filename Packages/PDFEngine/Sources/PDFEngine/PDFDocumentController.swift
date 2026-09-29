@@ -102,6 +102,11 @@ public final class PDFDocumentController {
   /// The number of pages.
   public var pageCount: Int { document.pageCount }
 
+  /// The text of one page, from the text layer; empty when the page has none or does not exist.
+  public func pageText(at pageIndex: Int) -> String {
+    document.page(at: pageIndex)?.string ?? ""
+  }
+
   /// The text of every page, from the text layer.
   public func pageTexts() -> [PageText] {
     (0..<document.pageCount).map { PageText(pageIndex: $0, text: document.page(at: $0)?.string ?? "") }

@@ -26,6 +26,7 @@ final class AppModel {
   var sheet: Sheet?
   let container: AppContainer
   let library: LibraryModel
+  @ObservationIgnored private var reader: (selection: DocumentSelection, model: ReaderModel)?
   @ObservationIgnored private(set) lazy var onboarding = OnboardingModel(
     settings: container.settings, intelligence: container.intelligence, telemetry: container.telemetry
   ) { [weak self] in self?.settings = $0 }
@@ -80,11 +81,15 @@ final class AppModel {
 
   // MARK: - Feature models
 
+  /// The reader for a selection, made once: the library's detail column asks again on every redraw.
   func makeReader(for selection: DocumentSelection) -> ReaderModel {
-    ReaderModel(
+    if let reader, reader.selection == selection { return reader.model }
+    let model = ReaderModel(
       selection: selection.id, pageIndex: selection.pageIndex, task: selection.task, library: container.library,
       intake: container.intake, index: container.index, settings: container.settings, telemetry: container.telemetry,
       builder: container.builder)
+    reader = (selection, model)
+    return model
   }
 
   func makeAssistant(for context: ReaderAssistantContext) -> AssistantModel {

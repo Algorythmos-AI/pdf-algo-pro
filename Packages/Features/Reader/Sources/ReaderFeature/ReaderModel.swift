@@ -184,7 +184,8 @@ public final class ReaderModel {
     if speech.isSpeaking {
       speech.stop()
     } else {
-      speech.speak(controller.pageTexts()[safe: controller.currentPageIndex]?.text ?? "")
+      // Only the page on screen is read, so a long document does not extract every page first.
+      speech.speak(controller.pageText(at: controller.currentPageIndex))
     }
   }
 
@@ -380,12 +381,6 @@ public final class ReaderModel {
         self?.assistantTask = nil
         self?.controller?.reveal(citation)
       })
-  }
-}
-
-extension Array {
-  fileprivate subscript(safe index: Int) -> Element? {
-    indices.contains(index) ? self[index] : nil
   }
 }
 

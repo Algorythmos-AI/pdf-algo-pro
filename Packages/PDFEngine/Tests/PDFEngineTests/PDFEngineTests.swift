@@ -64,6 +64,13 @@ struct InspectorTests {
 @MainActor
 @Suite("Document controller")
 struct ControllerTests {
+  @Test("One page's text is read without extracting the others")
+  func singlePageText() throws {
+    let controller = try PDFDocumentController(data: SyntheticPDF.make(pages: ["First page", "Second page"]))
+    #expect(controller.pageText(at: 1).contains("Second page"))
+    #expect(controller.pageText(at: 5).isEmpty)
+  }
+
   @Test func textFindAndNavigation() throws {
     let controller = try PDFDocumentController(data: SyntheticPDF.makeSample())
     #expect(controller.pageCount == 3 && !controller.isLocked)
