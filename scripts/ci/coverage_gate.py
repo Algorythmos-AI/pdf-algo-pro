@@ -8,7 +8,8 @@ Coverage is grouped by source module, from each file's path (`Packages/.../Sourc
 `App/PDFAlgoPro/`), not by the binary that ran it: a package's code is compiled into its own test
 bundle and into the app, and both runs count. A file reported by several binaries keeps its best
 result. Test code, test support targets, generated code and SwiftUI previews (`*Previews.swift`) are
-excluded. Fails when overall coverage, or any module's coverage, is below the threshold.
+excluded, and so is each file in DEVICE_ONLY, which cannot run on the simulator; every run prints
+them. Fails when overall coverage, or any module's coverage, is below the threshold.
 """
 from __future__ import annotations
 
@@ -18,12 +19,21 @@ import re
 import sys
 
 EXCLUDED_SUFFIXES = ("Previews.swift",)
+# Code that needs hardware the simulator does not have, so no test in CI can run it. Each entry names
+# the reason and has an on-device check in the release checklist (docs/release-management.md). Keep
+# these files to the adapter alone: logic that can run on the simulator goes in another file.
+DEVICE_ONLY = {
+    "Packages/Scanning/Sources/Scanning/DocumentCamera.swift":
+        "VNDocumentCameraViewController raises 'Document camera is not available' on the simulator",
+}
 EXCLUDED_PARTS = ("/Generated/", "/Tests/", "/UITests/", "TestSupport/", "/.build/", "/DerivedData/", "/SourcePackages/")
 MODULE = re.compile(r"/Packages/(?:[^/]+/)*?Sources/([^/]+)/|/App/(PDFAlgoPro)/")
 
 
 def module_of(path: str) -> str | None:
     if path.endswith(EXCLUDED_SUFFIXES) or any(part in path for part in EXCLUDED_PARTS):
+        return None
+    if any(path.endswith("/" + device_only) for device_only in DEVICE_ONLY):
         return None
     m = MODULE.search(path)
     if not m:
@@ -53,6 +63,8 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
 
     report = json.load(open(args.report, encoding="utf-8"))
+    for path, reason in DEVICE_ONLY.items():
+        print(f"excluded, device only: {path} ({reason})")
     modules: dict[str, list[int]] = {}
     for path, (covered, executable) in collect(report).items():
         totals = modules.setdefault(module_of(path) or "?", [0, 0])

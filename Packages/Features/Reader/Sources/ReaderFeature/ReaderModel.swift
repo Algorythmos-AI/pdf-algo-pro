@@ -223,6 +223,8 @@ public final class ReaderModel {
         let result = try await builder.addTextLayer(toPDFAt: url) { progress in
           Task { @MainActor in self.recognitionProgress = progress }
         }
+        // Stopped during the last page: the builder has finished, but the file is left as it was.
+        try Task.checkCancellation()
         // No suspension between this check and the write, so no save can slip in between.
         guard controller?.hasUnsavedChanges != true, try FileVersion(url) == version else {
           errorMessage = String(

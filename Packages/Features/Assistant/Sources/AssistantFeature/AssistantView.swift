@@ -118,7 +118,8 @@ public struct AssistantView: View {
     Task { await model.ask() }
   }
 
-  @ViewBuilder private var content: some View {
+  /// What the current phase shows; outside the navigation stack so tests can draw every phase.
+  @ViewBuilder var content: some View {
     switch model.phase {
     case .idle:
       Text("Answers come only from this document and cite their pages.", bundle: .module)
@@ -226,9 +227,17 @@ public struct AssistantView: View {
               .font(.caption).foregroundStyle(Color.ds.statusWarning)
             }
           }
-          TextField(text: Binding(get: { field.value }, set: { model.setValue($0, forField: field.key) })) {
+          // Wraps, so long values stay readable at every text size; a line break is not part of a value.
+          TextField(
+            text: Binding(
+              get: { field.value },
+              set: { model.setValue($0.split(whereSeparator: \.isNewline).joined(separator: " "), forField: field.key) }
+            ),
+            axis: .vertical
+          ) {
             Self.fieldName(field.key)
           }
+          .lineLimit(1...)
           .textFieldStyle(.roundedBorder)
         }
       }

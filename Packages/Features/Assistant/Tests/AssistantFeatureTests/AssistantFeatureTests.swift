@@ -121,6 +121,48 @@ struct AssistantModelTests {
     let (model, _) = makeModel(task: .explainContract)
     #expect(ImageRenderer(content: AssistantView(model: model).frame(width: 390, height: 700)).uiImage != nil)
   }
+
+  @Test("Every phase draws at a large text size")
+  func everyPhaseDraws() async {
+    func draws(_ model: AssistantModel) -> Bool {
+      let view = AssistantView(model: model).content
+        .frame(width: 390).environment(\.dynamicTypeSize, .accessibility3)
+      return ImageRenderer(content: view).uiImage != nil
+    }
+    let checked = Extraction(
+      fields: [
+        ExtractedField(key: "total", value: "120.00", pageIndex: nil),
+        ExtractedField(key: "reference", value: "INV-1", pageIndex: 0),
+      ], tier: .onDevice)
+    let setups: [(AssistantTask, FakeIntelligence)] = [
+      (.ask, FakeIntelligence()),
+      (.summarize, FakeIntelligence()),
+      (.summarize, FakeIntelligence(answer: .notFound(tier: .onDevice))),
+      (.extract, FakeIntelligence(extraction: checked)),
+      (.extract, FakeIntelligence(extraction: Extraction(fields: [], tier: .onDevice))),
+    ]
+    for (task, intelligence) in setups {
+      let (model, _) = makeModel(task: task, intelligence: intelligence)
+      await model.start()
+      #expect(draws(model), "\(task)")
+    }
+    let (asked, _) = makeModel(task: .ask)
+    asked.question = "What is tested?"
+    await asked.ask()
+    #expect(draws(asked))
+    for reason in IntelligenceUnavailableReason.allCases {
+      let (model, _) = makeModel(task: .summarize, intelligence: FakeIntelligence(availability: .unavailable(reason)))
+      await model.start()
+      #expect(draws(model), "\(reason)")
+    }
+    let failing = FakeIntelligence()
+    let (model, _) = makeModel(task: .summarize, intelligence: failing)
+    for error in [IntelligenceError.noText, .generationFailed] {
+      await failing.configure(error: error)
+      await model.start()
+      #expect(draws(model), "\(error)")
+    }
+  }
 }
 
 private enum Failure: Error { case unexpected }
