@@ -151,6 +151,24 @@ struct LibraryModelTests {
     #expect(scanning.model.primaryAction == .scanDocument)
   }
 
+  @Test("An AI intent from onboarding opens the assistant on the document it brings in (F9)")
+  func intentsOpenTheAssistant() async throws {
+    let summarising = Harness(intents: [.summarizeDocument])
+    #expect(summarising.model.primaryTask == .summarize)
+    await summarising.model.addSample(task: summarising.model.primaryTask)
+    #expect(summarising.model.selection?.task == .summarize)
+    await summarising.model.importFiles(
+      [try summarising.file("Lease.pdf", data: Data("%PDF-1.7".utf8))], task: .explainContract)
+    #expect(summarising.model.selection?.task == .explainContract)
+    await summarising.model.importFiles([try summarising.file("Plain.pdf", data: Data("%PDF-1.7".utf8))])
+    #expect(summarising.model.selection?.task == nil, "Imports from the toolbar just open the document")
+
+    let hidden = Harness(intents: [.chatWithPDF])
+    hidden.settings.save(AppSettings(hasCompletedOnboarding: true, intents: [.chatWithPDF], isIntelligenceHidden: true))
+    #expect(hidden.model.primaryTask == nil, "Hidden AI never opens uninvited (FR-AI-009)")
+    #expect(Harness(intents: [.scan]).model.primaryTask == nil)
+  }
+
   @Test("Thumbnails render from the document's file")
   func thumbnails() async throws {
     let harness = Harness()

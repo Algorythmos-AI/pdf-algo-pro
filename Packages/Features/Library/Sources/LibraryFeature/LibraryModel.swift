@@ -140,10 +140,18 @@ public final class LibraryModel {
   /// Whether AI features are hidden (FR-AI-009).
   public var isIntelligenceHidden: Bool { settings.load().isIntelligenceHidden }
 
+  /// The assistant task the home action starts on the document it brings in, if any (F9).
+  public var primaryTask: AssistantTask? {
+    if case .openAssistant(let task) = primaryAction { return task }
+    return nil
+  }
+
   // MARK: - Adding
 
   /// Imports PDFs from Files, the share sheet or drag and drop; stops at nothing, reports failures.
-  public func importFiles(_ urls: [URL]) async {
+  ///
+  /// A single import opens the document, with `task` started in the assistant when given.
+  public func importFiles(_ urls: [URL], task: AssistantTask? = nil) async {
     isImporting = true
     defer { isImporting = false }
     var failures = 0
@@ -162,15 +170,16 @@ public final class LibraryModel {
       await telemetry.record("quality.operation.failed")
     }
     await reload()
-    if let last, urls.count == 1 { selection = DocumentSelection(id: last.id) }
+    if let last, urls.count == 1 { selection = DocumentSelection(id: last.id, task: task) }
   }
 
-  /// Adds the synthetic sample document ("Try a sample").
-  public func addSample() async {
+  /// Adds the synthetic sample document ("Try a sample") and opens it, with `task` started in the
+  /// assistant when given.
+  public func addSample(task: AssistantTask? = nil) async {
     do {
       let document = try await intake.add(data: SyntheticPDF.makeSample(), title: SampleContent.title)
       await reload()
-      selection = DocumentSelection(id: document.id)
+      selection = DocumentSelection(id: document.id, task: task)
     } catch {
       errorMessage = Self.message(for: error)
     }

@@ -12,6 +12,8 @@ public struct LibraryView<Detail: View>: View {
   @State private var compactColumn = NavigationSplitViewColumn.content
   @Environment(\.horizontalSizeClass) private var sizeClass
   @State private var isPickingFiles = false
+  /// The assistant task to start on a single imported file: set by the home screen's primary action.
+  @State private var importTask: AssistantTask?
   @State private var renaming: Document?
   @State private var confirmingPermanentDelete: Document?
   @State private var newTitle = ""
@@ -53,7 +55,7 @@ public struct LibraryView<Detail: View>: View {
       }
     }
     .fileImporter(isPresented: $isPickingFiles, allowedContentTypes: [.pdf], allowsMultipleSelection: true) { result in
-      if case .success(let urls) = result { Task { await model.importFiles(urls) } }
+      if case .success(let urls) = result { Task { await model.importFiles(urls, task: importTask) } }
     }
     .alert(
       Text("Something went wrong", bundle: .module),
@@ -213,7 +215,7 @@ public struct LibraryView<Detail: View>: View {
         }
         .accessibilityIdentifier("library.scan")
         Button {
-          isPickingFiles = true
+          pick(task: nil)
         } label: {
           Label {
             Text("Import", bundle: .module)
@@ -370,14 +372,14 @@ public struct LibraryView<Detail: View>: View {
             .buttonStyle(.primary)
             .accessibilityIdentifier("library.empty.primary.scan")
           Button {
-            isPickingFiles = true
+            pick(task: model.primaryTask)
           } label: {
             Text("Import a PDF", bundle: .module).minimumTarget()
           }
           .accessibilityIdentifier("library.empty.import")
         } else {
           Button {
-            isPickingFiles = true
+            pick(task: model.primaryTask)
           } label: {
             Text("Import a PDF", bundle: .module)
           }
@@ -386,13 +388,19 @@ public struct LibraryView<Detail: View>: View {
           Button(action: onScan) { Text("Scan a document", bundle: .module).minimumTarget() }
         }
         Button {
-          Task { await model.addSample() }
+          Task { await model.addSample(task: model.primaryTask) }
         } label: {
           Text("Try a sample", bundle: .module).minimumTarget()
         }
         .accessibilityIdentifier("library.empty.sample")
       }
     }
+  }
+
+  /// Opens the file picker; a single file picked opens with `task` started in the assistant (F9).
+  private func pick(task: AssistantTask?) {
+    importTask = task
+    isPickingFiles = true
   }
 
   private var primaryActionCard: some View {
@@ -404,11 +412,17 @@ public struct LibraryView<Detail: View>: View {
         switch action {
         case .scanDocument:
           Button(action: onScan) { Text("Scan", bundle: .module) }.buttonStyle(.primary)
-        case .importDocument, .openAssistant:
+        case .importDocument:
           Button {
-            isPickingFiles = true
+            pick(task: nil)
           } label: {
             Text("Import a PDF", bundle: .module)
+          }.buttonStyle(.primary)
+        case .openAssistant:
+          Button {
+            pick(task: model.primaryTask)
+          } label: {
+            Text("Choose a PDF", bundle: .module)
           }.buttonStyle(.primary)
         }
       }
@@ -475,7 +489,7 @@ public struct LibraryView<Detail: View>: View {
     case .importDocument: Text("Import from Files, or drag PDFs here.", bundle: .module)
     case .scanDocument: Text("Your scan becomes a searchable PDF, recognised on this device.", bundle: .module)
     case .openAssistant:
-      Text("Open a document, then tap Ask in the toolbar. Answers cite their pages.", bundle: .module)
+      Text("Choose a PDF and the assistant opens with it. Answers cite their pages.", bundle: .module)
     }
   }
 }
