@@ -29,7 +29,7 @@ Owner: Quality · Reviewed: each milestone, and with any change to a workflow, r
 | `docs` | `ci.yml` → `docs` | [`scripts/ci/check_docs.py`](../../scripts/ci/check_docs.py) | Pull requests, pushes | Yes | Yes | Relative links resolve; exactly one H1, first; no skipped heading levels; every document indexed once [`docs/README.md`](../README.md) exists | Active |
 | `invariants` | `ci.yml` → `invariants` | [`scripts/ci/invariants.py`](../../scripts/ci/invariants.py) | Pull requests, pushes | Yes | Yes | PDFs only under `Tests/Fixtures/Synthetic/`; Swift rules listed below | PDF rule active; Swift rules dormant |
 | `changes` | `ci.yml` → `changes` | `git diff` | Pull requests, pushes | No | No | Decides whether `ios` runs | Active |
-| `ios` | `ci.yml` → `ios` | Xcode 27, XcodeGen 2.46.0 (checksum-verified), `swift-format`, `xcodebuild`, `.xctestplan`, [`coverage_gate.py`](../../scripts/ci/coverage_gate.py) | When `changes` reports Swift or project input changes | Yes | Yes | Lockfile unchanged; format clean (strict); build with warnings as errors; unit, UI, accessibility-audit and snapshot tests pass; line coverage at least 80% overall and per first-party target (ADR-0014) | Dormant: reports *skipped* |
+| `ios` | `ci.yml` → `ios` | Xcode 26.6 (build 17F113) and the iOS 26.5 simulator, pinned exactly (interim, PAP-029), XcodeGen 2.46.0 (checksum-verified), `swift-format`, `xcodebuild`, `.xctestplan`, [`coverage_gate.py`](../../scripts/ci/coverage_gate.py) | When `changes` reports Swift or project input changes | Yes | Yes | Lockfile unchanged; format clean (strict); build with warnings as errors, for the simulator and for a device in the optimised Staging configuration; unit, UI, accessibility-audit and snapshot tests pass; line coverage at least 80% overall and per first-party target (ADR-0014) | Dormant: reports *skipped* |
 | `codeql (actions)` | `codeql.yml` → `actions` | CodeQL, `security-extended` queries | Pull requests, pushes, weekly | Not yet | Not yet | Analysis completes; findings appear as code-scanning alerts | Runs, but its upload is rejected while CodeQL default setup is enabled on the repository; becomes required when the repository switches to advanced setup |
 | `codeql (swift)` | `codeql.yml` → `swift` | CodeQL, `security-extended`, manual build (one architecture) | Nightly on `integration`, on demand, and release pushes to `main` that change Swift | No | No | Analysis completes; findings appear as code-scanning alerts | Active; 30–50 minutes under the tracer, so not per pull request |
 | `dependency-review` | `dependency-review.yml` → `dependency-review` | [Dependency review](https://docs.github.com/en/code-security/supply-chain-security/understanding-your-software-supply-chain/about-dependency-review) | Pull requests | Yes | Yes | No newly added dependency with a known vulnerability of high or critical severity (`fail-on-severity: high`) | Active |
@@ -112,10 +112,12 @@ workflow skipped by path filtering leaves its required checks pending and blocks
 nightly schedule. The planned `ai-eval` job will use it too, through a `changes` output named
 `intelligence`, added to `ci.yml` together with the first `Intelligence` code.
 
-The cost of this design is that a skipped `ios` looks green. Two safeguards apply: the pattern
-includes `ci.yml`, so editing the gate re-runs it; and the first code pull request must show `ios`
-actually running and passing (a readiness item: "dormant Swift gates proven on first code PR"). When
-the source layout changes, the pattern in `changes` is reviewed in the same pull request.
+The cost of this design is that a skipped `ios` looks green. Three safeguards apply: the pattern
+includes `ci.yml`, so editing the gate re-runs it; the first code pull request had to show `ios`
+actually running and passing (readiness M7, closed); and `ios` also runs when `changes` itself did not
+succeed, then fails on purpose, because a job skipped after a failed dependency would otherwise report
+success ([actions/runner#2566](https://github.com/actions/runner/issues/2566)). When the source layout
+changes, the pattern in `changes` is reviewed in the same pull request.
 
 ## Warnings never fail the build
 
@@ -180,7 +182,7 @@ The checklist that collects this evidence is in [release management](../release-
 | `secrets / Secret scan` | Treat the secret as leaked, even on a branch: revoke and rotate it first, then remove it from the branch history before anything merges, and tell the Security hat. A false positive is recorded in the pull request and handled through the organisation workflow's allowlist, never by weakening the scan. |
 | `docs` | Fix the broken link or heading. A document that does not exist yet is referenced as inline code (`docs/…`), not as a link. |
 | `invariants` | Fix the code: handle errors instead of `try!`, use `Logger` instead of `print(`, move networking or colour literals into their package, declare the required-reason API in the privacy manifest. PDFs belong under `Tests/Fixtures/Synthetic/` and must be synthetic. |
-| `ios` | Read the failing step. The `Tests.xcresult` bundle is uploaded on failure and kept for 7 days. For coverage, add tests; do not exclude files. If Xcode 27 is missing on the runner, the job fails on purpose: raise it as a toolchain blocker rather than pinning an older Xcode. |
+| `ios` | Read the failing step. The `Tests.xcresult` bundle is uploaded on failure and kept for 7 days; suite reports under `reports/` are uploaded on every run. For coverage, add tests; do not exclude files. If the pinned Xcode or simulator runtime is missing on the runner, the job fails on purpose: move the pin in `ci.yml` to what the image offers, in its own pull request, and re-record snapshot references if the runtime changed. |
 | `codeql (…)` | Fix the finding, or ask the Security hat to dismiss it with a reason. An analysis failure is a CI problem to fix, not to skip. |
 | `dependency-review` | Upgrade or replace the dependency. Accepting a known vulnerability needs a Security decision recorded in an ADR. |
 | `ai-eval` (planned) | Read the per-sample results, fix the prompt or schema, and re-run the on-device suite. A threshold changes only as the [AI evaluation framework](../ai-evaluation-framework.md) allows. |

@@ -11,7 +11,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  # The event is part of the key, so a scheduled or manual run never cancels a push run on the same branch.
+  group: ci-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -109,30 +110,46 @@ jobs:
   ios:
     name: ios
     needs: changes
-    if: needs.changes.outputs.ios == 'true'
+    # Runs when Swift or project inputs changed, and also whenever `changes` did not succeed: a job
+    # skipped by its condition reports success, so a failed `changes` must never leave this required
+    # check green without the tests having run.
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.ios == 'true') }}
     runs-on: macos-26
     timeout-minutes: 60
     env:
       XCODEGEN_VERSION: "2.46.0"
       XCODEGEN_SHA256: 4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806
-      # Interim toolchain until Xcode 27 is available (readiness blocker C2, decision PAP-029): the
-      # newest Xcode 26 and the iOS 26 simulator. Raise both to 27 together with ADR-0001's floor.
-      XCODE_MAJOR: "26"
+      # Interim toolchain until Xcode 27 is available (readiness blocker C2, decision PAP-029). Pinned
+      # exactly, so a runner-image update cannot change results (snapshot references depend on it).
+      # Raise both to 27 together with ADR-0001's floor.
+      XCODE_APP: Xcode_26.6.app
+      XCODE_BUILD: 17F113
       SIMULATOR_NAME: iPhone 17
-      SIMULATOR_RUNTIME: com.apple.CoreSimulator.SimRuntime.iOS-26
+      SIMULATOR_RUNTIME: com.apple.CoreSimulator.SimRuntime.iOS-26-5
       SCHEME: PDFAlgoPro
       TEST_PLAN: PDFAlgoPro
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Select the pinned Xcode major version (fail if missing)
+      - name: Stop if the change detection failed
+        if: needs.changes.result != 'success'
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
         run: |
-          xcode="$(find /Applications -maxdepth 1 -name "Xcode_${XCODE_MAJOR}*.app" 2>/dev/null | sort -V | tail -1)"
-          if [ -z "$xcode" ]; then
-            echo "::error::Xcode ${XCODE_MAJOR} is not installed on this runner image"
+          echo "::error::The changes job ended with '$CHANGES_RESULT', so it is unknown whether the iOS gates must run"
+          exit 1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Select the pinned Xcode (fail if missing)
+        run: |
+          xcode="/Applications/$XCODE_APP"
+          if [ ! -d "$xcode" ]; then
+            echo "::error::$XCODE_APP is not installed on this runner image; update the pin (PAP-029)"
             exit 1
           fi
           sudo xcode-select -s "$xcode/Contents/Developer"
           xcodebuild -version
+          if ! xcodebuild -version | grep -q "Build version $XCODE_BUILD"; then
+            echo "::error::$XCODE_APP is not build $XCODE_BUILD; update the pin (PAP-029)"
+            exit 1
+          fi
       - name: Install pinned XcodeGen (checksum verified)
         run: |
           curl -sSL -o xcodegen.zip "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
@@ -144,7 +161,13 @@ jobs:
           xcodegen generate
           python3 scripts/ci/write_testplan.py
           xcodebuild -resolvePackageDependencies -scheme "$SCHEME"
-          git diff --exit-code -- '*Package.resolved'
+          # A changed or a new, untracked lockfile both mean the committed pins are out of date.
+          if [ -n "$(git status --porcelain -- '*Package.resolved')" ]; then
+            git status --porcelain -- '*Package.resolved'
+            git diff -- '*Package.resolved'
+            echo "::error::Package.resolved is missing or out of date; resolve locally and commit it"
+            exit 1
+          fi
       - name: Format (swift format, strict)
         run: xcrun swift-format lint --strict --recursive App Packages
       - name: Build for testing (unsigned, warnings as errors)
@@ -160,6 +183,11 @@ jobs:
           echo "SIM=$device" >> "$GITHUB_ENV"
           xcodebuild build-for-testing -scheme "$SCHEME" -testPlan "$TEST_PLAN" \
             -destination "id=$device" CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
+      - name: Build Staging for a device (unsigned, optimised, warnings as errors)
+        # The configuration Xcode Cloud archives; catches optimised-build failures before TestFlight.
+        run: |
+          xcodebuild build -scheme "$SCHEME" -configuration Staging -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
       - name: Tests (unit, UI, accessibility audit, snapshots)
         id: tests
         run: |
@@ -177,6 +205,15 @@ jobs:
           fi
           xcrun xccov view --report --json Tests.xcresult > coverage.json
           python3 scripts/ci/coverage_gate.py coverage.json --min 80
+      - name: Keep the suite reports
+        # Golden corpus, OCR, AI evaluation and performance reports, written under reports/ by the tests.
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: reports
+          path: reports/
+          if-no-files-found: ignore
+          retention-days: 30
       - name: Keep the result bundle on failure
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
