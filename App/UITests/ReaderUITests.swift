@@ -29,7 +29,8 @@ final class ReaderUITests: UITestCase {
     XCTAssertTrue(indicator.waitForExistence(timeout: 15))
     app.buttons["reader.more"].tap()
     app.buttons["Go to page"].tap()
-    let number = app.alerts.textFields["reader.goToPage.number"]
+    // The alert's field has no identifier of its own: SwiftUI does not pass it to the system alert.
+    let number = app.alerts.firstMatch.textFields.firstMatch
     XCTAssertTrue(number.waitForExistence(timeout: 5), "Go to page asks for a number (FR-READ-002)")
     number.tap()
     number.typeText("2")

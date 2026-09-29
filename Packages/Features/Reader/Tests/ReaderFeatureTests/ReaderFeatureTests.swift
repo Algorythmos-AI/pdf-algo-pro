@@ -1,4 +1,3 @@
-import AVFoundation
 import Core
 import CoreTestSupport
 import Foundation
@@ -24,7 +23,8 @@ private struct Harness {
       selection: document.id, pageIndex: pageIndex, task: task, library: library,
       intake: DocumentIntake(library: library, inspector: PDFKitInspector(), index: index), index: index,
       settings: settings, telemetry: telemetry,
-      builder: SearchablePDFBuilder(recognizer: recognizer, renderPixelSize: 400))
+      builder: SearchablePDFBuilder(recognizer: recognizer, renderPixelSize: 400),
+      speech: SpeechReader(engine: SilentSpeech()))
   }
 
   func seed(
@@ -349,18 +349,25 @@ struct ReaderModelTests {
   }
 
   @Test("Read aloud ends when the system finishes or cancels speech")
-  func speechEnds() async throws {
-    let speech = SpeechReader()
-    let synthesizer = AVSpeechSynthesizer()
-    speech.speak("One")
-    speech.speechSynthesizer(synthesizer, didFinish: AVSpeechUtterance(string: "One"))
-    for _ in 0..<100 where speech.isSpeaking { try await Task.sleep(for: .milliseconds(10)) }
+  func speechEnds() {
+    let engine = SilentSpeech()
+    let speech = SpeechReader(engine: engine)
+    speech.speak("   ")
+    #expect(!speech.isSpeaking && engine.spoken.isEmpty, "Blank text is not spoken")
+    speech.speak(" One ")
+    #expect(speech.isSpeaking && engine.spoken == ["One"])
+    engine.onEnd?()
     #expect(!speech.isSpeaking)
     speech.speak("Two")
-    speech.speechSynthesizer(synthesizer, didCancel: AVSpeechUtterance(string: "Two"))
-    for _ in 0..<100 where speech.isSpeaking { try await Task.sleep(for: .milliseconds(10)) }
-    #expect(!speech.isSpeaking)
     speech.stop()
+    #expect(!speech.isSpeaking && engine.stops == 1)
+  }
+
+  @Test("The system engine touches the voices only when asked to speak")
+  func systemEngineIsLazy() {
+    let engine = SystemSpeechEngine()
+    engine.stop()
+    _ = SpeechReader(engine: engine)
   }
 
   @Test func readAloudToggles() async throws {
@@ -400,4 +407,15 @@ private actor GatedRecognizer: TextRecognizing {
     }
     return FakeRecognizer().lines
   }
+}
+
+/// A speech engine that records what it was asked to say and never touches the system voices.
+@MainActor
+private final class SilentSpeech: SpeechEngine {
+  var onEnd: (() -> Void)?
+  private(set) var spoken: [String] = []
+  private(set) var stops = 0
+
+  func speak(_ text: String) { spoken.append(text) }
+  func stop() { stops += 1 }
 }

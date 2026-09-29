@@ -68,7 +68,7 @@ public final class ReaderModel {
   /// Whether there is an undone annotation change to redo.
   public private(set) var canRedo = false
   /// Read aloud.
-  public let speech = SpeechReader()
+  public let speech: SpeechReader
 
   private let documentID: DocumentID
   private let startPage: Int?
@@ -85,7 +85,7 @@ public final class ReaderModel {
     selection documentID: DocumentID, pageIndex: Int? = nil, task: AssistantTask? = nil, library: any DocumentLibrary,
     intake: DocumentIntake, index: any DocumentIndexing, settings: any SettingsStoring,
     telemetry: any TelemetryRecording,
-    builder: SearchablePDFBuilder
+    builder: SearchablePDFBuilder, speech: SpeechReader = SpeechReader()
   ) {
     self.documentID = documentID
     startPage = pageIndex
@@ -96,6 +96,7 @@ public final class ReaderModel {
     self.settings = settings
     self.telemetry = telemetry
     self.builder = builder
+    self.speech = speech
   }
 
   // MARK: - Opening
