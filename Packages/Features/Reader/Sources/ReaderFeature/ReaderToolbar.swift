@@ -1,0 +1,175 @@
+import Core
+import PDFEngine
+import SwiftUI
+
+/// The reader's tools: Ask (when intelligence is shown), Markup and More.
+struct ReaderToolbar: ToolbarContent {
+  let model: ReaderModel
+  @Binding var isAddingNote: Bool
+
+  var body: some ToolbarContent {
+    ToolbarItemGroup(placement: .primaryAction) {
+      if model.phase == .ready {
+        if model.showsIntelligence {
+          Menu {
+            Button {
+              model.assistantTask = .summarize
+            } label: {
+              Label {
+                Text("Summarise", bundle: .module)
+              } icon: {
+                Image(systemName: "text.append")
+              }
+            }
+            Button {
+              model.assistantTask = .ask
+            } label: {
+              Label {
+                Text("Ask a question", bundle: .module)
+              } icon: {
+                Image(systemName: "bubble.left.and.text.bubble.right")
+              }
+            }
+            Button {
+              model.assistantTask = .extract
+            } label: {
+              Label {
+                Text("Extract data", bundle: .module)
+              } icon: {
+                Image(systemName: "tablecells")
+              }
+            }
+            Button {
+              model.assistantTask = .explainContract
+            } label: {
+              Label {
+                Text("Explain contract", bundle: .module)
+              } icon: {
+                Image(systemName: "doc.text.magnifyingglass")
+              }
+            }
+          } label: {
+            Label {
+              Text("Ask", bundle: .module)
+            } icon: {
+              Image(systemName: "sparkles")
+            }
+          }
+          .accessibilityIdentifier("reader.ask")
+        }
+        Menu {
+          ForEach(TextMarkup.allCases, id: \.self) { markup in
+            Button {
+              Task { await model.markUpSelection(markup) }
+            } label: {
+              Self.label(for: markup)
+            }
+          }
+          Button {
+            isAddingNote = true
+          } label: {
+            Label {
+              Text("Add note", bundle: .module)
+            } icon: {
+              Image(systemName: "note.text.badge.plus")
+            }
+          }
+          Button {
+            Task { await model.undo() }
+          } label: {
+            Label {
+              Text("Undo", bundle: .module)
+            } icon: {
+              Image(systemName: "arrow.uturn.backward")
+            }
+          }
+        } label: {
+          Label {
+            Text("Markup", bundle: .module)
+          } icon: {
+            Image(systemName: "highlighter")
+          }
+        }
+        .accessibilityIdentifier("reader.markup")
+        Menu {
+          Button {
+            model.showsPages = true
+          } label: {
+            Label {
+              Text("Pages", bundle: .module)
+            } icon: {
+              Image(systemName: "square.grid.2x2")
+            }
+          }
+          Button {
+            model.showsOutline = true
+          } label: {
+            Label {
+              Text("Contents", bundle: .module)
+            } icon: {
+              Image(systemName: "list.bullet.indent")
+            }
+          }
+          Picker(
+            selection: Binding(get: { model.controller?.displayMode ?? .continuous }, set: { model.setDisplayMode($0) })
+          ) {
+            Text("Continuous", bundle: .module).tag(ReaderDisplayMode.continuous)
+            Text("Single page", bundle: .module).tag(ReaderDisplayMode.singlePage)
+          } label: {
+            Text("Layout", bundle: .module)
+          }
+          Button {
+            model.toggleReadAloud()
+          } label: {
+            Label {
+              model.speech.isSpeaking ? Text("Stop reading", bundle: .module) : Text("Read aloud", bundle: .module)
+            } icon: {
+              Image(systemName: model.speech.isSpeaking ? "stop.circle" : "speaker.wave.2")
+            }
+          }
+          if model.canRecognizeText {
+            Button {
+              model.recognizeText()
+            } label: {
+              Label {
+                Text("Recognise text", bundle: .module)
+              } icon: {
+                Image(systemName: "text.viewfinder")
+              }
+            }
+          }
+        } label: {
+          Label {
+            Text("More", bundle: .module)
+          } icon: {
+            Image(systemName: "ellipsis.circle")
+          }
+        }
+        .accessibilityIdentifier("reader.more")
+      }
+    }
+  }
+
+  static func label(for markup: TextMarkup) -> Label<Text, Image> {
+    switch markup {
+    case .highlight:
+      Label {
+        Text("Highlight", bundle: .module)
+      } icon: {
+        Image(systemName: "highlighter")
+      }
+    case .underline:
+      Label {
+        Text("Underline", bundle: .module)
+      } icon: {
+        Image(systemName: "underline")
+      }
+    case .strikeThrough:
+      Label {
+        Text("Strike through", bundle: .module)
+      } icon: {
+        Image(systemName: "strikethrough")
+      }
+    }
+  }
+}

@@ -251,7 +251,7 @@ struct ReaderModelTests {
 
   @Test("Every markup kind has a label", arguments: TextMarkup.allCases)
   func markupLabels(markup: TextMarkup) {
-    _ = ReaderView<EmptyView>.label(for: markup)
+    _ = ReaderToolbar.label(for: markup)
   }
 }
 
