@@ -23,12 +23,15 @@ public enum DeepLink {
   /// The app's URL scheme (ADR-0015).
   public static let scheme = "pdfalgopro"
 
+  /// The Staging app's URL scheme, so it installs beside the App Store app without taking its links.
+  public static let stagingScheme = "pdfalgopro-staging"
+
   /// The route for a URL, or `nil` when the URL is not one of ours or is malformed.
   ///
   /// Accepted forms: `pdfalgopro://document/<uuid>?page=<1-based>`, `pdfalgopro://library/<section>`,
-  /// `pdfalgopro://scan` and `pdfalgopro://settings`.
+  /// `pdfalgopro://scan` and `pdfalgopro://settings`, and the same with the Staging scheme.
   public static func route(for url: URL) -> Route? {
-    guard url.scheme?.lowercased() == scheme,
+    guard let urlScheme = url.scheme?.lowercased(), urlScheme == scheme || urlScheme == stagingScheme,
       let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
       let host = components.host?.lowercased()
     else { return nil }

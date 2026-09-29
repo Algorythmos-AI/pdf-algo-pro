@@ -44,3 +44,6 @@ node_modules/
 
 # Local agent worktrees
 .claude/worktrees/
+
+# The Team ID stays out of git (ADR-0015); written by ci_scripts/ci_post_clone.sh or by hand.
+Config/Team.xcconfig

@@ -2,9 +2,9 @@
 
 The places a build of PDF Algo Pro runs, which branch and build configuration feed each one, who can
 use it, how signing identity and secrets reach the build without entering git, and which services
-each build may talk to. There is no app code yet, so this page describes the designed set-up that the
-first code pull requests implement; anything not yet decided is listed under
-[open questions](#open-questions).
+each build may talk to. The Staging set-up below is being put in place for the first internal
+TestFlight build ([#47](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/47), PAP-030); anything
+not yet decided is listed under [open questions](#open-questions).
 
 Owner: Release · Reviewed: each milestone
 
@@ -44,13 +44,20 @@ not an environment anyone uses; it exists to run the gates in [quality gates](qu
 
 ## Staging (`integration`)
 
-The Xcode Cloud workflows below are designed but not yet configured; setting them up is one of the
-readiness items tracked in [`docs/readiness-review.md`](../readiness-review.md).
+The Staging workflow is being set up for the first internal TestFlight build (readiness M5, PAP-030).
 
-- Every merge into `integration` starts the Xcode Cloud Staging workflow (a Branch Changes start
-  condition on `integration`), which archives with the Staging configuration and distributes to
-  TestFlight internal testing
+- The `PDFAlgoProStaging` scheme archives the Staging configuration. Xcode Cloud starts it manually
+  until build 1, then nightly from `integration`, rather than on every merge: 25 compute hours a month
+  are included, and a night's work can be a dozen merges
   ([Xcode Cloud workflow reference](https://developer.apple.com/documentation/xcode/xcode-cloud-workflow-reference)).
+  The archive action uploads for internal testing only.
+- The Xcode project is generated, not committed (ADR-0002), so
+  [`ci_scripts/ci_post_clone.sh`](../../ci_scripts/ci_post_clone.sh) installs the pinned XcodeGen
+  (checksum-verified) and generates it after the clone, before packages resolve
+  ([Writing custom build scripts](https://developer.apple.com/documentation/xcode/writing-custom-build-scripts)).
+- The Staging app is named "PDF Algo β" on the home screen and answers `pdfalgopro-staging://` links,
+  so it installs beside the App Store app without taking its links (`APP_DISPLAY_NAME` and
+  `APP_URL_SCHEME` in `project.yml`).
 - The Staging configuration is optimised like Release, so testers exercise what will ship, but it
   carries the `.staging` bundle suffix so it installs beside the App Store app.
 - A different bundle identifier means a separate App Store Connect app record: each app record is
@@ -111,9 +118,9 @@ treated as confidential for this public repository and is injected at build time
 
 | Where the build runs | Team ID and signing | Secrets |
 |---|---|---|
-| Local | A gitignored local settings file or environment variable read when the project is generated. The file name and mechanism are fixed by the pull request that adds `project.yml`, which also adds the file to [`.gitignore`](../../.gitignore). | A gitignored `.env`; `.env.example` holds placeholders only. |
+| Local | [`Config/Base.xcconfig`](../../Config/Base.xcconfig) includes the git-ignored `Config/Team.xcconfig` when it exists; for a device build, create it with one line, `DEVELOPMENT_TEAM = <Team ID>`. Simulator builds need nothing. | A gitignored `.env`; `.env.example` holds placeholders only. |
 | GitHub Actions | None: builds are unsigned. | Only the `release` environment's `WIKI_TOKEN` ([release workflow](../../.github/workflows/release.yml)). |
-| Xcode Cloud | Xcode Cloud manages signing and gives build scripts the Team ID as `CI_TEAM_ID` ([Environment variable reference](https://developer.apple.com/documentation/xcode/environment-variable-reference)). | Workflow environment variables marked **Secret**, which are redacted from logs ([Xcode Cloud workflow reference](https://developer.apple.com/documentation/xcode/xcode-cloud-workflow-reference)). |
+| Xcode Cloud | Xcode Cloud manages signing and gives build scripts the Team ID as `CI_TEAM_ID` ([Environment variable reference](https://developer.apple.com/documentation/xcode/environment-variable-reference)); `ci_post_clone.sh` writes it into `Config/Team.xcconfig`, which is never committed. | Workflow environment variables marked **Secret**, which are redacted from logs ([Xcode Cloud workflow reference](https://developer.apple.com/documentation/xcode/xcode-cloud-workflow-reference)). |
 
 Signing material (`*.p8`, `*.p12`, `*.mobileprovision`, `*.cer`) is excluded by `.gitignore`, and the
 `secrets / Secret scan` check blocks credentials in pull requests. No AI provider key is ever embedded

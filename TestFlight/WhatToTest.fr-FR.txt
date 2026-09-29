@@ -1,0 +1,6 @@
+Version interne de PDF Algo Pro (Staging). À essayer :
+- Importez un PDF depuis Fichiers, ouvrez-le, surlignez du texte et ajoutez une note, puis rouvrez-le : vos modifications doivent y être.
+- Numérisez une page (ou choisissez des images), puis cherchez dans la bibliothèque un mot de cette page.
+- Posez une question sur un document : la réponse doit citer une page, et toucher la citation l'ouvre.
+- Activez le mode Avion : tout ce qui précède fonctionne encore.
+Signalez un problème avec Réglages > Signaler un problème, ou avec une capture d'écran TestFlight.
