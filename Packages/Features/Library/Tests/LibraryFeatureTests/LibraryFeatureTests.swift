@@ -145,6 +145,21 @@ struct LibraryModelTests {
     #expect(harness.model.results?.map(\.documentID) == [gone.id], "Recently Deleted searches the bin only")
   }
 
+  @Test("The start-here card goes once one of your own documents has been opened")
+  func startCard() async throws {
+    let harness = Harness()
+    await harness.library.seed(
+      Document(title: SampleContent.title, fileName: "s.pdf", addedAt: .now, lastOpenedAt: .now))
+    let mine = await harness.library.seed(Document(title: "Mine", fileName: "m.pdf", addedAt: .now))
+    await harness.model.load()
+    #expect(harness.model.showsPrimaryAction, "The sample being opened doesn't count")
+    try await harness.library.recordOpened(mine.id, pageIndex: 0)
+    await harness.model.reload()
+    #expect(!harness.model.showsPrimaryAction)
+    harness.model.section = .favorites
+    #expect(!harness.model.showsPrimaryAction)
+  }
+
   @Test("A search that fails says so instead of showing no results")
   func searchFailure() async {
     let harness = Harness()

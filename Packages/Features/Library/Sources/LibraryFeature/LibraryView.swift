@@ -279,7 +279,7 @@ public struct LibraryView<Detail: View>: View {
 
   private var documentList: some View {
     List {
-      if model.section == .all, model.documents.count < 3 {
+      if model.showsPrimaryAction {
         primaryActionCard.listRowSeparator(.hidden)
       }
       ForEach(model.documents) { document in

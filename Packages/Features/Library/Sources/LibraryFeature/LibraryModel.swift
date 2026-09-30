@@ -189,6 +189,16 @@ public final class LibraryModel {
     searched.first { $0.id == hit.documentID } ?? documents.first { $0.id == hit.documentID }
   }
 
+  /// Whether the start-here card shows above the list.
+  ///
+  /// It helps with a first document, so it shows in All documents only until one of the person's own
+  /// documents has been opened (the sample doesn't count), and never once there are three or more.
+  /// Before, it stayed until the third document and kept saying "Open your first PDF".
+  public var showsPrimaryAction: Bool {
+    section == .all && documents.count < 3
+      && !documents.contains { $0.lastOpenedAt != nil && $0.title != SampleContent.title }
+  }
+
   /// The home action, personalised by onboarding (FR-ONB-003).
   ///
   /// With AI hidden, an AI intent falls back to importing: AI never appears uninvited (FR-AI-009).
