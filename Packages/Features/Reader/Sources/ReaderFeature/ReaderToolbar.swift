@@ -107,6 +107,34 @@ struct ReaderToolbar: ToolbarContent {
               Image(systemName: "character.textbox")
             }
           }
+          Menu {
+            Button {
+              Task { await model.addStamp(.date(Date())) }
+            } label: {
+              Text("Today's date", bundle: .module)
+            }
+            Button {
+              Task { await model.addStamp(.tick) }
+            } label: {
+              Text("Tick", bundle: .module)
+            }
+            Button {
+              Task { await model.addStamp(.cross) }
+            } label: {
+              Text("Cross", bundle: .module)
+            }
+            Button {
+              model.isAddingStampText = true
+            } label: {
+              Text("Text or initials…", bundle: .module)
+            }
+          } label: {
+            Label {
+              Text("Stamp", bundle: .module)
+            } icon: {
+              Image(systemName: "seal")
+            }
+          }
           Button {
             model.showSignatures()
           } label: {

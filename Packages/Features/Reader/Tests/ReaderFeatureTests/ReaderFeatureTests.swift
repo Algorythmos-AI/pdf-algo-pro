@@ -362,6 +362,20 @@ struct ReaderModelTests {
     reader.stopWatching()
   }
 
+  @Test("Stamps are added to the page on screen and saved (FR-ANN-006)")
+  func stamps() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.makeSample())
+    let reader = harness.reader(for: document)
+    await reader.load()
+    await reader.addStamp(.tick)
+    await reader.addStamp(.text("SK"))
+    await reader.addStamp(.text("  "))
+    let url = try await harness.library.fileURL(for: document.id)
+    #expect(try PDFDocumentController(url: url).annotationCount(onPage: 0) == 2)
+    #expect(reader.canUndo)
+  }
+
   @Test("Notes and markup save automatically and can be undone (FR-ANN-001, FR-EDIT-007)")
   func annotations() async throws {
     let harness = Harness()
