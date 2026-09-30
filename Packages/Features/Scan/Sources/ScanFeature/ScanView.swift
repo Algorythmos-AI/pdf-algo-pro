@@ -37,7 +37,7 @@ public struct ScanView: View {
         .fullScreenCover(isPresented: $showsCamera) {
           DocumentCameraView { images in
             showsCamera = false
-            Task { await model.process(images) }
+            Task { await model.review(images) }
           } onCancel: {
             showsCamera = false
           }
@@ -54,6 +54,7 @@ public struct ScanView: View {
   @ViewBuilder var content: some View {
     switch model.phase {
     case .ready: ready
+    case .reviewing: reviewing
     case .recognizing(let progress): recognizing(progress)
     case .finished: ProgressView()
     case .failed:
@@ -110,6 +111,86 @@ public struct ScanView: View {
     }
     .readableWidth()
     .centeredScrolling()
+  }
+
+  /// The pages and name, checked before saving (FR-SCAN-006).
+  private var reviewing: some View {
+    ScrollView {
+      VStack(alignment: .leading, spacing: Spacing.s200) {
+        TextField(text: $model.title) { Text("Name", bundle: .module) }
+          .textFieldStyle(.roundedBorder)
+          .font(.headline)
+          .accessibilityLabel(Text("Name", bundle: .module))
+          .accessibilityIdentifier("scan.title")
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: Spacing.s200)], spacing: Spacing.s200) {
+          ForEach(Array(model.pages.enumerated()), id: \.offset) { index, page in
+            Menu {
+              Button {
+                model.rotatePage(at: index)
+              } label: {
+                Label {
+                  Text("Rotate", bundle: .module)
+                } icon: {
+                  Image(systemName: "rotate.right")
+                }
+              }
+              if index > 0 {
+                Button {
+                  model.movePage(at: index, earlier: true)
+                } label: {
+                  Label {
+                    Text("Move earlier", bundle: .module)
+                  } icon: {
+                    Image(systemName: "arrow.left")
+                  }
+                }
+              }
+              if index < model.pages.count - 1 {
+                Button {
+                  model.movePage(at: index, earlier: false)
+                } label: {
+                  Label {
+                    Text("Move later", bundle: .module)
+                  } icon: {
+                    Image(systemName: "arrow.right")
+                  }
+                }
+              }
+              if model.pages.count > 1 {
+                Button(role: .destructive) {
+                  model.deletePage(at: index)
+                } label: {
+                  Label {
+                    Text("Delete page", bundle: .module)
+                  } icon: {
+                    Image(systemName: "trash")
+                  }
+                }
+              }
+            } label: {
+              VStack(spacing: Spacing.s050) {
+                Image(decorative: page, scale: 1).resizable().scaledToFit().frame(height: 140)
+                Text("\(index + 1)").font(.caption.monospacedDigit())
+              }
+            }
+            .accessibilityLabel(Text("Page \(index + 1)", bundle: .module))
+          }
+        }
+        Button {
+          Task { await model.save() }
+        } label: {
+          Text("Save", bundle: .module).frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.primary)
+        .accessibilityIdentifier("scan.save")
+        Button {
+          model.discardReview()
+        } label: {
+          Text("Discard", bundle: .module).minimumTarget().frame(maxWidth: .infinity)
+        }
+      }
+      .readableWidth()
+    }
   }
 
   private func recognizing(_ progress: Double) -> some View {

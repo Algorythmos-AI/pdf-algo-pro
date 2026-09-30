@@ -3,6 +3,7 @@ import Core
 import CoreSpotlight
 import Foundation
 import LibraryFeature
+import OCR
 import Observation
 import OnboardingFeature
 import ReaderFeature
@@ -110,7 +111,10 @@ final class AppModel {
   }
 
   func makeScan() -> ScanModel {
-    ScanModel(intake: container.intake, builder: container.builder, telemetry: container.telemetry) {
+    ScanModel(
+      intake: container.intake, builder: container.builder, telemetry: container.telemetry,
+      recognizer: VisionTextRecognizer()
+    ) {
       [weak self] document in
       guard let self else { return }
       sheet = nil

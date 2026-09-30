@@ -66,9 +66,56 @@ struct ScanModelTests {
     try Data("not an image".utf8).write(to: text)
     await model.process(files: [image, text])
     #expect(model.notice?.contains("1") == true)
+    #expect(model.phase == .reviewing && model.pages.count == 1, "Chosen images are reviewed first")
+    await model.save()
     #expect(try await library.documents(in: .all, sortedBy: .title).count == 1)
     await model.process(files: [image])
     #expect(model.notice == nil)
+  }
+
+  @Test("Review rotates, reorders and deletes pages, and saves under the suggested or typed name (FR-SCAN-006)")
+  func review() async throws {
+    let headline = RecognizedLine(
+      text: "Example Stationery", bounds: CGRect(x: 0.1, y: 0.85, width: 0.6, height: 0.06), confidence: 0.9)
+    let small = RecognizedLine(
+      text: "Tax invoice number", bounds: CGRect(x: 0.1, y: 0.7, width: 0.5, height: 0.02), confidence: 0.9)
+    let library = FakeDocumentLibrary()
+    let model = ScanModel(
+      intake: DocumentIntake(library: library, inspector: FakeInspector(), index: FakeIndex()),
+      builder: SearchablePDFBuilder(recognizer: FakeRecognizer()), telemetry: RecordingTelemetry(),
+      recognizer: FakeRecognizer(lines: [small, headline]), onFinish: { _ in })
+    let wide = try #require(SyntheticPDF.makeTextImage("One", size: CGSize(width: 400, height: 200)))
+    let tall = try #require(SyntheticPDF.makeTextImage("Two", size: CGSize(width: 200, height: 400)))
+    await model.review([wide, tall])
+    #expect(model.phase == .reviewing && model.title == "Example Stationery")
+    model.rotatePage(at: 0)
+    #expect(model.pages[0].width == 200 && model.pages[0].height == 400)
+    model.movePage(at: 1, earlier: true)
+    model.movePage(at: 0, earlier: true)
+    model.deletePage(at: 1)
+    model.deletePage(at: 0)
+    #expect(model.pages.count == 1, "The last page stays")
+    model.title = "  My receipt  "
+    await model.save()
+    #expect(try await library.documents(in: .all, sortedBy: .title).map(\.title) == ["My receipt"])
+  }
+
+  @Test("A typed name is kept, no title-like line gives no suggestion, and discarding saves nothing")
+  func reviewEdges() async throws {
+    #expect(
+      ScanModel.suggestedTitle(from: [
+        RecognizedLine(text: "12/03/2026 $120.00", bounds: CGRect(x: 0, y: 0.9, width: 1, height: 0.1), confidence: 1)
+      ]) == nil)
+    #expect(
+      ScanModel.suggestedTitle(from: [
+        RecognizedLine(text: "Footer text", bounds: CGRect(x: 0, y: 0.1, width: 1, height: 0.1), confidence: 1)
+      ]) == nil)
+    let (model, library, _, _) = makeModel()
+    await model.review([try #require(SyntheticPDF.makeTextImage("x"))])
+    #expect(model.title == model.defaultTitle, "Without a recogniser the date title stays")
+    model.discardReview()
+    #expect(model.phase == .ready && model.pages.isEmpty)
+    #expect(try await library.documents(in: .all, sortedBy: .title).isEmpty)
   }
 
   @Test func titlesCarryTheDate() {

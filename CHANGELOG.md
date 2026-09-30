@@ -36,6 +36,8 @@ Store notes (see the changelog strategy).
 - Stamps in Markup: today's date, a tick, a cross, or your own text such as initials or "Paid".
 - Bookmarks: bookmark the page on screen from More; bookmarks are listed in Contents and saved in the
   PDF, so other apps show them too.
+- Review a scan before it is saved: rotate, reorder or delete pages, and name it; the name is
+  suggested from the first page's headline, recognised on this device.
 - Recognising text you start carries on if you leave the app, with its progress shown by the system
   (on the Lock Screen and in the Dynamic Island); you can cancel it from there.
 - A digitally signed PDF keeps its valid signature: your changes are saved in a copy marked
