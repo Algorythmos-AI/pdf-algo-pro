@@ -47,6 +47,14 @@ public final class PDFDocumentController {
   public private(set) var isLocked: Bool
   /// Whether there are changes not yet written to disk.
   public internal(set) var hasUnsavedChanges = false
+  /// Whether touches on the page draw ink instead of scrolling and selecting (F2a).
+  public internal(set) var isDrawing = false
+  /// What a drag draws while drawing is on.
+  public internal(set) var drawingTool = DrawingTool.pen
+  /// The annotation the person selected, if any (F3).
+  public internal(set) var selection: AnnotationSelection?
+  /// The selected annotation itself; PDFKit objects stay out of `selection`.
+  @ObservationIgnored var selected: (annotation: PDFAnnotation, page: PDFPage)?
   /// How pages are laid out.
   public var displayMode: ReaderDisplayMode = .continuous {
     didSet { view?.apply(displayMode) }
@@ -54,6 +62,8 @@ public final class PDFDocumentController {
 
   @ObservationIgnored let document: PDFDocument
   @ObservationIgnored weak var view: PDFReaderHostView?
+  /// Called after each stroke is added while drawing, so the reader can save.
+  @ObservationIgnored var onInk: (@MainActor () -> Void)?
   @ObservationIgnored private var pendingPageIndex: Int?
   @ObservationIgnored var password: String?
   @ObservationIgnored let wasEncrypted: Bool
@@ -177,6 +187,7 @@ public final class PDFDocumentController {
   func attach(_ view: PDFReaderHostView) {
     self.view = view
     view.apply(displayMode)
+    view.setDrawing(isDrawing, tool: drawingTool)
     if let pendingPageIndex, let page = document.page(at: pendingPageIndex) {
       view.show(page)
       self.pendingPageIndex = nil

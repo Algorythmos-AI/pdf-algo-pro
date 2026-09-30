@@ -38,4 +38,88 @@ final class ReaderUITests: UITestCase {
     expectation(for: NSPredicate(format: "label CONTAINS %@", "2 of 3"), evaluatedWith: indicator)
     waitForExpectations(timeout: 10)
   }
+
+  func testDrawingAddsInkThatCanBeUndone() throws {
+    let app = launch(["-skip-onboarding", "-seed-library", "sample"])
+    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
+    let markup = app.buttons["reader.markup"]
+    markup.tap()
+    app.buttons["Draw"].tap()
+    let done = app.buttons["reader.doneDrawing"]
+    XCTAssertTrue(done.waitForExistence(timeout: 5), "Drawing mode shows Done (F2a)")
+    let area = app.descendants(matching: .any)["reader.drawing"].firstMatch
+    XCTAssertTrue(area.waitForExistence(timeout: 5))
+    area.coordinate(withNormalizedOffset: CGVector(dx: 0.3, dy: 0.4))
+      .press(forDuration: 0.1, thenDragTo: area.coordinate(withNormalizedOffset: CGVector(dx: 0.7, dy: 0.5)))
+    done.tap()
+    markup.tap()
+    let undo = app.buttons["Undo"]
+    XCTAssertTrue(undo.waitForExistence(timeout: 5))
+    XCTAssertTrue(undo.isEnabled, "The stroke was added and can be undone")
+  }
+
+  func testATypedSignatureIsPlacedOnThePage() throws {
+    let app = launch(["-skip-onboarding", "-seed-library", "sample"])
+    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
+    let markup = app.buttons["reader.markup"]
+    markup.tap()
+    app.buttons["Signature"].tap()
+    let name = app.textFields["signature.typedName"]
+    XCTAssertTrue(name.waitForExistence(timeout: 5), "The signature sheet opens (F1c)")
+    try audit(app)
+    name.tap()
+    // Return closes the keyboard, so the audit measures the button rather than the keyboard over it.
+    name.typeText("Ada Lovelace\n")
+    try audit(app)
+    app.buttons["signature.placeTyped"].tap()
+    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 5))
+    markup.tap()
+    let undo = app.buttons["Undo"]
+    XCTAssertTrue(undo.waitForExistence(timeout: 5))
+    XCTAssertTrue(undo.isEnabled, "The signature was placed and can be undone")
+  }
+
+  func testShapesAndTextBoxesAreAdded() throws {
+    let app = launch(["-skip-onboarding", "-seed-library", "sample"])
+    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
+    let markup = app.buttons["reader.markup"]
+    markup.tap()
+    app.buttons["Shapes"].tap()
+    app.buttons["Rectangle"].tap()
+    let area = app.descendants(matching: .any)["reader.drawing"].firstMatch
+    XCTAssertTrue(area.waitForExistence(timeout: 5), "Shapes are drawn like ink (F2b)")
+    area.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.3))
+      .press(forDuration: 0.1, thenDragTo: area.coordinate(withNormalizedOffset: CGVector(dx: 0.7, dy: 0.45)))
+    app.buttons["reader.doneDrawing"].tap()
+    markup.tap()
+    app.buttons["Text box"].tap()
+    let text = app.alerts.firstMatch.textFields.firstMatch
+    XCTAssertTrue(text.waitForExistence(timeout: 5))
+    text.tap()
+    text.typeText("Check with accounts")
+    app.alerts.buttons["Add"].tap()
+    markup.tap()
+    let undo = app.buttons["Undo"]
+    XCTAssertTrue(undo.waitForExistence(timeout: 5))
+    XCTAssertTrue(undo.isEnabled, "The rectangle and the text box were added")
+  }
+
+  func testATappedAnnotationCanBeDeleted() throws {
+    let app = launch(["-skip-onboarding", "-seed-library", "sample"])
+    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
+    app.buttons["reader.markup"].tap()
+    app.buttons["Draw"].tap()
+    let area = app.descendants(matching: .any)["reader.drawing"].firstMatch
+    XCTAssertTrue(area.waitForExistence(timeout: 5))
+    area.coordinate(withNormalizedOffset: CGVector(dx: 0.3, dy: 0.4))
+      .press(forDuration: 0.1, thenDragTo: area.coordinate(withNormalizedOffset: CGVector(dx: 0.7, dy: 0.44)))
+    app.buttons["reader.doneDrawing"].tap()
+    let pages = app.descendants(matching: .any)["reader.pages"].firstMatch
+    pages.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.42)).tap()
+    let bar = app.descendants(matching: .any)["reader.selection.actionBar"].firstMatch
+    XCTAssertTrue(bar.waitForExistence(timeout: 5), "Tapping the drawing selects it (F3)")
+    try audit(app)
+    app.buttons["reader.selection.delete"].tap()
+    XCTAssertFalse(bar.waitForExistence(timeout: 2), "Deleting clears the selection")
+  }
 }

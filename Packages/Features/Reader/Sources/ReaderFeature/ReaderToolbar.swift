@@ -7,10 +7,18 @@ import UIKit
 struct ReaderToolbar: ToolbarContent {
   let model: ReaderModel
   @Binding var isAddingNote: Bool
+  @Binding var isAddingTextBox: Bool
 
   var body: some ToolbarContent {
     ToolbarItemGroup(placement: .primaryAction) {
-      if model.phase == .ready {
+      if model.isDrawing {
+        Button {
+          model.setDrawing(false)
+        } label: {
+          Text("Done", bundle: .module)
+        }
+        .accessibilityIdentifier("reader.doneDrawing")
+      } else if model.phase == .ready {
         if model.showsIntelligence {
           Menu {
             Button {
@@ -64,6 +72,48 @@ struct ReaderToolbar: ToolbarContent {
               Task { await model.markUpSelection(markup) }
             } label: {
               Self.label(for: markup)
+            }
+          }
+          Button {
+            model.setDrawing(true)
+          } label: {
+            Label {
+              Text("Draw", bundle: .module)
+            } icon: {
+              Image(systemName: "pencil.tip")
+            }
+          }
+          Menu {
+            ForEach([DrawingTool.rectangle, .oval, .arrow], id: \.self) { tool in
+              Button {
+                model.setDrawing(true, tool: tool)
+              } label: {
+                Self.label(for: tool)
+              }
+            }
+          } label: {
+            Label {
+              Text("Shapes", bundle: .module)
+            } icon: {
+              Image(systemName: "square.on.circle")
+            }
+          }
+          Button {
+            isAddingTextBox = true
+          } label: {
+            Label {
+              Text("Text box", bundle: .module)
+            } icon: {
+              Image(systemName: "character.textbox")
+            }
+          }
+          Button {
+            model.showSignatures()
+          } label: {
+            Label {
+              Text("Signature", bundle: .module)
+            } icon: {
+              Image(systemName: "signature")
             }
           }
           Button {
@@ -203,6 +253,35 @@ struct ReaderToolbar: ToolbarContent {
           }
         }
         .accessibilityIdentifier("reader.more")
+      }
+    }
+  }
+
+  static func label(for tool: DrawingTool) -> Label<Text, Image> {
+    switch tool {
+    case .pen:
+      Label {
+        Text("Draw", bundle: .module)
+      } icon: {
+        Image(systemName: "pencil.tip")
+      }
+    case .rectangle:
+      Label {
+        Text("Rectangle", bundle: .module)
+      } icon: {
+        Image(systemName: "rectangle")
+      }
+    case .oval:
+      Label {
+        Text("Oval", bundle: .module)
+      } icon: {
+        Image(systemName: "oval")
+      }
+    case .arrow:
+      Label {
+        Text("Arrow", bundle: .module)
+      } icon: {
+        Image(systemName: "arrow.up.right")
       }
     }
   }

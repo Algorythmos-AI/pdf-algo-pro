@@ -17,11 +17,19 @@ class UITestCase: XCTestCase {
 
   /// The accessibility audit on the current screen.
   ///
-  /// Three kinds of finding are excluded narrowly, because they are not about anything a person sees:
-  /// issues on PDFKit's page view; Dynamic Type findings on navigation-bar and toolbar buttons, whose size
-  /// the system caps; and contrast findings on text scrolled behind a bottom action bar (identifier ending
-  /// `.actionBar`), which hides it, so the pixels the audit measures are the bar's. The bar's own controls
-  /// are still audited. Every other finding fails the test. All findings on the screen are collected and
+  /// Four kinds of finding are excluded narrowly:
+  /// - issues on PDFKit's page view and the nodes it exposes for the text on a page, which are not ours
+  ///   to change;
+  /// - Dynamic Type and clipped-text findings in navigation bars and toolbars, whose titles and buttons
+  ///   the system sizes and truncates;
+  /// - contrast findings on text scrolled behind a bottom action bar (identifier ending `.actionBar`),
+  ///   which hides it, so the pixels the audit measures are the bar's (the bar's own controls are still
+  ///   audited);
+  /// - contrast findings on disabled controls, which are dimmed on purpose to show they are inactive;
+  ///   WCAG 1.4.3 sets no contrast requirement for inactive controls. The same control is audited
+  ///   again once it is enabled.
+  ///
+  /// Every other finding fails the test. All findings on the screen are collected and
   /// reported together, with the element each one is about, instead of stopping at the first.
   ///
   /// Quarantined (issue #44, flaky): "Dynamic Type font sizes are partially unsupported" on text in sheets
@@ -72,7 +80,10 @@ class UITestCase: XCTestCase {
     try app.performAccessibilityAudit { issue in
       if let element = issue.element {
         if element.identifier == "reader.pages" { return true }
-        if issue.auditType == .dynamicType,
+        // PDFKit's own accessibility nodes for the text on a page: part of PDFKit's page view.
+        if issue.detailedDescription.contains("UICGPDFNode") { return true }
+        if issue.auditType == .contrast, !element.isEnabled { return true }
+        if issue.auditType == .dynamicType || issue.auditType == .textClipped,
           bars.contains(where: { $0.insetBy(dx: -8, dy: -8).contains(element.frame) })
         {
           return true

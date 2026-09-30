@@ -139,6 +139,178 @@ struct ControllerTests {
     #expect(locked.formValues.isEmpty && !locked.needsSaving)
   }
 
+  @Test("Drawn strokes become one standard ink annotation that survives a save and undoes (F2a)")
+  func inkRoundTrip() throws {
+    let controller = try PDFDocumentController(data: SyntheticPDF.makeSample())
+    let strokes = [
+      [CGPoint(x: 100, y: 500), CGPoint(x: 160, y: 520), CGPoint(x: 220, y: 480)],
+      [CGPoint(x: 120, y: 450), CGPoint(x: 200, y: 450)],
+    ]
+    #expect(!controller.addInk([[CGPoint(x: 1, y: 1)]], onPage: 0), "A dot is not a stroke")
+    #expect(!controller.addInk(strokes, onPage: 99))
+    #expect(controller.addInk(strokes, onPage: 0) && controller.hasUnsavedChanges)
+    controller.undoManager.undo()
+    #expect(controller.annotationCount(onPage: 0) == 0)
+    controller.undoManager.redo()
+
+    let url = temporaryURL()
+    try controller.save(to: url)
+    let ink = try #require(PDFDocument(url: url)?.page(at: 0)?.annotations.first { $0.type == "Ink" })
+    #expect(ink.paths?.count == 2)
+    #expect(ink.bounds.contains(CGPoint(x: 220, y: 480)) && ink.bounds.contains(CGPoint(x: 100, y: 500)))
+  }
+
+  @Test("Ink on a rotated page stays in page space, inside the page")
+  func inkOnRotatedPage() throws {
+    let document = try #require(PDFDocument(data: SyntheticPDF.make(pages: ["Rotated"])))
+    document.page(at: 0)?.rotation = 90
+    let controller = try PDFDocumentController(data: try #require(document.dataRepresentation()))
+    #expect(controller.addInk([[CGPoint(x: 72, y: 72), CGPoint(x: 300, y: 600)]], onPage: 0))
+    let url = temporaryURL()
+    try controller.save(to: url)
+    let page = try #require(PDFDocument(url: url)?.page(at: 0))
+    let ink = try #require(page.annotations.first { $0.type == "Ink" })
+    #expect(page.rotation == 90 && page.bounds(for: .mediaBox).contains(ink.bounds))
+  }
+
+  @Test("Strokes count only while drawing, and each one is reported")
+  func drawingMode() throws {
+    let controller = try PDFDocumentController(data: SyntheticPDF.makeSample())
+    var reported = 0
+    controller.strokeEnded([CGPoint(x: 10, y: 10), CGPoint(x: 50, y: 50)], onPage: 0)
+    #expect(controller.annotationCount(onPage: 0) == 0, "Not drawing: ignored")
+    controller.setDrawing(true) { reported += 1 }
+    #expect(controller.isDrawing)
+    controller.strokeEnded([CGPoint(x: 10, y: 10), CGPoint(x: 50, y: 50)], onPage: 0)
+    controller.strokeEnded([CGPoint(x: 10, y: 10)], onPage: 0)
+    #expect(controller.annotationCount(onPage: 0) == 1 && reported == 1)
+    controller.setDrawing(false)
+    #expect(!controller.isDrawing)
+  }
+
+  @Test("A saved signature is placed as ink in the lower third of the page, the right way up (F1c)")
+  func placeSignature() throws {
+    let controller = try PDFDocumentController(data: SyntheticPDF.makeSample())
+    // A stroke from the top left to the bottom right of a signature twice as wide as it is tall.
+    let signature = SavedSignature(strokes: [[.init(x: 0, y: 0), .init(x: 1, y: 1)]], aspectRatio: 2)
+    #expect(!controller.placeSignature(signature, onPage: 9))
+    #expect(controller.placeSignature(signature, onPage: 0, width: 200))
+    let url = temporaryURL()
+    try controller.save(to: url)
+    let page = try #require(PDFDocument(url: url)?.page(at: 0))
+    let ink = try #require(page.annotations.first { $0.type == "Ink" })
+    #expect(ink.contents == PDFDocumentController.signatureContents)
+    let box = page.bounds(for: .cropBox)
+    #expect(abs(ink.bounds.midX - box.midX) < 1)
+    #expect(ink.bounds.midY < box.midY, "Lower part of the page")
+    #expect(abs(ink.bounds.width - (200 + PDFDocumentController.inkLineWidth * 4)) < 1)
+    let path = try #require(ink.paths?.first)
+    #expect(path.bounds.width > path.bounds.height, "Wider than tall, as drawn")
+  }
+
+  @Test("A typed name is placed as free text in a script font")
+  func placeTypedSignature() throws {
+    let controller = try PDFDocumentController(data: SyntheticPDF.makeSample())
+    #expect(!controller.placeTypedSignature("   ", onPage: 0))
+    #expect(controller.placeTypedSignature(" Ada Lovelace ", onPage: 0))
+    let url = temporaryURL()
+    try controller.save(to: url)
+    let text = try #require(PDFDocument(url: url)?.page(at: 0)?.annotations.first { $0.type == "FreeText" })
+    #expect(text.contents == "Ada Lovelace")
+    controller.undoManager.undo()
+    #expect(controller.annotationCount(onPage: 0) == 0)
+  }
+
+  @Test(
+    "Rectangles, ovals and arrows become standard annotations between the drag's ends (F2b)",
+    arguments: [(DrawingTool.rectangle, "Square"), (.oval, "Circle"), (.arrow, "Line")])
+  func shapes(tool: DrawingTool, type: String) throws {
+    let controller = try PDFDocumentController(data: SyntheticPDF.makeSample())
+    #expect(!controller.addShape(tool, from: CGPoint(x: 100, y: 100), to: CGPoint(x: 102, y: 101), onPage: 0))
+    #expect(!controller.addShape(.pen, from: CGPoint(x: 100, y: 100), to: CGPoint(x: 300, y: 200), onPage: 0))
+    #expect(controller.addShape(tool, from: CGPoint(x: 300, y: 200), to: CGPoint(x: 100, y: 400), onPage: 0))
+    let url = temporaryURL()
+    try controller.save(to: url)
+    let shape = try #require(PDFDocument(url: url)?.page(at: 0)?.annotations.first { $0.type == type })
+    #expect(shape.bounds.contains(CGPoint(x: 200, y: 300)))
+    #expect(shape.bounds.width >= 200 && shape.bounds.height >= 200)
+    controller.undoManager.undo()
+    #expect(controller.annotationCount(onPage: 0) == 0)
+  }
+
+  @Test("The drawing tool decides what a stroke adds")
+  func strokesFollowTheTool() throws {
+    let controller = try PDFDocumentController(data: SyntheticPDF.makeSample())
+    controller.setDrawing(true, tool: .oval)
+    #expect(controller.drawingTool == .oval)
+    controller.strokeEnded([CGPoint(x: 100, y: 100), CGPoint(x: 150, y: 120), CGPoint(x: 250, y: 200)], onPage: 0)
+    #expect(controller.document.page(at: 0)?.annotations.first?.type == "Circle")
+    controller.setDrawing(false)
+  }
+
+  @Test("A text box keeps its text and can be undone")
+  func textBox() throws {
+    let controller = try PDFDocumentController(data: SyntheticPDF.makeSample())
+    #expect(!controller.addTextBox("  ", onPage: 0))
+    #expect(controller.addTextBox("Check this total\nwith accounts", onPage: 0))
+    let url = temporaryURL()
+    try controller.save(to: url)
+    let box = try #require(PDFDocument(url: url)?.page(at: 0)?.annotations.first { $0.type == "FreeText" })
+    #expect(box.contents == "Check this total\nwith accounts")
+    controller.undoManager.undo()
+    #expect(controller.annotationCount(onPage: 0) == 0)
+  }
+
+  @Test("A tap selects the annotation under it; its text can be edited and it can be deleted, undoably (F3)")
+  func selection() throws {
+    // The note is saved and reopened, so the edits below are the only changes undo sees: in a test
+    // every change happens in one run-loop event, which UndoManager groups together.
+    let original = try PDFDocumentController(data: TestPDFs.makeForm())
+    original.addNote("First", onPage: 0)
+    let url = temporaryURL()
+    try original.save(to: url)
+    let controller = try PDFDocumentController(url: url)
+    let box = try #require(controller.document.page(at: 0)?.bounds(for: .cropBox))
+    let note = CGPoint(x: box.minX + 36, y: box.maxY - 36)
+    #expect(controller.selectAnnotation(at: note, onPage: 0))
+    #expect(controller.selection == AnnotationSelection(kind: .note, pageIndex: 0, text: "First"))
+    #expect(controller.selection?.isTextEditable == true)
+
+    #expect(!controller.setSelectionText("   "))
+    #expect(controller.setSelectionText("Second") && controller.selection?.text == "Second")
+    let annotation = try #require(controller.document.page(at: 0)?.annotations.first { $0.type == "Text" })
+    #expect(annotation.contents == "Second")
+    controller.undoManager.undo()
+    #expect(annotation.contents == "First")
+
+    let before = controller.annotationCount(onPage: 0)
+    #expect(controller.deleteSelection() && controller.selection == nil)
+    #expect(controller.annotationCount(onPage: 0) == before - 1)
+    controller.undoManager.undo()
+    #expect(controller.annotationCount(onPage: 0) == before)
+    #expect(!controller.deleteSelection(), "Nothing selected")
+
+    #expect(!controller.selectAnnotation(at: CGPoint(x: 100, y: 610), onPage: 0), "Form fields are not selectable")
+    #expect(!controller.selectAnnotation(at: CGPoint(x: box.midX, y: box.midY), onPage: 0))
+    #expect(!controller.selectAnnotation(at: note, onPage: 9) && controller.selection == nil)
+  }
+
+  @Test("Every annotation type gets a kind")
+  func annotationKinds() {
+    let kinds: [(PDFAnnotationSubtype, AnnotationSelection.Kind)] = [
+      (.highlight, .highlight), (.underline, .underline), (.strikeOut, .strikeThrough), (.text, .note), (.ink, .ink),
+      (.square, .rectangle), (.circle, .oval), (.line, .line), (.freeText, .textBox), (.stamp, .stamp),
+      (PDFAnnotationSubtype(rawValue: "/Caret"), .other),
+    ]
+    for (subtype, kind) in kinds {
+      let annotation = PDFAnnotation(
+        bounds: .init(x: 0, y: 0, width: 10, height: 10), forType: subtype, withProperties: nil)
+      #expect(PDFDocumentController.kind(of: annotation) == kind, "\(subtype.rawValue)")
+    }
+    let link = PDFAnnotation(bounds: .init(x: 0, y: 0, width: 10, height: 10), forType: .link, withProperties: nil)
+    #expect(!PDFDocumentController.isSelectable(link))
+  }
+
   @Test("Every markup kind becomes a standard PDF annotation", arguments: TextMarkup.allCases)
   func markupKinds(markup: TextMarkup) throws {
     let controller = try PDFDocumentController(data: SyntheticPDF.makeSample())

@@ -12,6 +12,10 @@ public struct ReaderView<Assistant: View>: View {
   @State private var password = ""
   @State private var noteText = ""
   @State private var isAddingNote = false
+  @State private var isAddingTextBox = false
+  @State private var isEditingSelection = false
+  @State private var selectionText = ""
+  @State private var textBoxText = ""
   @State private var pageNumber = ""
   @Environment(\.scenePhase) private var scenePhase
   private let assistant: (ReaderAssistantContext) -> Assistant
@@ -27,11 +31,38 @@ public struct ReaderView<Assistant: View>: View {
     content
       .navigationTitle(model.document?.title ?? "")
       .navigationBarTitleDisplayMode(.inline)
-      .toolbar { ReaderToolbar(model: model, isAddingNote: $isAddingNote) }
+      .toolbar { ReaderToolbar(model: model, isAddingNote: $isAddingNote, isAddingTextBox: $isAddingTextBox) }
+      .alert(Text("Edit text", bundle: .module), isPresented: $isEditingSelection) {
+        TextField(text: $selectionText) { Text("Text", bundle: .module) }
+        Button {
+          Task { await model.setSelectionText(selectionText) }
+        } label: {
+          Text("Save", bundle: .module)
+        }
+        Button(role: .cancel) {
+        } label: {
+          Text("Cancel", bundle: .module)
+        }
+      }
+      .alert(Text("Add a text box", bundle: .module), isPresented: $isAddingTextBox) {
+        TextField(text: $textBoxText) { Text("Text", bundle: .module) }
+        Button {
+          Task { await model.addTextBox(textBoxText) }
+          textBoxText = ""
+        } label: {
+          Text("Add", bundle: .module)
+        }
+        Button(role: .cancel) {
+          textBoxText = ""
+        } label: {
+          Text("Cancel", bundle: .module)
+        }
+      }
       .sheet(item: $model.assistantTask, onDismiss: { model.assistantDismissed() }) { task in
         assistant(model.assistantContext(for: task))
       }
       .sheet(item: $model.sharing) { ShareSheet(file: $0) }
+      .sheet(isPresented: $model.showsSignatures) { SignatureSheet(model: model) }
       .sheet(isPresented: $model.showsOutline) { OutlineSheet(model: model) }
       .sheet(isPresented: $model.showsPages) { PageGridSheet(model: model) }
       .alert(Text("Add a note", bundle: .module), isPresented: $isAddingNote) {
@@ -160,6 +191,16 @@ public struct ReaderView<Assistant: View>: View {
 
   @ViewBuilder private var indicator: some View {
     VStack(spacing: Spacing.s100) {
+      if let selection = model.selection {
+        SelectionBar(
+          selection: selection,
+          onEdit: {
+            selectionText = selection.text ?? ""
+            isEditingSelection = true
+          },
+          onDelete: { Task { await model.deleteSelection() } },
+          onDone: { model.clearSelection() })
+      }
       if let progress = model.recognitionProgress {
         HStack {
           ProgressView(value: progress) { Text("Recognising text on this device…", bundle: .module) }
