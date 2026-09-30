@@ -124,7 +124,9 @@ ways.
    Dynamic Type, clipped text, traits and more
    ([performAccessibilityAudit](https://developer.apple.com/documentation/xcuiautomation/xcuiapplication/performaccessibilityaudit(for:_:)),
    [audit types](https://developer.apple.com/documentation/xcuiautomation/xcuiaccessibilityaudittype)).
-   Audits run at the default text size and at an accessibility size. An issue may be ignored only
+   Audits run at the default text size and at an accessibility size: `LargeTextUITests` starts the
+   app at AX3 and audits every screen and sheet. Each audit prints how long it took, so a timeout in
+   CI shows how close it came. An issue may be ignored only
    through the audit's issue handler, for a documented reason (for example, contrast inside a PDF
    page, which is the author's content, not our interface), with an issue link.
 2. **Contrast tests of design tokens.** A unit test computes the contrast ratio of every foreground
@@ -135,8 +137,9 @@ ways.
 3. **A scripted manual VoiceOver pass** before every release, on a device: onboarding; open a
    document and move by headings and pages with the rotor; read aloud; annotate; scan; sign; ask a
    question and follow a citation; the paywall and restore; the privacy centre. Spot checks with
-   Voice Control, Switch Control, the largest text size and a hardware keyboard on iPad. The script
-   and its sign-off live in the release checklist ([release management](release-management.md)).
+   Voice Control, Switch Control, the largest text size and a hardware keyboard on iPad. The
+   [VoiceOver script](process/voiceover-script.md) holds the steps and the sign-off; the release
+   checklist ([release management](release-management.md)) requires it.
 
 ## Performance tests
 

@@ -66,7 +66,7 @@ section and drafts the store text. Then the release pull request is opened from 
 - [ ] Golden PDF corpus: no regressions (results linked)
 - [ ] OCR accuracy (EN, FR): within thresholds (results linked)
 - [ ] AI evaluation suite: within thresholds (results linked)
-- [ ] Manual VoiceOver and Dynamic Type pass on the key flows
+- [ ] Manual VoiceOver and Dynamic Type pass on the key flows ([VoiceOver script](process/voiceover-script.md))
 - [ ] What's New drafted in EN and FR (each at most 4000 characters)
 - [ ] App Privacy answers and privacy manifest reviewed if data practices changed
 - [ ] Privacy policy and support URLs open and current

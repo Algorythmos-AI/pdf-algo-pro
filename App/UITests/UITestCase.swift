@@ -77,6 +77,12 @@ class UITestCase: XCTestCase {
       .matching(NSPredicate(format: "identifier ENDSWITH %@", ".actionBar")).allElementsBoundByIndex.map(\.frame)
     var findings: [String] = []
     var quarantined: [String] = []
+    // How long each audit takes, in the CI log, for the timeouts in issue #53.
+    let started = Date()
+    defer {
+      let seconds = String(format: "%.1f", Date().timeIntervalSince(started))
+      print("Accessibility audit at \(URL(fileURLWithPath: "\(file)").lastPathComponent):\(line) took \(seconds) s")
+    }
     do {
       try runAudit(app, bars: bars, actionBars: actionBars, findings: &findings, quarantined: &quarantined)
     } catch let error as NSError
