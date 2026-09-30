@@ -113,6 +113,11 @@ struct ScanModelTests {
     let (model, library, _, _) = makeModel()
     await model.review([try #require(SyntheticPDF.makeTextImage("x"))])
     #expect(model.title == model.defaultTitle, "Without a recogniser the date title stays")
+    // The review screen draws with its pages, at a large text size.
+    await model.review([try #require(SyntheticPDF.makeTextImage("x")), try #require(SyntheticPDF.makeTextImage("y"))])
+    let review = ScanView(model: model).content.frame(width: 390, height: 700)
+      .environment(\.dynamicTypeSize, .accessibility3)
+    #expect(ImageRenderer(content: review).uiImage != nil)
     model.discardReview()
     #expect(model.phase == .ready && model.pages.isEmpty)
     #expect(try await library.documents(in: .all, sortedBy: .title).isEmpty)
