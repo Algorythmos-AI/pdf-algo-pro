@@ -133,6 +133,7 @@ final class AppModel {
   func makeSettings() -> SettingsModel {
     SettingsModel(
       store: container.settings, diagnostics: { [container] in await container.diagnostics() },
+      activity: container.activity,
       onChange: { [weak self] settings in
         guard let self else { return }
         let textSettingChanged = settings.indexesTextInSpotlight != self.settings.indexesTextInSpotlight

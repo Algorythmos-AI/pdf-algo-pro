@@ -11,6 +11,16 @@
         }
       }
     },
+    "AI requests in the last 30 days" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Demandes à l’IA ces 30 derniers jours"
+          }
+        }
+      }
+    },
     "All tools" : {
       "localizations" : {
         "fr" : {
@@ -77,6 +87,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Discuter avec un PDF"
+          }
+        }
+      }
+    },
+    "Claude" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude"
           }
         }
       }
@@ -191,6 +211,16 @@
         }
       }
     },
+    "Documents sent to cloud AI" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Documents envoyés à une IA dans le cloud"
+          }
+        }
+      }
+    },
     "Done" : {
       "localizations" : {
         "fr" : {
@@ -291,6 +321,26 @@
         }
       }
     },
+    "On this device" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sur cet appareil"
+          }
+        }
+      }
+    },
+    "Only these counts are kept, on this iPhone: never your questions, answers or documents." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seuls ces nombres sont conservés, sur cet iPhone : jamais vos questions, réponses ou documents."
+          }
+        }
+      }
+    },
     "Page layout" : {
       "localizations" : {
         "fr" : {
@@ -307,6 +357,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Confidentialité"
+          }
+        }
+      }
+    },
+    "Privacy report" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rapport de confidentialité"
+          }
+        }
+      }
+    },
+    "Private Cloud Compute" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Private Cloud Compute"
           }
         }
       }
@@ -457,6 +527,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Les résumés, les réponses et l’extraction s’exécutent sur cet appareil avec Apple Intelligence. Rien n’est envoyé ailleurs."
+          }
+        }
+      }
+    },
+    "Summaries, answers and extraction run on this iPhone. A cloud option only ever runs after you turn it on." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les résumés, réponses et extractions sont faits sur cet iPhone. Une option dans le cloud ne s’exécute qu’après que vous l’avez activée."
           }
         }
       }

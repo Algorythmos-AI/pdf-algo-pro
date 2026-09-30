@@ -58,6 +58,8 @@ final class AppContainer {
   /// Recognises text in image-only documents, going on in the background and resuming after a stop (P8).
   let recognition: RecognitionCoordinator
   let telemetry: LocalTelemetry
+  /// AI requests by tier, for the privacy report (FR-SET-005); about this device, so not backed up.
+  let activity: AIActivityLog
   /// Problems MetricKit reported, kept on this device (P6).
   let diagnosticsLog: DiagnosticsLog
   private let metricKit: MetricKitCollector?
@@ -95,14 +97,16 @@ final class AppContainer {
     self.index = index
     intake = DocumentIntake(library: library, inspector: PDFKitInspector(), index: index)
     let isHidden: @Sendable () -> Bool = { settings.load().isIntelligenceHidden }
+    let activity = AIActivityLog(url: folders.diagnostics.appendingPathComponent("ai-activity.json"))
+    self.activity = activity
     #if DEBUG
       if environment.isUITesting {
         intelligence = ScriptedIntelligence(unavailable: environment.intelligenceUnavailable, isHidden: isHidden)
       } else {
-        intelligence = IntelligenceRouter(models: [OnDeviceModel()], isHidden: isHidden)
+        intelligence = IntelligenceRouter(models: [OnDeviceModel()], isHidden: isHidden, activity: activity)
       }
     #else
-      intelligence = IntelligenceRouter(models: [OnDeviceModel()], isHidden: isHidden)
+      intelligence = IntelligenceRouter(models: [OnDeviceModel()], isHidden: isHidden, activity: activity)
     #endif
     builder = SearchablePDFBuilder(recognizer: VisionTextRecognizer())
     telemetry = LocalTelemetry()

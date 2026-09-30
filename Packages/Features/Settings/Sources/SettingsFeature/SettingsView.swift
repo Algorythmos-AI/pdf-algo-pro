@@ -132,6 +132,16 @@ public struct SettingsView: View {
           .foregroundStyle(Color.ds.labelSecondary)
         }
         Section {
+          NavigationLink {
+            PrivacyReportView(model: model)
+          } label: {
+            Text("Privacy report", bundle: .module)
+          }
+          .accessibilityIdentifier("settings.privacyReport")
+        } header: {
+          Text("Privacy", bundle: .module).foregroundStyle(Color.ds.labelSecondary)
+        }
+        Section {
           LabeledContent {
             Text(version).foregroundStyle(Color.ds.labelSecondary)
           } label: {

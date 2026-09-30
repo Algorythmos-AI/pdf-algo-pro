@@ -17,6 +17,20 @@ struct SettingsModelTests {
     return (model, store, changes)
   }
 
+  @Test("The privacy report loads the last 30 days' counts and draws (FR-SET-005)")
+  func privacyReport() async {
+    let model = SettingsModel(
+      store: InMemorySettingsStore(), diagnostics: { "" }, activity: FixedActivity(), onChange: { _ in })
+    await model.loadActivity()
+    #expect(model.activity?.requests[.onDevice] == 4 && model.activity?.documentsSentToCloud == 0)
+    let view = NavigationStack { PrivacyReportView(model: model) }.frame(width: 390, height: 800)
+      .environment(\.dynamicTypeSize, .accessibility3)
+    #expect(ImageRenderer(content: view).uiImage != nil)
+    let empty = SettingsModel(store: InMemorySettingsStore(), diagnostics: { "" }, onChange: { _ in })
+    await empty.loadActivity()
+    #expect(empty.activity == AIActivity())
+  }
+
   @Test("Hiding AI is saved and announced at once (FR-AI-009)")
   func hideAI() {
     let (model, store, changes) = makeModel()
@@ -143,5 +157,12 @@ private final class Answers {
 
   func next() -> Bool {
     values.isEmpty ? false : values.removeFirst()
+  }
+}
+
+private struct FixedActivity: AIActivityRecording {
+  func record(_ tier: IntelligenceTier) async {}
+  func activity(days: Int) async -> AIActivity {
+    AIActivity(requests: [.onDevice: 4], documentsSentToCloud: 0, days: days)
   }
 }
