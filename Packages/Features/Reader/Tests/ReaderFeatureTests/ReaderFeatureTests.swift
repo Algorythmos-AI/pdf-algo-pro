@@ -363,12 +363,13 @@ struct ReaderModelTests {
         try TestPDFs.makeProtected(
           userPassword: nil, ownerPassword: "owner-\(UUID())", permissions: [.allowsLowQualityPrinting])))
     await restricted.load()
-    let page = try #require(restricted.controller?.document.page(at: 0))
-    page.addAnnotation(
-      PDFAnnotation(bounds: CGRect(x: 100, y: 100, width: 50, height: 50), forType: .square, withProperties: nil))
-    #expect(restricted.controller?.selectAnnotation(at: CGPoint(x: 125, y: 125), onPage: 0) == true)
+    // PDFKit adds no annotation to a document whose author forbids comments, so nothing there can be
+    // selected; the refusal is checked directly.
     await restricted.deleteSelection()
-    #expect(restricted.errorMessage?.contains("doesn't allow") == true && restricted.selection != nil)
+    #expect(restricted.errorMessage?.contains("doesn't allow") == true)
+    restricted.errorMessage = nil
+    await restricted.setSelectionText("New")
+    #expect(restricted.errorMessage?.contains("doesn't allow") == true)
   }
 
   @Test("The selection bar draws for every kind at a large text size", arguments: AnnotationSelection.Kind.allCases)

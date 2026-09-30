@@ -17,8 +17,11 @@ struct SelectionBar: View {
         Button(action: onEdit) { Text("Edit text", bundle: .module).minimumTarget() }
           .accessibilityIdentifier("reader.selection.edit")
       }
-      Button(role: .destructive, action: onDelete) { Text("Delete", bundle: .module).minimumTarget() }
-        .accessibilityIdentifier("reader.selection.delete")
+      // systemRed is below 4.5:1 on the material; the token keeps the contrast in every appearance.
+      Button(role: .destructive, action: onDelete) {
+        Text("Delete", bundle: .module).foregroundStyle(Color.ds.destructiveText).minimumTarget()
+      }
+      .accessibilityIdentifier("reader.selection.delete")
       Button(action: onDone) { Text("Done", bundle: .module).minimumTarget() }
         .accessibilityIdentifier("reader.selection.done")
     }
