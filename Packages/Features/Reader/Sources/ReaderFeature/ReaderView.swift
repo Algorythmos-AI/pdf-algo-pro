@@ -252,6 +252,12 @@ public struct ReaderView<Assistant: View>: View {
     }
   }
 
+  /// Tries the typed password; the field clears, so a wrong one is typed again from scratch.
+  private func tryPassword() {
+    model.unlock(password: password)
+    password = ""
+  }
+
   private func locked(wrongPassword: Bool) -> some View {
     VStack(spacing: Spacing.s200) {
       Image(systemName: "lock.doc").font(.largeTitle).foregroundStyle(Color.ds.labelSecondary).accessibilityHidden(true)
@@ -259,7 +265,7 @@ public struct ReaderView<Assistant: View>: View {
       SecureField(text: $password) { Text("Password", bundle: .module) }
         .textFieldStyle(.roundedBorder)
         .submitLabel(.go)
-        .onSubmit { model.unlock(password: password) }
+        .onSubmit { tryPassword() }
         .accessibilityIdentifier("reader.password")
       if wrongPassword {
         Label {
@@ -269,9 +275,10 @@ public struct ReaderView<Assistant: View>: View {
         }
         .foregroundStyle(Color.ds.statusError)
         .font(.footnote)
+        .accessibilityIdentifier("reader.wrongPassword")
       }
       Button {
-        model.unlock(password: password)
+        tryPassword()
       } label: {
         Text("Open", bundle: .module)
       }

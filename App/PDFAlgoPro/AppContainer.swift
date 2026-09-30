@@ -19,6 +19,8 @@ struct LaunchEnvironment {
   let skipsOnboarding: Bool
   /// Add the synthetic sample document at launch (`-seed-library sample`).
   let seedsSample: Bool
+  /// Add a synthetic password-protected document at launch (`-seed-library locked`), for the unlock tests.
+  let seedsLocked: Bool
   /// Make the scripted intelligence router report that Apple Intelligence is unavailable.
   let intelligenceUnavailable: Bool
   /// Turn off UIKit animations so UI tests do not wait on them.
@@ -32,12 +34,14 @@ struct LaunchEnvironment {
         arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil
       }
       seedsSample = seed == "sample"
+      seedsLocked = seed == "locked"
       intelligenceUnavailable = arguments.contains("-intelligence-unavailable")
       disablesAnimations = arguments.contains("-disable-animations")
     #else
       isUITesting = false
       skipsOnboarding = false
       seedsSample = false
+      seedsLocked = false
       intelligenceUnavailable = false
       disablesAnimations = false
     #endif

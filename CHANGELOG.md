@@ -85,6 +85,7 @@ Store notes (see the changelog strategy).
   staying until the third and still saying "Open your first PDF".
 - Read aloud goes on from page to page to the end of the document, turning the pages as it reads,
   and carries on from the page on screen when you start it again.
+- After a wrong password, the password field clears, so the next attempt starts fresh.
 - The assistant shows only the latest answer, and every sentence of an answer is checked against
   the page it cites; unsupported parts are left out (#60).
 - Deleting permanently asks first; onboarding marks the options coming in a later update; hiding
