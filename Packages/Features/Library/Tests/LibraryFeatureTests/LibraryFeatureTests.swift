@@ -1,6 +1,7 @@
 import Core
 import CoreTestSupport
 import Foundation
+import ImageIO
 import PDFEngine
 import SwiftUI
 import Testing
@@ -103,6 +104,24 @@ struct LibraryModelTests {
     harness.model.query = "  "
     await harness.model.search()
     #expect(harness.model.results == nil)
+  }
+
+  @Test("Photos become a PDF in the library, one page each; unreadable ones are counted (FR-ORG-008)")
+  func pdfFromPhotos() async throws {
+    let harness = Harness()
+    let image = try #require(SyntheticPDF.makeTextImage("Receipt", size: CGSize(width: 800, height: 1200)))
+    let encoded = NSMutableData()
+    let destination = try #require(CGImageDestinationCreateWithData(encoded, "public.png" as CFString, 1, nil))
+    CGImageDestinationAddImage(destination, image, nil)
+    #expect(CGImageDestinationFinalize(destination))
+    let png = encoded as Data
+    await harness.model.addPhotos([png, Data("not a photo".utf8), png])
+    let document = try #require(harness.model.documents.first)
+    #expect(harness.model.selection?.id == document.id)
+    let url = try await harness.library.fileURL(for: document.id)
+    #expect(try PDFDocumentController(url: url).pageCount == 2)
+    #expect(harness.model.errorMessage != nil, "The unreadable photo is counted")
+    #expect(LibraryModel.image(from: Data()) == nil)
   }
 
   @Test("A search that fails says so instead of showing no results")

@@ -123,6 +123,52 @@
         }
       }
     },
+    "%lld photo(s) couldn't be read and were left out." : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld photo couldn't be read and was left out."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld photos couldn't be read and were left out."
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld photos n’ont pas pu être lues et ont été laissées de côté."
+                }
+              },
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld photo n’a pas pu être lue et a été laissée de côté."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld photos n’ont pas pu être lues et ont été laissées de côté."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "A document needs a name. The old name was kept." : {
       "localizations" : {
         "fr" : {
@@ -219,6 +265,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Choisissez un document dans la bibliothèque."
+          }
+        }
+      }
+    },
+    "Choose files" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisir des fichiers"
+          }
+        }
+      }
+    },
+    "Couldn't make a PDF from those photos. Nothing changed." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible de créer un PDF à partir de ces photos. Rien n’a changé."
           }
         }
       }
@@ -483,12 +549,32 @@
         }
       }
     },
+    "PDF from photos" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PDF à partir de photos"
+          }
+        }
+      }
+    },
     "Password protected · %@" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Protégé par mot de passe · %@"
+          }
+        }
+      }
+    },
+    "Photos %@" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Photos %@"
           }
         }
       }
