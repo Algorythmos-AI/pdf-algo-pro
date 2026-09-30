@@ -219,17 +219,6 @@ struct ReaderToolbar: ToolbarContent {
             .keyboardShortcut("p")
           }
           Button {
-            Task { await model.toggleBookmark() }
-          } label: {
-            Label {
-              model.isCurrentPageBookmarked
-                ? Text("Remove bookmark", bundle: .module) : Text("Bookmark this page", bundle: .module)
-            } icon: {
-              Image(systemName: model.isCurrentPageBookmarked ? "bookmark.slash" : "bookmark")
-            }
-          }
-          .accessibilityIdentifier("reader.bookmark")
-          Button {
             model.showsGoToPage = true
           } label: {
             Label {
@@ -256,6 +245,17 @@ struct ReaderToolbar: ToolbarContent {
               Image(systemName: "list.bullet.indent")
             }
           }
+          Button {
+            Task { await model.toggleBookmark() }
+          } label: {
+            Label {
+              model.isCurrentPageBookmarked
+                ? Text("Remove bookmark", bundle: .module) : Text("Bookmark this page", bundle: .module)
+            } icon: {
+              Image(systemName: model.isCurrentPageBookmarked ? "bookmark.slash" : "bookmark")
+            }
+          }
+          .accessibilityIdentifier("reader.bookmark")
           Section {
             Menu {
               Button {
