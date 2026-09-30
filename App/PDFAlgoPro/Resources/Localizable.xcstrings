@@ -33,6 +33,16 @@
         }
       }
     },
+    "Generated on this device. Check important details in the document." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Généré sur cet appareil. Vérifiez les détails importants dans le document."
+          }
+        }
+      }
+    },
     "Open Document" : {
       "localizations" : {
         "fr" : {
@@ -73,12 +83,92 @@
         }
       }
     },
+    "Pages cited: %@" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pages citées : %@"
+          }
+        }
+      }
+    },
+    "PDF Algo Pro is still starting. Try again in a moment." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PDF Algo Pro démarre encore. Réessayez dans un instant."
+          }
+        }
+      }
+    },
     "Scan Document" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Numériser un document"
+          }
+        }
+      }
+    },
+    "Summaries need Apple Intelligence on this device, and AI features turned on." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les résumés nécessitent Apple Intelligence sur cet appareil et les fonctions d’IA activées."
+          }
+        }
+      }
+    },
+    "Summarise Document" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Résumer un document"
+          }
+        }
+      }
+    },
+    "Summarises a document from your library on this device, with the pages it draws on." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Résume un document de votre bibliothèque sur cet appareil, avec les pages sur lesquelles il s’appuie."
+          }
+        }
+      }
+    },
+    "That document has no text to summarise yet. Open it and recognise its text first." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce document n’a pas encore de texte à résumer. Ouvrez-le et lancez d’abord la reconnaissance du texte."
+          }
+        }
+      }
+    },
+    "That document is no longer in your library." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce document n’est plus dans votre bibliothèque."
+          }
+        }
+      }
+    },
+    "The summary couldn't be made. Try again in the app." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le résumé n’a pas pu être créé. Réessayez dans l’app."
           }
         }
       }
