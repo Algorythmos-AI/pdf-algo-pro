@@ -1,7 +1,96 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-
+    "Claude by Anthropic" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude d’Anthropic"
+          }
+        }
+      }
+    },
+    "Explains the document. Not legal advice." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Explique le document. Ce n’est pas un conseil juridique."
+          }
+        }
+      }
+    },
+    "Generated from this document. Check important details against the pages cited." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Généré à partir de ce document. Vérifiez les détails importants sur les pages citées."
+          }
+        }
+      }
+    },
+    "On device" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sur l’appareil"
+          }
+        }
+      }
+    },
+    "Opens the page and highlights the passage." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvre la page et met le passage en évidence."
+          }
+        }
+      }
+    },
+    "p. %lld" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "p. %lld"
+          }
+        }
+      }
+    },
+    "Page %lld" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Page %lld"
+          }
+        }
+      }
+    },
+    "Private Cloud Compute" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Private Cloud Compute"
+          }
+        }
+      }
+    },
+    "Source: page %lld" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Source : page %lld"
+          }
+        }
+      }
+    }
   },
   "version" : "1.0"
 }

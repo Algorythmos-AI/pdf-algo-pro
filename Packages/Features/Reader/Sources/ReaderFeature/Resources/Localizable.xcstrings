@@ -1,7 +1,958 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-
+    "%lld" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld"
+          }
+        }
+      }
+    },
+    "%lld of %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld of %2$lld"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld sur %lld"
+          }
+        }
+      }
+    },
+    "Add" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter"
+          }
+        }
+      }
+    },
+    "Add a note" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter une note"
+          }
+        }
+      }
+    },
+    "Add a text box" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter une zone de texte"
+          }
+        }
+      }
+    },
+    "Add note" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter une note"
+          }
+        }
+      }
+    },
+    "Annotation" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annotation"
+          }
+        }
+      }
+    },
+    "Arrow" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Flèche"
+          }
+        }
+      }
+    },
+    "Ask" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Demander"
+          }
+        }
+      }
+    },
+    "Ask a question" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Poser une question"
+          }
+        }
+      }
+    },
+    "Can't open this document" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible d’ouvrir ce document"
+          }
+        }
+      }
+    },
+    "Cancel" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annuler"
+          }
+        }
+      }
+    },
+    "Changes since the last save are replaced. You can switch back the same way." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les modifications faites depuis le dernier enregistrement sont remplacées. Vous pouvez revenir en arrière de la même façon."
+          }
+        }
+      }
+    },
+    "Clear" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Effacer"
+          }
+        }
+      }
+    },
+    "Contents" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Table des matières"
+          }
+        }
+      }
+    },
+    "Continuous" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continu"
+          }
+        }
+      }
+    },
+    "Couldn't reach the signatures saved on this device. Try again." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible d’accéder aux signatures enregistrées sur cet appareil. Réessayez."
+          }
+        }
+      }
+    },
+    "Couldn't restore the earlier version. The document hasn't changed." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible de restaurer la version précédente. Le document n’a pas changé."
+          }
+        }
+      }
+    },
+    "Couldn't save your changes because this iPhone is almost full. The document on disk hasn't changed. Free up some space, then try again." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible d’enregistrer vos modifications, car cet iPhone est presque plein. Le document enregistré n’a pas changé. Libérez de l’espace, puis réessayez."
+          }
+        }
+      }
+    },
+    "Couldn't save your changes. The document on disk hasn't changed. Try again." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible d’enregistrer vos modifications. Le document enregistré n’a pas changé. Réessayez."
+          }
+        }
+      }
+    },
+    "Delete" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Supprimer"
+          }
+        }
+      }
+    },
+    "Document pages" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pages du document"
+          }
+        }
+      }
+    },
+    "Done" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        }
+      }
+    },
+    "Draw" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dessiner"
+          }
+        }
+      }
+    },
+    "Draw a new signature" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dessiner une nouvelle signature"
+          }
+        }
+      }
+    },
+    "Draw your signature with a finger or Apple Pencil, or type your name below" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dessinez votre signature avec le doigt ou l’Apple Pencil, ou saisissez votre nom ci-dessous"
+          }
+        }
+      }
+    },
+    "Drawing" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dessin"
+          }
+        }
+      }
+    },
+    "Edit text" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modifier le texte"
+          }
+        }
+      }
+    },
+    "Enter a page number from 1 to %lld." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saisissez un numéro de page de 1 à %lld."
+          }
+        }
+      }
+    },
+    "Explain contract" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expliquer le contrat"
+          }
+        }
+      }
+    },
+    "Extract data" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Extraire les données"
+          }
+        }
+      }
+    },
+    "Find" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rechercher"
+          }
+        }
+      }
+    },
+    "Go" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aller"
+          }
+        }
+      }
+    },
+    "Go to page" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aller à la page"
+          }
+        }
+      }
+    },
+    "Highlight" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Surlignage"
+          }
+        }
+      }
+    },
+    "Layout" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disposition"
+          }
+        }
+      }
+    },
+    "Line" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ligne"
+          }
+        }
+      }
+    },
+    "Markup" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annotation"
+          }
+        }
+      }
+    },
+    "More" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plus"
+          }
+        }
+      }
+    },
+    "No table of contents" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucune table des matières"
+          }
+        }
+      }
+    },
+    "Note" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Note"
+          }
+        }
+      }
+    },
+    "OK" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        }
+      }
+    },
+    "Open" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvrir"
+          }
+        }
+      }
+    },
+    "Or type your name" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ou saisissez votre nom"
+          }
+        }
+      }
+    },
+    "Oval" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ovale"
+          }
+        }
+      }
+    },
+    "Page %@" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Page %@"
+          }
+        }
+      }
+    },
+    "Page %lld" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Page %lld"
+          }
+        }
+      }
+    },
+    "Page number" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Numéro de page"
+          }
+        }
+      }
+    },
+    "Pages" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pages"
+          }
+        }
+      }
+    },
+    "Password" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mot de passe"
+          }
+        }
+      }
+    },
+    "Place typed signature" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Placer la signature saisie"
+          }
+        }
+      }
+    },
+    "Places it on this page" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La place sur cette page"
+          }
+        }
+      }
+    },
+    "Print" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Imprimer"
+          }
+        }
+      }
+    },
+    "Read aloud" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lire à voix haute"
+          }
+        }
+      }
+    },
+    "Recognise text" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reconnaître le texte"
+          }
+        }
+      }
+    },
+    "Recognising text on this device…" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reconnaissance du texte sur cet appareil…"
+          }
+        }
+      }
+    },
+    "Rectangle" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rectangle"
+          }
+        }
+      }
+    },
+    "Redo" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rétablir"
+          }
+        }
+      }
+    },
+    "Restore" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restaurer"
+          }
+        }
+      }
+    },
+    "Restore the version before the last save" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restaurer la version d’avant le dernier enregistrement"
+          }
+        }
+      }
+    },
+    "Restore the version before the last save?" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restaurer la version d’avant le dernier enregistrement ?"
+          }
+        }
+      }
+    },
+    "Save" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enregistrer"
+          }
+        }
+      }
+    },
+    "Save and place" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enregistrer et placer"
+          }
+        }
+      }
+    },
+    "Saved on this device" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enregistrées sur cet appareil"
+          }
+        }
+      }
+    },
+    "Saved signature from %@" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signature enregistrée le %@"
+          }
+        }
+      }
+    },
+    "Select some text first, then choose how to mark it." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sélectionnez d’abord du texte, puis choisissez comment l’annoter."
+          }
+        }
+      }
+    },
+    "Shapes" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Formes"
+          }
+        }
+      }
+    },
+    "Share" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Partager"
+          }
+        }
+      }
+    },
+    "Signature" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signature"
+          }
+        }
+      }
+    },
+    "Signature pad" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zone de signature"
+          }
+        }
+      }
+    },
+    "Single page" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Page unique"
+          }
+        }
+      }
+    },
+    "Something went wrong" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un problème est survenu"
+          }
+        }
+      }
+    },
+    "Stamp" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tampon"
+          }
+        }
+      }
+    },
+    "Stop reading" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Arrêter la lecture"
+          }
+        }
+      }
+    },
+    "Strike through" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Barrer"
+          }
+        }
+      }
+    },
+    "Strike-through" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Texte barré"
+          }
+        }
+      }
+    },
+    "Summarise" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Résumer"
+          }
+        }
+      }
+    },
+    "Text" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Texte"
+          }
+        }
+      }
+    },
+    "Text box" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zone de texte"
+          }
+        }
+      }
+    },
+    "Text recognition didn't finish. The document hasn't changed." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La reconnaissance du texte n’a pas abouti. Le document n’a pas changé."
+          }
+        }
+      }
+    },
+    "That password didn't open the document." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce mot de passe n’a pas ouvert le document."
+          }
+        }
+      }
+    },
+    "The author of this document doesn't allow notes, markup or changes to it, so nothing was changed." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L’auteur de ce document n’autorise ni notes, ni annotations, ni modifications, rien n’a donc été changé."
+          }
+        }
+      }
+    },
+    "The document changed while its text was being recognised, so it wasn't replaced. Try again." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le document a changé pendant la reconnaissance de son texte, il n’a donc pas été remplacé. Réessayez."
+          }
+        }
+      }
+    },
+    "This document doesn't include one. Use Pages to jump to a page." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce document n’en contient pas. Utilisez Pages pour aller à une page."
+          }
+        }
+      }
+    },
+    "This document has %lld pages." : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "This document has %lld page."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "This document has %lld pages."
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Ce document compte %lld pages."
+                }
+              },
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Ce document compte %lld page."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Ce document compte %lld pages."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "This document is no longer in the library." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce document n’est plus dans la bibliothèque."
+          }
+        }
+      }
+    },
+    "This document is password protected" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce document est protégé par un mot de passe"
+          }
+        }
+      }
+    },
+    "This file can't be opened. It may be damaged or not a PDF. Your library hasn't changed." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible d’ouvrir ce fichier. Il est peut-être endommagé ou n’est pas un PDF. Votre bibliothèque n’a pas changé."
+          }
+        }
+      }
+    },
+    "Underline" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Soulignement"
+          }
+        }
+      }
+    },
+    "Undo" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annuler"
+          }
+        }
+      }
+    },
+    "Your name" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre nom"
+          }
+        }
+      }
+    }
   },
   "version" : "1.0"
 }

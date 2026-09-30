@@ -1,7 +1,78 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-
+    "%@" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@"
+          }
+        }
+      }
+    },
+    "Document" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Document"
+          }
+        }
+      }
+    },
+    "Drawing area" : {
+      "comment" : "VoiceOver label for the layer that draws ink",
+      "extractionState" : "stale",
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zone de dessin"
+          }
+        }
+      }
+    },
+    "Open Document" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvrir un document"
+          }
+        }
+      }
+    },
+    "Opens a document from your PDF Algo Pro library." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvre un document de votre bibliothèque PDF Algo Pro."
+          }
+        }
+      }
+    },
+    "Opens the scanner to make a searchable PDF on this device." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvre le scanner pour créer un PDF avec recherche, sur cet appareil."
+          }
+        }
+      }
+    },
+    "Scan Document" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Numériser un document"
+          }
+        }
+      }
+    }
   },
   "version" : "1.0"
 }

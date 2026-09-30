@@ -1,7 +1,386 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-
+    "AI features are turned off in Settings." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les fonctionnalités d’IA sont désactivées dans les réglages."
+          }
+        }
+      }
+    },
+    "Answers come only from this document and cite their pages." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les réponses proviennent uniquement de ce document et citent leurs pages."
+          }
+        }
+      }
+    },
+    "Apple Intelligence is still getting ready on this device. Try again in a little while." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Intelligence est encore en cours de préparation sur cet appareil. Réessayez dans un moment."
+          }
+        }
+      }
+    },
+    "Ask" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Demander"
+          }
+        }
+      }
+    },
+    "Ask about this document" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Poser une question sur ce document"
+          }
+        }
+      }
+    },
+    "Check this value" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vérifiez cette valeur"
+          }
+        }
+      }
+    },
+    "Contract" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contrat"
+          }
+        }
+      }
+    },
+    "Copy" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copier"
+          }
+        }
+      }
+    },
+    "Copy as CSV" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copier en CSV"
+          }
+        }
+      }
+    },
+    "Date" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Date"
+          }
+        }
+      }
+    },
+    "Document intelligence isn't available" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L’intelligence documentaire n’est pas disponible"
+          }
+        }
+      }
+    },
+    "Document type" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Type de document"
+          }
+        }
+      }
+    },
+    "Done" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        }
+      }
+    },
+    "Due date" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Échéance"
+          }
+        }
+      }
+    },
+    "Extract" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Extraire"
+          }
+        }
+      }
+    },
+    "From" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "De"
+          }
+        }
+      }
+    },
+    "No fields were found in this document." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun champ n’a été trouvé dans ce document."
+          }
+        }
+      }
+    },
+    "No text to read yet" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pas encore de texte à lire"
+          }
+        }
+      }
+    },
+    "Not found in this document" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Introuvable dans ce document"
+          }
+        }
+      }
+    },
+    "p. %lld" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "p. %lld"
+          }
+        }
+      }
+    },
+    "Part of the answer wasn't supported by this document, so it was left out." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Une partie de la réponse n’était pas étayée par ce document, elle a donc été retirée."
+          }
+        }
+      }
+    },
+    "Reading the document on this device…" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lecture du document sur cet appareil…"
+          }
+        }
+      }
+    },
+    "Reference number" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Numéro de référence"
+          }
+        }
+      }
+    },
+    "Share" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Partager"
+          }
+        }
+      }
+    },
+    "Sources" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sources"
+          }
+        }
+      }
+    },
+    "Sources: %@" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sources : %@"
+          }
+        }
+      }
+    },
+    "Summarise" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Résumer"
+          }
+        }
+      }
+    },
+    "Task" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tâche"
+          }
+        }
+      }
+    },
+    "That didn't work" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cela n’a pas fonctionné"
+          }
+        }
+      }
+    },
+    "The answer isn't in the text of this document, so nothing was guessed." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La réponse ne figure pas dans le texte de ce document, rien n’a donc été deviné."
+          }
+        }
+      }
+    },
+    "The request didn't finish. Your document hasn't changed. Try again." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La demande n’a pas abouti. Votre document n’a pas changé. Réessayez."
+          }
+        }
+      }
+    },
+    "This device doesn't support Apple Intelligence. Reading, search, markup and scanning all still work." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cet appareil ne prend pas en charge Apple Intelligence. La lecture, la recherche, les annotations et la numérisation fonctionnent toujours."
+          }
+        }
+      }
+    },
+    "This looks like a scan. Choose Recognise text in the reader's More menu, then try again." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cela ressemble à une numérisation. Choisissez « Reconnaître le texte » dans le menu Plus du lecteur, puis réessayez."
+          }
+        }
+      }
+    },
+    "This request is too large for the on-device model. Try a shorter question or a smaller document." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cette demande est trop volumineuse pour le modèle sur l’appareil. Essayez une question plus courte ou un document plus petit."
+          }
+        }
+      }
+    },
+    "To" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "À"
+          }
+        }
+      }
+    },
+    "Total" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Total"
+          }
+        }
+      }
+    },
+    "Try again" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Réessayer"
+          }
+        }
+      }
+    },
+    "Turn on Apple Intelligence in the Settings app to use it here. Everything else works without it." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activez Apple Intelligence dans l’app Réglages pour l’utiliser ici. Tout le reste fonctionne sans."
+          }
+        }
+      }
+    }
   },
   "version" : "1.0"
 }

@@ -32,6 +32,24 @@ private struct Harness {
 @MainActor
 @Suite("Library model")
 struct LibraryModelTests {
+  @Test("Page counts and import errors read naturally in English and French, for one and for many")
+  func plurals() {
+    func text(_ resource: LocalizedStringResource, in language: String) -> String {
+      var resource = resource
+      resource.locale = Locale(identifier: language)
+      return String(localized: resource)
+    }
+    let bundle = LocalizedStringResource.BundleDescription.atURL(Bundle.module.bundleURL)
+    #expect(text(LocalizedStringResource("\(1) pages · \("12 KB")", bundle: bundle), in: "en") == "1 page · 12 KB")
+    #expect(text(LocalizedStringResource("\(3) pages · \("12 KB")", bundle: bundle), in: "en") == "3 pages · 12 KB")
+    #expect(text(LocalizedStringResource("\(0) pages · \("12 Ko")", bundle: bundle), in: "fr") == "0 page · 12 Ko")
+    #expect(text(LocalizedStringResource("\(2) pages · \("12 Ko")", bundle: bundle), in: "fr") == "2 pages · 12 Ko")
+    let failed = LocalizedStringResource(
+      "\(1) file(s) couldn't be imported because they aren't readable PDFs. Nothing else changed.", bundle: bundle)
+    #expect(text(failed, in: "en").hasPrefix("1 file couldn't be imported because it isn't"))
+    #expect(text(failed, in: "fr").hasPrefix("1 fichier n’a pas pu être importé"))
+  }
+
   @Test("Imports add documents; unreadable files are reported and nothing else changes (FR-LIB-004)")
   func importFiles() async throws {
     let harness = Harness()

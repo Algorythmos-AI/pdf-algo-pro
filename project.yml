@@ -94,6 +94,8 @@ targets:
       path: App/PDFAlgoPro/Info.plist
       properties:
         CFBundleDisplayName: $(APP_DISPLAY_NAME)
+        # English and French (NFR-L10N-001); docs/process/localization.md.
+        CFBundleLocalizations: [en, fr]
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         ITSAppUsesNonExemptEncryption: false

@@ -4,7 +4,10 @@
 Always active:
   * no PDF is committed outside Tests/Fixtures/Synthetic/ (real documents never enter git);
   * once an app icon exists, its default image is a 1024 x 1024 PNG without an alpha channel or
-    transparency, as App Store Connect requires (upload error 90717).
+    transparency, as App Store Connect requires (upload error 90717);
+  * no Info.plist localisation carries an app name, and there is no InfoPlist.xcstrings (Xcode syncs
+    the names into it): the names come from build settings per configuration (Staging is
+    "PDF Algo β"), and a localised value would replace them (assumption A14).
 
 Active once Swift sources exist (dormant before the first code pull request); the rules apply to the
 app and its packages, not to developer tools under scripts/:
@@ -92,6 +95,24 @@ def icon_problems() -> list[str]:
     return png_problems(path.read_bytes(), f"{APP_ICON}/{name}")
 
 
+APP_SOURCES = "App/PDFAlgoPro"
+APP_NAME_KEYS = ("CFBundleDisplayName", "CFBundleName")
+
+
+def infoplist_name_problems(app: Path = ROOT / APP_SOURCES) -> list[str]:
+    problems = []
+    for catalog in sorted(app.rglob("InfoPlist.xcstrings")):
+        problems.append(f"{catalog.relative_to(app.parent.parent)}: use <language>.lproj/InfoPlist.strings next "
+                        "to Info.plist instead; Xcode syncs the app's names into a catalog (A14)")
+    for strings in sorted(app.rglob("*.lproj/InfoPlist.strings")):
+        text = strings.read_text(encoding="utf-8")
+        for key in APP_NAME_KEYS:
+            if re.search(rf'^\s*"?{key}"?\s*=', text, re.M):
+                problems.append(f"{strings.relative_to(app.parent.parent)}: remove {key}; the app's names come "
+                                "from build settings per configuration (A14)")
+    return problems
+
+
 def print_outside_debug(text: str) -> list[int]:
     bad, depth = [], 0
     for no, line in enumerate(text.splitlines(), 1):
@@ -113,6 +134,7 @@ def main() -> int:
             errors.append(f"{pdf}: PDFs may only live in Tests/Fixtures/Synthetic/ (no real documents in git)")
 
     errors.extend(icon_problems())
+    errors.extend(infoplist_name_problems())
 
     swift = [p for p in tracked("*.swift") if not p.startswith("scripts/")]
     if not swift:
