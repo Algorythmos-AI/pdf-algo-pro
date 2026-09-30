@@ -154,6 +154,25 @@ public struct Extraction: Hashable, Sendable {
     return (["field,value,page"] + rows).joined(separator: "\r\n") + "\r\n"
   }
 
+  /// The fields as a CSV file for a spreadsheet in `locale` (plan item H2).
+  ///
+  /// UTF-8 with a byte order mark, so Excel reads accents correctly. Where the decimal separator is a
+  /// comma (as in French), fields are separated by semicolons, which is what spreadsheets there expect.
+  /// Cells are quoted and made inert as in `csv`.
+  public func csvFile(locale: Locale = .current) -> Data {
+    let separator = locale.decimalSeparator == "," ? ";" : ","
+    func quoted(_ value: String) -> String {
+      "\"" + Self.neutralized(value).replacingOccurrences(of: "\"", with: "\"\"") + "\""
+    }
+    let rows = fields.map {
+      [quoted($0.key), quoted($0.value), $0.pageIndex.map { String($0 + 1) } ?? ""].joined(separator: separator)
+    }
+    let text =
+      (["field", "value", "page"].joined(separator: separator) + "\r\n")
+      + rows.map { $0 + "\r\n" }.joined()
+    return Data([0xEF, 0xBB, 0xBF]) + Data(text.utf8)
+  }
+
   /// A cell value that no spreadsheet runs as a formula (CSV injection, plan item H2).
   ///
   /// Excel, Numbers and Google Sheets treat a cell starting with `=`, `+`, `-`, `@`, a tab or a carriage

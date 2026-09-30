@@ -294,6 +294,18 @@ public struct AssistantView: View {
           Image(systemName: "tablecells")
         }
       }
+      ShareLink(
+        item: CSVFile(extraction, name: String(localized: "Extracted fields", bundle: .module)),
+        preview: SharePreview(Text("Extracted fields", bundle: .module))
+      ) {
+        Label {
+          Text("Share as CSV file", bundle: .module).minimumTarget()
+        } icon: {
+          Image(systemName: "square.and.arrow.up")
+        }
+      }
+      .simultaneousGesture(TapGesture().onEnded { Task { await model.recordKept() } })
+      .accessibilityIdentifier("assistant.shareCSV")
       GeneratedFootnote()
     }
     .cardStyle()

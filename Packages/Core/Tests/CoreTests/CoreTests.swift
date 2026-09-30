@@ -183,6 +183,23 @@ struct IntelligenceValueTests {
     #expect(extraction.fields[0].isVerified && !extraction.fields[1].isVerified)
   }
 
+  @Test("The CSV file has a byte order mark and the locale's separator (H2)")
+  func csvFile() throws {
+    let extraction = Extraction(
+      fields: [
+        ExtractedField(key: "total", value: "1 234,56 €", pageIndex: 0),
+        ExtractedField(key: "note", value: "=1+1", pageIndex: nil),
+      ],
+      tier: .onDevice)
+    let french = extraction.csvFile(locale: Locale(identifier: "fr_FR"))
+    #expect(french.prefix(3) == Data([0xEF, 0xBB, 0xBF]))
+    let frenchText = try #require(String(data: french.dropFirst(3), encoding: .utf8))
+    #expect(frenchText == "field;value;page\r\n\"total\";\"1 234,56 €\";1\r\n\"note\";\"'=1+1\";\r\n")
+    let english = try #require(
+      String(data: extraction.csvFile(locale: Locale(identifier: "en_AU")).dropFirst(3), encoding: .utf8))
+    #expect(english.hasPrefix("field,value,page\r\n\"total\",\"1 234,56 €\",1\r\n"))
+  }
+
   @Test(
     "Extracted values a spreadsheet would run as formulas are made inert (CSV injection, H2)",
     arguments: [

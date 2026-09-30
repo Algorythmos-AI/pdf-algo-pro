@@ -16,6 +16,8 @@ Store notes (see the changelog strategy).
   opening it. Links to files, other apps or scripts are never opened; their address can be copied.
 - More › Annotations lists every highlight, note, drawing, shape and signature by page; choosing one
   opens its page, and the list can be shared as text.
+- Extracted fields can be shared as a CSV file that opens correctly in Excel and Numbers: accents are
+  kept, and where numbers use a decimal comma (as in French) the columns are separated by semicolons.
 - PDF from photos: hold Import in the library and choose photos; each becomes a page, upright, in a
   new document. No access to your photo library is needed.
 - Tools in the reader's More menu: reduce file size into a smaller copy (for email or for printing),
