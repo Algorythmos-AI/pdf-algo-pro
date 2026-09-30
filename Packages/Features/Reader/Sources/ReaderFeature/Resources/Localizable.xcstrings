@@ -265,12 +265,12 @@
         }
       }
     },
-    "Changes since the last save are replaced. You can switch back the same way." : {
+    "Changes since then are replaced. The current version is kept in the history." : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Les modifications faites depuis le dernier enregistrement sont remplacées. Vous pouvez revenir en arrière de la même façon."
+            "value" : "Les modifications faites depuis sont remplacées. La version actuelle est gardée dans l’historique."
           }
         }
       }
@@ -481,6 +481,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Dessin"
+          }
+        }
+      }
+    },
+    "Each save keeps the version before it for 30 days. Restoring one keeps the current version too, so you can switch back." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chaque enregistrement garde la version précédente pendant 30 jours. En restaurer une garde aussi la version actuelle, pour pouvoir revenir en arrière."
           }
         }
       }
@@ -895,12 +905,12 @@
         }
       }
     },
-    "Restore the version before the last save?" : {
+    "Restore this version?" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Restaurer la version d’avant le dernier enregistrement ?"
+            "value" : "Restaurer cette version ?"
           }
         }
       }
@@ -1397,6 +1407,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Utiliser l’autre version"
+          }
+        }
+      }
+    },
+    "Version history" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Historique des versions"
           }
         }
       }

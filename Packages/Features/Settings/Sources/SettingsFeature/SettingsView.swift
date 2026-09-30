@@ -76,6 +76,33 @@ public struct SettingsView: View {
           .foregroundStyle(Color.ds.labelSecondary)
         }
         Section {
+          LabeledContent {
+            if let size = model.versionsSize {
+              Text(size, format: .byteCount(style: .file))
+            } else {
+              ProgressView()
+            }
+          } label: {
+            Text("Version history", bundle: .module)
+          }
+          .accessibilityIdentifier("settings.versionsSize")
+          Button(role: .destructive) {
+            model.confirmsDeleteVersions = true
+          } label: {
+            Text("Delete version history", bundle: .module)
+          }
+          .disabled((model.versionsSize ?? 0) == 0)
+          .accessibilityIdentifier("settings.deleteVersions")
+        } header: {
+          Text("Storage", bundle: .module).foregroundStyle(Color.ds.labelSecondary)
+        } footer: {
+          Text(
+            "Before each save, the app keeps the version it replaces for 30 days, so a change can be undone. Deleting this history leaves your documents as they are.",
+            bundle: .module
+          )
+          .foregroundStyle(Color.ds.labelSecondary)
+        }
+        Section {
           Toggle(isOn: $model.includesDiagnostics) { Text("Include a diagnostics summary", bundle: .module) }
           Button {
             Task {
@@ -127,6 +154,31 @@ public struct SettingsView: View {
       } message: {
         Text("Send your report to \(SettingsModel.supportAddress) from any email app.", bundle: .module)
       }
+      .confirmationDialog(
+        Text("Delete version history?", bundle: .module), isPresented: $model.confirmsDeleteVersions,
+        titleVisibility: .visible
+      ) {
+        Button(role: .destructive) {
+          Task { await model.deleteVersions() }
+        } label: {
+          Text("Delete version history", bundle: .module)
+        }
+      } message: {
+        Text("Earlier versions of every document are deleted. Your documents stay as they are.", bundle: .module)
+      }
+      .alert(
+        Text("Version history", bundle: .module),
+        isPresented: Binding(get: { model.storageMessage != nil }, set: { if !$0 { model.storageMessage = nil } })
+      ) {
+        Button(role: .cancel) {
+          model.storageMessage = nil
+        } label: {
+          Text("OK", bundle: .module)
+        }
+      } message: {
+        Text(model.storageMessage ?? "")
+      }
+      .task { await model.loadStorage() }
       .navigationTitle(Text("Settings", bundle: .module))
       .toolbar {
         ToolbarItem(placement: .confirmationAction) {

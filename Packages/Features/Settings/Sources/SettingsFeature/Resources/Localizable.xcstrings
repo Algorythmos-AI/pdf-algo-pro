@@ -41,6 +41,16 @@
         }
       }
     },
+    "Before each save, the app keeps the version it replaces for 30 days, so a change can be undone. Deleting this history leaves your documents as they are." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avant chaque enregistrement, l’app conserve pendant 30 jours la version qu’elle remplace, pour qu’une modification puisse être annulée. Supprimer cet historique ne modifie pas vos documents."
+          }
+        }
+      }
+    },
     "Built by Algorythmos" : {
       "localizations" : {
         "fr" : {
@@ -101,6 +111,26 @@
         }
       }
     },
+    "Delete version history" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Supprimer l’historique des versions"
+          }
+        }
+      }
+    },
+    "Delete version history?" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Supprimer l’historique des versions ?"
+          }
+        }
+      }
+    },
     "Describe what happened:\n\n" : {
       "localizations" : {
         "fr" : {
@@ -137,6 +167,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "OK"
+          }
+        }
+      }
+    },
+    "Earlier versions of every document are deleted. Your documents stay as they are." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les versions précédentes de tous les documents sont supprimées. Vos documents restent tels quels."
           }
         }
       }
@@ -207,6 +247,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Aucun compte de messagerie n’est configuré"
+          }
+        }
+      }
+    },
+    "OK" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
           }
         }
       }
@@ -311,6 +361,26 @@
         }
       }
     },
+    "Some earlier versions couldn't be deleted. Your documents haven't changed. Try again." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Certaines versions précédentes n’ont pas pu être supprimées. Vos documents n’ont pas changé. Réessayez."
+          }
+        }
+      }
+    },
+    "Storage" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stockage"
+          }
+        }
+      }
+    },
     "Summaries, answers and extraction run on this device with Apple Intelligence. Nothing is sent anywhere." : {
       "localizations" : {
         "fr" : {
@@ -367,6 +437,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Version"
+          }
+        }
+      }
+    },
+    "Version history" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Historique des versions"
           }
         }
       }

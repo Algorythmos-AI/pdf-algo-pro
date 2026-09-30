@@ -25,6 +25,31 @@ struct SettingsModelTests {
     #expect(changes.values.last?.isIntelligenceHidden == true)
   }
 
+  @Test("Storage shows the version history and deletes it on request (FR-EDIT-008)")
+  func versionHistory() async {
+    let sizes = Sizes(value: 4_096)
+    let model = SettingsModel(
+      store: InMemorySettingsStore(), diagnostics: { "" }, onChange: { _ in },
+      versionsSize: { sizes.value }, deleteVersions: { sizes.value = 0 })
+    #expect(model.versionsSize == nil)
+    await model.loadStorage()
+    #expect(model.versionsSize == 4_096)
+    await model.deleteVersions()
+    #expect(model.versionsSize == 0)
+    #expect(model.storageMessage == nil)
+  }
+
+  @Test("A failed delete says the documents are unchanged (FR-EDIT-008)")
+  func versionHistoryDeleteFails() async {
+    struct Failure: Error {}
+    let model = SettingsModel(
+      store: InMemorySettingsStore(), diagnostics: { "" }, onChange: { _ in }, versionsSize: { 10 },
+      deleteVersions: { throw Failure() })
+    await model.deleteVersions()
+    #expect(model.storageMessage != nil)
+    #expect(model.versionsSize == 10)
+  }
+
   @Test("Home intents can be changed later, keeping their order (FR-ONB-003)")
   func intents() {
     let (model, store, _) = makeModel()
@@ -81,4 +106,9 @@ struct SettingsModelTests {
 @MainActor
 private final class Changes {
   var values: [AppSettings] = []
+}
+
+private final class Sizes {
+  var value: Int64
+  init(value: Int64) { self.value = value }
 }

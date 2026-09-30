@@ -131,6 +131,7 @@ final class AppModel {
         let textSettingChanged = settings.isSpotlightTextIncluded != self.settings.isSpotlightTextIncluded
         self.settings = settings
         if textSettingChanged { Task { await self.container.reindexSpotlight() } }
-      })
+      }, versionsSize: { [container] in await container.library.versionsSize() },
+      deleteVersions: { [container] in try await container.library.deleteAllVersions() })
   }
 }

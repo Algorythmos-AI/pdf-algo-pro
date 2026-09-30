@@ -10,10 +10,18 @@ public final class SettingsModel {
   public private(set) var settings: AppSettings
   /// Whether "Report a problem" attaches the diagnostics summary; off until the user turns it on.
   public var includesDiagnostics = false
+  /// The space earlier versions of documents take, in bytes; `nil` until measured (FR-EDIT-008).
+  public private(set) var versionsSize: Int64?
+  /// Whether "Delete version history" is asking for confirmation.
+  public var confirmsDeleteVersions = false
+  /// A message when deleting the version history failed.
+  public var storageMessage: String?
 
   private let store: any SettingsStoring
   private let diagnostics: () async -> String
   private let onChange: (AppSettings) -> Void
+  private let measureVersions: () async -> Int64
+  private let removeVersions: () async throws -> Void
 
   /// Creates the model.
   ///
@@ -21,12 +29,18 @@ public final class SettingsModel {
   ///   - store: Where settings are kept.
   ///   - diagnostics: Builds the diagnostics summary (no document content) when the user asks.
   ///   - onChange: Tells the app the settings changed.
+  ///   - versionsSize: Measures the space earlier versions of documents take.
+  ///   - deleteVersions: Deletes every earlier version; the documents themselves are untouched.
   public init(
-    store: any SettingsStoring, diagnostics: @escaping () async -> String, onChange: @escaping (AppSettings) -> Void
+    store: any SettingsStoring, diagnostics: @escaping () async -> String,
+    onChange: @escaping (AppSettings) -> Void, versionsSize: @escaping () async -> Int64 = { 0 },
+    deleteVersions: @escaping () async throws -> Void = {}
   ) {
     self.store = store
     self.diagnostics = diagnostics
     self.onChange = onChange
+    measureVersions = versionsSize
+    removeVersions = deleteVersions
     settings = store.load()
   }
 
@@ -86,6 +100,25 @@ public final class SettingsModel {
       body += "\n\n---\n\(await diagnostics())"
     }
     return body
+  }
+
+  // MARK: - Storage
+
+  /// Measures the version history, for the Storage section.
+  public func loadStorage() async {
+    versionsSize = await measureVersions()
+  }
+
+  /// Deletes every earlier version of every document; the documents themselves stay as they are.
+  public func deleteVersions() async {
+    do {
+      try await removeVersions()
+    } catch {
+      storageMessage = String(
+        localized: "Some earlier versions couldn't be deleted. Your documents haven't changed. Try again.",
+        bundle: .module)
+    }
+    await loadStorage()
   }
 
   private func update(_ change: (inout AppSettings) -> Void) {

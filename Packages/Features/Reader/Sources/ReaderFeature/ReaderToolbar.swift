@@ -308,14 +308,15 @@ struct ReaderToolbar: ToolbarContent {
           }
           if model.canRestorePreviousVersion {
             Button {
-              model.confirmsRestore = true
+              model.showsVersions = true
             } label: {
               Label {
-                Text("Restore the version before the last save", bundle: .module)
+                Text("Version history", bundle: .module)
               } icon: {
                 Image(systemName: "clock.arrow.circlepath")
               }
             }
+            .accessibilityIdentifier("reader.versions")
           }
         } label: {
           Label {

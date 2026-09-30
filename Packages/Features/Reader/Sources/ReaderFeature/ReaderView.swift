@@ -63,6 +63,7 @@ public struct ReaderView<Assistant: View>: View {
         assistant(model.assistantContext(for: task))
       }
       .sheet(item: $model.sharing) { ShareSheet(file: $0) }
+      .sheet(isPresented: $model.showsVersions) { VersionHistorySheet(model: model) }
       .sheet(isPresented: $model.showsSignatures) { SignatureSheet(model: model) }
       .sheet(isPresented: $model.showsOutline, onDismiss: { model.pageSheetDismissed() }) {
         OutlineSheet(model: model)
@@ -100,19 +101,6 @@ public struct ReaderView<Assistant: View>: View {
         }
       } message: {
         Text("This document has \(model.controller?.pageCount ?? 0) pages.", bundle: .module)
-      }
-      .confirmationDialog(
-        Text("Restore the version before the last save?", bundle: .module), isPresented: $model.confirmsRestore,
-        titleVisibility: .visible
-      ) {
-        Button(role: .destructive) {
-          Task { await model.restorePreviousVersion() }
-        } label: {
-          Text("Restore", bundle: .module)
-        }
-      } message: {
-        Text(
-          "Changes since the last save are replaced. You can switch back the same way.", bundle: .module)
       }
       .alert(Text("Add a password", bundle: .module), isPresented: $model.isAddingPassword) {
         SecureField(text: $newPassword) { Text("Password", bundle: .module) }
