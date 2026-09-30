@@ -7,7 +7,7 @@ lives in the linked documents.
 
 Owner: Maintainer · Reviewed: every pull request that changes state; at least monthly
 
-Last updated: 2026-09-30
+Last updated: 2026-10-01
 
 ## Current phase
 
@@ -23,10 +23,11 @@ building it are PAP-031 and PAP-032. The readiness gate is still **NOT READY** f
 
 | Item | State | Next step |
 |---|---|---|
-| TestFlight readiness ([#47](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/47)) | Validation build installed; open: #75 (AI evaluation), then the evaluation screen, performance, background OCR, French and snapshot tests | Stop the line first (#76); then one pull request at a time; the owner gives the go for build 1 |
-| Flaky accessibility audit ([#44](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/44)) | Quarantine replaced by a sheet-only exclusion, covered by the large-text journeys and snapshots | Close #44 once that change merges |
-| Flaky large-text audits and Markup menu tap ([#76](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/76)) | Stricter still-screen wait; bar-button contrast quarantined | Five green runs, then remove the quarantine if possible, by 2026-10-07 |
-| Flaky assistant answer wait ([#81](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/81)) | Answer waits raised to 30 s (`UITestCase.answerTimeout`) | Five green runs, then close, by 2026-10-07 |
+| TestFlight readiness ([#47](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/47)) | Merged: evaluation screen, performance, background OCR, continued recognition, French, snapshots, the everyday toolkit, the save-path rework with fault injection, H6 and H2. Pushed and queued, one PR at a time: H9 signed PDFs, H5 one writer, FR-EDIT-008 version history, the kill-switch package, and the B3/C polish and tools | Merge the queue; the owner gives the go for build 1 |
+| Independent PDF validation (plan B2) | qpdf job in CI, advisory for two weeks; Core Graphics parse queued | [#96](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/96): three offset-0 xref entries in a saved RTL/CJK file |
+| Flaky large-text audits and Markup menu tap ([#76](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/76)) | Stricter still-screen wait; bar-button contrast quarantined | Remove the quarantine if possible, by 2026-10-07 |
+| Flaky audit timeout ([#53](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/53)) | Quarantined | Fix or delete with the debt recorded |
+| Needs a device | H4 (saving off the main actor) waits for device timings; FR-AI-015 line items and the follow-up prompt ([#90](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/90)) wait for a live evaluation (ADR-0020); reading themes wait for a visual check | Owner runs the performance and live AI evaluation on the phone |
 | Organisation catalog entry | Catalog entry pending owner review | Owner review and merge |
 | Backlog issues | 36 issues synced from `docs/planning/backlog.yaml`, on the project board | Owner creates the project views and built-in workflows in the web interface |
 | Xcode Cloud Staging workflow (readiness M5) | Configured (manual start, internal only, Xcode 26.6); the validation build archived and installed | Nightly after build 1 (PAP-031); Release workflow before V1 |
