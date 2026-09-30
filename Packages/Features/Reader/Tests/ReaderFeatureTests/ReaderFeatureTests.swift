@@ -285,7 +285,12 @@ struct ReaderModelTests {
     reader.assistantTask = .ask
     context.reveal(Citation(pageIndex: 1, quote: "Invoice number"))
     #expect(reader.assistantTask == nil)
+    #expect(reader.controller?.currentPageIndex == 0, "The page opens once the sheet has closed")
+    reader.assistantDismissed()
     #expect(reader.controller?.currentPageIndex == 1)
+    reader.assistantDismissed()
+    context.reveal(Citation(pageIndex: 2, quote: nil))
+    #expect(reader.controller?.currentPageIndex == 2, "With no sheet open, the page opens at once")
     await harness.index.seed(document.id, pages: [PageText(pageIndex: 0, text: "stored")])
     #expect(await context.pages().map(\.text) == ["stored"])
   }

@@ -28,7 +28,7 @@ public struct ReaderView<Assistant: View>: View {
       .navigationTitle(model.document?.title ?? "")
       .navigationBarTitleDisplayMode(.inline)
       .toolbar { ReaderToolbar(model: model, isAddingNote: $isAddingNote) }
-      .sheet(item: $model.assistantTask) { task in
+      .sheet(item: $model.assistantTask, onDismiss: { model.assistantDismissed() }) { task in
         assistant(model.assistantContext(for: task))
       }
       .sheet(item: $model.sharing) { ShareSheet(file: $0) }
