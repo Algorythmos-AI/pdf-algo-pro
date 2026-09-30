@@ -1,5 +1,6 @@
 import Core
 import DesignSystem
+import PDFEngine
 import PhotosUI
 import SwiftUI
 import UniformTypeIdentifiers
@@ -19,6 +20,7 @@ public struct LibraryView<Detail: View>: View {
   @State private var importTask: AssistantTask?
   @State private var renaming: Document?
   @State private var tagging: Document?
+  @State private var showingInfo: InfoSheet?
   @State private var confirmingPermanentDelete: Document?
   @State private var newTitle = ""
   private let onScan: () -> Void
@@ -57,6 +59,9 @@ public struct LibraryView<Detail: View>: View {
           Text("Choose a document from the library.", bundle: .module)
         }
       }
+    }
+    .sheet(item: $showingInfo) { info in
+      DocumentInfoView(document: info.document, details: info.details)
     }
     .sheet(item: $tagging) { document in
       TagEditor(document: document, available: model.tags) { tags in
@@ -397,6 +402,15 @@ public struct LibraryView<Detail: View>: View {
             Image(systemName: "tag")
           }
         }
+        Button {
+          Task { showingInfo = InfoSheet(document: document, details: await model.details(for: document)) }
+        } label: {
+          Label {
+            Text("Info", bundle: .module)
+          } icon: {
+            Image(systemName: "info.circle")
+          }
+        }
         Button(role: .destructive) {
           Task { await model.delete(document.id) }
         } label: {
@@ -547,4 +561,11 @@ public struct LibraryView<Detail: View>: View {
       Text("Choose a PDF and the assistant opens with it. Answers cite their pages.", bundle: .module)
     }
   }
+}
+
+/// A document and its file's details, for the info sheet.
+struct InfoSheet: Identifiable {
+  let document: Document
+  let details: DocumentDetails?
+  var id: DocumentID { document.id }
 }

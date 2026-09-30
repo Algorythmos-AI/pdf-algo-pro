@@ -160,6 +160,22 @@ struct LibraryModelTests {
     #expect(!harness.model.showsPrimaryAction)
   }
 
+  @Test("Document info reads the file's details, and draws at a large text size (FR-LIB-008)")
+  func documentInfo() async throws {
+    let harness = Harness()
+    let document = await harness.library.seed(
+      Document(title: "Report", fileName: "r.pdf", addedAt: .now, lastOpenedAt: .now),
+      data: try SyntheticPDF.makeSample())
+    let details = try #require(await harness.model.details(for: document))
+    #expect(details.pageCount == 3 && details.fileSize != nil)
+    let view = DocumentInfoView(document: document, details: details).frame(width: 390, height: 900)
+      .environment(\.dynamicTypeSize, .accessibility3)
+    #expect(ImageRenderer(content: view).uiImage != nil)
+    #expect(DocumentInfoView.permission(false) != DocumentInfoView.permission(true))
+    let missing = Document(title: "Gone", fileName: "g.pdf", addedAt: .now)
+    #expect(await harness.model.details(for: missing) == nil)
+  }
+
   @Test("A search that fails says so instead of showing no results")
   func searchFailure() async {
     let harness = Harness()

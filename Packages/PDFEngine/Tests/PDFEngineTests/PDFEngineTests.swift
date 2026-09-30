@@ -774,6 +774,33 @@ struct DigitalSignatureTests {
   }
 }
 
+@Suite("Document details (FR-LIB-008)")
+struct DocumentDetailsTests {
+  @Test("Metadata, version, pages, size and permissions are read")
+  func details() throws {
+    let url = try write(TestPDFs.makeWithUnreadableInfoKey())
+    let details = try #require(DocumentDetails.of(fileAt: url))
+    #expect(details.author == "Test author" && details.pageCount == 1 && details.version == "1.7")
+    let size = try Data(contentsOf: url).count
+    #expect(details.created != nil && details.fileSize == size)
+    #expect(!details.isEncrypted && details.allowsPrinting && details.allowsCopying)
+  }
+
+  @Test("A locked document shows its protection and no pages; a non-PDF has no details")
+  func lockedAndBroken() throws {
+    let locked = try write(
+      TestPDFs.makeProtected(userPassword: "pw", ownerPassword: "owner", permissions: []))
+    let details = try #require(DocumentDetails.of(fileAt: locked))
+    #expect(details.isEncrypted && details.pageCount == 0)
+    #expect(DocumentDetails.of(fileAt: try write(Data("not a pdf".utf8))) == nil)
+  }
+
+  @Test("Malformed files never crash the details", arguments: GoldenCorpus.malformed())
+  func malformed(_ item: GoldenCorpus.Malformed) throws {
+    _ = DocumentDetails.of(fileAt: try write(item.data))
+  }
+}
+
 @Suite("Rendering")
 struct RenderingTests {
   @Test func pagesRenderAtTheRequestedSize() throws {
