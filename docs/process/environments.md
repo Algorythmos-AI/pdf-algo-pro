@@ -38,9 +38,12 @@ Identifiers follow ADR-0015 (identifiers and signing): App Group
 
 ## CI (GitHub Actions)
 
-The `ios` job in [`ci.yml`](../../.github/workflows/ci.yml) builds and tests on a macOS runner with
-`CODE_SIGNING_ALLOWED=NO`. It needs no Team ID, certificate or profile, and it holds no secrets. It is
-not an environment anyone uses; it exists to run the gates in [quality gates](quality-gates.md).
+The `ios` job in [`ci.yml`](../../.github/workflows/ci.yml) builds and tests on a macOS runner. The
+simulator test build is signed ad hoc ("Sign to Run Locally", `CODE_SIGN_IDENTITY=-`), because the
+app-hosted tests use the Keychain, which refuses an unsigned app. The Staging device build is unsigned
+(`CODE_SIGNING_ALLOWED=NO`). Neither needs a Team ID, certificate or profile, and the job holds no
+secrets. It is not an environment anyone uses; it exists to run the gates in
+[quality gates](quality-gates.md).
 
 ## Staging (`integration`)
 

@@ -170,7 +170,7 @@ jobs:
           fi
       - name: Format (swift format, strict)
         run: xcrun swift-format lint --strict --recursive App Packages
-      - name: Build for testing (unsigned, warnings as errors)
+      - name: Build for testing (signed ad hoc, warnings as errors)
         run: |
           # Pinned device and runtime: snapshot references are recorded on exactly this simulator.
           device="$(xcrun simctl list devices available -j | SIM_NAME="$SIMULATOR_NAME" SIM_RUNTIME="$SIMULATOR_RUNTIME" python3 -c 'import json,os,sys; d=json.load(sys.stdin)["devices"]; ids=[x["udid"] for k in d if k.startswith(os.environ["SIM_RUNTIME"]) for x in d[k] if x["name"] == os.environ["SIM_NAME"]]; print(ids[0] if ids else "")')"
@@ -181,8 +181,11 @@ jobs:
             echo "created $SIMULATOR_NAME on $runtime"
           fi
           echo "SIM=$device" >> "$GITHUB_ENV"
+          # Signed ad hoc ("Sign to Run Locally"), not unsigned: the app-hosted tests use the Keychain, which
+          # refuses an unsigned app (errSecMissingEntitlement, -34018). No team or certificate is involved.
           xcodebuild build-for-testing -scheme "$SCHEME" -testPlan "$TEST_PLAN" \
-            -destination "id=$device" CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
+            -destination "id=$device" CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= \
+            SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
       - name: Build Staging for a device (unsigned, optimised, warnings as errors)
         # The configuration Xcode Cloud archives; catches optimised-build failures before TestFlight.
         run: |
