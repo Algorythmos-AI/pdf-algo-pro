@@ -2,8 +2,9 @@
 
 How to turn a shipped feature, an AI provider or a prompt version off for every user without a new
 build, or lower a limit compiled into the app, verify that it took effect, and turn it back on. The
-mechanism is remote configuration read from the CloudKit public database. It is the **designed
-mechanism and is not implemented yet**; until it ships, the only levers are the App Store ones in
+mechanism is remote configuration read from the CloudKit public database. The mechanism is built (the `RemoteConfig`
+package, [ADR-0024](../../adr/0024-remote-configuration-package.md)) but reads no records until the
+iCloud container and the record type exist. Until then, the only levers are the App Store ones in
 [incident response](incident-response.md). This page is written now so that the implementation is
 built to fit the procedure. It owns the record schema: other documents link here rather than
 restating it.
@@ -52,6 +53,7 @@ One record per target. A **switch record** turns something off:
 | `state` | `enabled` (the compiled behaviour applies), `disabled` (turned off) or `fallback` (for a prompt: use the previous version bundled in the app) |
 | `reasonCode` | Chooses the user notice: a localised string in the app's String Catalog, in English and French, shipped and reviewed with the build. The record holds no free text, so nothing typed in the console reaches users |
 | `minVersion`, `maxVersion` | The app versions the record applies to; when absent, every version |
+| `channel` | `staging` or `production`; when absent, both. TestFlight and App Store builds both read the production environment, so this keeps a change for testers away from customers ([ADR-0024](../../adr/0024-remote-configuration-package.md)) |
 | `updatedAt` | When the record last changed; used for audit and cache freshness |
 
 An **operational-setting record** lowers a limit, for example a per-request page cap for a cloud
@@ -85,12 +87,13 @@ Targets follow one scheme:
   interval, not instantly. Assumption: most active users pick up a change within 24 hours; measured
   once implemented.
 
-### Open questions for the implementing ADR
+### Implementation
 
-Which package owns remote configuration (networking is limited to `Intelligence`, `Commerce` and
-`Telemetry`); whether Staging reads separate records or a separate container
-([environments](../environments.md#open-questions)); whether a CloudKit subscription should push
-changes instead of polling.
+[ADR-0024](../../adr/0024-remote-configuration-package.md) answers the questions this page left open.
+- The `RemoteConfig` package owns remote configuration, and it is on the network allow-list.
+- Staging uses the `channel` field in the same container.
+- The app polls; it doesn't subscribe.
+- The record type is `RemoteSwitch`.
 
 ## Before you start
 

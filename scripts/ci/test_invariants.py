@@ -1,4 +1,4 @@
-"""Tests for the app-icon and app-name checks in invariants.py, with synthetic inputs.
+"""Tests for the app-icon, app-name and network checks in invariants.py, with synthetic inputs.
 
     uv run --with pytest==8.4.2 pytest -q scripts/ci
 """
@@ -49,3 +49,10 @@ def test_info_plist_localisations_never_carry_the_app_names(tmp_path):
     problems = invariants.infoplist_name_problems(app)
     assert len(problems) == 2
     assert "InfoPlist.xcstrings" in problems[0] and "CFBundleDisplayName" in problems[1]
+
+
+def test_network_pattern_covers_cloudkit_and_the_allow_list_names_remote_config():
+    assert invariants.NETWORK.search("import CloudKit\n")
+    assert invariants.NETWORK.search("let s = URLSession.shared")
+    assert not invariants.NETWORK.search("import CloudKitten\n")
+    assert "Packages/RemoteConfig/" in invariants.ALLOWED["network"]

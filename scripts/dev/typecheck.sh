@@ -41,7 +41,7 @@ run() { # emit|check module isolation dir [bundle] [file to leave out]
 run emit Core non Packages/Core/Sources/Core
 run emit CoreTestSupport non Packages/Core/Sources/CoreTestSupport
 run emit DesignSystem main Packages/DesignSystem/Sources/DesignSystem bundle
-for m in PDFEngine DocumentStore OCR Scanning Search Intelligence Telemetry; do
+for m in PDFEngine DocumentStore OCR Scanning Search Intelligence Telemetry RemoteConfig; do
   run emit $m non Packages/$m/Sources/$m
 done
 run emit PDFEngineTestSupport non Packages/PDFEngine/Sources/PDFEngineTestSupport
@@ -50,7 +50,7 @@ for f in Onboarding Library Reader Assistant Scan Settings; do
   run emit ${f}Feature main Packages/Features/$f/Sources/${f}Feature bundle
 done
 run check DesignSystemTests main Packages/DesignSystem/Tests
-for m in Core PDFEngine DocumentStore OCR Scanning Search Intelligence Telemetry; do
+for m in Core PDFEngine DocumentStore OCR Scanning Search Intelligence Telemetry RemoteConfig; do
   run check ${m}Tests non Packages/$m/Tests
 done
 for f in Onboarding Library Reader Assistant Scan Settings; do

@@ -71,6 +71,8 @@ packages:
   SnapshotTesting:
     url: https://github.com/pointfreeco/swift-snapshot-testing
     exactVersion: 1.19.4
+  RemoteConfig:
+    path: Packages/RemoteConfig
 targets:
   PDFAlgoPro:
     type: application
@@ -87,6 +89,7 @@ targets:
       - package: Intelligence
         product: IntelligenceEvaluation
       - package: Telemetry
+      - package: RemoteConfig
       - package: Onboarding
         product: OnboardingFeature
       - package: Library
