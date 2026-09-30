@@ -457,6 +457,14 @@ struct ReaderModelTests {
     #expect(reader.document?.hasTextLayer == true)
     #expect(!reader.canRecognizeText)
     #expect(await reader.pageTexts().first?.text == "Recognised text")
+
+    // Recognition keeps the version before it, like a save; restoring it brings back the image-only
+    // file, and the library's view of its text follows (FR-EDIT-008).
+    #expect(await harness.library.hasPreviousVersion(of: document.id))
+    await reader.restorePreviousVersion()
+    #expect(reader.phase == .ready)
+    #expect(reader.document?.hasTextLayer == false)
+    #expect(reader.canRecognizeText)
   }
 
   @Test("A note saved while text is being recognised is kept, not overwritten")

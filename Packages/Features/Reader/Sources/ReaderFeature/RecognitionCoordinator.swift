@@ -107,6 +107,7 @@ public final class RecognitionCoordinator {
     let outcome: Outcome
     do {
       let url = try await library.fileURL(for: id)
+      let previous = try await library.previousVersionURL(for: id)
       let version = try FileVersion(url)
       var done: [Int: [RecognizedLine]] = [:]
       if await checkpoints.version(of: id) == version {
@@ -128,6 +129,12 @@ public final class RecognitionCoordinator {
       try Task.checkCancellation()
       // No suspension between these checks and the write, so no save can slip in between.
       if watchers[id]?.canReplace() ?? true, try FileVersion(url) == version {
+        // Like a save, replacing the file keeps the version from before it (FR-EDIT-008, first step).
+        if let previous {
+          let fileManager = FileManager.default
+          if fileManager.fileExists(atPath: previous.path) { try fileManager.removeItem(at: previous) }
+          try fileManager.copyItem(at: url, to: previous)
+        }
         try result.data.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
         _ = try await intake.refresh(id)
         await telemetry.record("task.core.completed")

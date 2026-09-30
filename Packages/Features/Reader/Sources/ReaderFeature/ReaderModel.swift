@@ -442,6 +442,9 @@ public final class ReaderModel {
     phase = .loading
     do {
       try await library.restorePreviousVersion(of: documentID)
+      // The two versions can differ in their text (a restore across text recognition), so the search
+      // text and Spotlight follow the restored file.
+      _ = try? await intake.refresh(documentID)
     } catch {
       errorMessage = String(
         localized: "Couldn't restore the earlier version. The document hasn't changed.", bundle: .module)
