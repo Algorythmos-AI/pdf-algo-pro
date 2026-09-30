@@ -6,7 +6,7 @@ final class SettingsUITests: UITestCase {
   func testSettingsCanHideAI() throws {
     let app = launch(["-skip-onboarding"])
     tap(app.buttons["library.settings"], until: app.descendants(matching: .any)["settings.hideAI"].firstMatch)
-    try audit(app)
+    try audit(app, onSheet: true)
   }
 
   /// The live AI evaluation, in Debug and Staging builds only (bar item B6).
@@ -20,11 +20,11 @@ final class SettingsUITests: UITestCase {
     open.tap()
     let run = app.buttons["evaluation.run"]
     XCTAssertTrue(run.waitForExistence(timeout: 5))
-    try audit(app)
+    try audit(app, onSheet: true)
     run.tap()
     XCTAssertTrue(
       app.descendants(matching: .any)["evaluation.result"].firstMatch.waitForExistence(timeout: 60),
       "The evaluation finishes and shows its result")
-    try audit(app)
+    try audit(app, onSheet: true)
   }
 }
