@@ -27,7 +27,9 @@ class UITestCase: XCTestCase {
   ///   audited);
   /// - contrast findings on disabled controls, which are dimmed on purpose to show they are inactive;
   ///   WCAG 1.4.3 sets no contrast requirement for inactive controls. The same control is audited
-  ///   again once it is enabled.
+  ///   again once it is enabled. On CI the audit sometimes reports these findings without their
+  ///   element, and then this exclusion cannot apply, so text buttons that start disabled use
+  ///   `readableWhenDisabled()` rather than rely on it.
   ///
   /// Every other finding fails the test. All findings on the screen are collected and
   /// reported together, with the element each one is about, instead of stopping at the first.

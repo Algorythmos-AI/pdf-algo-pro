@@ -44,7 +44,7 @@ struct SignatureSheet: View {
             Button {
               strokes = []
             } label: {
-              Text("Clear", bundle: .module)
+              Text("Clear", bundle: .module).readableWhenDisabled()
             }
             .disabled(strokes.isEmpty)
             Spacer()
@@ -53,7 +53,7 @@ struct SignatureSheet: View {
                 if let signature = await model.saveSignature(drawn: strokes) { await model.place(signature) }
               }
             } label: {
-              Text("Save and place", bundle: .module)
+              Text("Save and place", bundle: .module).readableWhenDisabled()
             }
             .disabled(strokes.isEmpty)
             .accessibilityIdentifier("signature.savePlace")
@@ -70,7 +70,7 @@ struct SignatureSheet: View {
           Button {
             place { await model.placeTyped(typedName) }
           } label: {
-            Text("Place typed signature", bundle: .module)
+            Text("Place typed signature", bundle: .module).readableWhenDisabled()
           }
           .disabled(typedName.trimmingCharacters(in: .whitespaces).isEmpty)
           .accessibilityIdentifier("signature.placeTyped")
