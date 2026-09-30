@@ -64,6 +64,7 @@ public struct AssistantView: View {
         }
       }
       .task { await model.start() }
+      .onDisappear { model.cancel() }
     }
     // Opens at full height, where answers have room at every text size; the medium detent keeps the
     // page in view for anyone who drags the sheet down.
@@ -108,7 +109,7 @@ public struct AssistantView: View {
         Image(systemName: "arrow.up.circle.fill").font(.title2).minimumTarget()
       }
       .accessibilityLabel(Text("Ask", bundle: .module))
-      .disabled(model.question.trimmingCharacters(in: .whitespaces).isEmpty)
+      .disabled(model.question.trimmingCharacters(in: .whitespaces).isEmpty || model.isWorking)
     }
   }
 
@@ -186,6 +187,16 @@ public struct AssistantView: View {
           } icon: {
             Image(systemName: "doc.on.doc")
           }
+        }
+        if answer.omittedClaims > 0 {
+          Label {
+            Text("Part of the answer wasn't supported by this document, so it was left out.", bundle: .module)
+          } icon: {
+            Image(systemName: "scissors")
+          }
+          .font(.footnote)
+          .foregroundStyle(Color.ds.labelSecondary)
+          .accessibilityIdentifier("assistant.omitted")
         }
         GeneratedFootnote()
       } else {
