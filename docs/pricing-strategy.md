@@ -28,13 +28,16 @@ Owner: Product · Reviewed: before V1 submission, then each quarter
 | Read, annotate, fill forms, sign | Yes | Yes |
 | Scan with on-device OCR; searchable PDFs | Yes | Yes |
 | Search, Spotlight, App Intents, widgets | Yes | Yes |
-| On-device intelligence (summarise, ask, extract) | Daily allowance | Fair use |
+| On-device intelligence (summarise, ask, extract) | Daily allowance (whether on-device Q&A is unlimited is decided at checkpoint CP2) | Fair use |
 | Private Cloud Compute for long documents (opt-in) | — | Yes, within Apple's per-user quota |
 | Analyse contract | Preview | Yes |
-| Edit text, images and links; redaction; password protection | — | Yes |
-| Organise pages | Basic | Yes |
+| Password protection and removal ([PAP-032](decision-register.md)) | Yes | Yes |
+| Edit text, images and links; redaction | — | Yes |
+| Organise pages (merge, split, reorder, rotate, delete, extract) | Yes | Yes |
+| Compress presets, flatten, stamps, bookmarks, pages as images, PDF from photos | Yes | Yes |
+| Invoice and receipt templates to CSV (V1) | — | Yes |
 | Convert to Word, Excel and PowerPoint | — | Yes |
-| Ask across the library (V2); Claude tier (V2, opt-in) | — | Yes, fair use |
+| Ask across the library (V1.1); Claude tier (V2, opt-in) | — | Yes, fair use |
 
 ## Decision: a single paid tier at launch
 

@@ -1,6 +1,6 @@
 # ADR-0001: iOS 27 floor, Swift 6 and strict concurrency
 
-**Status:** accepted (2026-09-28)
+**Status:** accepted (2026-09-28); the iOS 27 floor is superseded by [ADR-0023](0023-ios-26-floor-built-with-xcode-27.md) (2026-09-30), and Swift 6 and strict concurrency stand
 
 **Context.** The product is new, premium and AI-led. iOS 27 (released 2026-09-14) brings the Foundation Models features we build on (Private Cloud Compute access, image input, third-party model plug-ins) and SwiftUI's new document architecture. Supporting older systems would mean a second code path for every one of them.
 

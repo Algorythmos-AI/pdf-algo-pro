@@ -133,6 +133,33 @@ Run `python3 scripts/ci/check_docs.py --strict-warnings` locally to treat warnin
 `release` workflow also warns, without failing, when `WIKI_TOKEN` is not set and the wiki cannot be
 published.
 
+## Build 1 bar
+
+The bar the first internal TestFlight build meets before anyone other than the owner installs it
+(PAP-030). Tracking issue [#47](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/47) holds the
+status of each item. "CI" items are proven before build 1; "device" items are proven on build 1 while
+the owner is its only tester.
+
+| ID | Item | Where proven |
+|---|---|---|
+| B1 | Every MVP Must done and tested, except the recorded deferrals (FR-LIB-001 iCloud and folders, the Share extension, iPad multi-window) | CI |
+| B2 | Defects D1–D15 fixed, each with a regression test | CI |
+| B3 | Golden corpus: open, render, search, annotate and save round-trip; malformed files never crash | CI |
+| B4 | Performance: signposts, and the scheduled Performance plan within 120% of budget on the simulator (`Assumption:` tolerance; reported, not blocking); reference-device timings on build 1 | CI, device |
+| B5 | OCR character error rate ≤ 2% in English and French on the synthetic labelled corpus | CI |
+| B6 | AI evaluation: deterministic suite green in CI; live suite on the iPhone ≥ 95% citation correctness and 100% on the structural injection categories | CI, device |
+| B7 | Accessibility: audits pass on every screen at default and accessibility text sizes; the VoiceOver script is run | CI, device |
+| B8 | Snapshot tests of the key screens in light, dark and large text | CI |
+| B9 | Hygiene: icon, launch screen, Info.plist, privacy manifest reasons, French complete and reviewed, Staging display name and URL scheme | CI |
+| B10 | Crash reporting through MetricKit; "Share with App Developers" on the test device | CI, device |
+| B11 | Data safety: tolerant settings decoding; library index backed up; every store versioned, with a migration or a rebuild and an upgrade test from a build 1 store | CI |
+| B12 | Pipeline: CI builds Staging unsigned; the Xcode Cloud Staging archive succeeds; the validation build installs | CI, device |
+| B13 | Governance: PAP-030 merged; readiness review re-assessed | Docs |
+
+After build 1, rule B11 applies to every new store, and a store written by a newer build is never
+wiped by an older one: derived stores are rebuilt, and user stores are left untouched and read-only
+with a message (PAP-031).
+
 ## Release gates
 
 ### Automated in `release.yml` today

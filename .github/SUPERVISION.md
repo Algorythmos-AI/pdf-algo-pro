@@ -34,9 +34,10 @@ agent rules:
 - **May not, without explicit approval in the conversation:** merge, push to `integration` or
   `main`, change repository settings, rulesets or visibility, create releases or tags, submit to
   TestFlight or the App Store, add a third-party dependency, or write secrets anywhere.
-- **Current delegation:** decision PAP-030 (2026-09-30) lets agents squash-merge their own green
-  pull requests into `integration` and set up the internal TestFlight Staging workflow, within the
-  limits it states, until the first internal build is installed or 2026-10-31.
+- **Current delegation:** decision PAP-031 (2026-09-30, replacing PAP-030's time limit) lets agents
+  squash-merge their own green pull requests into `integration`, one at a time and never while
+  `integration` is red except for the fix, and run the internal TestFlight Staging workflow for the
+  owner-only group, within the limits it states. Nothing goes into `main` without the owner.
 - **Always:** follow [AGENTS.md](../AGENTS.md); cite sources; label assumptions; leave no tool
   attribution in commits or pull requests; stop and ask when a rule and a request conflict.
 - **Audit:** every agent change arrives as a pull request with its own description and checks, so
