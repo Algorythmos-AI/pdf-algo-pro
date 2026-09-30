@@ -157,6 +157,7 @@ public struct ReaderView<Assistant: View>: View {
       } message: {
         Text(model.errorMessage ?? "")
       }
+      .modifier(LinkConfirmation(controller: model.controller))
       .task { await model.load() }
       .onChange(of: model.controller?.currentPageIndex) { Task { await model.recordPosition() } }
       .onChange(of: scenePhase) { _, phase in

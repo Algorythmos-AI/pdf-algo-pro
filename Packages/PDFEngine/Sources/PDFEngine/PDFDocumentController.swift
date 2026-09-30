@@ -53,6 +53,8 @@ public final class PDFDocumentController {
   public internal(set) var drawingTool = DrawingTool.pen
   /// The annotation the person selected, if any (F3).
   public internal(set) var selection: AnnotationSelection?
+  /// A link to outside the document that the person tapped, waiting for them to confirm (T-02).
+  public var tappedLink: DocumentLink?
   /// The selected annotation itself; PDFKit objects stay out of `selection`.
   @ObservationIgnored var selected: (annotation: PDFAnnotation, page: PDFPage)?
   /// How pages are laid out.

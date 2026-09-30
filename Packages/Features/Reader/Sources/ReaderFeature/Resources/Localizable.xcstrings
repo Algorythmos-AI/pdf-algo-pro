@@ -345,6 +345,16 @@
         }
       }
     },
+    "Copy link" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copier le lien"
+          }
+        }
+      }
+    },
     "Copy to a new document" : {
       "localizations" : {
         "fr" : {
@@ -791,6 +801,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ouvrir"
+          }
+        }
+      }
+    },
+    "Open link" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvrir le lien"
+          }
+        }
+      }
+    },
+    "Open this link?" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvrir ce lien ?"
           }
         }
       }
@@ -1517,6 +1547,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Impossible d’ouvrir ce fichier. Il est peut-être endommagé ou n’est pas un PDF. Votre bibliothèque n’a pas changé."
+          }
+        }
+      }
+    },
+    "This link goes to a file or another app, so it can't be opened from a document: %@" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce lien mène à un fichier ou à une autre app, il ne peut donc pas être ouvert depuis un document : %@"
           }
         }
       }
