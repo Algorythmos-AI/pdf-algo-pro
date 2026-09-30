@@ -15,13 +15,51 @@ class UITestCase: XCTestCase {
     return app
   }
 
+  /// A point in an element, as a coordinate relative to the app.
+  ///
+  /// The element's frame is read once. A coordinate relative to the element looks the element up again
+  /// for every event of a gesture, which on a busy runner takes seconds, because a page's text makes the
+  /// accessibility tree large, and stretched a drag until it drew nothing (issue #68).
+  func point(_ dx: CGFloat, _ dy: CGFloat, in element: XCUIElement, of app: XCUIApplication) -> XCUICoordinate {
+    let frame = element.frame
+    return app.coordinate(withNormalizedOffset: .zero)
+      .withOffset(CGVector(dx: frame.minX + frame.width * dx, dy: frame.minY + frame.height * dy))
+  }
+
+  /// Waits, for up to four seconds, until two screenshots taken a quarter of a second apart match.
+  ///
+  /// An element exists before it has finished appearing: at launch the system cross-fades from the
+  /// launch screen, and a sheet slides in. An audit taken then measures half-drawn text (issue
+  /// #69). A screen that never stops changing, such as one with a blinking caret, is audited
+  /// after the four seconds.
+  private func waitUntilStill(_ app: XCUIApplication) {
+    var previous = app.screenshot().pngRepresentation
+    let deadline = Date().addingTimeInterval(4)
+    while Date() < deadline {
+      Thread.sleep(forTimeInterval: 0.25)
+      let current = app.screenshot().pngRepresentation
+      if current == previous { return }
+      previous = current
+    }
+  }
+
   /// The accessibility audit on the current screen.
   ///
-  /// Three kinds of finding are excluded narrowly, because they are not about anything a person sees:
-  /// issues on PDFKit's page view; Dynamic Type findings on navigation-bar and toolbar buttons, whose size
-  /// the system caps; and contrast findings on text scrolled behind a bottom action bar (identifier ending
-  /// `.actionBar`), which hides it, so the pixels the audit measures are the bar's. The bar's own controls
-  /// are still audited. Every other finding fails the test. All findings on the screen are collected and
+  /// Four kinds of finding are excluded narrowly:
+  /// - issues on PDFKit's page view and the nodes it exposes for the text on a page, which are not ours
+  ///   to change;
+  /// - Dynamic Type and clipped-text findings in navigation bars and toolbars, whose titles and buttons
+  ///   the system sizes and truncates;
+  /// - contrast findings on text scrolled behind a bottom action bar (identifier ending `.actionBar`),
+  ///   which hides it, so the pixels the audit measures are the bar's (the bar's own controls are still
+  ///   audited);
+  /// - contrast findings on disabled controls, which are dimmed on purpose to show they are inactive;
+  ///   WCAG 1.4.3 sets no contrast requirement for inactive controls. The same control is audited
+  ///   again once it is enabled. On CI the audit sometimes reports these findings without their
+  ///   element, and then this exclusion cannot apply, so text buttons that start disabled use
+  ///   `readableWhenDisabled()` rather than rely on it.
+  ///
+  /// Every other finding fails the test. All findings on the screen are collected and
   /// reported together, with the element each one is about, instead of stopping at the first.
   ///
   /// Quarantined (issue #44, flaky): "Dynamic Type font sizes are partially unsupported" on text in sheets
@@ -32,6 +70,7 @@ class UITestCase: XCTestCase {
   /// Quarantined (issue #53, flaky): the audit itself sometimes gives up with "Audit failed to complete in
   /// time" on a loaded runner. That timeout is recorded the same way; the journey goes on.
   func audit(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) throws {
+    waitUntilStill(app)
     let bars =
       app.navigationBars.allElementsBoundByIndex.map(\.frame) + app.toolbars.allElementsBoundByIndex.map(\.frame)
     let actionBars = app.descendants(matching: .any)
@@ -72,7 +111,10 @@ class UITestCase: XCTestCase {
     try app.performAccessibilityAudit { issue in
       if let element = issue.element {
         if element.identifier == "reader.pages" { return true }
-        if issue.auditType == .dynamicType,
+        // PDFKit's own accessibility nodes for the text on a page: part of PDFKit's page view.
+        if issue.detailedDescription.contains("UICGPDFNode") { return true }
+        if issue.auditType == .contrast, !element.isEnabled { return true }
+        if issue.auditType == .dynamicType || issue.auditType == .textClipped,
           bars.contains(where: { $0.insetBy(dx: -8, dy: -8).contains(element.frame) })
         {
           return true

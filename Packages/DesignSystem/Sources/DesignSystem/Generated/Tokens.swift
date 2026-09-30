@@ -46,6 +46,8 @@ public struct DesignColors: Sendable {
   public var statusWarning: Color { DynamicColor.system(.systemOrange) }
   /// Resolves to the system colour `systemRed`.
   public var statusError: Color { DynamicColor.system(.systemRed) }
+  /// `color.system.destructiveText`: light #C2181F, dark #FF8A8A, lightHighContrast #9F1016, darkHighContrast #FF9A9A (replaces `systemRed` for 4.5:1 text contrast).
+  public var destructiveText: Color { DynamicColor.make(light: RGB(0.7608, 0.0941, 0.1216), dark: RGB(1.0000, 0.5412, 0.5412), lightHighContrast: RGB(0.6235, 0.0627, 0.0863), darkHighContrast: RGB(1.0000, 0.6039, 0.6039)) }
   /// Resolves to the system colour `link`.
   public var link: Color { DynamicColor.system(.link) }
 }

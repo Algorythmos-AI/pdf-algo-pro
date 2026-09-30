@@ -58,6 +58,10 @@ final class AppContainer {
   /// Problems MetricKit reported, kept on this device (P6).
   let diagnosticsLog: DiagnosticsLog
   private let metricKit: MetricKitCollector?
+  /// Saved signatures, in the Keychain on this device only (FR-EDIT-004).
+  ///
+  /// UI tests use their own Keychain service, so they never see or change real signatures.
+  let signatures: any SignatureStoring
   let thumbnails = ThumbnailCache()
   let indexLevel: LibraryIndex.StoreLevel
   let environment: LaunchEnvironment
@@ -99,6 +103,8 @@ final class AppContainer {
     diagnosticsLog = DiagnosticsLog(file: folders.diagnostics.appendingPathComponent("problems.json"))
     metricKit = environment.isUITesting ? nil : MetricKitCollector(log: diagnosticsLog)
     metricKit?.start()
+    signatures =
+      environment.isUITesting ? KeychainSignatureStore(service: "ui-testing-\(UUID())") : KeychainSignatureStore()
   }
 
   /// The diagnostics summary for "Report a problem": app, system and health only (FR-SET-003).

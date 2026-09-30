@@ -2,6 +2,7 @@ import Core
 import CoreTestSupport
 import Foundation
 import PDFEngineTestSupport
+import PDFKit
 import SwiftUI
 import Testing
 
@@ -14,6 +15,7 @@ private struct Harness {
   let index = FakeIndex()
   let settings = InMemorySettingsStore()
   let telemetry = RecordingTelemetry()
+  let signatures = InMemorySignatureStore()
 
   func reader(
     for document: Document, pageIndex: Int? = nil, task: AssistantTask? = nil,
@@ -23,7 +25,7 @@ private struct Harness {
       selection: document.id, pageIndex: pageIndex, task: task, library: library,
       intake: DocumentIntake(library: library, inspector: PDFKitInspector(), index: index), index: index,
       settings: settings, telemetry: telemetry,
-      builder: SearchablePDFBuilder(recognizer: recognizer, renderPixelSize: 400),
+      builder: SearchablePDFBuilder(recognizer: recognizer, renderPixelSize: 400), signatures: signatures,
       speech: SpeechReader(engine: SilentSpeech()))
   }
 
@@ -228,6 +230,155 @@ struct ReaderModelTests {
     #expect(!noPrinting.allowsPrinting)
     await noPrinting.share()
     #expect(noPrinting.sharing?.allowsPrinting == false)
+  }
+
+  @Test("Drawing adds ink that is saved and can be undone; documents that forbid notes say so (F2a)")
+  func drawing() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.makeSample())
+    let reader = harness.reader(for: document)
+    await reader.load()
+    reader.setDrawing(true)
+    #expect(reader.isDrawing)
+    reader.controller?.strokeEnded([CGPoint(x: 100, y: 500), CGPoint(x: 200, y: 520)], onPage: 0)
+    let url = try await harness.library.fileURL(for: document.id)
+    for _ in 0..<200 where (try? PDFDocumentController(url: url).annotationCount(onPage: 0)) != 1 {
+      try await Task.sleep(for: .milliseconds(10))
+    }
+    #expect(try PDFDocumentController(url: url).annotationCount(onPage: 0) == 1)
+    #expect(reader.canUndo)
+    reader.setDrawing(false)
+    #expect(!reader.isDrawing)
+
+    let restricted = harness.reader(
+      for: await harness.seed(
+        try TestPDFs.makeProtected(
+          userPassword: nil, ownerPassword: "owner-\(UUID())", permissions: [.allowsLowQualityPrinting])))
+    await restricted.load()
+    restricted.setDrawing(true)
+    #expect(!restricted.isDrawing && restricted.errorMessage?.contains("doesn't allow") == true)
+  }
+
+  @Test("Signatures are drawn, saved on this device, placed, typed and deleted (F1c, FR-EDIT-004)")
+  func signing() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.makeSample())
+    let reader = harness.reader(for: document)
+    await reader.load()
+    reader.showSignatures()
+    #expect(reader.showsSignatures)
+    await reader.loadSignatures()
+    #expect(reader.savedSignatures.isEmpty)
+    #expect(await reader.saveSignature(drawn: []) == nil)
+
+    let drawn = [[CGPoint(x: 10, y: 10), CGPoint(x: 90, y: 40)], [CGPoint(x: 20, y: 30), CGPoint(x: 70, y: 30)]]
+    let signature = try #require(await reader.saveSignature(drawn: drawn))
+    #expect(try await harness.signatures.signatures() == [signature])
+    await reader.place(signature)
+    await reader.placeTyped("Ada Lovelace")
+    await reader.placeTyped("   ")
+    let url = try await harness.library.fileURL(for: document.id)
+    let types = try #require(PDFDocument(url: url)?.page(at: 0)?.annotations.map(\.type))
+    #expect(types.contains("Ink") && types.contains("FreeText") && types.count == 2)
+    #expect(reader.canUndo)
+
+    await reader.deleteSignature(signature.id)
+    let remaining = try await harness.signatures.signatures()
+    #expect(reader.savedSignatures.isEmpty && remaining.isEmpty)
+    await harness.signatures.failNext(with: .keychain(-25308))
+    await reader.loadSignatures()
+    #expect(reader.errorMessage?.contains("signatures saved on this device") == true)
+
+    let restricted = harness.reader(
+      for: await harness.seed(
+        try TestPDFs.makeProtected(
+          userPassword: nil, ownerPassword: "owner-\(UUID())", permissions: [.allowsLowQualityPrinting])))
+    await restricted.load()
+    restricted.showSignatures()
+    #expect(!restricted.showsSignatures && restricted.errorMessage?.contains("doesn't allow") == true)
+  }
+
+  @Test("The signature sheet draws at a large text size, with and without saved signatures")
+  func signatureSheetDraws() async throws {
+    let harness = Harness()
+    let reader = harness.reader(for: await harness.seed(try SyntheticPDF.makeSample()))
+    await reader.load()
+    func draws() -> Bool {
+      let view = SignatureSheet(model: reader).frame(width: 390, height: 800)
+        .environment(\.dynamicTypeSize, .accessibility3)
+      return ImageRenderer(content: view).uiImage != nil
+    }
+    #expect(draws())
+    _ = await reader.saveSignature(drawn: [[CGPoint(x: 0, y: 0), CGPoint(x: 50, y: 20)]])
+    #expect(draws())
+    let preview = SignaturePreview(signature: try #require(reader.savedSignatures.first)).frame(width: 200, height: 60)
+    #expect(ImageRenderer(content: preview).uiImage != nil)
+  }
+
+  @Test("Shapes are drawn with the chosen tool and text boxes are added, each saved (F2b)")
+  func shapesAndTextBoxes() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.makeSample())
+    let reader = harness.reader(for: document)
+    await reader.load()
+    reader.setDrawing(true, tool: .arrow)
+    #expect(reader.controller?.drawingTool == .arrow)
+    reader.controller?.strokeEnded([CGPoint(x: 100, y: 500), CGPoint(x: 300, y: 450)], onPage: 0)
+    reader.setDrawing(false)
+    await reader.addTextBox("Check with accounts")
+    await reader.addTextBox("  ")
+    let url = try await harness.library.fileURL(for: document.id)
+    for _ in 0..<200 where (try? PDFDocumentController(url: url).annotationCount(onPage: 0)) != 2 {
+      try await Task.sleep(for: .milliseconds(10))
+    }
+    let types = try #require(PDFDocument(url: url)?.page(at: 0)?.annotations.map(\.type))
+    #expect(Set(types) == ["Line", "FreeText"])
+  }
+
+  @Test("Every drawing tool has a label", arguments: DrawingTool.allCases)
+  func toolLabels(tool: DrawingTool) {
+    _ = ReaderToolbar.label(for: tool)
+  }
+
+  @Test("A selected annotation can be deleted and its text edited, each saved (F3, FR-ANN-002)")
+  func editingAnnotations() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.makeSample())
+    let reader = harness.reader(for: document)
+    await reader.load()
+    await reader.addTextBox("Draft")
+    let box = try #require(reader.controller?.document.page(at: 0)?.annotations.first?.bounds)
+    #expect(reader.controller?.selectAnnotation(at: CGPoint(x: box.midX, y: box.midY), onPage: 0) == true)
+    #expect(reader.selection?.kind == .textBox)
+    await reader.setSelectionText("Final")
+    let url = try await harness.library.fileURL(for: document.id)
+    #expect(PDFDocument(url: url)?.page(at: 0)?.annotations.first?.contents == "Final")
+    await reader.deleteSelection()
+    #expect(reader.selection == nil)
+    #expect(try PDFDocumentController(url: url).annotationCount(onPage: 0) == 0)
+    reader.clearSelection()
+
+    let restricted = harness.reader(
+      for: await harness.seed(
+        try TestPDFs.makeProtected(
+          userPassword: nil, ownerPassword: "owner-\(UUID())", permissions: [.allowsLowQualityPrinting])))
+    await restricted.load()
+    // PDFKit adds no annotation to a document whose author forbids comments, so nothing there can be
+    // selected; the refusal is checked directly.
+    await restricted.deleteSelection()
+    #expect(restricted.errorMessage?.contains("doesn't allow") == true)
+    restricted.errorMessage = nil
+    await restricted.setSelectionText("New")
+    #expect(restricted.errorMessage?.contains("doesn't allow") == true)
+  }
+
+  @Test("The selection bar draws for every kind at a large text size", arguments: AnnotationSelection.Kind.allCases)
+  func selectionBarDraws(kind: AnnotationSelection.Kind) {
+    let view = SelectionBar(
+      selection: AnnotationSelection(kind: kind, pageIndex: 0, text: "Text"), onEdit: {}, onDelete: {}, onDone: {}
+    )
+    .frame(width: 390).environment(\.dynamicTypeSize, .accessibility3)
+    #expect(ImageRenderer(content: view).uiImage != nil)
   }
 
   @Test("Layout choices are remembered")

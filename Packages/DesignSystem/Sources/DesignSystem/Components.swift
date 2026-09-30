@@ -49,6 +49,15 @@ extension View {
     frame(minWidth: Sizes.targetMinimum, minHeight: Sizes.targetMinimum).contentShape(Rectangle())
   }
 
+  /// Keeps a button's title readable while the button is disabled.
+  ///
+  /// The system draws disabled titles in a light grey, below 4.5:1. WCAG exempts inactive controls,
+  /// but the title still tells people what becomes possible, so it uses `labelSecondary`, which keeps
+  /// 4.5:1 on every system background. Apply it to the button's label.
+  public func readableWhenDisabled() -> some View {
+    modifier(ReadableWhenDisabledModifier())
+  }
+
   /// Limits text to a comfortable reading width and centres it on wide windows.
   public func readableWidth() -> some View {
     frame(maxWidth: Sizes.readableWidth).frame(maxWidth: .infinity)
@@ -291,5 +300,14 @@ extension EmptyState where Actions == EmptyView {
   /// Creates an empty state with a description and no actions.
   public init(_ title: Text, systemImage: String, @ViewBuilder description: () -> Description) {
     self.init(title, systemImage: systemImage, description: description, actions: { EmptyView() })
+  }
+}
+
+/// See `readableWhenDisabled()`.
+struct ReadableWhenDisabledModifier: ViewModifier {
+  @Environment(\.isEnabled) private var isEnabled
+
+  func body(content: Content) -> some View {
+    if isEnabled { content } else { content.foregroundStyle(Color.ds.labelSecondary) }
   }
 }
