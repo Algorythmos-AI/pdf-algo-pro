@@ -10,11 +10,16 @@ public struct SettingsView: View {
   @Environment(\.dismiss) private var dismiss
   @State private var reportWithoutMail: String?
   private let version: String
+  private let internalTools: AnyView?
 
   /// Creates Settings; `version` is shown in About.
-  public init(model: SettingsModel, version: String) {
+  ///
+  /// `internalTools` is a section the app adds in its Debug and Staging builds only, such as the live
+  /// AI evaluation; App Store builds pass none.
+  public init(model: SettingsModel, version: String, internalTools: AnyView? = nil) {
     _model = State(initialValue: model)
     self.version = version
+    self.internalTools = internalTools
   }
 
   /// The screen.
@@ -102,6 +107,7 @@ public struct SettingsView: View {
         } header: {
           Text("About", bundle: .module).foregroundStyle(Color.ds.labelSecondary)
         }
+        if let internalTools { internalTools }
       }
       .alert(
         Text("No email account is set up", bundle: .module),

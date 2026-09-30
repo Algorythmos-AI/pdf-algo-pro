@@ -8,6 +8,7 @@ import OnboardingFeature
 import ReaderFeature
 import ScanFeature
 import SettingsFeature
+import SwiftUI
 
 /// App-level state and the one router every entry point goes through (ADR-0004).
 ///
@@ -109,6 +110,15 @@ final class AppModel {
         library.open(document.id)
       }
     }
+  }
+
+  /// The internal tools section in Settings: the live AI evaluation, in Debug and Staging builds only.
+  var internalTools: AnyView? {
+    #if INTERNAL_TOOLS
+      AnyView(EvaluationSection(intelligence: container.intelligence))
+    #else
+      nil
+    #endif
   }
 
   func makeSettings() -> SettingsModel {

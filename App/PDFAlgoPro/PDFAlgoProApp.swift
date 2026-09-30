@@ -44,7 +44,8 @@ struct RootView: View {
     .sheet(item: $app.sheet) { sheet in
       switch sheet {
       case .scan: ScanView(model: app.makeScan())
-      case .settings: SettingsView(model: app.makeSettings(), version: app.container.version)
+      case .settings:
+        SettingsView(model: app.makeSettings(), version: app.container.version, internalTools: app.internalTools)
       }
     }
     .onOpenURL { app.handle($0) }

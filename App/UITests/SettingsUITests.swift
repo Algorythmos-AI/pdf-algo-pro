@@ -11,4 +11,25 @@ final class SettingsUITests: UITestCase {
     XCTAssertTrue(app.descendants(matching: .any)["settings.hideAI"].firstMatch.waitForExistence(timeout: 5))
     try audit(app)
   }
+
+  /// The live AI evaluation, in Debug and Staging builds only (bar item B6).
+  ///
+  /// UI tests use the scripted model, so this checks the screen, not the scores.
+  func testTheAIEvaluationRunsInInternalBuilds() throws {
+    let app = launch(["-skip-onboarding"])
+    let settings = app.buttons["library.settings"]
+    XCTAssertTrue(settings.waitForExistence(timeout: 10))
+    settings.tap()
+    let open = app.buttons["evaluation.open"]
+    for _ in 0..<6 where !open.isHittable { app.swipeUp() }
+    open.tap()
+    let run = app.buttons["evaluation.run"]
+    XCTAssertTrue(run.waitForExistence(timeout: 5))
+    try audit(app)
+    run.tap()
+    XCTAssertTrue(
+      app.descendants(matching: .any)["evaluation.result"].firstMatch.waitForExistence(timeout: 60),
+      "The evaluation finishes and shows its result")
+    try audit(app)
+  }
 }
