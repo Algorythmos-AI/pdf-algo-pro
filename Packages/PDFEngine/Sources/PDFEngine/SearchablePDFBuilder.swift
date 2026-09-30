@@ -57,10 +57,16 @@ public actor SearchablePDFBuilder {
   /// added to it: annotations (notes, markup, links, form fields), page rotation, the outline and the
   /// document's metadata.
   ///
+  /// Pages already recognised, for example before the app was stopped, are passed in `done` and
+  /// not recognised again; each newly recognised page is handed to `onPage` as soon as it is ready,
+  /// so it can be kept (P8).
+  ///
   /// - Throws: `PDFEngineError.unreadable`, `.passwordRequired`, `.restricted` (encrypted), `.saveFailed`, `CancellationError`, or
   ///   the recogniser's error.
   public func addTextLayer(
-    toPDFAt url: URL, progress: @Sendable (Double) -> Void = { _ in }
+    toPDFAt url: URL, resuming done: [Int: [RecognizedLine]] = [:],
+    onPage: @Sendable (Int, [RecognizedLine]) async -> Void = { _, _ in },
+    progress: @Sendable (Double) -> Void = { _ in }
   ) async throws
     -> RecognizedDocument
   {
@@ -75,9 +81,15 @@ public actor SearchablePDFBuilder {
     var recognized: [[RecognizedLine]] = []
     for index in 0..<pageCount {
       try Task.checkCancellation()
-      guard let page = source.page(at: index + 1) else { throw PDFEngineError.renderFailed }
-      let image = try PageRenderer.render(page, maximumPixelSize: renderPixelSize)
-      recognized.append(try await recognizer.recognizeText(in: image))
+      if let lines = done[index] {
+        recognized.append(lines)
+      } else {
+        guard let page = source.page(at: index + 1) else { throw PDFEngineError.renderFailed }
+        let image = try PageRenderer.render(page, maximumPixelSize: renderPixelSize)
+        let lines = try await recognizer.recognizeText(in: image)
+        recognized.append(lines)
+        await onPage(index, lines)
+      }
       progress(Double(index + 1) / Double(max(pageCount, 1)))
     }
     let boxes = (0..<pageCount).map { source.page(at: $0 + 1)?.getBoxRect(.cropBox) ?? PDFWriter.letter }

@@ -50,7 +50,11 @@ public final class ReaderModel {
   /// The document's file, once loaded.
   public private(set) var fileURL: URL?
   /// Recognition progress from 0 to 1 while text is being recognised; `nil` otherwise.
-  public private(set) var recognitionProgress: Double?
+  public var recognitionProgress: Double? {
+    recognition.progress[documentID] ?? (isPreparingRecognition ? 0 : nil)
+  }
+  /// Saving before recognition starts, so progress shows at once.
+  private var isPreparingRecognition = false
   /// A message for the last failed action.
   public var errorMessage: String?
   /// The assistant sheet, when open.
@@ -89,16 +93,15 @@ public final class ReaderModel {
   private let index: any DocumentIndexing
   private let settings: any SettingsStoring
   private let telemetry: any TelemetryRecording
-  private let builder: SearchablePDFBuilder
+  private let recognition: RecognitionCoordinator
   private let signatures: any SignatureStoring
-  private var recognition: Task<Void, Never>?
 
   /// Creates a reader for a document.
   public init(
     selection documentID: DocumentID, pageIndex: Int? = nil, task: AssistantTask? = nil, library: any DocumentLibrary,
     intake: DocumentIntake, index: any DocumentIndexing, settings: any SettingsStoring,
     telemetry: any TelemetryRecording,
-    builder: SearchablePDFBuilder, signatures: any SignatureStoring, speech: SpeechReader = SpeechReader()
+    recognition: RecognitionCoordinator, signatures: any SignatureStoring, speech: SpeechReader = SpeechReader()
   ) {
     self.documentID = documentID
     startPage = pageIndex
@@ -108,7 +111,7 @@ public final class ReaderModel {
     self.index = index
     self.settings = settings
     self.telemetry = telemetry
-    self.builder = builder
+    self.recognition = recognition
     self.signatures = signatures
     self.speech = speech
   }
@@ -120,6 +123,7 @@ public final class ReaderModel {
     // To the reader being ready on its first page; drawing it is PDFKit's work after this.
     let interval = Signposts.begin("Document.FirstPage")
     defer { interval.end() }
+    watchRecognition()
     canRestorePreviousVersion = await library.hasPreviousVersion(of: documentID)
     do {
       guard let document = try await library.document(withID: documentID) else {
@@ -438,6 +442,9 @@ public final class ReaderModel {
     phase = .loading
     do {
       try await library.restorePreviousVersion(of: documentID)
+      // The two versions can differ in their text (a restore across text recognition), so the search
+      // text and Spotlight follow the restored file.
+      _ = try? await intake.refresh(documentID)
     } catch {
       errorMessage = String(
         localized: "Couldn't restore the earlier version. The document hasn't changed.", bundle: .module)
@@ -473,51 +480,49 @@ public final class ReaderModel {
 
   /// Recognises text on device and replaces the file with a searchable version, with progress.
   ///
-  /// Unsaved notes, markup and form entries are saved first, so the searchable version includes them. If the
-  /// document changes while recognition runs, the file is left alone, so nothing added meanwhile is lost.
+  /// Unsaved notes, markup and form entries are saved first, so the searchable version includes them.
+  /// Recognition runs in the app's coordinator, so it goes on if the reader closes and resumes after
+  /// the app was stopped (P8). If the document changes meanwhile, the file is left alone, so nothing
+  /// added meanwhile is lost.
   public func recognizeText() {
     guard recognitionProgress == nil else { return }
-    recognitionProgress = 0
-    recognition = Task {
-      defer { recognitionProgress = nil }
-      do {
-        await save()
-        // A failed save has already said so; replacing the file now would lose those changes.
-        guard controller?.needsSaving != true else { return }
-        let url = try await library.fileURL(for: documentID)
-        let version = try FileVersion(url)
-        let result = try await builder.addTextLayer(toPDFAt: url) { progress in
-          Task { @MainActor in self.recognitionProgress = progress }
-        }
-        // Stopped during the last page: the builder has finished, but the file is left as it was.
-        try Task.checkCancellation()
-        // No suspension between this check and the write, so no save can slip in between.
-        guard controller?.needsSaving != true, try FileVersion(url) == version else {
-          errorMessage = String(
-            localized: "The document changed while its text was being recognised, so it wasn't replaced. Try again.",
-            bundle: .module)
-          return
-        }
-        try result.data.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
-        document = try await intake.refresh(documentID)
-        let reopened = try PDFDocumentController(url: url)
-        reopened.displayMode = settings.load().readerDisplayMode
-        controller = reopened
-        updateUndoState()
-        show(reopened)
-        await telemetry.record("task.core.completed")
-      } catch is CancellationError {
-        return
-      } catch {
-        errorMessage = String(
-          localized: "Text recognition didn't finish. The document hasn't changed.", bundle: .module)
-      }
+    isPreparingRecognition = true
+    Task {
+      defer { isPreparingRecognition = false }
+      await save()
+      // A failed save has already said so; replacing the file now would lose those changes.
+      guard controller?.needsSaving != true else { return }
+      recognition.start(documentID)
     }
   }
 
   /// Stops recognition; the document is left as it was.
   public func cancelRecognition() {
-    recognition?.cancel()
+    recognition.cancel(documentID)
+  }
+
+  /// Hears how recognition ended, and blocks replacing the file while there are unsaved changes.
+  private func watchRecognition() {
+    recognition.watch(
+      documentID, canReplace: { [weak self] in self?.controller?.needsSaving != true },
+      onFinish: { [weak self] outcome in await self?.recognitionFinished(outcome) })
+  }
+
+  private func recognitionFinished(_ outcome: RecognitionCoordinator.Outcome) async {
+    switch outcome {
+    case .replaced:
+      // Opens the searchable version on the page the reader showed.
+      await recordPosition()
+      await load()
+      updateUndoState()
+    case .fileChanged:
+      errorMessage = String(
+        localized: "The document changed while its text was being recognised, so it wasn't replaced. Try again.",
+        bundle: .module)
+    case .failed:
+      errorMessage = String(
+        localized: "Text recognition didn't finish. The document hasn't changed.", bundle: .module)
+    }
   }
 
   // MARK: - Intelligence
@@ -574,22 +579,5 @@ public final class ReaderModel {
     guard let citation = pendingReveal else { return }
     pendingReveal = nil
     controller?.reveal(citation)
-  }
-}
-
-/// One version of a file on disk.
-///
-/// Saves are atomic and replace the file, so its file number changes; the modification date and size
-/// catch in-place writes.
-private struct FileVersion: Equatable {
-  let number: Int?
-  let modified: Date?
-  let size: Int?
-
-  init(_ url: URL) throws {
-    let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
-    number = (attributes[.systemFileNumber] as? NSNumber)?.intValue
-    modified = attributes[.modificationDate] as? Date
-    size = (attributes[.size] as? NSNumber)?.intValue
   }
 }

@@ -43,6 +43,8 @@ final class AppModel {
       Task { await library.addSample() }
     }
     Task { await container.migrateSpotlightIfNeeded() }
+    // Text recognition the app was stopped in the middle of goes on from where it was (P8).
+    Task { await container.recognition.resumePending() }
   }
 
   // MARK: - Routing
@@ -89,7 +91,7 @@ final class AppModel {
     let model = ReaderModel(
       selection: selection.id, pageIndex: selection.pageIndex, task: selection.task, library: container.library,
       intake: container.intake, index: container.index, settings: container.settings, telemetry: container.telemetry,
-      builder: container.builder, signatures: container.signatures)
+      recognition: container.recognition, signatures: container.signatures)
     reader = (selection, model)
     return model
   }

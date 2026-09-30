@@ -5,6 +5,7 @@ import CoreSpotlight
 import DocumentStore
 import Foundation
 import LibraryFeature
+import ReaderFeature
 import Testing
 
 @testable import PDFAlgoPro
@@ -31,6 +32,13 @@ struct AppTests {
     let none = LaunchEnvironment(arguments: ["-seed-library"])
     #expect(!none.isUITesting && !none.seedsSample && !none.skipsOnboarding)
     #expect(!LaunchEnvironment(arguments: ["-seed-library", "other"]).seedsSample)
+  }
+
+  @Test("Background time is asked for and given back, and giving it back twice is harmless (P8)")
+  func backgroundTime() {
+    let end = BackgroundTime.begin("Test")
+    end()
+    end()
   }
 
   @Test("Every route navigates and none acts by itself (ADR-0004)")

@@ -155,7 +155,7 @@ public protocol DocumentIndexing: Sendable {
 }
 
 /// A line of recognised text; `bounds` are normalised (0...1) with a lower-left origin.
-public struct RecognizedLine: Hashable, Sendable {
+public struct RecognizedLine: Hashable, Codable, Sendable {
   /// The recognised text.
   public let text: String
   /// The line's box, normalised to the image with the origin at the lower left.
