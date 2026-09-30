@@ -45,14 +45,18 @@ class UITestCase: XCTestCase {
 
   /// The accessibility audit on the current screen.
   ///
-  /// Four kinds of finding are excluded narrowly:
+  /// Five kinds of finding are excluded narrowly:
   /// - issues on PDFKit's page view and the nodes it exposes for the text on a page, which are not ours
   ///   to change;
   /// - Dynamic Type and clipped-text findings in navigation bars and toolbars, whose titles and buttons
-  ///   the system sizes and truncates;
+  ///   the system sizes and truncates, and on a navigation bar's title wherever the audit reports it
+  ///   (at accessibility sizes it can report the title away from the bar);
   /// - contrast findings on text scrolled behind a bottom action bar (identifier ending `.actionBar`),
   ///   which hides it, so the pixels the audit measures are the bar's (the bar's own controls are still
   ///   audited);
+  /// - contrast findings on content partly behind the search field that floats at the bottom of the
+  ///   screen, which scrolling brings out; at large text sizes, the end of a screen rests there (the
+  ///   field itself is still audited);
   /// - contrast findings on disabled controls, which are dimmed on purpose to show they are inactive;
   ///   WCAG 1.4.3 sets no contrast requirement for inactive controls. The same control is audited
   ///   again once it is enabled. On CI the audit sometimes reports these findings without their
@@ -75,10 +79,21 @@ class UITestCase: XCTestCase {
       app.navigationBars.allElementsBoundByIndex.map(\.frame) + app.toolbars.allElementsBoundByIndex.map(\.frame)
     let actionBars = app.descendants(matching: .any)
       .matching(NSPredicate(format: "identifier ENDSWITH %@", ".actionBar")).allElementsBoundByIndex.map(\.frame)
+    let searchFields = app.searchFields.allElementsBoundByIndex.map(\.frame)
+    let barTitles = Set(app.navigationBars.allElementsBoundByIndex.map(\.identifier).filter { !$0.isEmpty })
     var findings: [String] = []
     var quarantined: [String] = []
+    // How long each audit takes, as a named activity in the CI log, for the timeouts in issue #53.
+    let started = Date()
+    defer {
+      let seconds = String(format: "%.1f", Date().timeIntervalSince(started))
+      let place = "\(URL(fileURLWithPath: "\(file)").lastPathComponent):\(line)"
+      XCTContext.runActivity(named: "Accessibility audit at \(place) took \(seconds) s") { _ in }
+    }
     do {
-      try runAudit(app, bars: bars, actionBars: actionBars, findings: &findings, quarantined: &quarantined)
+      try runAudit(
+        app, bars: bars, barTitles: barTitles, actionBars: actionBars, searchFields: searchFields,
+        findings: &findings, quarantined: &quarantined)
     } catch let error as NSError
       where error.domain == "com.apple.xcode.xctest.accessibilityAudit" && error.code == -56
     {
@@ -99,8 +114,8 @@ class UITestCase: XCTestCase {
   }
 
   private func runAudit(
-    _ app: XCUIApplication, bars: [CGRect], actionBars: [CGRect], findings: inout [String],
-    quarantined: inout [String]
+    _ app: XCUIApplication, bars: [CGRect], barTitles: Set<String>, actionBars: [CGRect],
+    searchFields: [CGRect], findings: inout [String], quarantined: inout [String]
   ) throws {
     var collected: [String] = []
     var held: [String] = []
@@ -116,11 +131,17 @@ class UITestCase: XCTestCase {
         if issue.auditType == .contrast, !element.isEnabled { return true }
         if issue.auditType == .dynamicType || issue.auditType == .textClipped,
           bars.contains(where: { $0.insetBy(dx: -8, dy: -8).contains(element.frame) })
+            || (element.elementType == .staticText && barTitles.contains(element.label))
         {
           return true
         }
         if issue.auditType == .contrast, element.elementType == .staticText,
           actionBars.contains(where: { $0.intersects(element.frame) })
+        {
+          return true
+        }
+        if issue.auditType == .contrast,
+          searchFields.contains(where: { $0.intersects(element.frame) && !$0.contains(element.frame) })
         {
           return true
         }
