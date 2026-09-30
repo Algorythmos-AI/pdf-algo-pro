@@ -10,7 +10,8 @@ let package = Package(
   defaultLocalization: "en",
   platforms: [.iOS(.v26), .macOS(.v26)],
   products: [
-    .library(name: "Intelligence", targets: ["Intelligence"])
+    .library(name: "Intelligence", targets: ["Intelligence"]),
+    .library(name: "IntelligenceEvaluation", targets: ["IntelligenceEvaluation"]),
   ],
   dependencies: [
     .package(path: "../Core")
@@ -21,10 +22,16 @@ let package = Package(
       dependencies: [.product(name: "Core", package: "Core")],
       swiftSettings: settings
     ),
+    .target(
+      name: "IntelligenceEvaluation",
+      dependencies: ["Intelligence", .product(name: "Core", package: "Core")],
+      swiftSettings: settings
+    ),
     .testTarget(
       name: "IntelligenceTests",
       dependencies: [
-        "Intelligence", .product(name: "CoreTestSupport", package: "Core"), .product(name: "Core", package: "Core"),
+        "Intelligence", "IntelligenceEvaluation", .product(name: "CoreTestSupport", package: "Core"),
+        .product(name: "Core", package: "Core"),
       ],
       swiftSettings: settings
     ),

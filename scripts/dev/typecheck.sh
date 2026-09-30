@@ -43,6 +43,7 @@ for m in PDFEngine DocumentStore OCR Scanning Search Intelligence Telemetry; do
   run emit $m non Packages/$m/Sources/$m
 done
 run emit PDFEngineTestSupport non Packages/PDFEngine/Sources/PDFEngineTestSupport
+run emit IntelligenceEvaluation non Packages/Intelligence/Sources/IntelligenceEvaluation
 for f in Onboarding Library Reader Assistant Scan Settings; do
   run emit ${f}Feature main Packages/Features/$f/Sources/${f}Feature bundle
 done
