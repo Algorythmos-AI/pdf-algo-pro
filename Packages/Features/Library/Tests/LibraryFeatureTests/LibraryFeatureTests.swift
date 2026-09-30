@@ -133,6 +133,26 @@ struct LibraryModelTests {
     #expect(harness.model.documents.isEmpty)
   }
 
+  @Test("Opening the library removes the search text of purged and vanished documents (FR-LIB-006)")
+  func housekeepingRemovesDerivedData() async throws {
+    let harness = Harness()
+    let kept = await harness.library.seed(Document(title: "Kept", fileName: "k.pdf", addedAt: .now))
+    let binned = await harness.library.seed(
+      Document(title: "Binned", fileName: "b.pdf", addedAt: .now, deletedAt: .now.addingTimeInterval(-31 * 86_400)))
+    let recent = await harness.library.seed(
+      Document(title: "Recent", fileName: "r.pdf", addedAt: .now, deletedAt: .now))
+    let orphan = DocumentID()
+    for id in [kept.id, binned.id, recent.id, orphan] {
+      await harness.index.seed(id, pages: [PageText(pageIndex: 0, text: "text")])
+    }
+
+    await harness.model.load()
+
+    #expect(Set(await harness.index.removed) == [binned.id, orphan])
+    #expect(Set(await harness.index.stored.keys) == [kept.id, recent.id], "Recently Deleted keeps its text")
+    #expect(await harness.telemetry.events.isEmpty)
+  }
+
   @Test func renameFavouriteAndTags() async throws {
     let harness = Harness()
     let document = await harness.library.seed(Document(title: "Draft", fileName: "d.pdf", addedAt: .now))

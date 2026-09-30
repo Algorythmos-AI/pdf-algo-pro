@@ -153,7 +153,7 @@ private struct FakeLibrary: DocumentLibrary {
   func restore(_ id: DocumentID) async throws {}
   func deletePermanently(_ id: DocumentID) async throws {}
   func purgeExpired(now: Date) async throws -> [DocumentID] { [] }
-  func reconcileWithFiles() async throws -> [Document] { [] }
+  func reconcileWithFiles() async throws -> Reconciliation { Reconciliation() }
 }
 
 /// The Keychain adapter runs here, hosted by the app, because the Keychain needs the app's

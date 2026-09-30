@@ -189,13 +189,14 @@ struct FileDocumentLibraryTests {
     try pdf.write(to: harness.documentsFolder.appendingPathComponent("From Files.pdf"))
     try Data("notes".utf8).write(to: harness.documentsFolder.appendingPathComponent("notes.txt"))
 
-    let added = try await harness.library.reconcileWithFiles()
+    let result = try await harness.library.reconcileWithFiles()
 
-    #expect(added.map(\.title) == ["From Files"])
+    #expect(result.added.map(\.title) == ["From Files"])
+    #expect(result.removed == [lost.id])
     let titles = try await harness.library.documents(in: .all, sortedBy: .title).map(\.title)
     #expect(titles == ["From Files", "Kept"])
     #expect(try await harness.library.document(withID: kept.id) != nil)
-    #expect(try await harness.library.reconcileWithFiles().isEmpty)
+    #expect(try await harness.library.reconcileWithFiles() == Reconciliation())
   }
 
   @Test("Files left in Recently Deleted after an index rebuild come back as deleted and are purged on time")
@@ -205,12 +206,12 @@ struct FileDocumentLibraryTests {
     try FileManager.default.createDirectory(at: deletedFolder, withIntermediateDirectories: true)
     try pdf.write(to: deletedFolder.appendingPathComponent("Old invoice.pdf"))
 
-    let added = try await harness.library.reconcileWithFiles()
+    let result = try await harness.library.reconcileWithFiles()
 
-    #expect(added.isEmpty)
+    #expect(result == Reconciliation())
     let deleted = try await harness.library.documents(in: .recentlyDeleted, sortedBy: .title)
     #expect(deleted.map(\.title) == ["Old invoice"])
-    #expect(try await harness.library.reconcileWithFiles().isEmpty)
+    #expect(try await harness.library.reconcileWithFiles() == Reconciliation())
     #expect(try await harness.library.documents(in: .recentlyDeleted, sortedBy: .title).count == 1)
     harness.clock.advance(days: 30)
     #expect(try await harness.library.purgeExpired(now: harness.clock.now) == deleted.map(\.id))

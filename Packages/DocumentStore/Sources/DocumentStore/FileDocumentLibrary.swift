@@ -226,12 +226,15 @@ public actor FileDocumentLibrary: DocumentLibrary {
   /// Brings the index in line with the files: PDFs added outside the app (for example in the Files app) are added,
   /// entries whose file is gone are removed.
   ///
-  /// Returns the documents added, which still need inspecting and indexing.
-  public func reconcileWithFiles() async throws -> [Document] {
+  /// Returns the documents added, which still need inspecting and indexing, and the entries removed,
+  /// whose derived data must be removed too.
+  public func reconcileWithFiles() async throws -> Reconciliation {
     try await exclusively {
       let entries = try await index.all()
+      var removed: [DocumentID] = []
       for document in entries where !fileManager.fileExists(atPath: location(of: document).path) {
         try await index.delete(document.id)
+        removed.append(document.id)
       }
       let known = Set(entries.filter { !$0.isDeleted }.map(\.fileName))
       let files =
@@ -258,7 +261,7 @@ public actor FileDocumentLibrary: DocumentLibrary {
             title: file.deletingPathExtension().lastPathComponent, fileName: file.lastPathComponent, addedAt: createdAt,
             deletedAt: now()))
       }
-      return added
+      return Reconciliation(added: added, removed: removed)
     }
   }
 

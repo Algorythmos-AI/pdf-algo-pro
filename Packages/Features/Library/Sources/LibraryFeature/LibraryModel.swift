@@ -94,18 +94,21 @@ public final class LibraryModel {
 
   // MARK: - Loading
 
-  /// Opens the library: purges expired deletions, picks up files added in the Files app, loads.
+  /// Opens the library: purges expired deletions, picks up files added in the Files app, removes the
+  /// search text and Spotlight entries of documents that are gone (FR-LIB-006), then loads.
   ///
   /// The housekeeping runs without the user asking, so a failure does not interrupt them: it is
   /// counted for "Report a problem" and retried on the next launch.
   public func load() async {
     do {
-      _ = try await library.purgeExpired(now: now())
+      for id in try await library.purgeExpired(now: now()) { await removeDerivedData(of: id) }
     } catch {
       await telemetry.record("quality.operation.failed")
     }
     do {
-      for document in try await library.reconcileWithFiles() {
+      let reconciliation = try await library.reconcileWithFiles()
+      for id in reconciliation.removed { await removeDerivedData(of: id) }
+      for document in reconciliation.added {
         do {
           _ = try await intake.refresh(document.id)
         } catch {
@@ -115,8 +118,31 @@ public final class LibraryModel {
     } catch {
       await telemetry.record("quality.operation.failed")
     }
+    await pruneDerivedData()
     await reload()
     phase = .loaded
+  }
+
+  private func removeDerivedData(of id: DocumentID) async {
+    do {
+      try await index.remove(id)
+    } catch {
+      await telemetry.record("quality.operation.failed")
+    }
+  }
+
+  /// Removes derived data the library no longer has documents for.
+  ///
+  /// This happens after the library index is rebuilt with new identifiers. Documents in Recently
+  /// Deleted keep theirs until they are purged. Nothing is pruned when the library cannot be listed.
+  private func pruneDerivedData() async {
+    do {
+      let current = try await library.documents(in: .all, sortedBy: .title)
+      let deleted = try await library.documents(in: .recentlyDeleted, sortedBy: .title)
+      _ = await index.prune(keeping: Set((current + deleted).map(\.id)))
+    } catch {
+      await telemetry.record("quality.operation.failed")
+    }
   }
 
   /// Reloads the current section and tags.

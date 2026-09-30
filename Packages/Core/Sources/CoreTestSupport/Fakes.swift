@@ -159,10 +159,10 @@ public actor FakeDocumentLibrary: DocumentLibrary {
   /// Brings the index in line with the files: PDFs added outside the app (for example in the Files app) are added,
   /// entries whose file is gone are removed.
   ///
-  /// Returns the documents added, which still need inspecting and indexing.
-  public func reconcileWithFiles() async throws -> [Document] {
+  /// Returns what changed; this fake never finds new files.
+  public func reconcileWithFiles() async throws -> Reconciliation {
     try check()
-    return []
+    return Reconciliation()
   }
 }
 
@@ -222,6 +222,16 @@ public actor FakeIndex: DocumentIndexing {
   public func remove(_ id: DocumentID) async throws {
     stored[id] = nil
     removed.append(id)
+  }
+
+  /// Removes the stored text of every document not in `ids`.
+  public func prune(keeping ids: Set<DocumentID>) async -> [DocumentID] {
+    let stale = stored.keys.filter { !ids.contains($0) }
+    for id in stale {
+      stored[id] = nil
+      removed.append(id)
+    }
+    return Array(stale)
   }
 
   /// The stored page texts of a document, for intelligence and reading aloud.

@@ -98,6 +98,40 @@ struct LocalSearchIndexTests {
     #expect(try FileManager.default.contentsOfDirectory(atPath: folder.path).isEmpty)
   }
 
+  @Test("Pruning removes the text and Spotlight entries of documents the library no longer has (FR-LIB-006)")
+  func prune() async throws {
+    let folder = FileManager.default.temporaryDirectory.appendingPathComponent("search-\(UUID())")
+    let spotlight = RecordingSpotlight()
+    let index = LocalSearchIndex(folder: folder, spotlight: spotlight)
+    let kept = document("Kept")
+    let stale = document("Stale")
+    for item in [kept, stale] { try await index.index(item, pages: [PageText(pageIndex: 0, text: item.title)]) }
+    try Data("{}".utf8).write(to: folder.appendingPathComponent("not-an-id.json"))
+
+    #expect(await index.prune(keeping: [kept.id]) == [stale.id])
+
+    #expect(try await index.pages(of: stale.id).isEmpty)
+    #expect(try await index.pages(of: kept.id).map(\.text) == ["Kept"])
+    #expect(await spotlight.removed == [stale.id])
+    #expect(await index.prune(keeping: [kept.id]).isEmpty)
+    #expect(await LocalSearchIndex(folder: folder.appendingPathComponent("missing")).prune(keeping: []).isEmpty)
+  }
+
+  @Test("Spotlight forgets a document even when its stored text cannot be removed")
+  func spotlightFirst() async throws {
+    let folder = FileManager.default.temporaryDirectory.appendingPathComponent("search-\(UUID())")
+    let spotlight = RecordingSpotlight()
+    let index = LocalSearchIndex(folder: folder, spotlight: spotlight)
+    let report = document("Report")
+    try await index.index(report, pages: [PageText(pageIndex: 0, text: "text")])
+    try FileManager.default.setAttributes([.posixPermissions: 0o500], ofItemAtPath: folder.path)
+    defer { try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: folder.path) }
+
+    await #expect(throws: (any Error).self) { try await index.remove(report.id) }
+
+    #expect(await spotlight.removed == [report.id])
+  }
+
   @Test func snippetsAreShortAndMarkTruncation() {
     let text = String(repeating: "lorem ", count: 40) + "needle" + String(repeating: " ipsum", count: 40)
     let snippet = SearchText.snippet(text, around: ["needle"])
