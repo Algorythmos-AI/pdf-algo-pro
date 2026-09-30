@@ -31,6 +31,7 @@ struct OnboardingModelTests {
   func onlyShippedOptions() {
     let (model, _, _, _) = makeModel()
     #expect(!model.intents.contains(.editText) && !model.intents.contains(.convert))
+    #expect(model.intents.contains(.organize), "Organising pages and merging documents have shipped")
     #expect(model.intents == OnboardingIntent.allCases.filter(\.isOffered))
   }
 
