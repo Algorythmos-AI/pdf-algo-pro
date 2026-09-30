@@ -107,6 +107,24 @@ struct ReaderToolbar: ToolbarContent {
               Image(systemName: "character.textbox")
             }
           }
+          Button {
+            model.showSignatures()
+          } label: {
+            Label {
+              Text("Signature", bundle: .module)
+            } icon: {
+              Image(systemName: "signature")
+            }
+          }
+          Button {
+            isAddingNote = true
+          } label: {
+            Label {
+              Text("Add note", bundle: .module)
+            } icon: {
+              Image(systemName: "note.text.badge.plus")
+            }
+          }
           Menu {
             Button {
               Task { await model.addStamp(.date(Date())) }
@@ -133,24 +151,6 @@ struct ReaderToolbar: ToolbarContent {
               Text("Stamp", bundle: .module)
             } icon: {
               Image(systemName: "seal")
-            }
-          }
-          Button {
-            model.showSignatures()
-          } label: {
-            Label {
-              Text("Signature", bundle: .module)
-            } icon: {
-              Image(systemName: "signature")
-            }
-          }
-          Button {
-            isAddingNote = true
-          } label: {
-            Label {
-              Text("Add note", bundle: .module)
-            } icon: {
-              Image(systemName: "note.text.badge.plus")
             }
           }
           Button {
