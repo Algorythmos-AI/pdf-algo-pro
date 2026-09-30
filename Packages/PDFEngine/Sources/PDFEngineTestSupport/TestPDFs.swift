@@ -88,9 +88,11 @@ public enum TestPDFs {
     return Data(output)
   }
 
-  /// A one-page PDF with a signature field, as a signing app leaves it: signed (`/V` holds a signature
-  /// dictionary with `/ByteRange` and `/Contents`), unsigned (an empty field), or certified by its
-  /// author (`/Perms /DocMDP`). The signature bytes are placeholders; only the structure matters.
+  /// A one-page PDF with a signature field, as a signing app leaves it.
+  ///
+  /// The field is signed (`/V` holds a signature dictionary with `/ByteRange` and `/Contents`),
+  /// unsigned (an empty field), or certified by its author (`/Perms /DocMDP`). The signature bytes are
+  /// placeholders; only the structure matters.
   public static func makeSigned(_ kind: SignedKind) -> Data {
     let content = "BT /F1 18 Tf 72 700 Td (Signed agreement) Tj ET"
     let perms = kind == .certified ? " /Perms << /DocMDP 6 0 R >>" : ""
