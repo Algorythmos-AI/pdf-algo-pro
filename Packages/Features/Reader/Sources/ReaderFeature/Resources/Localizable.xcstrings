@@ -127,6 +127,16 @@
         }
       }
     },
+    "Changes since the last save are replaced. You can switch back the same way." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les modifications faites depuis le dernier enregistrement sont remplacées. Vous pouvez revenir en arrière de la même façon."
+          }
+        }
+      }
+    },
     "Clear" : {
       "localizations" : {
         "fr" : {
@@ -163,6 +173,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Impossible d’accéder aux signatures enregistrées sur cet appareil. Réessayez."
+          }
+        }
+      }
+    },
+    "Couldn't restore the earlier version. The document hasn't changed." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible de restaurer la version précédente. Le document n’a pas changé."
+          }
+        }
+      }
+    },
+    "Couldn't save your changes because this iPhone is almost full. The document on disk hasn't changed. Free up some space, then try again." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible d’enregistrer vos modifications, car cet iPhone est presque plein. Le document enregistré n’a pas changé. Libérez de l’espace, puis réessayez."
           }
         }
       }
@@ -553,6 +583,36 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Rétablir"
+          }
+        }
+      }
+    },
+    "Restore" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restaurer"
+          }
+        }
+      }
+    },
+    "Restore the version before the last save" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restaurer la version d’avant le dernier enregistrement"
+          }
+        }
+      }
+    },
+    "Restore the version before the last save?" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restaurer la version d’avant le dernier enregistrement ?"
           }
         }
       }
