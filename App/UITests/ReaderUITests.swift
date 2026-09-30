@@ -11,13 +11,13 @@ final class ReaderUITests: UITestCase {
     app.buttons["Contents"].tap()
     let contents = app.navigationBars["Contents"]
     XCTAssertTrue(contents.waitForExistence(timeout: 5), "The table of contents opens (FR-READ-002)")
-    try audit(app)
+    try audit(app, onSheet: true)
     contents.buttons["Done"].tap()
     app.buttons["reader.more"].tap()
     app.buttons["Pages"].tap()
     let third = app.buttons["Page 3"]
     XCTAssertTrue(third.waitForExistence(timeout: 5), "The page grid shows every page (FR-READ-002)")
-    try audit(app)
+    try audit(app, onSheet: true)
     third.tap()
     expectation(for: NSPredicate(format: "label CONTAINS %@", "3 of 3"), evaluatedWith: indicator)
     waitForExpectations(timeout: 10)
@@ -65,11 +65,11 @@ final class ReaderUITests: UITestCase {
     tapMenuItem(app.buttons["Signature"], in: markup)
     let name = app.textFields["signature.typedName"]
     XCTAssertTrue(name.waitForExistence(timeout: 5), "The signature sheet opens (F1c)")
-    try audit(app)
+    try audit(app, onSheet: true)
     name.tap()
     // Return closes the keyboard, so the audit measures the button rather than the keyboard over it.
     name.typeText("Ada Lovelace\n")
-    try audit(app)
+    try audit(app, onSheet: true)
     app.buttons["signature.placeTyped"].tap()
     XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 5))
     markup.tap()

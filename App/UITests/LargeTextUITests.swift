@@ -23,10 +23,10 @@ final class LargeTextUITests: UITestCase {
     try audit(app)
     app.buttons["library.scan"].tap()
     XCTAssertTrue(app.buttons["scan.images"].waitForExistence(timeout: 5))
-    try audit(app)
+    try audit(app, onSheet: true)
     app.buttons["Cancel"].firstMatch.tap()
     tap(app.buttons["library.settings"], until: app.descendants(matching: .any)["settings.hideAI"].firstMatch)
-    try audit(app)
+    try audit(app, onSheet: true)
   }
 
   func testTheReaderAndItsSheetsAtALargeTextSize() throws {
@@ -36,11 +36,11 @@ final class LargeTextUITests: UITestCase {
     tapMenuItem(app.buttons["Contents"], in: app.buttons["reader.more"])
     let contents = app.navigationBars["Contents"]
     XCTAssertTrue(contents.waitForExistence(timeout: 5))
-    try audit(app)
+    try audit(app, onSheet: true)
     contents.buttons["Done"].tap()
     tapMenuItem(app.buttons["Pages"], in: app.buttons["reader.more"])
     XCTAssertTrue(app.buttons["Page 3"].waitForExistence(timeout: 5))
-    try audit(app)
+    try audit(app, onSheet: true)
   }
 
   func testTheSignatureSheetAtALargeTextSize() throws {
@@ -48,7 +48,7 @@ final class LargeTextUITests: UITestCase {
     XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
     tapMenuItem(app.buttons["Signature"], in: app.buttons["reader.markup"])
     XCTAssertTrue(app.textFields["signature.typedName"].waitForExistence(timeout: 5))
-    try audit(app)
+    try audit(app, onSheet: true)
   }
 
   func testTheAssistantAtALargeTextSize() throws {
@@ -61,6 +61,6 @@ final class LargeTextUITests: UITestCase {
     question.tap()
     question.typeText("What is the total due?\n")
     XCTAssertTrue(app.staticTexts["assistant.answer"].waitForExistence(timeout: Self.answerTimeout))
-    try audit(app)
+    try audit(app, onSheet: true)
   }
 }

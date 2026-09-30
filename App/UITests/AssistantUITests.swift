@@ -15,7 +15,7 @@ final class AssistantUITests: UITestCase {
     XCTAssertTrue(
       app.staticTexts["assistant.answer"].waitForExistence(timeout: Self.answerTimeout), "A grounded answer (FR-AI-002)"
     )
-    try audit(app)
+    try audit(app, onSheet: true)
     let citation = app.buttons["Source: page 2"]
     XCTAssertTrue(citation.exists, "The answer cites page 2")
     citation.tap()
@@ -47,6 +47,6 @@ final class AssistantUITests: UITestCase {
     XCTAssertTrue(
       app.staticTexts["Document intelligence isn't available"].waitForExistence(timeout: Self.answerTimeout),
       "FR-ONB-006")
-    try audit(app)
+    try audit(app, onSheet: true)
   }
 }

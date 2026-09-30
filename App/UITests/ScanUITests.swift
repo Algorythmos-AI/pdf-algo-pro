@@ -9,6 +9,6 @@ final class ScanUITests: UITestCase {
     XCTAssertTrue(scan.waitForExistence(timeout: 10))
     scan.tap()
     XCTAssertTrue(app.buttons["scan.images"].waitForExistence(timeout: 5))
-    try audit(app)
+    try audit(app, onSheet: true)
   }
 }

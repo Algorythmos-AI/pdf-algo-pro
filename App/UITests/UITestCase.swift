@@ -78,7 +78,7 @@ class UITestCase: XCTestCase {
 
   /// The accessibility audit on the current screen.
   ///
-  /// Five kinds of finding are excluded narrowly:
+  /// Five kinds of finding are excluded narrowly everywhere, and a sixth on sheets (below):
   /// - issues on PDFKit's page view and the nodes it exposes for the text on a page, which are not ours
   ///   to change;
   /// - Dynamic Type and clipped-text findings in navigation bars and toolbars, whose titles and buttons
@@ -99,10 +99,11 @@ class UITestCase: XCTestCase {
   /// Every other finding fails the test. All findings on the screen are collected and
   /// reported together, with the element each one is about, instead of stopping at the first.
   ///
-  /// Quarantined (issue #44, flaky): "Dynamic Type font sizes are partially unsupported" on text in sheets
-  /// appears on some runs and not others with the same code. Those findings are reported as a non-strict
-  /// expected failure, visible in the results without failing the build (docs/testing-strategy.md, Flaky
-  /// tests). Text that does not scale at all still fails.
+  /// On a sheet (`onSheet`), "Dynamic Type font sizes are partially unsupported" findings are excluded
+  /// (issue #44). The audit changes the text size and measures at once, and a sheet redraws a moment
+  /// later, so the finding came and went on text that uses standard styles. The large-text journeys
+  /// (`LargeTextUITests`) and the large-text snapshots check every sheet at an accessibility size
+  /// instead. Text that doesn't scale at all still fails, on sheets too.
   ///
   /// Quarantined (issue #76, flaky): contrast findings on buttons inside a navigation bar, measured while a
   /// sheet's glass bar buttons are still appearing (the accent colour is about 7:1 once drawn), and
@@ -111,7 +112,9 @@ class UITestCase: XCTestCase {
   ///
   /// Quarantined (issue #53, flaky): the audit itself sometimes gives up with "Audit failed to complete in
   /// time" on a loaded runner. That timeout is recorded the same way; the journey goes on.
-  func audit(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) throws {
+  func audit(
+    _ app: XCUIApplication, onSheet: Bool = false, file: StaticString = #filePath, line: UInt = #line
+  ) throws {
     waitUntilStill(app)
     let bars =
       app.navigationBars.allElementsBoundByIndex.map(\.frame) + app.toolbars.allElementsBoundByIndex.map(\.frame)
@@ -120,7 +123,6 @@ class UITestCase: XCTestCase {
     let searchFields = app.searchFields.allElementsBoundByIndex.map(\.frame)
     let barTitles = Set(app.navigationBars.allElementsBoundByIndex.map(\.identifier).filter { !$0.isEmpty })
     var findings: [String] = []
-    var quarantined: [String] = []
     var appearing: [String] = []
     // How long each audit takes, as a named activity in the CI log, for the timeouts in issue #53.
     let started = Date()
@@ -131,20 +133,14 @@ class UITestCase: XCTestCase {
     }
     do {
       try runAudit(
-        app, bars: bars, barTitles: barTitles, actionBars: actionBars, searchFields: searchFields,
-        findings: &findings, quarantined: &quarantined, appearing: &appearing)
+        app, onSheet: onSheet, bars: bars, barTitles: barTitles, actionBars: actionBars, searchFields: searchFields,
+        findings: &findings, appearing: &appearing)
     } catch let error as NSError
       where error.domain == "com.apple.xcode.xctest.accessibilityAudit" && error.code == -56
     {
       // Findings collected before the timeout are still reported below.
       recordQuarantined(
         "Quarantined flaky audit timeout, issue #53", details: error.localizedDescription, file: file, line: line)
-    }
-    if !quarantined.isEmpty {
-      recordQuarantined(
-        "Quarantined flaky audit finding, issue #44",
-        details: "\(quarantined.count) quarantined finding(s):\n" + quarantined.joined(separator: "\n"), file: file,
-        line: line)
     }
     if !appearing.isEmpty {
       recordQuarantined(
@@ -159,16 +155,14 @@ class UITestCase: XCTestCase {
   }
 
   private func runAudit(
-    _ app: XCUIApplication, bars: [CGRect], barTitles: Set<String>, actionBars: [CGRect],
-    searchFields: [CGRect], findings: inout [String], quarantined: inout [String], appearing: inout [String]
+    _ app: XCUIApplication, onSheet: Bool, bars: [CGRect], barTitles: Set<String>, actionBars: [CGRect],
+    searchFields: [CGRect], findings: inout [String], appearing: inout [String]
   ) throws {
     let navigationBars = app.navigationBars.allElementsBoundByIndex.map(\.frame)
     var collected: [String] = []
-    var held: [String] = []
     var settling: [String] = []
     defer {
       findings += collected
-      quarantined += held
       appearing += settling
     }
     try app.performAccessibilityAudit { issue in
@@ -204,8 +198,9 @@ class UITestCase: XCTestCase {
         settling.append(Self.describe(issue))
         return true
       }
-      if issue.auditType == .dynamicType, issue.compactDescription.localizedCaseInsensitiveContains("partially") {
-        held.append(Self.describe(issue))
+      if onSheet, issue.auditType == .dynamicType,
+        issue.compactDescription.localizedCaseInsensitiveContains("partially")
+      {
         return true
       }
       collected.append(Self.describe(issue))
