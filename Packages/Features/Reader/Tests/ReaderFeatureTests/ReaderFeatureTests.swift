@@ -230,6 +230,33 @@ struct ReaderModelTests {
     #expect(noPrinting.sharing?.allowsPrinting == false)
   }
 
+  @Test("Drawing adds ink that is saved and can be undone; documents that forbid notes say so (F2a)")
+  func drawing() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.makeSample())
+    let reader = harness.reader(for: document)
+    await reader.load()
+    reader.setDrawing(true)
+    #expect(reader.isDrawing)
+    reader.controller?.strokeEnded([CGPoint(x: 100, y: 500), CGPoint(x: 200, y: 520)], onPage: 0)
+    let url = try await harness.library.fileURL(for: document.id)
+    for _ in 0..<200 where (try? PDFDocumentController(url: url).annotationCount(onPage: 0)) != 1 {
+      try await Task.sleep(for: .milliseconds(10))
+    }
+    #expect(try PDFDocumentController(url: url).annotationCount(onPage: 0) == 1)
+    #expect(reader.canUndo)
+    reader.setDrawing(false)
+    #expect(!reader.isDrawing)
+
+    let restricted = harness.reader(
+      for: await harness.seed(
+        try TestPDFs.makeProtected(
+          userPassword: nil, ownerPassword: "owner-\(UUID())", permissions: [.allowsLowQualityPrinting])))
+    await restricted.load()
+    restricted.setDrawing(true)
+    #expect(!restricted.isDrawing && restricted.errorMessage?.contains("doesn't allow") == true)
+  }
+
   @Test("Layout choices are remembered")
   func displayMode() async throws {
     let harness = Harness()

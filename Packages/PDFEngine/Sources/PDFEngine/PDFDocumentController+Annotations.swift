@@ -50,6 +50,55 @@ extension PDFDocumentController {
     add([(note, page)])
   }
 
+  /// Turns drawing on or off (F2a).
+  ///
+  /// While it is on, a stroke on a page becomes an ink annotation and `onStroke` runs, so the reader
+  /// can save; scrolling and selection wait until it is off.
+  public func setDrawing(_ isDrawing: Bool, onStroke: @escaping @MainActor () -> Void = {}) {
+    self.isDrawing = isDrawing
+    onInk = isDrawing ? onStroke : nil
+    view?.setDrawing(isDrawing)
+  }
+
+  /// A stroke finished on a page, in page space; the page view calls this while drawing.
+  func strokeEnded(_ points: [CGPoint], onPage pageIndex: Int) {
+    guard isDrawing, addInk([points], onPage: pageIndex) else { return }
+    onInk?()
+  }
+
+  /// The width of the pen, in points.
+  public static let inkLineWidth: CGFloat = 2.5
+
+  /// Adds strokes drawn on a page as one ink annotation (F2a), a standard `/Ink` annotation that other
+  /// PDF readers show and edit.
+  ///
+  /// Points are in page space (PDF points, origin at the bottom left, before the page's rotation), as
+  /// `PDFView.convert(_:to:)` gives them, so strokes stay where they were drawn on rotated pages.
+  /// Strokes of a single point are dropped. Returns whether anything was added.
+  @discardableResult
+  public func addInk(_ strokes: [[CGPoint]], onPage pageIndex: Int) -> Bool {
+    let strokes = strokes.filter { $0.count > 1 }
+    guard let page = document.page(at: pageIndex), let first = strokes.first?.first else { return false }
+    let points = strokes.flatMap(\.self)
+    var box = CGRect(origin: first, size: .zero)
+    for point in points { box = box.union(CGRect(origin: point, size: .zero)) }
+    let bounds = box.insetBy(dx: -Self.inkLineWidth * 2, dy: -Self.inkLineWidth * 2)
+    let annotation = PDFAnnotation(bounds: bounds, forType: .ink, withProperties: nil)
+    let border = PDFBorder()
+    border.lineWidth = Self.inkLineWidth
+    annotation.border = border
+    annotation.color = AnnotationPalette.ink
+    for stroke in strokes {
+      // Ink paths are in the annotation's own space, from its bounds' origin.
+      let path = CGMutablePath()
+      path.move(to: CGPoint(x: stroke[0].x - bounds.minX, y: stroke[0].y - bounds.minY))
+      for point in stroke.dropFirst() { path.addLine(to: CGPoint(x: point.x - bounds.minX, y: point.y - bounds.minY)) }
+      annotation.add(PlatformBezierPath(cgPath: path))
+    }
+    add([(annotation, page)])
+    return true
+  }
+
   private func markUp(_ selection: PDFSelection, as markup: TextMarkup) -> Bool {
     var added: [(PDFAnnotation, PDFPage)] = []
     for line in selection.selectionsByLine() {

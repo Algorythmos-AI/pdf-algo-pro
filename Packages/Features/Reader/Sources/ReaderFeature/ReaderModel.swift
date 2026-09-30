@@ -230,6 +230,23 @@ public final class ReaderModel {
     await save()
   }
 
+  /// Whether touches on the page draw ink (F2a).
+  public var isDrawing: Bool { controller?.isDrawing ?? false }
+
+  /// Starts or stops drawing; each stroke is saved and can be undone.
+  public func setDrawing(_ isDrawing: Bool) {
+    guard let controller else { return }
+    if isDrawing, !checkAnnotatingIsAllowed(controller) { return }
+    controller.setDrawing(isDrawing) { [weak self] in
+      Task { await self?.inkAdded() }
+    }
+  }
+
+  private func inkAdded() async {
+    updateUndoState()
+    await save()
+  }
+
   /// Says so when the document's author does not allow notes and markup (defect D9).
   private func checkAnnotatingIsAllowed(_ controller: PDFDocumentController) -> Bool {
     guard controller.allowsAnnotating else {

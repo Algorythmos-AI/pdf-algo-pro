@@ -38,4 +38,23 @@ final class ReaderUITests: UITestCase {
     expectation(for: NSPredicate(format: "label CONTAINS %@", "2 of 3"), evaluatedWith: indicator)
     waitForExpectations(timeout: 10)
   }
+
+  func testDrawingAddsInkThatCanBeUndone() throws {
+    let app = launch(["-skip-onboarding", "-seed-library", "sample"])
+    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
+    let markup = app.buttons["reader.markup"]
+    markup.tap()
+    app.buttons["Draw"].tap()
+    let done = app.buttons["reader.doneDrawing"]
+    XCTAssertTrue(done.waitForExistence(timeout: 5), "Drawing mode shows Done (F2a)")
+    let area = app.descendants(matching: .any)["reader.drawing"].firstMatch
+    XCTAssertTrue(area.waitForExistence(timeout: 5))
+    area.coordinate(withNormalizedOffset: CGVector(dx: 0.3, dy: 0.4))
+      .press(forDuration: 0.1, thenDragTo: area.coordinate(withNormalizedOffset: CGVector(dx: 0.7, dy: 0.5)))
+    done.tap()
+    markup.tap()
+    let undo = app.buttons["Undo"]
+    XCTAssertTrue(undo.waitForExistence(timeout: 5))
+    XCTAssertTrue(undo.isEnabled, "The stroke was added and can be undone")
+  }
 }

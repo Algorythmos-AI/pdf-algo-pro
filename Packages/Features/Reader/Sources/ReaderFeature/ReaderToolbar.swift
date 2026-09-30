@@ -10,7 +10,14 @@ struct ReaderToolbar: ToolbarContent {
 
   var body: some ToolbarContent {
     ToolbarItemGroup(placement: .primaryAction) {
-      if model.phase == .ready {
+      if model.isDrawing {
+        Button {
+          model.setDrawing(false)
+        } label: {
+          Text("Done", bundle: .module)
+        }
+        .accessibilityIdentifier("reader.doneDrawing")
+      } else if model.phase == .ready {
         if model.showsIntelligence {
           Menu {
             Button {
@@ -64,6 +71,15 @@ struct ReaderToolbar: ToolbarContent {
               Task { await model.markUpSelection(markup) }
             } label: {
               Self.label(for: markup)
+            }
+          }
+          Button {
+            model.setDrawing(true)
+          } label: {
+            Label {
+              Text("Draw", bundle: .module)
+            } icon: {
+              Image(systemName: "pencil.tip")
             }
           }
           Button {

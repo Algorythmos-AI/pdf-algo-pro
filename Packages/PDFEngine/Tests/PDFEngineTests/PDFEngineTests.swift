@@ -139,6 +139,55 @@ struct ControllerTests {
     #expect(locked.formValues.isEmpty && !locked.needsSaving)
   }
 
+  @Test("Drawn strokes become one standard ink annotation that survives a save and undoes (F2a)")
+  func inkRoundTrip() throws {
+    let controller = try PDFDocumentController(data: SyntheticPDF.makeSample())
+    let strokes = [
+      [CGPoint(x: 100, y: 500), CGPoint(x: 160, y: 520), CGPoint(x: 220, y: 480)],
+      [CGPoint(x: 120, y: 450), CGPoint(x: 200, y: 450)],
+    ]
+    #expect(!controller.addInk([[CGPoint(x: 1, y: 1)]], onPage: 0), "A dot is not a stroke")
+    #expect(!controller.addInk(strokes, onPage: 99))
+    #expect(controller.addInk(strokes, onPage: 0) && controller.hasUnsavedChanges)
+    controller.undoManager.undo()
+    #expect(controller.annotationCount(onPage: 0) == 0)
+    controller.undoManager.redo()
+
+    let url = temporaryURL()
+    try controller.save(to: url)
+    let ink = try #require(PDFDocument(url: url)?.page(at: 0)?.annotations.first { $0.type == "Ink" })
+    #expect(ink.paths?.count == 2)
+    #expect(ink.bounds.contains(CGPoint(x: 220, y: 480)) && ink.bounds.contains(CGPoint(x: 100, y: 500)))
+  }
+
+  @Test("Ink on a rotated page stays in page space, inside the page")
+  func inkOnRotatedPage() throws {
+    let document = try #require(PDFDocument(data: SyntheticPDF.make(pages: ["Rotated"])))
+    document.page(at: 0)?.rotation = 90
+    let controller = try PDFDocumentController(data: try #require(document.dataRepresentation()))
+    #expect(controller.addInk([[CGPoint(x: 72, y: 72), CGPoint(x: 300, y: 600)]], onPage: 0))
+    let url = temporaryURL()
+    try controller.save(to: url)
+    let page = try #require(PDFDocument(url: url)?.page(at: 0))
+    let ink = try #require(page.annotations.first { $0.type == "Ink" })
+    #expect(page.rotation == 90 && page.bounds(for: .mediaBox).contains(ink.bounds))
+  }
+
+  @Test("Strokes count only while drawing, and each one is reported")
+  func drawingMode() throws {
+    let controller = try PDFDocumentController(data: SyntheticPDF.makeSample())
+    var reported = 0
+    controller.strokeEnded([CGPoint(x: 10, y: 10), CGPoint(x: 50, y: 50)], onPage: 0)
+    #expect(controller.annotationCount(onPage: 0) == 0, "Not drawing: ignored")
+    controller.setDrawing(true) { reported += 1 }
+    #expect(controller.isDrawing)
+    controller.strokeEnded([CGPoint(x: 10, y: 10), CGPoint(x: 50, y: 50)], onPage: 0)
+    controller.strokeEnded([CGPoint(x: 10, y: 10)], onPage: 0)
+    #expect(controller.annotationCount(onPage: 0) == 1 && reported == 1)
+    controller.setDrawing(false)
+    #expect(!controller.isDrawing)
+  }
+
   @Test("Every markup kind becomes a standard PDF annotation", arguments: TextMarkup.allCases)
   func markupKinds(markup: TextMarkup) throws {
     let controller = try PDFDocumentController(data: SyntheticPDF.makeSample())

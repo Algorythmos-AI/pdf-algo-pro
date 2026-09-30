@@ -5,16 +5,19 @@ import PDFKit
   import UIKit
 
   typealias PlatformColor = UIColor
+  typealias PlatformBezierPath = UIBezierPath
 #else
   import AppKit
 
   typealias PlatformColor = NSColor
+  typealias PlatformBezierPath = NSBezierPath
 #endif
 
 /// Annotation colours: the user's content, drawn with system colours (design system, annotation colours).
 enum AnnotationPalette {
   static let yellow = PlatformColor.systemYellow.withAlphaComponent(0.45)
   static let red = PlatformColor.systemRed
+  static let ink = PlatformColor.systemBlue
 }
 
 /// The PDFKit page view, configured for reading.
@@ -23,6 +26,10 @@ enum AnnotationPalette {
 @MainActor
 final class PDFReaderHostView: PDFView {
   private var pageObserver: (any NSObjectProtocol)?
+  private weak var controller: PDFDocumentController?
+  #if canImport(UIKit)
+    private var inkCapture: InkCaptureView?
+  #endif
 
   func configure(for controller: PDFDocumentController) {
     document = controller.document
@@ -40,6 +47,7 @@ final class PDFReaderHostView: PDFView {
         controller?.pageChanged(to: page)
       }
     }
+    self.controller = controller
     controller.attach(self)
   }
 
@@ -88,4 +96,28 @@ final class PDFReaderHostView: PDFView {
     document = nil
     document = current
   }
+
+  /// Shows or removes the drawing layer over the pages.
+  func setDrawing(_ isDrawing: Bool) {
+    #if canImport(UIKit)
+      guard isDrawing != (inkCapture != nil) else { return }
+      guard isDrawing else {
+        inkCapture?.removeFromSuperview()
+        inkCapture = nil
+        return
+      }
+      let capture = InkCaptureView(frame: bounds)
+      capture.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+      capture.onStroke = { [weak self] points in self?.finishStroke(points) }
+      addSubview(capture)
+      inkCapture = capture
+    #endif
+  }
+
+  /// Hands a stroke drawn in view coordinates to the controller, in the space of the page it started on.
+  private func finishStroke(_ points: [CGPoint]) {
+    guard let first = points.first, let document, let page = page(for: first, nearest: true) else { return }
+    controller?.strokeEnded(points.map { convert($0, to: page) }, onPage: document.index(for: page))
+  }
+
 }
