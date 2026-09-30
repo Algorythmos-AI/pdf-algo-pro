@@ -19,19 +19,36 @@ extension PDFDocumentController {
     let interval = Signposts.begin("Document.Save")
     defer { interval.end() }
     let options = try protectionOptions()
-    let staging = FileManager.default.temporaryDirectory.appendingPathComponent("save-\(UUID().uuidString).pdf")
-    defer { try? FileManager.default.removeItem(at: staging) }
+    let fileManager = FileManager.default
+    // The new file is about the size of the old one, so check for that much before writing anything.
+    let currentSize = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+    let available = try? url.deletingLastPathComponent()
+      .resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
+      .volumeAvailableCapacityForImportantUsage
+    guard Self.hasRoom(toWrite: currentSize, available: available) else { throw PDFEngineError.insufficientSpace }
+    // Staged beside the document, on the same volume, so replacing it is a rename, not a copy.
+    let folder =
+      (try? fileManager.url(for: .itemReplacementDirectory, in: .userDomainMask, appropriateFor: url, create: true))
+      ?? fileManager.temporaryDirectory
+    let staging = folder.appendingPathComponent("save-\(UUID().uuidString).pdf")
+    defer {
+      try? fileManager.removeItem(at: staging)
+      if folder != fileManager.temporaryDirectory { try? fileManager.removeItem(at: folder) }
+    }
+    let fault = Self.saveFault
     document.repairAttributesIfNeeded()
     // PDFKit keeps an encrypted document encrypted whatever the options, so a document whose password
     // is being (or was) removed is written as a fresh copy of its pages.
     let source = pendingProtection == .remove || (document.isEncrypted && !wasEncrypted) ? unencryptedCopy() : document
-    guard source.write(to: staging, withOptions: options), let data = try? Data(contentsOf: staging),
-      PDFDocument(data: data) != nil
-    else { throw PDFEngineError.saveFailed }
-    let available = try? url.deletingLastPathComponent()
-      .resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
-      .volumeAvailableCapacityForImportantUsage
-    guard Self.hasRoom(toWrite: data.count, available: available) else { throw PDFEngineError.insufficientSpace }
+    guard source.write(to: staging, withOptions: options) else { throw PDFEngineError.saveFailed }
+    do { try fault?(.staged) } catch { throw PDFEngineError.saveFailed }
+    // PDFKit maps the staged file rather than reading it into memory, so this stays cheap for large files.
+    guard let check = PDFDocument(url: staging), check.isLocked || check.pageCount == source.pageCount else {
+      throw PDFEngineError.saveFailed
+    }
+    do { try fault?(.validated) } catch { throw PDFEngineError.saveFailed }
+    try? fileManager.setAttributes(
+      [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication], ofItemAtPath: staging.path)
     var coordinationError: NSError?
     var writeError: (any Error)?
     NSFileCoordinator(filePresenter: nil).coordinate(
@@ -40,11 +57,18 @@ extension PDFDocumentController {
       target in
       let fileManager = FileManager.default
       do {
-        if let previous, fileManager.fileExists(atPath: target.path) {
+        let exists = fileManager.fileExists(atPath: target.path)
+        if let previous, exists {
           if fileManager.fileExists(atPath: previous.path) { try fileManager.removeItem(at: previous) }
           try fileManager.copyItem(at: target, to: previous)
         }
-        try data.write(to: target, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+        try fault?(.keptPrevious)
+        if exists {
+          _ = try fileManager.replaceItemAt(target, withItemAt: staging)
+        } else {
+          try fileManager.moveItem(at: staging, to: target)
+        }
+        try fault?(.replaced)
       } catch {
         writeError = error
       }
@@ -64,6 +88,25 @@ extension PDFDocumentController {
     hasUnsavedChanges = false
     recordFormValues()
   }
+
+  /// The steps of a save, for the fault-injection tests of the Trust suite (plan §4.1).
+  enum SaveStep: CaseIterable, Sendable {
+    /// The new file is written to the staging folder.
+    case staged
+    /// The staged file reopened with the same number of pages.
+    case validated
+    /// The version before the save is kept (when asked for).
+    case keptPrevious
+    /// The staged file replaced the document.
+    case replaced
+  }
+
+  #if DEBUG
+    /// Tests set this to fail a save at a chosen step; nil in normal runs, and absent from release builds.
+    static var saveFault: (@Sendable (SaveStep) throws -> Void)?
+  #else
+    static var saveFault: (@Sendable (SaveStep) throws -> Void)? { nil }
+  #endif
 
   // MARK: - Passwords (FR-EDIT-006)
 
@@ -151,8 +194,8 @@ extension PDFDocumentController {
 
   /// Whether a file of `byteCount` bytes can be written safely with `available` bytes free.
   ///
-  /// The atomic write holds the new file next to the old one until it replaces it, and the kept earlier
-  /// version holds the old one's space after that, so the new file must fit whole, with room to spare.
+  /// The new file is staged next to the old one until it replaces it, and the kept earlier version holds
+  /// the old one's space after that, so the new file must fit whole, with room to spare.
   /// When the free space can't be read, the save goes ahead and the write itself reports a full disk.
   static func hasRoom(toWrite byteCount: Int, available: Int64?) -> Bool {
     guard let available else { return true }
