@@ -3,8 +3,8 @@
 
 Always active:
   * no PDF is committed outside Tests/Fixtures/Synthetic/ (real documents never enter git);
-  * once an app icon exists, its default image is a 1024 x 1024 PNG without an alpha channel or
-    transparency, as App Store Connect requires (upload error 90717);
+  * each app icon set (App Store and Staging) has a default image that is a 1024 x 1024 PNG without
+    an alpha channel or transparency, as App Store Connect requires (upload error 90717);
   * no Info.plist localisation carries an app name, and there is no InfoPlist.xcstrings (Xcode syncs
     the names into it): the names come from build settings per configuration (Staging is
     "PDF Algo β"), and a localised value would replace them (assumption A14).
@@ -40,7 +40,8 @@ REQUIRED_REASON = {
     "NSPrivacyAccessedAPICategorySystemBootTime": re.compile(r"systemUptime|mach_absolute_time"),
     "NSPrivacyAccessedAPICategoryDiskSpace": re.compile(r"volumeAvailableCapacity|systemFreeSize|systemSize\b"),
 }
-APP_ICON = "App/PDFAlgoPro/Resources/Assets.xcassets/AppIcon.appiconset"
+ICON_CATALOG = "App/PDFAlgoPro/Resources/Assets.xcassets"
+APP_ICONS = ("AppIcon", "AppIcon-Staging")
 ALLOWED = {
     "network": ("Packages/Intelligence/", "Packages/Commerce/", "Packages/Telemetry/", "Packages/RemoteConfig/"),
     "colour": ("Packages/DesignSystem/",),
@@ -80,19 +81,28 @@ def png_problems(data: bytes, name: str) -> list[str]:
     return problems
 
 
-def icon_problems() -> list[str]:
-    contents = ROOT / APP_ICON / "Contents.json"
-    if not contents.exists():
+def icon_problems(catalog: Path = ROOT / ICON_CATALOG) -> list[str]:
+    if not catalog.exists():
         return []
-    images = json.loads(contents.read_text(encoding="utf-8")).get("images", [])
-    default = [i for i in images if not i.get("appearances") and i.get("filename")]
-    if not default:
-        return [f"{APP_ICON}: no default image; App Store Connect rejects a build without an app icon"]
-    name = default[0]["filename"]
-    path = ROOT / APP_ICON / name
-    if not path.exists():
-        return [f"{APP_ICON}/{name}: listed in Contents.json but missing"]
-    return png_problems(path.read_bytes(), f"{APP_ICON}/{name}")
+    problems: list[str] = []
+    for icon in APP_ICONS:
+        label = f"{ICON_CATALOG}/{icon}.appiconset"
+        contents = catalog / f"{icon}.appiconset" / "Contents.json"
+        if not contents.exists():
+            problems.append(f"{label}: missing; a build configuration names this icon set")
+            continue
+        images = json.loads(contents.read_text(encoding="utf-8")).get("images", [])
+        default = [i for i in images if not i.get("appearances") and i.get("filename")]
+        if not default:
+            problems.append(f"{label}: no default image; App Store Connect rejects a build without an app icon")
+            continue
+        name = default[0]["filename"]
+        path = contents.parent / name
+        if not path.exists():
+            problems.append(f"{label}/{name}: listed in Contents.json but missing")
+            continue
+        problems.extend(png_problems(path.read_bytes(), f"{label}/{name}"))
+    return problems
 
 
 APP_SOURCES = "App/PDFAlgoPro"

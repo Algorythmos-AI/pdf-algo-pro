@@ -50,6 +50,8 @@ Store notes (see the changelog strategy).
 - An interim app icon, and a Staging build named "PDF Algo β" for internal testing (#52, #54).
 
 ### Changed
+- A new app icon: a larger page with a bold "PDF" mark on a crimson-to-violet field. The Staging
+  build carries the same icon with a beta badge.
 - The assistant shows only the latest answer, and every sentence of an answer is checked against
   the page it cites; unsupported parts are left out (#60).
 - Deleting permanently asks first; onboarding marks the options coming in a later update; hiding

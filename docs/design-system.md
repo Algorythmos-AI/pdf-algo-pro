@@ -250,6 +250,34 @@ iPad, Mac and visionOS; Mac honours the user's own accent colour when it is not 
 ([Color](https://developer.apple.com/design/human-interface-guidelines/color)), which the Mac adapter
 allows. **Pillars served.** PIL-7 Native Apple Experience.
 
+## App icon
+
+Version 2, approved by the owner on 2026-10-01. `scripts/design/make_app_icon.swift` draws it from
+`design/tokens.json` and writes both icon sets; never edit the PNGs by hand.
+
+| Element | Default appearance | Dark | Tinted |
+|---|---|---|---|
+| Field | Diagonal gradient, top left to bottom right: `color.icon.gradientStart` `#F43F5E`, `color.icon.gradientMid` `#C026D3` at 55%, `color.brand.tint` `#6D28D9` | Transparent (the system draws it) | Transparent |
+| Page, 61% of the width, with a folded corner | White; fold `color.icon.fold` `#DDD6FE` | The field gradient | White |
+| "PDF" mark and the rule under it | `color.brand.tint` | Cut out of the page | Cut out of the page |
+| Sparkle over the top-left corner of the page | `color.intelligence.tint` (dark value) with a white ring | The same, with a cut-out ring | Grey |
+| Beta badge (Staging only) | `color.icon.stagingBadge` `#F59E0B` pill with a white "β" | The same | White pill, cut-out "β" |
+
+- **Why a warm field.** Observation (App Store search for "pdf editor", iPhone, 2026-10-01): every
+  result above the fold used a red icon with a large page or a "PDF" mark, and the interim violet
+  icon with a small page read as generic beside them. The field starts in the category's red and
+  ends in the brand violet, so the icon is recognised as a PDF app and still differs from the
+  others.
+- **Assumption:** the gradient icon is recognised faster in search than a plain red or plain violet
+  one. Validation plan: the alternate-icon test in the
+  [App Store strategy](app-store-strategy.md) once the app is live.
+- **The icon colours are for the icon only.** `color.icon.*` never appears in the interface; there,
+  violet still means "you can act on this" and cyan still means the intelligence layer.
+- **The "PDF" mark is drawn as paths**, not set in a font, so the icon depends on no font licence.
+- **Staging** (`AppIcon-Staging`) is the same artwork with the beta badge, selected by the Staging
+  build configuration in `project.yml`.
+- `scripts/ci/invariants.py` checks that the default image of each set is an opaque 1024 × 1024 PNG.
+
 ## Typography
 
 - **SF Pro through system text styles only.** Text styles give Dynamic Type and the accessibility
