@@ -57,8 +57,16 @@ public final class ReaderModel {
   private var isPreparingRecognition = false
   /// A message for the last failed action.
   public var errorMessage: String?
-  /// A notice that an action did something other than the obvious, such as making a new document.
+  /// A notice that an action did something other than the obvious, such as making a new document, or
+  /// that the document was updated with another app's changes.
   public var notice: String?
+  /// Whether another app changed the file while this reader had unsaved changes, so the person
+  /// chooses which version to keep (plan item H5).
+  public var hasConflictingChange = false
+  /// Hears when another app changes the file.
+  @ObservationIgnored private var watcher: FileWatcher?
+  /// The file as this reader last read or wrote it, to tell another app's changes from its own.
+  @ObservationIgnored private var knownVersion: FileVersion?
   /// The assistant sheet, when open.
   public var assistantTask: AssistantTask?
   /// A citation to open once the assistant sheet has finished closing.
@@ -141,6 +149,8 @@ public final class ReaderModel {
       let url = try await library.fileURL(for: documentID)
       fileURL = url
       let controller = try PDFDocumentController(url: url)
+      knownVersion = try? FileVersion(url)
+      watch(url)
       controller.displayMode = settings.load().readerDisplayMode
       self.controller = controller
       if controller.isLocked {
@@ -479,9 +489,11 @@ public final class ReaderModel {
         try await saveSignedAsCopy(controller)
         return true
       }
-      try controller.save(
-        to: try await library.fileURL(for: documentID),
-        keepingPreviousAt: try await library.previousVersionURL(for: documentID))
+      let url = try await library.fileURL(for: documentID)
+      try controller.save(to: url, keepingPreviousAt: try await library.previousVersionURL(for: documentID))
+      // Straight after the write, before the file presenter hears of it, so it isn't taken for
+      // another app's change.
+      knownVersion = try? FileVersion(url)
       try await library.recordModified(documentID)
       canRestorePreviousVersion = await library.hasPreviousVersion(of: documentID)
       await telemetry.record("task.core.completed")
@@ -515,7 +527,11 @@ public final class ReaderModel {
     let copy = try await intake.add(data: data, title: String(localized: "\(title) (edited)", bundle: .module))
     documentID = copy.id
     document = copy
-    fileURL = try await library.fileURL(for: copy.id)
+    let copyURL = try await library.fileURL(for: copy.id)
+    fileURL = copyURL
+    // From now on this reader writes the copy, so that is the file to watch for other apps' changes.
+    knownVersion = try? FileVersion(copyURL)
+    watch(copyURL)
     isEditingCopy = true
     canRestorePreviousVersion = false
     notice = String(
@@ -523,6 +539,82 @@ public final class ReaderModel {
         "This document is digitally signed, so your changes are saved in a copy, “\(copy.title)”. The original keeps its valid signature.",
       bundle: .module)
     await telemetry.record("task.core.completed")
+  }
+
+  // MARK: - Another app's changes (plan item H5)
+
+  private func watch(_ url: URL) {
+    watcher?.stop()
+    let watcher = FileWatcher(url: url) { [weak self] in
+      Task { await self?.fileChangedOnDisk() }
+    }
+    watcher.start()
+    self.watcher = watcher
+  }
+
+  /// Stops hearing about file changes while the app is in the background, and on returning checks
+  /// whether another app changed the file meanwhile.
+  public func setWatching(_ isActive: Bool) async {
+    if isActive {
+      watcher?.start()
+      await fileChangedOnDisk()
+    } else {
+      watcher?.stop()
+    }
+  }
+
+  /// Stops hearing about file changes, when the reader closes.
+  public func stopWatching() {
+    watcher?.stop()
+  }
+
+  /// Handles a change to the file made by another app: with no unsaved changes, the reader shows the
+  /// new version; with unsaved changes, it asks which version to keep.
+  func fileChangedOnDisk() async {
+    guard phase == .ready, let fileURL, let current = try? FileVersion(fileURL), current != knownVersion else {
+      return
+    }
+    knownVersion = current
+    if controller?.needsSaving == true {
+      hasConflictingChange = true
+    } else {
+      await reload()
+      notice = String(
+        localized: "This document was changed in another app, and now shows those changes.", bundle: .module)
+    }
+  }
+
+  /// Drops this reader's unsaved changes and shows the version another app saved.
+  public func useOtherVersion() async {
+    hasConflictingChange = false
+    await reload()
+  }
+
+  /// Keeps this reader's version as a new document in the library, then shows the version another
+  /// app saved in the original.
+  public func keepMineAsCopy() async {
+    hasConflictingChange = false
+    guard let controller else { return }
+    let staged = FileManager.default.temporaryDirectory.appendingPathComponent("mine-\(UUID().uuidString).pdf")
+    defer { try? FileManager.default.removeItem(at: staged) }
+    do {
+      try controller.save(to: staged)
+      let data = try Data(contentsOf: staged, options: .mappedIfSafe)
+      let title = document?.title ?? ""
+      let copy = try await intake.add(data: data, title: String(localized: "\(title) (my version)", bundle: .module))
+      await reload()
+      notice = String(localized: "Your version is saved as “\(copy.title)”.", bundle: .module)
+    } catch {
+      errorMessage = String(
+        localized: "Couldn't keep your version. It is still open here; share it to keep it.", bundle: .module)
+    }
+  }
+
+  private func reload() async {
+    speech.stop()
+    controller = nil
+    phase = .loading
+    await load()
   }
 
   // MARK: - The version before the last save

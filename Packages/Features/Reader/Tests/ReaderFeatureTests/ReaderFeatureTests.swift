@@ -277,6 +277,51 @@ struct ReaderModelTests {
     #expect(await !harness.library.hasPreviousVersion(of: document.id), "No earlier version is kept for a no-op")
   }
 
+  @Test("Another app's change is shown when nothing is unsaved; its own saves aren't mistaken for one (H5)")
+  func otherAppChange() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.make(pages: ["Mine"]), title: "Shared")
+    let reader = harness.reader(for: document)
+    await reader.load()
+    await reader.addNote("Saved here")
+    await reader.fileChangedOnDisk()
+    #expect(reader.notice == nil && !reader.hasConflictingChange, "Its own save isn't another app's change")
+
+    let url = try await harness.library.fileURL(for: document.id)
+    try SyntheticPDF.make(pages: ["Theirs", "Two"]).write(to: url)
+    await reader.fileChangedOnDisk()
+    #expect(reader.notice != nil && reader.controller?.pageCount == 2)
+    reader.stopWatching()
+  }
+
+  @Test("With unsaved changes, the person keeps theirs as a copy or takes the other version (H5)")
+  func conflictingChange() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.make(pages: ["Mine"]), title: "Shared")
+    let reader = harness.reader(for: document)
+    await reader.load()
+    let url = try await harness.library.fileURL(for: document.id)
+    reader.controller?.addNote("Not saved yet", onPage: 0)
+    try SyntheticPDF.make(pages: ["Theirs", "Two"]).write(to: url)
+    await reader.fileChangedOnDisk()
+    #expect(reader.hasConflictingChange)
+
+    await reader.keepMineAsCopy()
+    #expect(!reader.hasConflictingChange && reader.notice != nil)
+    #expect(reader.controller?.pageCount == 2, "The original now shows the other app's version")
+    let titles = try await harness.library.documents(in: .all, sortedBy: .title).map(\.title)
+    #expect(titles.contains("Shared (my version)"))
+
+    reader.controller?.addNote("Again", onPage: 0)
+    try SyntheticPDF.make(pages: ["Third"]).write(to: url)
+    await reader.fileChangedOnDisk()
+    await reader.useOtherVersion()
+    #expect(reader.controller?.pageCount == 1 && reader.controller?.needsSaving == false)
+    await reader.setWatching(false)
+    await reader.setWatching(true)
+    reader.stopWatching()
+  }
+
   @Test("Notes and markup save automatically and can be undone (FR-ANN-001, FR-EDIT-007)")
   func annotations() async throws {
     let harness = Harness()

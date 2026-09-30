@@ -21,6 +21,16 @@
         }
       }
     },
+    "%@ (my version)" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ (ma version)"
+          }
+        }
+      }
+    },
     "%@ (pages)" : {
       "localizations" : {
         "fr" : {
@@ -315,6 +325,16 @@
         }
       }
     },
+    "Couldn't keep your version. It is still open here; share it to keep it." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible de garder votre version. Elle est toujours ouverte ici ; partagez-la pour la garder."
+          }
+        }
+      }
+    },
     "Couldn't make a flattened copy. The document hasn't changed." : {
       "localizations" : {
         "fr" : {
@@ -541,6 +561,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Surlignage"
+          }
+        }
+      }
+    },
+    "Keep mine as a copy" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Garder la mienne en copie"
           }
         }
       }
@@ -1195,6 +1225,16 @@
         }
       }
     },
+    "This document changed in another app" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce document a été modifié dans une autre app"
+          }
+        }
+      }
+    },
     "This document doesn't include one. Use Pages to jump to a page." : {
       "localizations" : {
         "fr" : {
@@ -1291,6 +1331,16 @@
         }
       }
     },
+    "This document was changed in another app, and now shows those changes." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce document a été modifié dans une autre app et affiche maintenant ces modifications."
+          }
+        }
+      }
+    },
     "This document's author doesn't allow its pages to be changed." : {
       "localizations" : {
         "fr" : {
@@ -1341,12 +1391,42 @@
         }
       }
     },
+    "Use the other version" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Utiliser l’autre version"
+          }
+        }
+      }
+    },
+    "You have changes that aren't saved yet. Keep yours as a new document, or drop them and show the other app's version." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous avez des modifications non enregistrées. Gardez les vôtres dans un nouveau document, ou abandonnez-les et affichez la version de l’autre app."
+          }
+        }
+      }
+    },
     "Your name" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Votre nom"
+          }
+        }
+      }
+    },
+    "Your version is saved as “%@”." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre version est enregistrée sous « %@ »."
           }
         }
       }
