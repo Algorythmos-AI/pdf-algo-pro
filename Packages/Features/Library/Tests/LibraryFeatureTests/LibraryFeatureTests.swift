@@ -176,6 +176,42 @@ struct LibraryModelTests {
     #expect(await harness.model.details(for: missing) == nil)
   }
 
+  @Test("Several documents are deleted together and put back with Undo (FR-LIB-009)")
+  func deleteSeveral() async throws {
+    let harness = Harness()
+    let one = await harness.library.seed(Document(title: "One", fileName: "1.pdf", addedAt: .now))
+    let two = await harness.library.seed(Document(title: "Two", fileName: "2.pdf", addedAt: .now))
+    let three = await harness.library.seed(Document(title: "Three", fileName: "3.pdf", addedAt: .now))
+    await harness.model.load()
+    await harness.model.delete([one.id, three.id])
+    #expect(harness.model.documents.map(\.id) == [two.id] && harness.model.lastDeleted == [one.id, three.id])
+    await harness.model.undoDelete()
+    #expect(Set(harness.model.documents.map(\.id)) == [one.id, two.id, three.id] && harness.model.lastDeleted.isEmpty)
+    await harness.model.delete([two.id])
+    harness.model.forgetLastDeleted()
+    #expect(harness.model.lastDeleted.isEmpty)
+    await harness.model.setFavorite(true, for: [one.id, three.id])
+    #expect(harness.model.documents.filter(\.isFavorite).count == 2)
+    #expect(await harness.model.fileURLs(for: [one.id, three.id]).count == 2)
+  }
+
+  @Test("Selected documents merge into a new one that opens; the originals stay (FR-LIB-009)")
+  func mergeSelected() async throws {
+    let harness = Harness()
+    let first = await harness.library.seed(
+      Document(title: "Part one", fileName: "a.pdf", addedAt: .distantPast), data: try SyntheticPDF.make(pages: ["A"]))
+    let second = await harness.library.seed(
+      Document(title: "Part two", fileName: "b.pdf", addedAt: .now), data: try SyntheticPDF.make(pages: ["B", "C"]))
+    await harness.model.load()
+    await harness.model.merge([first.id, second.id])
+    #expect(harness.model.errorMessage == nil)
+    let merged = try #require(harness.model.selection?.id)
+    #expect(try PDFDocumentController(url: try await harness.library.fileURL(for: merged)).pageCount == 3)
+    #expect(harness.model.documents.count == 3)
+    await harness.model.merge([first.id])
+    #expect(harness.model.documents.count == 3, "One document isn't merged")
+  }
+
   @Test("A search that fails says so instead of showing no results")
   func searchFailure() async {
     let harness = Harness()
