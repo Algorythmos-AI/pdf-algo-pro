@@ -3,6 +3,7 @@ import Foundation
 import ImageIO
 import Testing
 import UniformTypeIdentifiers
+import VisionKit
 
 @testable import Scanning
 
@@ -36,11 +37,11 @@ struct ScanningTests {
     #expect(max(images[1].width, images[1].height) == 3000)
   }
 
+  // Simulators disagree: the iOS 26.5 simulator reports no document camera on CI runners but reports
+  // one on a development Mac. So only the pass-through is checked, not the answer.
   @MainActor
-  @Test func theSimulatorHasNoDocumentCamera() {
-    #if targetEnvironment(simulator)
-      #expect(!DocumentCamera.isSupported)
-    #endif
+  @Test func theDocumentCameraAsksVisionKitWhetherItIsSupported() {
+    #expect(DocumentCamera.isSupported == VNDocumentCameraViewController.isSupported)
     _ = DocumentCameraView(onFinish: { _ in }, onCancel: {}).makeCoordinator()
   }
 }
