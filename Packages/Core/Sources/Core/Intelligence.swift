@@ -221,7 +221,6 @@ extension DocumentIntelligence {
   }
 }
 
-
 /// AI requests over a period, for the privacy report (FR-SET-005).
 public struct AIActivity: Equatable, Sendable {
   /// Requests answered by each tier.
