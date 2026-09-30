@@ -192,9 +192,10 @@ jobs:
           echo "SIM=$device" >> "$GITHUB_ENV"
           # Signed ad hoc ("Sign to Run Locally"), not unsigned: the app-hosted tests use the Keychain, which
           # refuses an unsigned app (errSecMissingEntitlement, -34018). No team or certificate is involved.
+          # Warnings are errors through project.yml and each package manifest, not here: a command-line
+          # setting reaches the test-only SnapshotTesting package, where it clashes with -suppress-warnings.
           xcodebuild build-for-testing -scheme "$SCHEME" -testPlan "$TEST_PLAN" \
-            -destination "id=$device" CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= \
-            SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
+            -destination "id=$device" CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=
       - name: Build Staging for a device (unsigned, optimised, warnings as errors)
         # The configuration Xcode Cloud archives; catches optimised-build failures before TestFlight.
         run: |

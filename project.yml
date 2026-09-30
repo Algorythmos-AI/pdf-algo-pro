@@ -25,6 +25,10 @@ settings:
   base:
     SWIFT_VERSION: "6.0"
     SWIFT_STRICT_CONCURRENCY: complete
+    # Warnings fail the build in the app and its tests (the packages set it in their manifests). Not on the
+    # xcodebuild command line, which would reach the test-only SnapshotTesting package and clash with the
+    # -suppress-warnings Xcode gives remote packages.
+    SWIFT_TREAT_WARNINGS_AS_ERRORS: YES
     ENABLE_USER_SCRIPT_SANDBOXING: YES
     MARKETING_VERSION: 0.1.0
     CURRENT_PROJECT_VERSION: 1
