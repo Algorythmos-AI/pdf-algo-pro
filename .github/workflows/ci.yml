@@ -300,6 +300,14 @@ jobs:
         run: |
           qpdf --version | head -1
           scripts/ci/validate_pdfs.sh saved
+      - name: PDFium renders every page of every saved file
+        if: ${{ !cancelled() }}
+        run: |
+          python3 -m venv "$RUNNER_TEMP/pdfium"
+          # pypdfium2 5.13.0 bundles PDFium and has no dependencies; the wheel is pinned by its hash.
+          echo "pypdfium2==5.13.0 --hash=sha256:81df25c1ab4c13ff773102d3cbea1967511d079123b067fc077bd0c4d57d91d8" > "$RUNNER_TEMP/pdfium.txt"
+          "$RUNNER_TEMP/pdfium/bin/pip" install --quiet --only-binary=:all: --require-hashes -r "$RUNNER_TEMP/pdfium.txt"
+          "$RUNNER_TEMP/pdfium/bin/python" scripts/ci/pdfium_render.py saved
 
   performance:
     name: performance
