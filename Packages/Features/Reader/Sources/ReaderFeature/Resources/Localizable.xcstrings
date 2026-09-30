@@ -265,6 +265,16 @@
         }
       }
     },
+    "Bookmark this page" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter un signet à cette page"
+          }
+        }
+      }
+    },
     "Can't open this document" : {
       "localizations" : {
         "fr" : {
@@ -1021,6 +1031,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Réduire la taille"
+          }
+        }
+      }
+    },
+    "Remove bookmark" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retirer le signet"
           }
         }
       }

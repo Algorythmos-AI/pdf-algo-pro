@@ -140,8 +140,9 @@ public final class PDFDocumentController {
     func walk(_ node: PDFOutline, depth: Int) {
       for index in 0..<node.numberOfChildren {
         guard let child = node.child(at: index) else { continue }
-        if let page = child.destination?.page {
-          items.append(OutlineItem(title: child.label ?? "", pageIndex: document.index(for: page), depth: depth))
+        // An entry for a page no longer in the document (deleted since) is left out.
+        if let page = child.destination?.page, case let index = document.index(for: page), index != NSNotFound {
+          items.append(OutlineItem(title: child.label ?? "", pageIndex: index, depth: depth))
         }
         walk(child, depth: depth + 1)
       }

@@ -32,6 +32,8 @@ Store notes (see the changelog strategy).
   pinching or from Style, and given another colour; each change is one undo step. VoiceOver users
   can move a selection with its Move actions.
 - Stamps in Markup: today's date, a tick, a cross, or your own text such as initials or "Paid".
+- Bookmarks: bookmark the page on screen from More; bookmarks are listed in Contents and saved in the
+  PDF, so other apps show them too.
 - Recognising text you start carries on if you leave the app, with its progress shown by the system
   (on the Lock Screen and in the Dynamic Island); you can cancel it from there.
 - A digitally signed PDF keeps its valid signature: your changes are saved in a copy marked

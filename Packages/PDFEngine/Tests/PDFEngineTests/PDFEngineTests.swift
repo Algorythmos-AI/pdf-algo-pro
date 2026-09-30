@@ -162,6 +162,33 @@ struct ControllerTests {
     controller.undoManager.undo()
   }
 
+  @Test("Bookmarks live in the file's outline, in page order, survive a save and can be undone (FR-READ-009)")
+  func bookmarks() throws {
+    let controller = try PDFDocumentController(data: SyntheticPDF.make(pages: ["One", "Two", "Three"]))
+    controller.undoManager.groupsByEvent = false
+    func step(_ change: () -> Void) {
+      controller.undoManager.beginUndoGrouping()
+      change()
+      controller.undoManager.endUndoGrouping()
+    }
+    step { #expect(controller.toggleBookmark(onPage: 2)) }
+    step { #expect(controller.toggleBookmark(onPage: 0)) }
+    #expect(controller.bookmarkedPages == [0, 2] && controller.hasUnsavedChanges)
+    #expect(controller.outline.map(\.title).first == PDFDocumentController.bookmarksLabel)
+    #expect(!controller.toggleBookmark(onPage: 7))
+
+    let url = temporaryURL()
+    try controller.save(to: url)
+    let reopened = try PDFDocumentController(url: url)
+    #expect(reopened.bookmarkedPages == [0, 2])
+    #expect(!reopened.toggleBookmark(onPage: 2))
+    #expect(!reopened.toggleBookmark(onPage: 0))
+    #expect(reopened.bookmarkedPages.isEmpty && reopened.outline.isEmpty, "The empty Bookmarks entry goes too")
+
+    controller.undoManager.undo()
+    #expect(controller.bookmarkedPages == [2])
+  }
+
   @Test("Form entries count as changes and are saved (defect D1)")
   func formEntriesAreSaved() throws {
     let controller = try PDFDocumentController(data: TestPDFs.makeForm())

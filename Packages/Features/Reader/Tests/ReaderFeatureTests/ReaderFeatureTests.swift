@@ -376,6 +376,21 @@ struct ReaderModelTests {
     #expect(reader.canUndo)
   }
 
+  @Test("The page on screen is bookmarked and unbookmarked, and the file keeps it (FR-READ-009)")
+  func bookmarks() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.makeSample(), lastPage: 1, opened: true)
+    let reader = harness.reader(for: document)
+    await reader.load()
+    #expect(!reader.isCurrentPageBookmarked)
+    await reader.toggleBookmark()
+    #expect(reader.isCurrentPageBookmarked && reader.bookmarkedPages == [1])
+    let url = try await harness.library.fileURL(for: document.id)
+    #expect(try PDFDocumentController(url: url).bookmarkedPages == [1])
+    await reader.toggleBookmark()
+    #expect(!reader.isCurrentPageBookmarked)
+  }
+
   @Test("Notes and markup save automatically and can be undone (FR-ANN-001, FR-EDIT-007)")
   func annotations() async throws {
     let harness = Harness()
