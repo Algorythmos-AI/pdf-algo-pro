@@ -148,6 +148,24 @@ class UITestCase: XCTestCase {
         details: "\(appearing.count) quarantined finding(s):\n" + appearing.joined(separator: "\n"), file: file,
         line: line)
     }
+    if !findings.isEmpty, findings.allSatisfy({ $0.hasPrefix("- Contrast failed") }) {
+      // Contrast measured while a sheet still slides in fails on text drawn in the primary label colour
+      // (issue #105). A real contrast problem is still there once the screen has settled, so contrast
+      // findings count only when a second audit, after another wait, finds them again.
+      waitUntilStill(app)
+      var again: [String] = []
+      var ignored: [String] = []
+      try? runAudit(
+        app, onSheet: onSheet, bars: bars, barTitles: barTitles, actionBars: actionBars, searchFields: searchFields,
+        findings: &again, appearing: &ignored)
+      let passing = findings.filter { !again.contains($0) }
+      if !passing.isEmpty {
+        recordQuarantined(
+          "Contrast measured while the screen was moving, gone on a second audit (issue #105)",
+          details: passing.joined(separator: "\n"), file: file, line: line)
+      }
+      findings = findings.filter { again.contains($0) }
+    }
     if !findings.isEmpty {
       XCTFail(
         "\(findings.count) accessibility finding(s):\n" + findings.joined(separator: "\n"), file: file, line: line)
