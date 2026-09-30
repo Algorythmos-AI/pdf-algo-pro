@@ -92,6 +92,7 @@ targets are only defined here; their values are held privately.
 | FR-ONB-004 | No paywall, account or sign-in appears before the user completes a first task | Must | MVP | PIL-5 |
 | FR-ONB-005 | "Analyse contract" shows the disclosure "Not legal advice. Check important terms with a qualified professional." before its first use and on every result | Must | V1 | PIL-4 |
 | FR-ONB-006 | When the on-device model is unavailable, AI intents explain why (device not eligible, Apple Intelligence off, model not ready) and offer the non-AI tools. Devices without Apple Intelligence get the non-AI tools only until V2; from V2, Pro users on those devices can also opt in to the Claude tier, whose consent screen follows FR-ONB-004 (no paywall before first value) | Must | MVP | PIL-4, PIL-6 |
+| FR-ONB-007 | The intent question offers only options that work in the installed build; an option whose feature has not shipped is left out rather than marked "coming later" | Must | V1 | PIL-7 |
 
 **Acceptance (Must):**
 
@@ -109,6 +110,7 @@ targets are only defined here; their values are held privately.
   it never shows a spinner that does not resolve. From V2, given a Pro user on such a device, the app
   also offers the opt-in Claude tier, and its consent screen appears only after first value
   (FR-ONB-004).
+- *FR-ONB-007.* Given a build in which a feature is switched off or not yet shipped, when the intent question shows, then no option leads to that feature and none is labelled "coming later".
 
 **Apple-first:** SwiftUI; Dynamic Type at all sizes; VoiceOver labels on every option.
 
@@ -123,6 +125,8 @@ targets are only defined here; their values are held privately.
 | FR-LIB-005 | Documents are indexed in Core Spotlight (titles and text) and exposed as App Intents entities | Must | MVP | PIL-7 |
 | FR-LIB-006 | Deleting a document removes it from the index and from derived data (thumbnails, embeddings, extractions) | Must | MVP | PIL-5 |
 | FR-LIB-007 | Quick Look previews and thumbnails for documents in Files | Should | V1 | PIL-7 |
+| FR-LIB-008 | Document info: title, file name, size, page count, dates, author, producer, PDF version, password and permission state, and whether the document is digitally signed | Should | V1 | PIL-1 |
+| FR-LIB-009 | Select many documents at once to move, tag, share, merge or delete them | Must | V1 | PIL-1, PIL-7 |
 
 **Acceptance (Must):**
 
@@ -134,6 +138,7 @@ targets are only defined here; their values are held privately.
   appears and opening it launches the app at that document.
 - *FR-LIB-006.* Given a document with thumbnails, index entries and saved extractions, when it is
   deleted, then none of these remain (storage inspection test).
+- *FR-LIB-009.* Given ten documents, when the user selects three and deletes them, then exactly those three move to Recently Deleted, and the action can be undone.
 
 **Apple-first:** Files integration (open in place, iCloud Drive, drag out); Core Spotlight; App
 Intents entities; `Transferable` drag and drop; Share extension.
@@ -149,6 +154,8 @@ Intents entities; `Transferable` drag and drop; Share extension.
 | FR-READ-005 | Night, sepia and high-contrast reading themes | Should | V1 | PIL-1 |
 | FR-READ-006 | Resume at the last page read | Must | MVP | PIL-1 |
 | FR-READ-007 | Handoff of the open document and page between devices | Should | V2 | PIL-7 |
+| FR-READ-008 | Read aloud continues across pages until stopped, and resumes where it stopped | Should | V1 | PIL-1, PIL-7 |
+| FR-READ-009 | Bookmarks: mark pages, list them and jump to them; stored as standard PDF outline entries or in the library, never lost on save | Must | V1 | PIL-1 |
 
 **Acceptance (Must):**
 
@@ -158,6 +165,7 @@ Intents entities; `Transferable` drag and drop; Share extension.
   entry, then the reader jumps to that page; find highlights every match and steps through them.
 - *FR-READ-006.* Given the user closed a document on page 42, when they reopen it, then it opens on
   page 42.
+- *FR-READ-009.* Given three bookmarked pages, when the document is saved, closed and reopened, then the three bookmarks are listed and each opens its page.
 
 **Apple-first:** Dynamic Type for all interface text; VoiceOver reading of page text; keyboard
 shortcuts (next page, find, zoom); pointer and trackpad support.
@@ -170,12 +178,16 @@ shortcuts (next page, find, zoom); pointer and trackpad support.
 | FR-ANN-002 | Annotations from other apps display and remain editable where the PDF standard allows | Must | MVP | PIL-1 |
 | FR-ANN-003 | Annotation list with jump-to-page and export as text | Should | V1 | PIL-1 |
 | FR-ANN-004 | Apple Pencil with PencilKit on iPad, including pressure | Must | V2 | PIL-7 |
+| FR-ANN-005 | Move, resize, restyle and recolour existing annotations and placed signatures, with undo | Must | V1 | PIL-1, PIL-2 |
+| FR-ANN-006 | Stamps: date, initials, tick, cross and custom text, placed as standard PDF annotations | Must | V1 | PIL-2 |
 
 **Acceptance (Must):**
 
 - *FR-ANN-001/002.* Given a PDF annotated in PDF Algo Pro, when it is opened in Apple Preview, then
   every annotation appears; and given a PDF annotated elsewhere, when opened here, then its
   annotations appear (round-trip corpus test).
+- *FR-ANN-005.* Given a placed signature, when the user drags it to a new position, resizes it and saves, then it appears at the new position and size in Apple Preview, and one undo restores the previous state.
+- *FR-ANN-006.* Given the date stamp, when placed, then it shows the current date in the device's locale format and round-trips through Apple Preview.
 
 ### Scanning and OCR (FR-SCAN)
 
@@ -186,6 +198,7 @@ shortcuts (next page, find, zoom); pointer and trackpad support.
 | FR-SCAN-003 | OCR existing image-only PDFs on demand, in the background with progress | Must | MVP | PIL-3 |
 | FR-SCAN-004 | Recognise tables and data (dates, amounts, emails, phone numbers) for extraction | Should | V1 | PIL-3, PIL-4 |
 | FR-SCAN-005 | Control Center control and widget to start a scan | Must | V1 | PIL-7 |
+| FR-SCAN-006 | Review a scan before saving: crop, rotate, reorder, retake and delete pages; the app suggests a name and tags from the recognised text, on device, which the user can change | Must | V1 | PIL-3, PIL-4 |
 
 **Acceptance (Must):**
 
@@ -196,6 +209,7 @@ shortcuts (next page, find, zoom); pointer and trackpad support.
   the work continues as a continued-processing task with visible progress and completes.
 - *FR-SCAN-005.* Given the control is added to Control Center, when tapped on a locked or unlocked
   device, then the scanner opens after authentication as required.
+- *FR-SCAN-006.* Given a three-page scan of an invoice, when the review opens, then the pages can be reordered and one retaken, and the suggested name contains the supplier and date found on the page; nothing leaves the device.
 
 **Apple-first:** VisionKit document camera; Vision `RecognizeDocumentsRequest`; Control Center
 control; widget; background continued processing.
@@ -211,12 +225,17 @@ control; widget; background continued processing.
 | FR-AI-005 | Default processing is on device. When a request does not fit the on-device model: in the MVP the app says so and suggests a shorter request or the non-AI tools; the opt-in tiers are offered once they ship (Private Cloud Compute in V1, Claude in V2) | Must | MVP | PIL-4, PIL-5, PIL-6 |
 | FR-AI-006 | Private Cloud Compute tier, opt-in, for long documents and harder reasoning | Must | V1 | PIL-4, PIL-5 |
 | FR-AI-007 | Claude tier through the relay, opt-in with consent that names the provider and the data sent; revocable in Settings | Should | V2 | PIL-4 |
-| FR-AI-008 | Ask across the whole library with on-device retrieval | Should | V2 | PIL-4, PIL-6 |
+| FR-AI-008 | Ask across the whole library with on-device retrieval; citations name the document and page | Should | V1.1 | PIL-4, PIL-6 |
 | FR-AI-009 | Every AI feature can be hidden in Settings; hidden AI never appears uninvited | Must | MVP | PIL-5, PIL-7 |
 | FR-AI-010 | AI output is labelled as AI-generated, and answers that cannot be grounded say "not found in this document" rather than guessing | Must | MVP | PIL-4 |
 | FR-AI-011 | Document content is treated as untrusted: instructions inside a document never change app behaviour or trigger actions | Must | MVP | PIL-4, PIL-5 |
 | FR-AI-012 | Translate a document on device | Could | V1.1 | PIL-4, PIL-6 |
 | FR-AI-013 | Writing Tools available in all text fields | Must | MVP | PIL-7 |
+| FR-AI-014 | Follow-up questions in the same conversation; each citation stores the quoted text and a fingerprint of its page, so it still opens the right passage after pages move, or says the document changed | Must | V1 | PIL-4 |
+| FR-AI-015 | Invoice and receipt templates extract fields and line items with Vision tables; values are checked against the page, dates and amounts follow the locale, line items must add up to the total, and the result is saved as a CSV file that is safe to open in spreadsheets | Should | V1 | PIL-3, PIL-4 |
+| FR-AI-016 | Due soon: deadlines and amounts found in documents appear in a widget; nothing is added to Reminders or Calendar until the user confirms | Should | V1.1 | PIL-4, PIL-7 |
+| FR-AI-017 | Suggest content to redact: pattern rules (account and card numbers, IBANs, emails, phone numbers) in V1; on-device AI suggestions, judged on recall, from V1.1; the user confirms every redaction | Must | V1 | PIL-4, PIL-5 |
+| FR-AI-018 | Siri and Shortcuts actions that return results (summary, answer, extracted fields): on device only, labelled as AI output, and requiring authentication when App Lock is on | Should | V1 | PIL-4, PIL-7 |
 
 **Acceptance (Must):**
 
@@ -239,6 +258,8 @@ control; widget; background continued processing.
   questioned, then no instruction in it is followed and no tool or action runs (red-team suite).
 - *FR-AI-004.* Given a contract from the corpus, when analysed, then each listed term cites its page
   and the disclosure is shown.
+- *FR-AI-014.* Given an answer citing page 4, when the user asks a follow-up that depends on it, then the answer uses the earlier context and cites pages; and given page 4 is then moved to position 2, when the citation is tapped, then page 2 opens with the passage highlighted.
+- *FR-AI-017.* Given a document containing an IBAN and an email address, when the user asks for suggestions, then both are proposed, and nothing is redacted until the user confirms.
 
 **Apple-first:** Foundation Models (on device, Private Cloud Compute); Writing Tools; App Intents
 ("Summarise document", "Ask about document") for Siri and Shortcuts; Visual Intelligence where
@@ -255,6 +276,7 @@ applicable.
 | FR-EDIT-005 | True redaction that removes content, including text under the redaction and metadata | Must | V1 | PIL-2, PIL-5 |
 | FR-EDIT-006 | Password-protect and remove protection | Must | V1 | PIL-5 |
 | FR-EDIT-007 | Undo and redo for every edit; autosave | Must | MVP | PIL-2 |
+| FR-EDIT-008 | Revert history: before any save that changes a document, a copy of the previous version is kept for 30 days within a storage limit, and "Revert to before…" restores it; redaction never keeps one; if a copy cannot be kept, the app offers "Save as copy" or cancel instead | Must | MVP | PIL-2, PIL-5 |
 
 **Acceptance (Must):**
 
@@ -275,6 +297,7 @@ applicable.
   object inspection, then no redacted text, image data or metadata remains (redaction test suite).
 - *FR-EDIT-007.* Given ten sequential edits, when the user undoes ten times, then the document equals
   the original.
+- *FR-EDIT-008.* Given a document edited and saved, when the user chooses "Revert to before…", then the previous version is restored byte for byte; and given a save interrupted at any step (fault injection), when the app relaunches, then either the original or the new version opens, never neither.
 
 **Apple-first:** PencilKit for signatures on iPad; AutoFill; Keychain; undo through the system undo
 manager and keyboard shortcuts.
@@ -284,18 +307,23 @@ manager and keyboard shortcuts.
 | ID | Requirement | Priority | Phase | Pillars |
 |---|---|---|---|---|
 | FR-ORG-001 | Merge, split, reorder, rotate, delete and extract pages | Must | V1 | PIL-2 |
-| FR-ORG-002 | Convert PDF to Word, Excel and PowerPoint, on device if the chosen SDK supports it; otherwise opt-in with disclosure | Must | V1 | PIL-2, PIL-5 |
+| FR-ORG-002 | Convert PDF to Word, Excel and PowerPoint on device; if the chosen SDK cannot convert on device, conversion moves to V1.1, and V1 has no cloud conversion (PAP-032) | Must | V1 | PIL-2, PIL-5 |
 | FR-ORG-003 | Create PDFs from images, documents and web pages through the Share sheet | Should | V1 | PIL-2, PIL-7 |
-| FR-ORG-004 | Compress PDFs | Should | V1 | PIL-2 |
+| FR-ORG-004 | Compress PDFs with presets (for example "for email"), always saving a copy by default | Must | V1 | PIL-2 |
 | FR-ORG-005 | Compare two versions of a document | Could | V1.1 | PIL-1, PIL-4 |
+| FR-ORG-006 | Flatten annotations and form fields, on share or into a copy | Must | V1 | PIL-2 |
+| FR-ORG-007 | Export pages as images (PNG or JPEG) | Must | V1 | PIL-2, PIL-7 |
+| FR-ORG-008 | Create a PDF from photos chosen in the app | Must | V1 | PIL-2, PIL-7 |
 
 **Acceptance (Must):**
 
 - *FR-ORG-001.* Given two 100-page PDFs, when merged, then the result has 200 pages in the chosen
   order, annotations are preserved, and the merge completes within budget.
 - *FR-ORG-002.* Given a corpus document, when converted to Word, then the output opens in Pages and
-  Microsoft Word with text and tables preserved within tolerance; if conversion is not on device,
-  the user sees and accepts the disclosure first.
+  Microsoft Word with text and tables preserved within tolerance, and no network connection is made.
+- *FR-ORG-004.* Given a 50-page image-heavy corpus PDF, when compressed with the email preset, then a copy is saved that is smaller than the original, opens, and keeps its text searchable; the original is unchanged.
+- *FR-ORG-006.* Given a filled form with annotations, when shared flattened, then the shared file shows the same content in Apple Preview with no editable fields or annotations.
+- *FR-ORG-007/008.* Given three pages exported as PNG, when re-imported with "PDF from photos", then the new PDF has three pages in the same order.
 
 **Apple-first:** Share and Action extensions; drag and drop of pages between documents
 (`Transferable`); multi-window on iPad.
@@ -309,6 +337,7 @@ manager and keyboard shortcuts.
 | FR-STORE-003 | The paywall states price, period, trial length, renewal terms, and links to Terms and Privacy; Restore Purchases and Manage Subscription are always available | Must | V1 | PIL-7 |
 | FR-STORE-004 | Losing Pro never locks the user out of their own documents or annotations | Must | V1 | PIL-5 |
 | FR-STORE-005 | One subscription across iPhone, iPad and Mac (universal purchase) | Must | V2 | PIL-7 |
+| FR-STORE-006 | A trial reminder before the trial converts to paid: a local notification if the user allows it, otherwise an in-app notice | Must | V1 | PIL-7 |
 
 **Acceptance (Must):**
 
@@ -317,6 +346,7 @@ manager and keyboard shortcuts.
   present (UI test and release checklist).
 - *FR-STORE-004.* Given a lapsed subscription, when the user opens any document, then it opens, reads
   and exports; only Pro actions are unavailable.
+- *FR-STORE-006.* Given a trial that converts in two days, when that day comes, then the user is reminded by notification (if allowed) or on next launch, with the date and a link to Manage Subscription.
 
 **Apple-first:** `SubscriptionStoreView`; Family Sharing decision recorded in the pricing strategy;
 App Store Server Notifications V2 (after the relay exists).
@@ -329,6 +359,7 @@ App Store Server Notifications V2 (after the relay exists).
 | FR-SET-002 | App lock with Face ID or Touch ID | Should | V1 | PIL-5 |
 | FR-SET-003 | "Report a problem" composing an email with an opt-in diagnostics bundle that contains no document content | Must | MVP | PIL-5 |
 | FR-SET-004 | Opt-in, aggregated usage telemetry: off by default everywhere; sent only after the user opts in ([analytics strategy](analytics-strategy.md)) | Must | V2 | PIL-5 |
+| FR-SET-005 | Privacy report: AI requests by tier over the last 30 days and the number of documents sent to cloud AI, kept on the device | Must | V1 | PIL-5 |
 
 **Acceptance (Must):**
 
@@ -336,6 +367,7 @@ App Store Server Notifications V2 (after the relay exists).
   long request stays on device and asks again.
 - *FR-SET-003.* Given a diagnostics bundle, when inspected, then it contains logs and device metrics
   only, with private values redacted, and no document text or file names.
+- *FR-SET-005.* Given ten on-device requests and no cloud consent, when the report opens, then it shows ten on-device requests and "documents sent to cloud AI: 0".
 
 ## Non-functional requirements
 
@@ -363,8 +395,9 @@ or the release checklist in [release management](release-management.md).
 
 ## Constraints
 
-- iOS and iPadOS 27 minimum; Swift 6 with complete strict concurrency; Xcode 27
-  ([ADR-0001](adr/0001-platform-floor-and-swift-6.md)).
+- iOS and iPadOS 26 minimum, built with the Xcode 27 SDK; iOS 27 APIs only behind availability
+  checks ([ADR-0023](adr/0023-ios-26-floor-built-with-xcode-27.md)); Swift 6 with complete strict
+  concurrency ([ADR-0001](adr/0001-platform-floor-and-swift-6.md)).
 - Commercial PDF SDK behind the `PDFEngine` boundary; vendor chosen by a scored spike
   ([ADR-0007](adr/0007-pdf-sdk-boundary-and-vendor-selection.md), Proposed).
 - On-device model context of 4,096 tokens per session and device eligibility for Apple Intelligence

@@ -157,7 +157,7 @@ XCTest metrics, and the budget table is the only source of the thresholds (NFR-P
 
 The metrics are listed in [XCTMetric](https://developer.apple.com/documentation/xctest/xctmetric);
 `XCTHitchMetric` needs iOS 26 or later ([XCTHitchMetric](https://developer.apple.com/documentation/xctest/xcthitchmetric)),
-which the iOS 27 floor satisfies.
+which the iOS 26 floor satisfies ([ADR-0023](adr/0023-ios-26-floor-built-with-xcode-27.md)).
 
 - **Configuration.** Apple recommends running performance tests from a Release build with code
   coverage and sanitisers off ([Writing and running performance tests](https://developer.apple.com/documentation/xcode/writing-and-running-performance-tests)),

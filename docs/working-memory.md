@@ -11,21 +11,25 @@ Last updated: 2026-09-30
 
 ## Current phase
 
-**Foundation → MVP.** The planning package and the native iOS foundation app are on `integration`
-(built under the owner's exception PAP-028, on the interim iOS 26 toolchain PAP-029). The readiness
-gate is still **NOT READY** for the App Store ([readiness review](readiness-review.md)); the owner
-approved the push to the first internal TestFlight build at the V1 quality bar (PAP-030), tracked in
-[#47](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/47).
+**MVP → V1.** The native iOS app is on `integration`, built under the owner's exception PAP-028, on
+the interim Xcode 26 toolchain (PAP-029) and an iOS 26 floor that stays (ADR-0023, PAP-033). The owner
+installed the validation build on 2026-09-30. Build 1 waits for the bar in
+[#47](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/47)
+([quality gates](process/quality-gates.md#build-1-bar)). V1 scope and the operating authority for
+building it are PAP-031 and PAP-032. The readiness gate is still **NOT READY** for the App Store
+([readiness review](readiness-review.md)).
 
 ## In flight
 
 | Item | State | Next step |
 |---|---|---|
-| TestFlight readiness ([#47](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/47)) | Plan approved; bar B1–B13; work in four lanes, one pull request per item | Items ticked in #47 as they merge; validation build after the first night |
+| TestFlight readiness ([#47](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/47)) | Validation build installed; open: #75 (AI evaluation), then the evaluation screen, performance, background OCR, French and snapshot tests | Stop the line first (#76); then one pull request at a time; the owner gives the go for build 1 |
 | Flaky accessibility audit ([#44](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/44)) | Quarantined (#45) | Root cause and remove the quarantine by 2026-10-06 |
+| Flaky large-text audits and Markup menu tap ([#76](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/76)) | Stricter still-screen wait; bar-button contrast quarantined | Five green runs, then remove the quarantine if possible, by 2026-10-07 |
 | Organisation catalog entry | Catalog entry pending owner review | Owner review and merge |
 | Backlog issues | 36 issues synced from `docs/planning/backlog.yaml`, on the project board | Owner creates the project views and built-in workflows in the web interface |
-| Xcode Cloud Staging workflow (readiness M5) | Designed; post-clone script and Staging scheme in progress | Owner onboards the Staging product in Xcode; the workflow is configured through the App Store Connect API (PAP-030) |
+| Xcode Cloud Staging workflow (readiness M5) | Configured (manual start, internal only, Xcode 26.6); the validation build archived and installed | Nightly after build 1 (PAP-031); Release workflow before V1 |
+| Xcode 27 toolchain (readiness C2) | The development Mac lacks the disk space; CI and Xcode Cloud can run it | One pull request moves CI and Xcode Cloud to Xcode 27 after build 1 (ADR-0023) |
 
 ## Top risks
 
@@ -36,6 +40,7 @@ approved the push to the first internal TestFlight build at the V1 quality bar (
 | The on-device model's small context limits long-document answers | [Model selection](model-selection.md) |
 | Apple Intelligence device eligibility excludes part of the market | [AI governance](ai-governance.md), [product positioning](product-positioning.md) |
 | A single maintainer is a bottleneck and continuity risk | [SUPERVISION](../.github/SUPERVISION.md), [operations](operations.md) |
+| A save or an edit loses or damages a user's file | Revert history FR-EDIT-008 before build 2; fault-injection tests of the save path ([PRD](prd.md)) |
 
 ## Open questions
 
@@ -51,6 +56,9 @@ The last ten, newest first; all decisions are in the [decision register](decisio
 
 | ID | Decision |
 |---|---|
+| PAP-033 | iOS 26 floor, built with the Xcode 27 SDK (ADR-0023) |
+| PAP-032 | V1 scope: 19 new requirements, compress becomes a Must, on-device conversion only, cut order |
+| PAP-031 | Operating authority after build 1: agents merge green PRs into `integration`; vendor SDK, remote configuration and PCC in scope; stop the line on red |
 | PAP-030 | Push to the first internal TestFlight build; agents merge green PRs into `integration`; single window; iCloud and folders deferred |
 | PAP-029 | Interim iOS 26 floor and Xcode 26 in CI until Xcode 27 builds (C2) |
 | PAP-028 | Owner exception: the foundation app is built before the readiness gate clears |
@@ -58,9 +66,6 @@ The last ten, newest first; all decisions are in the [decision register](decisio
 | PAP-026 | Phased PDF SDK licence allowed if the quote requires it |
 | PAP-025 | `main` requires checks on the release head, not up to date with `main` |
 | PAP-024 | Remote configuration never delivers new prompt text |
-| PAP-023 | Comply with the Australian Privacy Principles regardless of exemption |
-| PAP-022 | JavaScript in PDFs disabled |
-| PAP-021 | Extensions use the on-device tier only |
 
 ## Known issues
 

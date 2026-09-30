@@ -10,7 +10,7 @@ Owner: Architecture · Reviewed: when a decision changes
 
 | ADR | Decision | Status |
 |---|---|---|
-| [ADR-0001](0001-platform-floor-and-swift-6.md) | iOS 27 floor, Swift 6 and strict concurrency | accepted |
+| [ADR-0001](0001-platform-floor-and-swift-6.md) | iOS 27 floor, Swift 6 and strict concurrency | accepted; floor superseded by ADR-0023 |
 | [ADR-0002](0002-xcodegen-and-modular-spm.md) | XcodeGen project and modular Swift packages | accepted |
 | [ADR-0003](0003-swiftui-observation-and-di.md) | SwiftUI, Observation and environment-based dependency injection | accepted |
 | [ADR-0004](0004-navigation-and-multi-window.md) | Split-view navigation, typed routes and multi-window | accepted |
@@ -32,6 +32,7 @@ Owner: Architecture · Reviewed: when a decision changes
 | [ADR-0020](0020-prompt-versioning-and-eval-gates.md) | Prompts as versioned, evaluated artefacts | accepted |
 | [ADR-0021](0021-ai-provider-routing-and-failover.md) | AI provider routing and failover | accepted |
 | [ADR-0022](0022-apple-first-capability-baseline.md) | Apple-first capability baseline | accepted |
+| [ADR-0023](0023-ios-26-floor-built-with-xcode-27.md) | iOS 26 floor, built with the Xcode 27 SDK (supersedes the floor in ADR-0001) | accepted |
 
 ## Writing one
 

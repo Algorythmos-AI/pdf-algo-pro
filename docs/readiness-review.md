@@ -9,7 +9,7 @@ Owner: Maintainer · Reviewed: weekly until the verdict is READY, then at the st
 
 ## Verdict
 
-**NOT READY.** Four Critical blockers are open (C1, C2, C3, C5). The planning package itself is
+**NOT READY.** Three Critical blockers are open (C1, C2, C5), and C3 is closed for TestFlight but not yet for V1 (paid-app agreements). The planning package itself is
 complete: architecture, product, governance, security, AI and business documents exist and agree.
 What remains is work that only the maintainer, vendors or Apple can complete, plus the UX design
 that code needs as input.
@@ -61,10 +61,10 @@ billing; those details are held privately.
 
 | ID | Blocker | Owner | Exit criterion | Status (2026-09-30) |
 |---|---|---|---|---|
-| C1 | PDF SDK vendor spike, licence and telemetry audit | Architecture | Vendor chosen on the ADR-0007 criteria with a prototype; licence terms acceptable; SDK network and JavaScript behaviour audited; ADR-0007 accepted | Open; not applicable while the MVP runs on PDFKit (PAP-026) |
-| C2 | Xcode 27 toolchain locally and in CI | Architecture | Xcode 27 builds locally; the CI runner image and pinned simulator verified | Open; interim Xcode 26 toolchain (PAP-029), which App Store Connect accepts |
+| C1 | PDF SDK vendor spike, licence and telemetry audit | Architecture | Vendor chosen on the ADR-0007 criteria with a prototype; licence terms acceptable; SDK network and JavaScript behaviour audited; ADR-0007 accepted | Open; not applicable while the MVP runs on PDFKit (PAP-026); needed for V1 redaction, editing and conversion (PAP-032) |
+| C2 | Xcode 27 toolchain in CI and Xcode Cloud | Architecture | The toolchain pull request is green in CI (iOS 26 and iOS 27 simulators) and Xcode Cloud archives with Xcode 27 ([ADR-0023](adr/0023-ios-26-floor-built-with-xcode-27.md)); local Xcode 27 when the development Mac has space | Open; interim Xcode 26 toolchain (PAP-029), which App Store Connect accepts |
 | C3 | Apple Developer Program prerequisites (account, agreements and capabilities; details held privately) | Maintainer | All prerequisites confirmed complete | Closed for TestFlight (owner, 2026-09-30); paid-app agreements remain for V1 |
-| C5 | Information architecture, key flows and Figma library | Design | Flows for every MVP intent reviewed; Figma library matches the design tokens | Open; waived for internal TestFlight (PAP-030) |
+| C5 | Information architecture and key flows | Design | Reviewed SwiftUI prototypes of every new V1 flow, and a design pass before external TestFlight (PAP-031) | Open; waived for internal TestFlight (PAP-030) |
 
 ### Major (must close before the milestone named)
 
@@ -115,3 +115,4 @@ C4 and C6 keep their original IDs after reclassification, so earlier references 
 | 2026-09-28 | First review. C4 and C6 reclassified from Critical to Major: C4 is needed only for the V2 Claude tier, and CI now runs on pull requests (decision PAP-016). |
 | 2026-09-29 | Owner exception PAP-028: the foundation app is built before the gate clears; interim iOS 26 toolchain (PAP-029). Verdict unchanged. |
 | 2026-09-30 | Status column added. M7 and M9 closed; C3 closed for TestFlight; internal TestFlight approved (PAP-030) with C1 not applicable and C5 waived. Verdict for the App Store unchanged. |
+| 2026-09-30 | Plan after build 1 (PAP-031 to PAP-033): C2 closes on CI and Xcode Cloud with the iOS 26 floor (ADR-0023); C5 becomes reviewed SwiftUI prototypes; C1 applies to V1. Verdict unchanged. |
