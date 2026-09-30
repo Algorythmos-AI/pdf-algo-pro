@@ -57,6 +57,8 @@ public final class ReaderModel {
   private var isPreparingRecognition = false
   /// A message for the last failed action.
   public var errorMessage: String?
+  /// A notice that an action did something other than the obvious, such as making a new document.
+  public var notice: String?
   /// The assistant sheet, when open.
   public var assistantTask: AssistantTask?
   /// A citation to open once the assistant sheet has finished closing.
@@ -264,6 +266,67 @@ public final class ReaderModel {
     }
   }
 
+  // MARK: - Organising pages (FR-ORG-001)
+
+  /// Whether the document's author allows its pages to be organised.
+  public var allowsOrganizing: Bool { controller?.allowsOrganizing ?? false }
+
+  /// Rotates pages by 90 degrees, clockwise or not, and saves.
+  public func rotatePages(_ pages: IndexSet, clockwise: Bool) async {
+    guard let controller, checkOrganizingIsAllowed(controller) else { return }
+    guard controller.rotatePages(pages, by: clockwise ? 90 : -90) else { return }
+    await pagesChanged()
+  }
+
+  /// Deletes pages and saves; at least one page always stays.
+  public func deletePages(_ pages: IndexSet) async {
+    guard let controller, checkOrganizingIsAllowed(controller) else { return }
+    guard controller.deletePages(pages) else {
+      errorMessage = String(localized: "A document needs at least one page.", bundle: .module)
+      return
+    }
+    await pagesChanged()
+  }
+
+  /// Moves a page one place earlier or later and saves.
+  ///
+  /// - Returns: The page's new position, or `nil` when it couldn't move.
+  @discardableResult
+  public func movePage(_ page: Int, earlier: Bool) async -> Int? {
+    guard let controller, checkOrganizingIsAllowed(controller) else { return nil }
+    let target = earlier ? page - 1 : page + 1
+    guard controller.movePage(from: page, to: target) else { return nil }
+    await pagesChanged()
+    return target
+  }
+
+  /// Copies pages into a new document in the library; this document is unchanged.
+  public func extractPages(_ pages: IndexSet) async {
+    guard let controller, checkOrganizingIsAllowed(controller) else { return }
+    do {
+      let data = try controller.extractPages(pages)
+      let title = document?.title ?? ""
+      let copy = try await intake.add(data: data, title: String(localized: "\(title) (pages)", bundle: .module))
+      notice = String(localized: "The pages are in a new document, “\(copy.title)”.", bundle: .module)
+    } catch {
+      errorMessage = String(localized: "Couldn't copy those pages. The document hasn't changed.", bundle: .module)
+    }
+  }
+
+  private func pagesChanged() async {
+    updateUndoState()
+    await save()
+  }
+
+  private func checkOrganizingIsAllowed(_ controller: PDFDocumentController) -> Bool {
+    guard controller.allowsOrganizing else {
+      errorMessage = String(localized: "This document's author doesn't allow its pages to be changed.", bundle: .module)
+      return false
+    }
+    return true
+  }
+
+  // MARK: - Editing annotations
   // MARK: - Editing annotations
 
   /// The annotation the person selected on the page, if any (F3, FR-ANN-002).

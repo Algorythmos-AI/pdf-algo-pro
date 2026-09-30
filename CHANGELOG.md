@@ -10,6 +10,8 @@ Store notes (see the changelog strategy).
 ## [Unreleased]
 
 ### Added
+- Organise pages: in Pages, choose Select to rotate pages, move one earlier or later, delete pages,
+  or copy them into a new document. Each change can be undone.
 - The native iOS foundation app: onboarding with AI-first options, a library in the Files-visible
   Documents folder with Recently Deleted, search across titles, tags and recognised text (and
   Spotlight), a PDFKit reader with markup, notes, read aloud and on-device text recognition, scanning

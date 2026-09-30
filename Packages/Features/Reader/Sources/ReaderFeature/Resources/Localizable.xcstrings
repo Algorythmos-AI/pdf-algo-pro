@@ -1,6 +1,16 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@ (pages)" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ (pages)"
+          }
+        }
+      }
+    },
     "%lld" : {
       "localizations" : {
         "fr" : {
@@ -23,6 +33,44 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld sur %lld"
+          }
+        }
+      }
+    },
+    "%lld selected" : {
+      "localizations" : {
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld sélectionnées"
+                }
+              },
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld sélectionnée"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld sélectionnées"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "A document needs at least one page." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un document doit garder au moins une page."
           }
         }
       }
@@ -167,6 +215,26 @@
         }
       }
     },
+    "Copy to a new document" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copier dans un nouveau document"
+          }
+        }
+      }
+    },
+    "Couldn't copy those pages. The document hasn't changed." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible de copier ces pages. Le document n’a pas changé."
+          }
+        }
+      }
+    },
     "Couldn't reach the signatures saved on this device. Try again." : {
       "localizations" : {
         "fr" : {
@@ -213,6 +281,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Supprimer"
+          }
+        }
+      }
+    },
+    "Delete pages" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Supprimer les pages"
           }
         }
       }
@@ -393,6 +471,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Plus"
+          }
+        }
+      }
+    },
+    "Move earlier" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avancer"
+          }
+        }
+      }
+    },
+    "Move later" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reculer"
           }
         }
       }
@@ -617,6 +715,26 @@
         }
       }
     },
+    "Rotate left" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Faire pivoter à gauche"
+          }
+        }
+      }
+    },
+    "Rotate right" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Faire pivoter à droite"
+          }
+        }
+      }
+    },
     "Save" : {
       "localizations" : {
         "fr" : {
@@ -653,6 +771,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Signature enregistrée le %@"
+          }
+        }
+      }
+    },
+    "Select" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sélectionner"
           }
         }
       }
@@ -837,6 +965,16 @@
         }
       }
     },
+    "The pages are in a new document, “%@”." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les pages sont dans un nouveau document, « %@ »."
+          }
+        }
+      }
+    },
     "This document doesn't include one. Use Pages to jump to a page." : {
       "localizations" : {
         "fr" : {
@@ -909,6 +1047,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ce document est protégé par un mot de passe"
+          }
+        }
+      }
+    },
+    "This document's author doesn't allow its pages to be changed." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L’auteur de ce document ne permet pas d’en modifier les pages."
           }
         }
       }
