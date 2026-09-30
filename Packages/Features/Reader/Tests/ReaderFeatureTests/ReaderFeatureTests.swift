@@ -666,6 +666,18 @@ struct ReaderModelTests {
     #expect(reader.controller?.hasUnsavedChanges == false, "Saved after each change")
   }
 
+  @Test(
+    "A tapped link's confirmation draws for links that open and links that don't (T-02)",
+    arguments: ["https://example.com/terms", "file:///etc/hosts"])
+  func linkConfirmationDraws(address: String) throws {
+    let controller = try PDFDocumentController(data: SyntheticPDF.makeSample())
+    controller.linkTapped(try #require(URL(string: address)))
+    let view = Text(verbatim: "Page").modifier(LinkConfirmation(controller: controller)).frame(width: 390, height: 700)
+    #expect(ImageRenderer(content: view).uiImage != nil)
+    controller.dismissLink()
+    #expect(controller.tappedLink == nil)
+  }
+
   @Test("The selection bar draws for every kind at a large text size", arguments: AnnotationSelection.Kind.allCases)
   func selectionBarDraws(kind: AnnotationSelection.Kind) {
     let view = SelectionBar(
