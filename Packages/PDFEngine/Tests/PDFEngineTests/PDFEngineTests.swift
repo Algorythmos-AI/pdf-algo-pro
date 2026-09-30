@@ -684,6 +684,69 @@ struct ToolkitTests {
   }
 }
 
+/// The Trust suite's first promise: a save never loses the original (plan §4.1).
+///
+/// A save is interrupted at each step. Throwing there leaves the disk exactly as a crash at that point
+/// would, because every step before the replace works on the staged copy and the replace is atomic.
+@MainActor
+@Suite("Trust: saves never lose the original", .serialized)
+struct SaveFaultTests {
+  struct Injected: Error {}
+
+  @Test(
+    "A save interrupted at any step leaves the original, or the new version and the kept one",
+    arguments: PDFDocumentController.SaveStep.allCases)
+  func interrupted(at step: PDFDocumentController.SaveStep) throws {
+    let folder = FileManager.default.temporaryDirectory.appendingPathComponent("trust-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    let url = folder.appendingPathComponent("doc.pdf")
+    let previous = folder.appendingPathComponent("previous.pdf")
+    try SyntheticPDF.makeSample().write(to: url)
+    let original = try Data(contentsOf: url)
+    let controller = try PDFDocumentController(url: url)
+    controller.addNote("Interrupted", onPage: 0)
+
+    PDFDocumentController.saveFault = { if $0 == step { throw Injected() } }
+    defer { PDFDocumentController.saveFault = nil }
+    #expect(throws: PDFEngineError.saveFailed) { try controller.save(to: url, keepingPreviousAt: previous) }
+    #expect(controller.hasUnsavedChanges, "The edit is still there to save again")
+
+    let onDisk = try PDFDocumentController(url: url)
+    if step == .replaced {
+      #expect(onDisk.annotationCount(onPage: 0) == 1, "The new version is complete")
+      #expect(try Data(contentsOf: previous) == original, "and the one before it is kept")
+    } else {
+      #expect(try Data(contentsOf: url) == original, "The original is untouched")
+    }
+    let leftovers = try FileManager.default.contentsOfDirectory(atPath: folder.path).filter { $0.hasPrefix("save-") }
+    #expect(leftovers.isEmpty, "No staged file is left behind")
+
+    PDFDocumentController.saveFault = nil
+    try controller.save(to: url, keepingPreviousAt: previous)
+    #expect(try PDFDocumentController(url: url).annotationCount(onPage: 0) == 1, "Saving again works")
+  }
+
+  @Test("Saving to a file that doesn't exist yet creates it")
+  func newFile() throws {
+    let url = FileManager.default.temporaryDirectory.appendingPathComponent("new-\(UUID().uuidString).pdf")
+    let controller = try PDFDocumentController(data: SyntheticPDF.makeSample())
+    controller.addNote("New", onPage: 0)
+    try controller.save(to: url, keepingPreviousAt: url.appendingPathExtension("previous"))
+    #expect(try PDFDocumentController(url: url).annotationCount(onPage: 0) == 1)
+    #expect(!FileManager.default.fileExists(atPath: url.appendingPathExtension("previous").path))
+  }
+
+  @Test("A saved file keeps every page, and the check reads it without loading it whole")
+  func largeSaveKeepsPages() throws {
+    let url = try write(SyntheticPDF.make(pages: (1...200).map { "Page \($0)" }))
+    let controller = try PDFDocumentController(url: url)
+    controller.addNote("Big", onPage: 199)
+    try controller.save(to: url)
+    let reopened = try PDFDocumentController(url: url)
+    #expect(reopened.pageCount == 200 && reopened.annotationCount(onPage: 199) == 1)
+  }
+}
+
 @Suite("Rendering")
 struct RenderingTests {
   @Test func pagesRenderAtTheRequestedSize() throws {
