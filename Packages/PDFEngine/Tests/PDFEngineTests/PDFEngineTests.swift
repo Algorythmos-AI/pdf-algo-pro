@@ -331,6 +331,81 @@ struct ControllerTests {
     #expect(!controller.selectAnnotation(at: note, onPage: 9) && controller.selection == nil)
   }
 
+  @Test("A selected shape, ink or text box moves, resizes and changes colour, one undo step each (FR-ANN-005)")
+  func transformSelection() throws {
+    let original = try PDFDocumentController(data: SyntheticPDF.make(pages: ["Page"]))
+    #expect(original.addShape(.rectangle, from: CGPoint(x: 100, y: 100), to: CGPoint(x: 200, y: 160), onPage: 0))
+    #expect(original.addInk([[CGPoint(x: 300, y: 300), CGPoint(x: 340, y: 340)]], onPage: 0))
+    #expect(original.addTextBox("Total", onPage: 0))
+    let url = temporaryURL()
+    try original.save(to: url)
+    let controller = try PDFDocumentController(url: url)
+    controller.undoManager.groupsByEvent = false
+    func step(_ body: () -> Bool) -> Bool {
+      controller.undoManager.beginUndoGrouping()
+      defer { controller.undoManager.endUndoGrouping() }
+      return body()
+    }
+    let page = try #require(controller.document.page(at: 0))
+    let box = page.bounds(for: .cropBox)
+
+    #expect(controller.selectAnnotation(at: CGPoint(x: 150, y: 130), onPage: 0))
+    #expect(controller.selection?.isMovable == true)
+    let square = try #require(page.annotations.first { $0.type == "Square" })
+    let start = square.bounds
+    #expect(step { controller.moveSelection(by: CGSize(width: 20, height: -10)) })
+    #expect(square.bounds == start.offsetBy(dx: 20, dy: -10))
+    #expect(step { controller.moveSelection(by: CGSize(width: -10_000, height: 0)) })
+    #expect(square.bounds.minX == box.minX, "Kept on the page")
+    #expect(step { controller.resizeSelection(by: 2) })
+    #expect(abs(square.bounds.width - start.width * 2) < 0.01)
+    #expect(step { controller.setSelectionColor(.red) })
+    #expect(square.color == .systemRed)
+    controller.undoManager.undo()
+    controller.undoManager.undo()
+    controller.undoManager.undo()
+    controller.undoManager.undo()
+    #expect(square.bounds == start && square.color != .systemRed)
+    #expect(controller.hasUnsavedChanges)
+
+    #expect(controller.selectAnnotation(at: CGPoint(x: 320, y: 320), onPage: 0))
+    let ink = try #require(page.annotations.first { $0.type == "Ink" })
+    let inkPath = try #require(ink.paths?.first).bounds
+    #expect(step { controller.resizeSelection(by: 0.5) })
+    let scaled = try #require(ink.paths?.first).bounds
+    #expect(abs(scaled.width - inkPath.width / 2) < 0.5, "Strokes scale with the annotation")
+    #expect(step { controller.resizeSelection(by: 0.0001) })
+    #expect(min(ink.bounds.width, ink.bounds.height) >= PDFDocumentController.minimumAnnotationSide - 0.01)
+
+    let text = try #require(page.annotations.first { $0.type == "FreeText" })
+    #expect(controller.selectAnnotation(at: CGPoint(x: text.bounds.midX, y: text.bounds.midY), onPage: 0))
+    let size = try #require(text.font?.pointSize)
+    #expect(step { controller.resizeSelection(by: 1.5) })
+    #expect(abs((text.font?.pointSize ?? 0) - size * 1.5) <= 1, "Text grows with its box (PDFKit rounds the size)")
+    let colour = text.fontColor
+    #expect(step { controller.setSelectionColor(.green) })
+    #expect(text.fontColor != colour)
+
+    let reopened = temporaryURL()
+    try controller.save(to: reopened)
+    let saved = try #require(PDFDocument(url: reopened)?.page(at: 0)?.annotations.first { $0.type == "FreeText" })
+    #expect(abs(saved.bounds.width - text.bounds.width) < 0.5, "The new size is saved")
+  }
+
+  @Test("Text markup follows its words: it can be recoloured but not moved (FR-ANN-005)")
+  func markupStaysPut() throws {
+    let controller = try PDFDocumentController(data: SyntheticPDF.make(pages: ["Highlight these words"]))
+    #expect(controller.markUp(text: "these", as: .highlight))
+    let highlight = try #require(controller.document.page(at: 0)?.annotations.first { $0.type == "Highlight" })
+    #expect(controller.selectAnnotation(at: CGPoint(x: highlight.bounds.midX, y: highlight.bounds.midY), onPage: 0))
+    #expect(controller.selection?.isMovable == false)
+    #expect(!controller.moveSelection(by: CGSize(width: 10, height: 10)))
+    #expect(!controller.resizeSelection(by: 2))
+    #expect(controller.setSelectionColor(.green))
+    controller.clearSelection()
+    #expect(!controller.setSelectionColor(.blue), "Nothing selected")
+  }
+
   @Test("Every annotation type gets a kind")
   func annotationKinds() {
     let kinds: [(PDFAnnotationSubtype, AnnotationSelection.Kind)] = [

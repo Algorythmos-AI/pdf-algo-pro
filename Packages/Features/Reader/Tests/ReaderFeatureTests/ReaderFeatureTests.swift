@@ -642,10 +642,35 @@ struct ReaderModelTests {
     #expect(restricted.errorMessage?.contains("doesn't allow") == true)
   }
 
+  @Test("A selected annotation can be moved, resized and recoloured, each saved (FR-ANN-005)")
+  func transformingAnnotations() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.makeSample())
+    let reader = harness.reader(for: document)
+    await reader.load()
+    await reader.addTextBox("Draft")
+    let box = try #require(reader.controller?.document.page(at: 0)?.annotations.first?.bounds)
+    #expect(reader.controller?.selectAnnotation(at: CGPoint(x: box.midX, y: box.midY), onPage: 0) == true)
+    let url = try await harness.library.fileURL(for: document.id)
+
+    await reader.moveSelection(by: CGSize(width: 0, height: -40))
+    let moved = try #require(PDFDocument(url: url)?.page(at: 0)?.annotations.first?.bounds)
+    #expect(abs(moved.minY - (box.minY - 40)) < 0.5)
+    #expect(reader.canUndo)
+
+    await reader.resizeSelection(by: 1.25)
+    let resized = try #require(PDFDocument(url: url)?.page(at: 0)?.annotations.first?.bounds)
+    #expect(resized.width > moved.width)
+
+    await reader.setSelectionColor(.red)
+    #expect(reader.controller?.hasUnsavedChanges == false, "Saved after each change")
+  }
+
   @Test("The selection bar draws for every kind at a large text size", arguments: AnnotationSelection.Kind.allCases)
   func selectionBarDraws(kind: AnnotationSelection.Kind) {
     let view = SelectionBar(
-      selection: AnnotationSelection(kind: kind, pageIndex: 0, text: "Text"), onEdit: {}, onDelete: {}, onDone: {}
+      selection: AnnotationSelection(kind: kind, pageIndex: 0, text: "Text"), onEdit: {}, onDelete: {}, onDone: {},
+      onMove: { _ in }, onResize: { _ in }, onColor: { _ in }
     )
     .frame(width: 390).environment(\.dynamicTypeSize, .accessibility3)
     #expect(ImageRenderer(content: view).uiImage != nil)

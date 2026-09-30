@@ -245,6 +245,26 @@
         }
       }
     },
+    "Black" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Noir"
+          }
+        }
+      }
+    },
+    "Blue" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bleu"
+          }
+        }
+      }
+    },
     "Can't open this document" : {
       "localizations" : {
         "fr" : {
@@ -265,6 +285,16 @@
         }
       }
     },
+    "Changes since the last save are replaced. You can switch back the same way." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les modifications faites depuis le dernier enregistrement sont remplacées. Vous pouvez revenir en arrière de la même façon."
+          }
+        }
+      }
+    },
     "Changes since then are replaced. The current version is kept in the history." : {
       "localizations" : {
         "fr" : {
@@ -281,6 +311,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Effacer"
+          }
+        }
+      }
+    },
+    "Colour" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couleur"
           }
         }
       }
@@ -565,6 +605,16 @@
         }
       }
     },
+    "Green" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vert"
+          }
+        }
+      }
+    },
     "Highlight" : {
       "localizations" : {
         "fr" : {
@@ -581,6 +631,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Garder la mienne en copie"
+          }
+        }
+      }
+    },
+    "Larger" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plus grand"
           }
         }
       }
@@ -625,6 +685,16 @@
         }
       }
     },
+    "Move down" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Déplacer vers le bas"
+          }
+        }
+      }
+    },
     "Move earlier" : {
       "localizations" : {
         "fr" : {
@@ -641,6 +711,36 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Reculer"
+          }
+        }
+      }
+    },
+    "Move left" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Déplacer vers la gauche"
+          }
+        }
+      }
+    },
+    "Move right" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Déplacer vers la droite"
+          }
+        }
+      }
+    },
+    "Move up" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Déplacer vers le haut"
           }
         }
       }
@@ -845,6 +945,16 @@
         }
       }
     },
+    "Red" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rouge"
+          }
+        }
+      }
+    },
     "Redo" : {
       "localizations" : {
         "fr" : {
@@ -901,6 +1011,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Restaurer la version d’avant le dernier enregistrement"
+          }
+        }
+      }
+    },
+    "Restore the version before the last save?" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restaurer la version d’avant le dernier enregistrement ?"
           }
         }
       }
@@ -1075,6 +1195,16 @@
         }
       }
     },
+    "Smaller" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plus petit"
+          }
+        }
+      }
+    },
     "Smallest, for email" : {
       "localizations" : {
         "fr" : {
@@ -1131,6 +1261,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Texte barré"
+          }
+        }
+      }
+    },
+    "Style" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Style"
           }
         }
       }
@@ -1417,6 +1557,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Historique des versions"
+          }
+        }
+      }
+    },
+    "Yellow" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jaune"
           }
         }
       }
