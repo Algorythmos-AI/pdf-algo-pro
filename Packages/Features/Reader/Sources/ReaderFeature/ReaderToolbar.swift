@@ -83,6 +83,15 @@ struct ReaderToolbar: ToolbarContent {
             }
           }
           Button {
+            model.showSignatures()
+          } label: {
+            Label {
+              Text("Signature", bundle: .module)
+            } icon: {
+              Image(systemName: "signature")
+            }
+          }
+          Button {
             isAddingNote = true
           } label: {
             Label {

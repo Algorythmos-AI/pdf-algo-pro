@@ -55,6 +55,10 @@ final class AppContainer {
   let intelligence: any DocumentIntelligence
   let builder: SearchablePDFBuilder
   let telemetry: LocalTelemetry
+  /// Saved signatures, in the Keychain on this device only (FR-EDIT-004).
+  ///
+  /// UI tests use their own Keychain service, so they never see or change real signatures.
+  let signatures: any SignatureStoring
   let thumbnails = ThumbnailCache()
   let indexLevel: LibraryIndex.StoreLevel
   let environment: LaunchEnvironment
@@ -92,6 +96,8 @@ final class AppContainer {
     #endif
     builder = SearchablePDFBuilder(recognizer: VisionTextRecognizer())
     telemetry = LocalTelemetry()
+    signatures =
+      environment.isUITesting ? KeychainSignatureStore(service: "ui-testing-\(UUID())") : KeychainSignatureStore()
   }
 
   /// The diagnostics summary for "Report a problem": app, system and health only (FR-SET-003).

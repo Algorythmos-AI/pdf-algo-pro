@@ -57,4 +57,25 @@ final class ReaderUITests: UITestCase {
     XCTAssertTrue(undo.waitForExistence(timeout: 5))
     XCTAssertTrue(undo.isEnabled, "The stroke was added and can be undone")
   }
+
+  func testATypedSignatureIsPlacedOnThePage() throws {
+    let app = launch(["-skip-onboarding", "-seed-library", "sample"])
+    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
+    let markup = app.buttons["reader.markup"]
+    markup.tap()
+    app.buttons["Signature"].tap()
+    let name = app.textFields["signature.typedName"]
+    XCTAssertTrue(name.waitForExistence(timeout: 5), "The signature sheet opens (F1c)")
+    try audit(app)
+    name.tap()
+    // Return closes the keyboard, so the audit measures the button rather than the keyboard over it.
+    name.typeText("Ada Lovelace\n")
+    try audit(app)
+    app.buttons["signature.placeTyped"].tap()
+    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 5))
+    markup.tap()
+    let undo = app.buttons["Undo"]
+    XCTAssertTrue(undo.waitForExistence(timeout: 5))
+    XCTAssertTrue(undo.isEnabled, "The signature was placed and can be undone")
+  }
 }

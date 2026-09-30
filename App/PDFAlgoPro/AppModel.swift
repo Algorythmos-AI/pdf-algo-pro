@@ -87,7 +87,7 @@ final class AppModel {
     let model = ReaderModel(
       selection: selection.id, pageIndex: selection.pageIndex, task: selection.task, library: container.library,
       intake: container.intake, index: container.index, settings: container.settings, telemetry: container.telemetry,
-      builder: container.builder)
+      builder: container.builder, signatures: container.signatures)
     reader = (selection, model)
     return model
   }

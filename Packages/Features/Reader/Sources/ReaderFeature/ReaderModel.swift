@@ -59,6 +59,10 @@ public final class ReaderModel {
   public var showsOutline = false
   /// Whether the page grid is open.
   public var showsPages = false
+  /// Whether the signature sheet is open (F1c).
+  public var showsSignatures = false
+  /// Saved signatures, oldest first, once loaded.
+  public private(set) var savedSignatures: [SavedSignature] = []
   /// Whether "Go to page" is asking for a page number.
   public var showsGoToPage = false
   /// The saved file the share sheet is showing, if it is open.
@@ -78,6 +82,7 @@ public final class ReaderModel {
   private let settings: any SettingsStoring
   private let telemetry: any TelemetryRecording
   private let builder: SearchablePDFBuilder
+  private let signatures: any SignatureStoring
   private var recognition: Task<Void, Never>?
 
   /// Creates a reader for a document.
@@ -85,7 +90,7 @@ public final class ReaderModel {
     selection documentID: DocumentID, pageIndex: Int? = nil, task: AssistantTask? = nil, library: any DocumentLibrary,
     intake: DocumentIntake, index: any DocumentIndexing, settings: any SettingsStoring,
     telemetry: any TelemetryRecording,
-    builder: SearchablePDFBuilder, speech: SpeechReader = SpeechReader()
+    builder: SearchablePDFBuilder, signatures: any SignatureStoring, speech: SpeechReader = SpeechReader()
   ) {
     self.documentID = documentID
     startPage = pageIndex
@@ -96,6 +101,7 @@ public final class ReaderModel {
     self.settings = settings
     self.telemetry = telemetry
     self.builder = builder
+    self.signatures = signatures
     self.speech = speech
   }
 
@@ -245,6 +251,69 @@ public final class ReaderModel {
   private func inkAdded() async {
     updateUndoState()
     await save()
+  }
+
+  // MARK: - Signing
+
+  /// Opens the signature sheet, or says why the document cannot be signed (F1c, FR-EDIT-004).
+  public func showSignatures() {
+    guard let controller, checkAnnotatingIsAllowed(controller) else { return }
+    showsSignatures = true
+  }
+
+  /// Loads the signatures saved on this device.
+  public func loadSignatures() async {
+    do {
+      savedSignatures = try await signatures.signatures()
+    } catch {
+      errorMessage = Self.signatureStoreMessage
+    }
+  }
+
+  /// Saves a signature drawn on the pad; returns it, or `nil` when nothing was drawn or saving failed.
+  @discardableResult
+  public func saveSignature(drawn strokes: [[CGPoint]]) async -> SavedSignature? {
+    guard let signature = SavedSignature(drawn: strokes) else { return nil }
+    do {
+      try await signatures.save(signature)
+      savedSignatures.append(signature)
+      return signature
+    } catch {
+      errorMessage = Self.signatureStoreMessage
+      return nil
+    }
+  }
+
+  /// Deletes a saved signature from this device.
+  public func deleteSignature(_ id: UUID) async {
+    do {
+      try await signatures.delete(id)
+      savedSignatures.removeAll { $0.id == id }
+    } catch {
+      errorMessage = Self.signatureStoreMessage
+    }
+  }
+
+  /// Places a saved signature on the page on screen, then saves.
+  public func place(_ signature: SavedSignature) async {
+    guard let controller, checkAnnotatingIsAllowed(controller),
+      controller.placeSignature(signature, onPage: controller.currentPageIndex)
+    else { return }
+    updateUndoState()
+    await save()
+  }
+
+  /// Places a typed name as a signature on the page on screen, then saves.
+  public func placeTyped(_ name: String) async {
+    guard let controller, checkAnnotatingIsAllowed(controller),
+      controller.placeTypedSignature(name, onPage: controller.currentPageIndex)
+    else { return }
+    updateUndoState()
+    await save()
+  }
+
+  private static var signatureStoreMessage: String {
+    String(localized: "Couldn't reach the signatures saved on this device. Try again.", bundle: .module)
   }
 
   /// Says so when the document's author does not allow notes and markup (defect D9).

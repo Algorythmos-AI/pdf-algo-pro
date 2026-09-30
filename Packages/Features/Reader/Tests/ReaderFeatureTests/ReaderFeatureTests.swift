@@ -2,6 +2,7 @@ import Core
 import CoreTestSupport
 import Foundation
 import PDFEngineTestSupport
+import PDFKit
 import SwiftUI
 import Testing
 
@@ -14,6 +15,7 @@ private struct Harness {
   let index = FakeIndex()
   let settings = InMemorySettingsStore()
   let telemetry = RecordingTelemetry()
+  let signatures = InMemorySignatureStore()
 
   func reader(
     for document: Document, pageIndex: Int? = nil, task: AssistantTask? = nil,
@@ -23,7 +25,7 @@ private struct Harness {
       selection: document.id, pageIndex: pageIndex, task: task, library: library,
       intake: DocumentIntake(library: library, inspector: PDFKitInspector(), index: index), index: index,
       settings: settings, telemetry: telemetry,
-      builder: SearchablePDFBuilder(recognizer: recognizer, renderPixelSize: 400),
+      builder: SearchablePDFBuilder(recognizer: recognizer, renderPixelSize: 400), signatures: signatures,
       speech: SpeechReader(engine: SilentSpeech()))
   }
 
@@ -255,6 +257,62 @@ struct ReaderModelTests {
     await restricted.load()
     restricted.setDrawing(true)
     #expect(!restricted.isDrawing && restricted.errorMessage?.contains("doesn't allow") == true)
+  }
+
+  @Test("Signatures are drawn, saved on this device, placed, typed and deleted (F1c, FR-EDIT-004)")
+  func signing() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.makeSample())
+    let reader = harness.reader(for: document)
+    await reader.load()
+    reader.showSignatures()
+    #expect(reader.showsSignatures)
+    await reader.loadSignatures()
+    #expect(reader.savedSignatures.isEmpty)
+    #expect(await reader.saveSignature(drawn: []) == nil)
+
+    let drawn = [[CGPoint(x: 10, y: 10), CGPoint(x: 90, y: 40)], [CGPoint(x: 20, y: 30), CGPoint(x: 70, y: 30)]]
+    let signature = try #require(await reader.saveSignature(drawn: drawn))
+    #expect(try await harness.signatures.signatures() == [signature])
+    await reader.place(signature)
+    await reader.placeTyped("Ada Lovelace")
+    await reader.placeTyped("   ")
+    let url = try await harness.library.fileURL(for: document.id)
+    let types = try #require(PDFDocument(url: url)?.page(at: 0)?.annotations.map(\.type))
+    #expect(types.contains("Ink") && types.contains("FreeText") && types.count == 2)
+    #expect(reader.canUndo)
+
+    await reader.deleteSignature(signature.id)
+    let remaining = try await harness.signatures.signatures()
+    #expect(reader.savedSignatures.isEmpty && remaining.isEmpty)
+    await harness.signatures.failNext(with: .keychain(-25308))
+    await reader.loadSignatures()
+    #expect(reader.errorMessage?.contains("signatures saved on this device") == true)
+
+    let restricted = harness.reader(
+      for: await harness.seed(
+        try TestPDFs.makeProtected(
+          userPassword: nil, ownerPassword: "owner-\(UUID())", permissions: [.allowsLowQualityPrinting])))
+    await restricted.load()
+    restricted.showSignatures()
+    #expect(!restricted.showsSignatures && restricted.errorMessage?.contains("doesn't allow") == true)
+  }
+
+  @Test("The signature sheet draws at a large text size, with and without saved signatures")
+  func signatureSheetDraws() async throws {
+    let harness = Harness()
+    let reader = harness.reader(for: await harness.seed(try SyntheticPDF.makeSample()))
+    await reader.load()
+    func draws() -> Bool {
+      let view = SignatureSheet(model: reader).frame(width: 390, height: 800)
+        .environment(\.dynamicTypeSize, .accessibility3)
+      return ImageRenderer(content: view).uiImage != nil
+    }
+    #expect(draws())
+    _ = await reader.saveSignature(drawn: [[CGPoint(x: 0, y: 0), CGPoint(x: 50, y: 20)]])
+    #expect(draws())
+    let preview = SignaturePreview(signature: try #require(reader.savedSignatures.first)).frame(width: 200, height: 60)
+    #expect(ImageRenderer(content: preview).uiImage != nil)
   }
 
   @Test("Layout choices are remembered")
