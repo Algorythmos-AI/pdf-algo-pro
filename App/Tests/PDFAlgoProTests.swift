@@ -35,6 +35,7 @@ struct AppTests {
     #expect(!LaunchEnvironment(arguments: ["-seed-library", "other"]).seedsSample)
     let locked = LaunchEnvironment(arguments: ["-seed-library", "locked"])
     #expect(locked.seedsLocked && !locked.seedsSample)
+    #expect(LaunchEnvironment(arguments: ["-seed-library", "damaged"]).seedsDamaged)
   }
 
   @Test("Background time is asked for and given back, and giving it back twice is harmless (P8)")
