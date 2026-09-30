@@ -277,6 +277,28 @@ struct ReaderModelTests {
     #expect(await !harness.library.hasPreviousVersion(of: document.id), "No earlier version is kept for a no-op")
   }
 
+  @Test("The file watcher hears a coordinated write made on another thread, without a crash (H5)")
+  func watcherHearsOtherThreads() async throws {
+    let url = FileManager.default.temporaryDirectory.appendingPathComponent("watched-\(UUID().uuidString).pdf")
+    try SyntheticPDF.make(pages: ["One"]).write(to: url)
+    defer { try? FileManager.default.removeItem(at: url) }
+    let heard = Heard()
+    let watcher = FileWatcher(url: url) { heard.count += 1 }
+    watcher.start()
+    defer { watcher.stop() }
+    let data = try SyntheticPDF.make(pages: ["Two"])
+    // File coordination reads the presenter's URL and queue on its own threads; this failed with a
+    // main-actor isolation crash when the watcher inherited the module's default isolation.
+    await Task.detached {
+      var error: NSError?
+      NSFileCoordinator(filePresenter: nil).coordinate(writingItemAt: url, options: .forReplacing, error: &error) {
+        try? data.write(to: $0)
+      }
+    }.value
+    for _ in 0..<100 where heard.count == 0 { try await Task.sleep(for: .milliseconds(20)) }
+    #expect(heard.count > 0)
+  }
+
   @Test("Another app's change is shown when nothing is unsaved; its own saves aren't mistaken for one (H5)")
   func otherAppChange() async throws {
     let harness = Harness()
@@ -1024,4 +1046,10 @@ private final class SilentSpeech: SpeechEngine {
 
   func speak(_ text: String) { spoken.append(text) }
   func stop() { stops += 1 }
+}
+
+/// Counts file-change notifications in a test.
+@MainActor
+private final class Heard {
+  var count = 0
 }
