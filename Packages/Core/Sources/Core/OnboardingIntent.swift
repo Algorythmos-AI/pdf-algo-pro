@@ -38,7 +38,7 @@ public enum OnboardingIntent: String, CaseIterable, Codable, Sendable, Identifia
   /// on here in the pull request that ships the feature.
   public var isOffered: Bool {
     switch self {
-    case .editText, .convert, .organize: false
+    case .editText, .convert: false
     default: true
     }
   }
