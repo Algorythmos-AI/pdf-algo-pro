@@ -22,6 +22,53 @@ Owner: Architecture · Reviewed: each milestone, and after each MetricKit review
 - **Test documents** come from the synthetic golden corpus: a 20-page text PDF, a 500-page text PDF,
   a 1,000-page mixed PDF, a 100-page scanned PDF, a 50-page form.
 
+## How the budgets are measured today
+
+The `Performance` test plan (P9 on the TestFlight tracking issue,
+[#47](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/47)) measures the rows below with XCTest
+metrics: three iterations each, compared by their median. The `performance` job in `ci.yml` runs it
+nightly and on request, on the pinned simulator with an optimised build, and
+[`perf_gate.py`](../scripts/ci/perf_gate.py) writes the comparison to the run summary and an
+artifact. Pull requests run none of it, and nothing is blocked by it.
+
+| Budget row | Test | What is timed |
+|---|---|---|
+| Cold launch to first frame | `LaunchPerformanceTests.testColdLaunchToTheFirstFrame` | `XCTApplicationLaunchMetric`, empty library |
+| Open a 20-page PDF | `EnginePerformanceTests.testOpenA20PagePDFToTheFirstPage` | Opening the document and rendering page 1 at iPhone screen size |
+| Open a 500-page PDF | `EnginePerformanceTests.testOpenA500PagePDFToTheFirstPage` | The same, for 500 pages |
+| Page thumbnail grid (100 pages) | `EnginePerformanceTests.testRenderThe100PageThumbnailGrid` | All 100 thumbnails at the grid's size, more than a screen shows |
+| Save after an edit (500-page PDF) | `EnginePerformanceTests.testSaveAfterAnEditIn500Pages` | The save only |
+| Search across a 1,000-document library | `EnginePerformanceTests.testSearchA1000DocumentLibrary` | One query on a warm index |
+| Scan → searchable PDF, 10 pages | `EnginePerformanceTests.testScanTenPagesToASearchablePDF` | Vision recognition and writing the PDF |
+| Retrieval over a 500-page PDF | `RetrievalPerformanceTests.testRetrievalOver500Pages` | Ranking every page for a question |
+
+- **Tolerance.** `Assumption:` a simulator median within 120% of the p50 budget means no
+  regression worth stopping for. The simulator is not the baseline iPhone, so its numbers show
+  trends and large regressions. In the first run (2026-09-30, a development Mac):
+  - document work was far inside its budgets;
+  - cold launch took 2.1 s and ten scanned pages 12.8 s, both over.
+
+  Validation: compare the first nightly runs with a device run of the same plan, and adjust the
+  tolerance per row here if the two disagree by more than it allows.
+- **Device timings.** Run the same plan on the baseline iPhone from Xcode: choose the `Performance`
+  test plan, run the tests, then pass the result bundle to
+  `xcrun xcresulttool get test-results metrics` and `perf_gate.py`. These are the timings the
+  budgets refer to, recorded for each TestFlight build that reaches testers.
+- **Signposts.** The same operations are marked with `OSSignposter` intervals in the Points of
+  Interest category, named as in the tables (`Document.FirstPage`, `Document.Save`, `Search.Query`,
+  `Scan.Searchable`, `AI.Retrieve`, `AI.Summary`, `Library.Ready`), for Instruments on a device.
+- **Not yet measured:**
+  - warm launch;
+  - the 1,000-document library launch;
+  - scrolling;
+  - merging (no merge feature yet);
+  - memory;
+  - energy;
+  - recognition speed;
+  - model latency (`AI.FirstToken`, `AI.Summary`), which needs a device with Apple Intelligence.
+
+  Each is added to the plan when its feature or fixture exists.
+
 ## Launch
 
 | Budget | p50 | p95 | Measured by | Gate |

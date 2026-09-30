@@ -1,12 +1,18 @@
 #!/usr/bin/env python3
-"""Write PDFAlgoPro.xctestplan from the generated Xcode project. Standard library only.
+"""Write the test plans from the generated Xcode project. Standard library only.
 
     xcodegen generate && python3 scripts/ci/write_testplan.py
 
 XcodeGen does not generate test plans, and a plan refers to project targets by their generated IDs,
-so the plan is derived from the project each time it is generated (locally and in CI). It lists every
-local package's test target (found from each Package.swift), the app's unit tests and the UI tests, with code coverage
-on. Run it again whenever a package or test target is added, removed or renamed.
+so the plans are derived from the project each time it is generated (locally and in CI):
+
+  * PDFAlgoPro.xctestplan, run on every pull request: every local package's test target (found from
+    each Package.swift), the app's unit tests and the UI tests, with code coverage on. Classes whose
+    name ends in PerformanceTests are skipped.
+  * Performance.xctestplan, run on a schedule and on request (P9): only those classes, without
+    coverage, so the timings are not slowed by instrumentation.
+
+Run it again whenever a package, test target or performance class is added, removed or renamed.
 """
 from __future__ import annotations
 
@@ -18,6 +24,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 PROJECT = ROOT / "PDFAlgoPro.xcodeproj" / "project.pbxproj"
 PLAN = ROOT / "PDFAlgoPro.xctestplan"
+PERFORMANCE_PLAN = ROOT / "Performance.xctestplan"
+PERFORMANCE_CLASS = re.compile(r"\bclass\s+(\w+PerformanceTests)\b")
 APP, UNIT_TESTS, UI_TESTS = "PDFAlgoPro", "PDFAlgoProTests", "PDFAlgoProUITests"
 
 
@@ -38,25 +46,48 @@ def package_test_targets() -> list[tuple[str, str]]:
     return found
 
 
+def performance_classes(folder: Path) -> list[str]:
+    """The XCTest classes in a test target's sources whose name ends in PerformanceTests."""
+    names: set[str] = set()
+    for source in folder.rglob("*.swift"):
+        names.update(PERFORMANCE_CLASS.findall(source.read_text(encoding="utf-8")))
+    return sorted(names)
+
+
+def write(path: Path, plan: dict) -> None:
+    path.write_text(json.dumps(plan, indent=2) + "\n", encoding="utf-8")
+
+
 def main() -> int:
     pbxproj = PROJECT.read_text(encoding="utf-8")
-    targets = [{"target": {"containerPath": f"container:{path}", "identifier": name, "name": name}}
-               for path, name in package_test_targets()]
-    for name in (UNIT_TESTS, UI_TESTS):
-        targets.append({"target": {"containerPath": "container:PDFAlgoPro.xcodeproj",
-                                   "identifier": target_id(pbxproj, name), "name": name}})
-    plan = {
+    entries = [({"containerPath": f"container:{path}", "identifier": name, "name": name},
+                ROOT / path / "Tests" / name) for path, name in package_test_targets()]
+    for name, folder in ((UNIT_TESTS, "App/Tests"), (UI_TESTS, "App/UITests")):
+        entries.append(({"containerPath": "container:PDFAlgoPro.xcodeproj",
+                         "identifier": target_id(pbxproj, name), "name": name}, ROOT / folder))
+    variables = {"containerPath": "container:PDFAlgoPro.xcodeproj",
+                 "identifier": target_id(pbxproj, APP), "name": APP}
+
+    targets, performance = [], []
+    for target, folder in entries:
+        classes = performance_classes(folder)
+        targets.append({"skippedTests": classes, "target": target} if classes else {"target": target})
+        if classes:
+            performance.append({"selectedTests": classes, "target": target})
+    write(PLAN, {
         "configurations": [{"id": "4F1C2A00-0000-4000-8000-000000000001", "name": "Default", "options": {}}],
-        "defaultOptions": {
-            "codeCoverage": True,
-            "targetForVariableExpansion": {"containerPath": "container:PDFAlgoPro.xcodeproj",
-                                           "identifier": target_id(pbxproj, APP), "name": APP},
-        },
+        "defaultOptions": {"codeCoverage": True, "targetForVariableExpansion": variables},
         "testTargets": targets,
         "version": 1,
-    }
-    PLAN.write_text(json.dumps(plan, indent=2) + "\n", encoding="utf-8")
-    print(f"wrote {PLAN.name} with {len(targets)} test targets")
+    })
+    write(PERFORMANCE_PLAN, {
+        "configurations": [{"id": "4F1C2A00-0000-4000-8000-000000000002", "name": "Default", "options": {}}],
+        "defaultOptions": {"codeCoverage": False, "targetForVariableExpansion": variables},
+        "testTargets": performance,
+        "version": 1,
+    })
+    print(f"wrote {PLAN.name} with {len(targets)} test targets and {PERFORMANCE_PLAN.name} with "
+          f"{sum(len(t['selectedTests']) for t in performance)} performance classes")
     return 0
 
 

@@ -46,7 +46,9 @@ public struct IntelligenceRouter: DocumentIntelligence {
 
   /// Summarises the pages, citing the pages each point draws on.
   public func summarize(_ pages: [PageText]) async throws -> Answer {
-    try await summarize(pages, template: PromptCatalog.summarizeChunk)
+    let interval = Signposts.begin("AI.Summary")
+    defer { interval.end() }
+    return try await summarize(pages, template: PromptCatalog.summarizeChunk)
   }
 
   /// Explains a contract's key terms in plain language.
@@ -63,11 +65,16 @@ public struct IntelligenceRouter: DocumentIntelligence {
     guard !pages.isEmpty else { throw IntelligenceError.noText }
     guard !question.isEmpty else { return .notFound(tier: .onDevice) }
     let model = try await activeModel()
-    let ranked = Grounding.rank(pages, for: question)
-    let candidates = ranked.isEmpty ? pages : ranked + pages.filter { page in !ranked.contains(page) }
-    let questionTokens = await model.tokenCount(question)
-    let chosen = try await fit(candidates, into: await model.promptBudget() - questionTokens, model: model)
-      .sorted { $0.pageIndex < $1.pageIndex }
+    let chosen: [PageText]
+    do {
+      let retrieval = Signposts.begin("AI.Retrieve")
+      defer { retrieval.end() }
+      let ranked = Grounding.rank(pages, for: question)
+      let candidates = ranked.isEmpty ? pages : ranked + pages.filter { page in !ranked.contains(page) }
+      let questionTokens = await model.tokenCount(question)
+      chosen = try await fit(candidates, into: await model.promptBudget() - questionTokens, model: model)
+        .sorted { $0.pageIndex < $1.pageIndex }
+    }
     let prompt = "\(PromptCatalog.documentBlock(chosen))\n\nQuestion: \(question)"
     let response = try await run {
       try await model.respond(instructions: PromptCatalog.ask.instructions, prompt: prompt)

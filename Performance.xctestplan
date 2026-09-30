@@ -1,0 +1,50 @@
+{
+  "configurations": [
+    {
+      "id": "4F1C2A00-0000-4000-8000-000000000002",
+      "name": "Default",
+      "options": {}
+    }
+  ],
+  "defaultOptions": {
+    "codeCoverage": false,
+    "targetForVariableExpansion": {
+      "containerPath": "container:PDFAlgoPro.xcodeproj",
+      "identifier": "F7ED77A099661D789A92EF15",
+      "name": "PDFAlgoPro"
+    }
+  },
+  "testTargets": [
+    {
+      "selectedTests": [
+        "RetrievalPerformanceTests"
+      ],
+      "target": {
+        "containerPath": "container:Packages/Intelligence",
+        "identifier": "IntelligenceTests",
+        "name": "IntelligenceTests"
+      }
+    },
+    {
+      "selectedTests": [
+        "EnginePerformanceTests"
+      ],
+      "target": {
+        "containerPath": "container:PDFAlgoPro.xcodeproj",
+        "identifier": "17E26245668293B02479B2B7",
+        "name": "PDFAlgoProTests"
+      }
+    },
+    {
+      "selectedTests": [
+        "LaunchPerformanceTests"
+      ],
+      "target": {
+        "containerPath": "container:PDFAlgoPro.xcodeproj",
+        "identifier": "12F8DDC939C9FA809B6ACC4A",
+        "name": "PDFAlgoProUITests"
+      }
+    }
+  ],
+  "version": 1
+}

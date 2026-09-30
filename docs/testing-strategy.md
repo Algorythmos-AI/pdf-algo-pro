@@ -155,6 +155,11 @@ XCTest metrics, and the budget table is the only source of the thresholds (NFR-P
 | `XCTCPUMetric` | CPU time and instructions for OCR and indexing | Battery and energy |
 | `XCTStorageMetric` | Bytes written by save and export | Documents (save) |
 
+Today the `Performance` test plan covers the rows listed under "How the budgets are measured today"
+in [performance budgets](performance-budgets.md). Its classes end in `PerformanceTests`, so the plan
+writer skips them in the pull-request plan and selects only them in `Performance.xctestplan`. The
+nightly `performance` job reports the medians against the budgets without blocking.
+
 The metrics are listed in [XCTMetric](https://developer.apple.com/documentation/xctest/xctmetric);
 `XCTHitchMetric` needs iOS 26 or later ([XCTHitchMetric](https://developer.apple.com/documentation/xctest/xcthitchmetric)),
 which the iOS 26 floor satisfies ([ADR-0023](adr/0023-ios-26-floor-built-with-xcode-27.md)).

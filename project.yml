@@ -189,6 +189,7 @@ schemes:
       testPlans:
         - path: PDFAlgoPro.xctestplan
           defaultPlan: true
+        - path: Performance.xctestplan
     run:
       config: Debug
     profile:

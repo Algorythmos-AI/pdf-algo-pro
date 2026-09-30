@@ -100,6 +100,8 @@ public final class LibraryModel {
   /// The housekeeping runs without the user asking, so a failure does not interrupt them: it is
   /// counted for "Report a problem" and retried on the next launch.
   public func load() async {
+    let interval = Signposts.begin("Library.Ready")
+    defer { interval.end() }
     do {
       for id in try await library.purgeExpired(now: now()) { await removeDerivedData(of: id) }
     } catch {
