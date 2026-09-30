@@ -145,22 +145,30 @@ struct LockWindowPresenter: UIViewRepresentable {
 
   func makeCoordinator() -> Coordinator { Coordinator() }
 
-  func makeUIView(context: Context) -> UIView {
-    let view = UIView()
+  func makeUIView(context: Context) -> AnchorView {
+    let view = AnchorView()
     view.isHidden = true
+    // The first update can come before the view is in a window; showing the cover must not wait for
+    // the next change, or a locked app could show its content.
+    view.onWindow = { [weak view, coordinator = context.coordinator, lock, method] in
+      coordinator.update(scene: view?.window?.windowScene, lock: lock, method: method, shows: lock.showsCover)
+    }
     return view
   }
 
-  func updateUIView(_ view: UIView, context: Context) {
-    let shows = lock.showsCover
-    let coordinator = context.coordinator
-    // The view joins its window after the first update; try again on the next turn of the run loop.
-    guard let scene = view.window?.windowScene else {
-      Task { @MainActor in coordinator.update(scene: view.window?.windowScene, lock: lock, method: method, shows: shows)
-      }
-      return
+  func updateUIView(_ view: AnchorView, context: Context) {
+    context.coordinator.update(
+      scene: view.window?.windowScene, lock: lock, method: method, shows: lock.showsCover)
+  }
+
+  /// A view that says when it joins a window.
+  final class AnchorView: UIView {
+    var onWindow: (() -> Void)?
+
+    override func didMoveToWindow() {
+      super.didMoveToWindow()
+      if window != nil { onWindow?() }
     }
-    coordinator.update(scene: scene, lock: lock, method: method, shows: shows)
   }
 
   @MainActor
