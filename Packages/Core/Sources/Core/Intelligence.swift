@@ -143,12 +143,38 @@ public struct Extraction: Hashable, Sendable {
   }
 
   /// The fields as CSV (RFC 4180 quoting), with a header row.
+  ///
+  /// Values come from untrusted documents, so a cell a spreadsheet would run as a formula is made
+  /// inert (see `neutralized(_:)`).
   public var csv: String {
     func quoted(_ value: String) -> String {
-      "\"" + value.replacingOccurrences(of: "\"", with: "\"\"") + "\""
+      "\"" + Self.neutralized(value).replacingOccurrences(of: "\"", with: "\"\"") + "\""
     }
     let rows = fields.map { "\(quoted($0.key)),\(quoted($0.value)),\($0.pageIndex.map { String($0 + 1) } ?? "")" }
     return (["field,value,page"] + rows).joined(separator: "\r\n") + "\r\n"
+  }
+
+  /// A cell value that no spreadsheet runs as a formula (CSV injection, plan item H2).
+  ///
+  /// Excel, Numbers and Google Sheets treat a cell starting with `=`, `+`, `-`, `@`, a tab or a carriage
+  /// return as a formula, so a document could plant `=HYPERLINK(...)` in an extracted value. Such a
+  /// cell gets a leading apostrophe, which spreadsheets show as text
+  /// ([OWASP CSV injection](https://owasp.org/www-community/attacks/CSV_Injection)). A plain signed
+  /// number, such as `-12.50` or `+33 1 23 45 67 89`, is left alone so amounts stay numbers.
+  public static func neutralized(_ value: String) -> String {
+    guard let first = value.unicodeScalars.first else { return value }
+    switch first {
+    case "=", "@", "\t", "\r":
+      return "'" + value
+    case "+", "-":
+      let rest = value.unicodeScalars.dropFirst()
+      let numeric = CharacterSet.decimalDigits.union(CharacterSet(charactersIn: " .,\u{00A0}\u{202F}"))
+      let isNumber =
+        !rest.isEmpty && rest.allSatisfy(numeric.contains) && rest.contains { CharacterSet.decimalDigits.contains($0) }
+      return isNumber ? value : "'" + value
+    default:
+      return value
+    }
   }
 }
 

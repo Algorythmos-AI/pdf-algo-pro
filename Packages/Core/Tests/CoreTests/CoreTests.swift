@@ -183,6 +183,20 @@ struct IntelligenceValueTests {
     #expect(extraction.fields[0].isVerified && !extraction.fields[1].isVerified)
   }
 
+  @Test(
+    "Extracted values a spreadsheet would run as formulas are made inert (CSV injection, H2)",
+    arguments: [
+      ("=HYPERLINK(\"https://example.com\")", "'=HYPERLINK(\"https://example.com\")"),
+      ("@SUM(A1)", "'@SUM(A1)"), ("+cmd|' /C calc'!A0", "'+cmd|' /C calc'!A0"), ("-2+3", "'-2+3"),
+      ("\tTAB", "'\tTAB"), ("\rCR", "'\rCR"), ("-12.50", "-12.50"), ("+33 1 23 45 67 89", "+33 1 23 45 67 89"),
+      ("-1\u{202F}234,56", "-1\u{202F}234,56"), ("-", "'-"), ("INV-2026-0042", "INV-2026-0042"), ("", ""),
+    ])
+  func csvInjection(value: String, expected: String) {
+    #expect(Extraction.neutralized(value) == expected)
+    let csv = Extraction(fields: [ExtractedField(key: "total", value: value, pageIndex: nil)], tier: .onDevice).csv
+    #expect(csv.contains("\"" + expected.replacingOccurrences(of: "\"", with: "\"\"") + "\""))
+  }
+
   @Test func inspectionDetectsATextLayer() {
     #expect(PDFInspection(pageCount: 1, isEncrypted: false, pages: [PageText(pageIndex: 0, text: "x")]).hasTextLayer)
     #expect(!PDFInspection(pageCount: 1, isEncrypted: false, pages: [PageText(pageIndex: 0, text: " \n")]).hasTextLayer)

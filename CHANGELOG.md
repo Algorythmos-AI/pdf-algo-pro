@@ -52,6 +52,8 @@ Store notes (see the changelog strategy).
 ### Fixed
 - A library index that can't be opened, for example after installing an older build, is set aside
   instead of deleted, so tags, favourites and Recently Deleted dates can be recovered.
+- Copying extracted fields as CSV makes any value a spreadsheet would run as a formula (for example
+  one starting with "=") show as plain text, so a document can't plant a formula in your sheet.
 - Form entries are saved, and protected documents keep their password and restrictions when saved
   (#58).
 - Changes are saved when the app moves to the background (#58).
