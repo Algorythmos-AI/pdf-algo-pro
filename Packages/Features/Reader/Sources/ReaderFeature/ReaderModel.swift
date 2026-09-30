@@ -75,6 +75,8 @@ public final class ReaderModel {
   public var showsOutline = false
   /// Whether the page grid is open.
   public var showsPages = false
+  /// Whether the list of annotations is open (FR-ANN-003).
+  public var showsAnnotations = false
   /// A page chosen in the outline or the page grid, opened once its sheet has finished closing.
   @ObservationIgnored private var pendingPageIndex: Int?
   /// Whether the signature sheet is open (F1c).
@@ -922,6 +924,47 @@ public final class ReaderModel {
     pendingPageIndex = pageIndex
     showsOutline = false
     showsPages = false
+    showsAnnotations = false
+  }
+
+  // MARK: - Annotation list (FR-ANN-003)
+
+  /// Every annotation in the document, in reading order.
+  public var annotationSummaries: [AnnotationSummary] { controller?.annotationSummaries() ?? [] }
+
+  /// The annotations as plain text, to share or paste elsewhere: grouped by page, each with its kind and text.
+  public func annotationsText() -> String {
+    let summaries = annotationSummaries
+    var lines = [document?.title ?? ""]
+    var page: Int?
+    for summary in summaries {
+      if summary.pageIndex != page {
+        page = summary.pageIndex
+        lines.append("")
+        lines.append(String(localized: "Page \(summary.pageIndex + 1)", bundle: .module))
+      }
+      let name = Self.name(of: summary)
+      lines.append(summary.text.map { "• \(name): \($0)" } ?? "• \(name)")
+    }
+    return lines.joined(separator: "\n")
+  }
+
+  /// What an annotation is, in words.
+  static func name(of summary: AnnotationSummary) -> String {
+    if summary.isSignature { return String(localized: "Signature", bundle: .module) }
+    return switch summary.kind {
+    case .highlight: String(localized: "Highlight", bundle: .module)
+    case .underline: String(localized: "Underline", bundle: .module)
+    case .strikeThrough: String(localized: "Strike-through", bundle: .module)
+    case .note: String(localized: "Note", bundle: .module)
+    case .ink: String(localized: "Drawing", bundle: .module)
+    case .rectangle: String(localized: "Rectangle", bundle: .module)
+    case .oval: String(localized: "Oval", bundle: .module)
+    case .line: String(localized: "Line", bundle: .module)
+    case .textBox: String(localized: "Text box", bundle: .module)
+    case .stamp: String(localized: "Stamp", bundle: .module)
+    case .other: String(localized: "Annotation", bundle: .module)
+    }
   }
 
   /// Opens the page chosen in the outline or the page grid, now that its sheet has closed.

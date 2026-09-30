@@ -85,6 +85,9 @@ public struct ReaderView<Assistant: View>: View {
       .sheet(isPresented: $model.showsOutline, onDismiss: { model.pageSheetDismissed() }) {
         OutlineSheet(model: model)
       }
+      .sheet(isPresented: $model.showsAnnotations, onDismiss: { model.pageSheetDismissed() }) {
+        AnnotationListSheet(model: model)
+      }
       .sheet(isPresented: $model.showsPages, onDismiss: { model.pageSheetDismissed() }) {
         PageGridSheet(model: model)
       }

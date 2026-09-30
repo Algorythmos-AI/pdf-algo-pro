@@ -707,6 +707,23 @@ struct ReaderModelTests {
     #expect(controller.tappedLink == nil)
   }
 
+  @Test("The annotation list opens a page and exports as text (FR-ANN-003)")
+  func annotationList() async throws {
+    let harness = Harness()
+    let reader = harness.reader(for: await harness.seed(try SyntheticPDF.makeSample()))
+    await reader.load()
+    #expect(reader.annotationSummaries.isEmpty)
+    await reader.addTextBox("Check the total")
+    #expect(reader.annotationSummaries.map(\.kind) == [.textBox])
+    let text = reader.annotationsText()
+    #expect(text.contains("Page 1") && text.contains("Text box: Check the total"))
+    reader.showsAnnotations = true
+    reader.openAfterClosingSheets(pageIndex: 0)
+    #expect(!reader.showsAnnotations)
+    let signature = AnnotationSummary(id: 0, kind: .ink, pageIndex: 0, text: nil, isSignature: true)
+    #expect(ReaderModel.name(of: signature) == "Signature")
+  }
+
   @Test("The selection bar draws for every kind at a large text size", arguments: AnnotationSelection.Kind.allCases)
   func selectionBarDraws(kind: AnnotationSelection.Kind) {
     let view = SelectionBar(

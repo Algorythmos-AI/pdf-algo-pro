@@ -38,6 +38,11 @@ final class LargeTextUITests: UITestCase {
     XCTAssertTrue(contents.waitForExistence(timeout: 5))
     try audit(app, onSheet: true)
     contents.buttons["Done"].tap()
+    tapMenuItem(app.buttons["reader.annotations"], in: app.buttons["reader.more"])
+    let annotations = app.navigationBars["Annotations"]
+    XCTAssertTrue(annotations.waitForExistence(timeout: 5), "The annotation list opens (FR-ANN-003)")
+    try audit(app, onSheet: true)
+    annotations.buttons["Done"].tap()
     tapMenuItem(app.buttons["Pages"], in: app.buttons["reader.more"])
     XCTAssertTrue(app.buttons["Page 3"].waitForExistence(timeout: 5))
     try audit(app, onSheet: true)

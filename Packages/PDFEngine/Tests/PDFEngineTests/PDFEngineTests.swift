@@ -477,6 +477,22 @@ struct ControllerTests {
     #expect(controller.tappedLink == nil)
   }
 
+  @Test("The annotation list gives each annotation's page, kind and text, in reading order (FR-ANN-003)")
+  func annotationList() throws {
+    let controller = try PDFDocumentController(data: SyntheticPDF.make(pages: ["Highlight these words", "Second"]))
+    #expect(controller.annotationSummaries().isEmpty)
+    #expect(controller.markUp(text: "these", as: .highlight))
+    controller.addNote("  Check this  ", onPage: 1)
+    #expect(controller.addInk([[CGPoint(x: 100, y: 100), CGPoint(x: 140, y: 120)]], onPage: 1))
+    let summaries = controller.annotationSummaries()
+    #expect(summaries.map(\.pageIndex) == [0, 1, 1])
+    #expect(summaries.first?.kind == .highlight)
+    #expect(summaries.first?.text?.contains("these") == true)
+    #expect(summaries.contains { $0.kind == .note && $0.text == "Check this" })
+    #expect(summaries.contains { $0.kind == .ink && $0.text == nil && !$0.isSignature })
+    #expect(Set(summaries.map(\.id)).count == summaries.count)
+  }
+
   @Test("Every annotation type gets a kind")
   func annotationKinds() {
     let kinds: [(PDFAnnotationSubtype, AnnotationSelection.Kind)] = [

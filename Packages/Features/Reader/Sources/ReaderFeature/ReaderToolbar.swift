@@ -256,6 +256,16 @@ struct ReaderToolbar: ToolbarContent {
             }
           }
           .accessibilityIdentifier("reader.bookmark")
+          Button {
+            model.showsAnnotations = true
+          } label: {
+            Label {
+              Text("Annotations", bundle: .module)
+            } icon: {
+              Image(systemName: "list.bullet.rectangle")
+            }
+          }
+          .accessibilityIdentifier("reader.annotations")
           Section {
             Menu {
               Button {
