@@ -63,8 +63,12 @@ public struct ReaderView<Assistant: View>: View {
       }
       .sheet(item: $model.sharing) { ShareSheet(file: $0) }
       .sheet(isPresented: $model.showsSignatures) { SignatureSheet(model: model) }
-      .sheet(isPresented: $model.showsOutline) { OutlineSheet(model: model) }
-      .sheet(isPresented: $model.showsPages) { PageGridSheet(model: model) }
+      .sheet(isPresented: $model.showsOutline, onDismiss: { model.pageSheetDismissed() }) {
+        OutlineSheet(model: model)
+      }
+      .sheet(isPresented: $model.showsPages, onDismiss: { model.pageSheetDismissed() }) {
+        PageGridSheet(model: model)
+      }
       .alert(Text("Add a note", bundle: .module), isPresented: $isAddingNote) {
         TextField(text: $noteText) { Text("Note", bundle: .module) }
         Button {

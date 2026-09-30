@@ -18,8 +18,7 @@ struct OutlineSheet: View {
         } else {
           List(items) { item in
             Button {
-              model.controller?.goTo(pageIndex: item.pageIndex)
-              model.showsOutline = false
+              model.openAfterClosingSheets(pageIndex: item.pageIndex)
             } label: {
               HStack {
                 Text(item.title).padding(.leading, CGFloat(item.depth) * Spacing.s200)
@@ -75,8 +74,7 @@ struct PageGrid: View {
       LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: Spacing.s200)], spacing: Spacing.s200) {
         ForEach(0..<(model.controller?.pageCount ?? 0), id: \.self) { pageIndex in
           Button {
-            model.controller?.goTo(pageIndex: pageIndex)
-            model.showsPages = false
+            model.openAfterClosingSheets(pageIndex: pageIndex)
           } label: {
             PageThumbnail(
               pageIndex: pageIndex, url: model.fileURL, version: model.document?.modifiedAt ?? .distantPast,

@@ -61,6 +61,8 @@ public final class ReaderModel {
   public var showsOutline = false
   /// Whether the page grid is open.
   public var showsPages = false
+  /// A page chosen in the outline or the page grid, opened once its sheet has finished closing.
+  @ObservationIgnored private var pendingPageIndex: Int?
   /// Whether the signature sheet is open (F1c).
   public var showsSignatures = false
   /// Saved signatures, oldest first, once loaded.
@@ -508,6 +510,23 @@ public final class ReaderModel {
         pendingReveal = citation
         assistantTask = nil
       })
+  }
+
+  /// Closes the outline and the page grid, and opens a page chosen in either once it has closed.
+  public func openAfterClosingSheets(pageIndex: Int) {
+    pendingPageIndex = pageIndex
+    showsOutline = false
+    showsPages = false
+  }
+
+  /// Opens the page chosen in the outline or the page grid, now that its sheet has closed.
+  ///
+  /// Like `assistantDismissed()`: the page view re-lays out as the reader grows back, so a page
+  /// opened while the sheet was still on screen could be scrolled away from.
+  public func pageSheetDismissed() {
+    guard let pageIndex = pendingPageIndex else { return }
+    pendingPageIndex = nil
+    controller?.goTo(pageIndex: pageIndex)
   }
 
   /// Opens the citation chosen in the assistant, once its sheet has closed.
