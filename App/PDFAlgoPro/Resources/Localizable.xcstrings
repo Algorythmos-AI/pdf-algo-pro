@@ -63,6 +63,16 @@
         }
       }
     },
+    "Page %lld" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Page %lld"
+          }
+        }
+      }
+    },
     "Scan Document" : {
       "localizations" : {
         "fr" : {

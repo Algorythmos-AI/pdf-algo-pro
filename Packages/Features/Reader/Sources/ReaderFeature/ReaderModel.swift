@@ -180,6 +180,7 @@ public final class ReaderModel {
 
   private func show(_ controller: PDFDocumentController) {
     phase = .ready
+    bookmarkedPages = controller.bookmarkedPages
     controller.goTo(pageIndex: startPage ?? document?.lastPageIndex ?? 0)
   }
 
@@ -403,6 +404,24 @@ public final class ReaderModel {
     guard let controller, checkAnnotatingIsAllowed(controller),
       controller.addStamp(stamp, onPage: controller.currentPageIndex)
     else { return }
+    updateUndoState()
+    await save()
+  }
+
+  /// The bookmarked pages, kept in the file's outline (FR-READ-009).
+  public private(set) var bookmarkedPages: [Int] = []
+
+  /// Whether the page on screen is bookmarked.
+  public var isCurrentPageBookmarked: Bool {
+    guard let controller else { return false }
+    return bookmarkedPages.contains(controller.currentPageIndex)
+  }
+
+  /// Bookmarks the page on screen, or removes its bookmark, and saves (FR-READ-009).
+  public func toggleBookmark() async {
+    guard let controller, checkAnnotatingIsAllowed(controller) else { return }
+    controller.toggleBookmark(onPage: controller.currentPageIndex)
+    bookmarkedPages = controller.bookmarkedPages
     updateUndoState()
     await save()
   }
