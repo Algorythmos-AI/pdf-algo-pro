@@ -12,7 +12,9 @@ final class AssistantUITests: UITestCase {
     XCTAssertTrue(question.waitForExistence(timeout: 10))
     question.tap()
     question.typeText("What is the total due?\n")
-    XCTAssertTrue(app.staticTexts["assistant.answer"].waitForExistence(timeout: 10), "A grounded answer (FR-AI-002)")
+    XCTAssertTrue(
+      app.staticTexts["assistant.answer"].waitForExistence(timeout: Self.answerTimeout), "A grounded answer (FR-AI-002)"
+    )
     try audit(app)
     let citation = app.buttons["Source: page 2"]
     XCTAssertTrue(citation.exists, "The answer cites page 2")
@@ -33,7 +35,8 @@ final class AssistantUITests: UITestCase {
     question.tap()
     question.typeText("Who won the match?\n")
     XCTAssertTrue(
-      app.staticTexts["Not found in this document"].waitForExistence(timeout: 10), "No guessing (FR-AI-010)")
+      app.staticTexts["Not found in this document"].waitForExistence(timeout: Self.answerTimeout),
+      "No guessing (FR-AI-010)")
   }
 
   func testUnavailableIntelligenceIsExplained() throws {
@@ -41,7 +44,9 @@ final class AssistantUITests: UITestCase {
     XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
     app.buttons["reader.ask"].tap()
     app.buttons["Summarise"].firstMatch.tap()
-    XCTAssertTrue(app.staticTexts["Document intelligence isn't available"].waitForExistence(timeout: 10), "FR-ONB-006")
+    XCTAssertTrue(
+      app.staticTexts["Document intelligence isn't available"].waitForExistence(timeout: Self.answerTimeout),
+      "FR-ONB-006")
     try audit(app)
   }
 }

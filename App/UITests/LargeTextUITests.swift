@@ -65,7 +65,7 @@ final class LargeTextUITests: UITestCase {
     XCTAssertTrue(question.waitForExistence(timeout: 10))
     question.tap()
     question.typeText("What is the total due?\n")
-    XCTAssertTrue(app.staticTexts["assistant.answer"].waitForExistence(timeout: 10))
+    XCTAssertTrue(app.staticTexts["assistant.answer"].waitForExistence(timeout: Self.answerTimeout))
     try audit(app)
   }
 }
