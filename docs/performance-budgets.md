@@ -43,6 +43,7 @@ The p95 values and the other rows are `Assumption:` targets.
 | Scrolling a 500-page PDF | no dropped frames at the display refresh rate in 95% of one-second windows | — | `XCTOSSignpostMetric` scroll deceleration; hitch rate | Release PR |
 | Page thumbnail grid (100 pages) populated | 500 ms | 1 s | signpost `Thumbnails.Ready` | Release PR |
 | Save after an edit (500-page PDF) | 300 ms | 800 ms | signpost `Document.Save` | Release PR |
+| Save after an edit (1,000-page mixed PDF), on the baseline device | 800 ms | 2 s | signpost `Document.Save` | Release PR |
 | Merge two 100-page PDFs | 1 s | 2 s | signpost `Organize.Merge` | Release PR |
 | Search across a 1,000-document library (index warm) | 100 ms | 250 ms | signpost `Search.Query` | Release PR |
 
