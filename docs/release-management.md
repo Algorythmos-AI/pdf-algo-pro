@@ -57,7 +57,8 @@ section and drafts the store text. Then the release pull request is opened from 
 - [ ] MARKETING_VERSION is X.Y.Z; CHANGELOG has "## [X.Y.Z] - YYYY-MM-DD" and an empty [Unreleased]
 - [ ] Every required check is green, including promotion-guard
 - [ ] No open priority:p0 / priority:p1 issue in the milestone, or each is deferred here with a reason
-- [ ] Staging build of this commit used on a real iPhone (and iPad if touched)
+- [ ] Staging build of this commit used on a real iPhone (and iPad if touched), with the
+      [device smoke test](process/device-smoke-test.md) signed off
 - [ ] Device-only code, excluded from coverage ([testing strategy](testing-strategy.md#coverage)),
       checked on that iPhone: scan two pages with the document camera and save them, then open the
       camera again and cancel; in Xcode, Debug › Simulate MetricKit Payloads, relaunch, and check that
