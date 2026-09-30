@@ -1,3 +1,4 @@
+import CloudKit
 import Foundation
 import Testing
 
@@ -165,5 +166,32 @@ struct RemoteConfigStoreTests {
     let store = RemoteConfigStore(source: FakeSource(), cacheURL: url, appVersion: "1.0", channel: "production")
     #expect(await store.current.disabledTargets.isEmpty)
     #expect(await store.fetchedAt == nil)
+  }
+}
+
+@Suite("CloudKit records")
+struct CloudKitRecordTests {
+  @Test("A RemoteSwitch record maps field by field; one without a target is ignored")
+  func mapping() {
+    let record = CKRecord(recordType: CloudKitRecordSource.recordType)
+    record["target"] = "feature.save-in-place"
+    record["state"] = "disabled"
+    record["value"] = NSNumber(value: 3)
+    record["reasonCode"] = "save-issue"
+    record["minVersion"] = "1.0"
+    record["maxVersion"] = "1.2"
+    record["channel"] = "staging"
+    let date = Date(timeIntervalSince1970: 1_800_000_000)
+    record["updatedAt"] = date
+    let mapped = CloudKitRecordSource.record(record)
+    #expect(mapped?.target == "feature.save-in-place" && mapped?.state == "disabled" && mapped?.value == 3)
+    #expect(mapped?.reasonCode == "save-issue" && mapped?.channel == "staging" && mapped?.updatedAt == date)
+    #expect(mapped?.minVersion == "1.0" && mapped?.maxVersion == "1.2")
+
+    let empty = CKRecord(recordType: CloudKitRecordSource.recordType)
+    #expect(CloudKitRecordSource.record(empty) == nil)
+    empty["target"] = ""
+    #expect(CloudKitRecordSource.record(empty) == nil)
+    _ = CloudKitRecordSource(containerIdentifier: "iCloud.example")
   }
 }
