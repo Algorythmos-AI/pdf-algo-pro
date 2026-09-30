@@ -54,17 +54,25 @@ class UITestCase: XCTestCase {
     }
   }
 
-  /// Opens a menu and taps one of its items.
+  /// Taps a control and waits for what it opens, tapping once more if the first tap was lost.
   ///
-  /// A tap on a menu button that arrives while the screen is still settling can be swallowed, and the
-  /// menu stays closed (issue #76). The button is tapped once more if the item hasn't appeared.
-  func tapMenuItem(_ item: XCUIElement, in menu: XCUIElement, file: StaticString = #filePath, line: UInt = #line) {
-    XCTAssertTrue(menu.waitForExistence(timeout: 5), "The menu button exists", file: file, line: line)
-    menu.tap()
-    if !item.waitForExistence(timeout: 3) {
-      menu.tap()
-      XCTAssertTrue(item.waitForExistence(timeout: 5), "The menu opens", file: file, line: line)
+  /// A tap that arrives while the screen is still settling, for example while a sheet is closing, can be
+  /// swallowed: a menu stays closed (issue #76), or Settings never opens after the scan sheet is
+  /// cancelled.
+  func tap(
+    _ control: XCUIElement, until target: XCUIElement, file: StaticString = #filePath, line: UInt = #line
+  ) {
+    XCTAssertTrue(control.waitForExistence(timeout: 10), "The control exists", file: file, line: line)
+    control.tap()
+    if !target.waitForExistence(timeout: 3) {
+      control.tap()
+      XCTAssertTrue(target.waitForExistence(timeout: 5), "The tap opens what it should", file: file, line: line)
     }
+  }
+
+  /// Opens a menu and taps one of its items (see `tap(_:until:)`).
+  func tapMenuItem(_ item: XCUIElement, in menu: XCUIElement, file: StaticString = #filePath, line: UInt = #line) {
+    tap(menu, until: item, file: file, line: line)
     item.tap()
   }
 
