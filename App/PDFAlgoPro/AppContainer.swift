@@ -132,9 +132,12 @@ final class AppContainer {
 
 /// Where the app keeps things.
 ///
-/// Documents are in the Documents folder, which the Files app shows as "On My iPhone › PDF Algo Pro" (FR-LIB-001);
-/// derived data is in Application Support and excluded from backups because it is rebuilt from the files (ADR-0006).
-private struct Folders {
+/// Documents are in the Documents folder, which the Files app shows as "On My iPhone › PDF Algo Pro" (FR-LIB-001).
+///
+/// The library index in Application Support is backed up: it holds what the files cannot give back (favourites, tags,
+/// reading positions, deletion dates). Only the search text, which is rebuilt from the files, is excluded from backups
+/// (ADR-0006 addendum).
+struct Folders {
   let documents: URL
   let recentlyDeleted: URL
   let indexStore: URL
@@ -155,11 +158,18 @@ private struct Folders {
     }
     recentlyDeleted = support.appendingPathComponent("RecentlyDeleted", isDirectory: true)
     var derived = support.appendingPathComponent("Derived", isDirectory: true)
-    try? fileManager.createDirectory(at: derived, withIntermediateDirectories: true)
-    var values = URLResourceValues()
-    values.isExcludedFromBackup = true
-    try? derived.setResourceValues(values)
+    var search = derived.appendingPathComponent("SearchIndex", isDirectory: true)
+    try? fileManager.createDirectory(at: search, withIntermediateDirectories: true)
+    // Earlier builds excluded all of Derived; clear that, so the index store is backed up again.
+    Self.setExcludedFromBackup(false, &derived)
+    Self.setExcludedFromBackup(true, &search)
     indexStore = derived.appendingPathComponent("Library.store")
-    searchIndex = derived.appendingPathComponent("SearchIndex", isDirectory: true)
+    searchIndex = search
+  }
+
+  private static func setExcludedFromBackup(_ excluded: Bool, _ url: inout URL) {
+    var values = URLResourceValues()
+    values.isExcludedFromBackup = excluded
+    try? url.setResourceValues(values)
   }
 }

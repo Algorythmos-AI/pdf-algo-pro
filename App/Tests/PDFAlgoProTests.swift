@@ -181,3 +181,16 @@ struct KeychainSignatureStoreTests {
     #expect(try await store.signatures().isEmpty)
   }
 }
+
+@Suite("Folders")
+struct FoldersTests {
+  @Test("The library index is backed up; only the search text is excluded (ADR-0006 addendum)")
+  func backupExclusion() throws {
+    let folders = Folders(isUITesting: true)
+    let derived = folders.indexStore.deletingLastPathComponent()
+    let indexValues = try derived.resourceValues(forKeys: [.isExcludedFromBackupKey])
+    let searchValues = try folders.searchIndex.resourceValues(forKeys: [.isExcludedFromBackupKey])
+    #expect(indexValues.isExcludedFromBackup == false)
+    #expect(searchValues.isExcludedFromBackup == true)
+  }
+}

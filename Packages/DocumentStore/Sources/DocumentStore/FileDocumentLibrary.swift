@@ -245,6 +245,19 @@ public actor FileDocumentLibrary: DocumentLibrary {
         try await index.upsert(document)
         added.append(document)
       }
+      // Files in Recently Deleted without an entry (after the index was rebuilt) come back as deleted
+      // documents, deleted now, so they are purged on schedule instead of staying on the device forever.
+      let knownDeleted = Set(entries.filter(\.isDeleted).map(\.fileName))
+      let deletedFiles =
+        (try? fileManager.contentsOfDirectory(at: deletedFolder, includingPropertiesForKeys: [.creationDateKey])) ?? []
+      for file in deletedFiles
+      where file.pathExtension.lowercased() == "pdf" && !knownDeleted.contains(file.lastPathComponent) {
+        let createdAt = (try? file.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? now()
+        try await index.upsert(
+          Document(
+            title: file.deletingPathExtension().lastPathComponent, fileName: file.lastPathComponent, addedAt: createdAt,
+            deletedAt: now()))
+      }
       return added
     }
   }
