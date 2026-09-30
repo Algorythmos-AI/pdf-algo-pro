@@ -273,6 +273,38 @@ The golden corpus is a set of synthetic PDFs that exercise the ways real documen
 Each category has expected outcomes: opens and renders, fails with a specific `PDFEngineError`, or
 stays inert. None may crash or hang.
 
+### What runs today
+
+`GoldenCorpus` in the `PDFEngineTestSupport` target generates the corpus at run time, and
+`PDFEngineTests.GoldenCorpusTests` checks it on every pull request, on macOS and the simulator.
+
+- **Readable cases** are opened, rendered (first and last page), searched, annotated, saved and
+  reopened. The checks are the page count, the text, the annotation, and encryption kept.
+  - Text: 20, 500 and 1,000 pages; mixed page sizes with 90, 180 and 270 degree rotations; an
+    outline; right-to-left and CJK text.
+  - A form.
+  - Every standard annotation type written by PDFKit.
+  - A user password, and owner restrictions without an open password.
+  - Image-only pages, and mixed scanned and digital pages.
+  - Active content: a JavaScript open action and a launch link, which must stay inert.
+- **Malformed cases** must fail cleanly or open, each within a one-minute limit, so a hang fails the
+  test:
+  - an empty file and a header only;
+  - truncated files;
+  - garbage after the header;
+  - a broken cross-reference table;
+  - a wrong stream length;
+  - a circular page tree;
+  - deep nesting;
+  - 40 fuzzed copies of the sample, from a fixed seed so every run tests the same files.
+- **Not yet covered.** These need files from other producers, and are added when licence-clean
+  samples or generators exist:
+  - XFA and calculated forms, a flattened form;
+  - RC4 and AES variants;
+  - digitally signed files;
+  - tagged PDFs, PDF/A, linearised files, incremental updates, embedded files;
+  - vertical text, very large page images, invalid fonts.
+
 ### Save round-trip integrity
 
 For each editable document: open, change (annotate, fill, reorder, edit text), save, reopen, and
