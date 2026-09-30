@@ -6,11 +6,13 @@ import PDFKit
 
   typealias PlatformColor = UIColor
   typealias PlatformBezierPath = UIBezierPath
+  typealias PlatformFont = UIFont
 #else
   import AppKit
 
   typealias PlatformColor = NSColor
   typealias PlatformBezierPath = NSBezierPath
+  typealias PlatformFont = NSFont
 #endif
 
 /// Annotation colours: the user's content, drawn with system colours (design system, annotation colours).

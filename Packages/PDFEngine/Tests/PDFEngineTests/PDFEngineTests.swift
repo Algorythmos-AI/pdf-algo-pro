@@ -188,6 +188,39 @@ struct ControllerTests {
     #expect(!controller.isDrawing)
   }
 
+  @Test("A saved signature is placed as ink in the lower third of the page, the right way up (F1c)")
+  func placeSignature() throws {
+    let controller = try PDFDocumentController(data: SyntheticPDF.makeSample())
+    // A stroke from the top left to the bottom right of a signature twice as wide as it is tall.
+    let signature = SavedSignature(strokes: [[.init(x: 0, y: 0), .init(x: 1, y: 1)]], aspectRatio: 2)
+    #expect(!controller.placeSignature(signature, onPage: 9))
+    #expect(controller.placeSignature(signature, onPage: 0, width: 200))
+    let url = temporaryURL()
+    try controller.save(to: url)
+    let page = try #require(PDFDocument(url: url)?.page(at: 0))
+    let ink = try #require(page.annotations.first { $0.type == "Ink" })
+    #expect(ink.contents == PDFDocumentController.signatureContents)
+    let box = page.bounds(for: .cropBox)
+    #expect(abs(ink.bounds.midX - box.midX) < 1)
+    #expect(ink.bounds.midY < box.midY, "Lower part of the page")
+    #expect(abs(ink.bounds.width - (200 + PDFDocumentController.inkLineWidth * 4)) < 1)
+    let path = try #require(ink.paths?.first)
+    #expect(path.bounds.width > path.bounds.height, "Wider than tall, as drawn")
+  }
+
+  @Test("A typed name is placed as free text in a script font")
+  func placeTypedSignature() throws {
+    let controller = try PDFDocumentController(data: SyntheticPDF.makeSample())
+    #expect(!controller.placeTypedSignature("   ", onPage: 0))
+    #expect(controller.placeTypedSignature(" Ada Lovelace ", onPage: 0))
+    let url = temporaryURL()
+    try controller.save(to: url)
+    let text = try #require(PDFDocument(url: url)?.page(at: 0)?.annotations.first { $0.type == "FreeText" })
+    #expect(text.contents == "Ada Lovelace")
+    controller.undoManager.undo()
+    #expect(controller.annotationCount(onPage: 0) == 0)
+  }
+
   @Test("Every markup kind becomes a standard PDF annotation", arguments: TextMarkup.allCases)
   func markupKinds(markup: TextMarkup) throws {
     let controller = try PDFDocumentController(data: SyntheticPDF.makeSample())

@@ -1,3 +1,4 @@
+import Core
 import PDFKit
 
 /// A text markup annotation the reader can add to selected text (FR-ANN-001).
@@ -76,7 +77,7 @@ extension PDFDocumentController {
   /// `PDFView.convert(_:to:)` gives them, so strokes stay where they were drawn on rotated pages.
   /// Strokes of a single point are dropped. Returns whether anything was added.
   @discardableResult
-  public func addInk(_ strokes: [[CGPoint]], onPage pageIndex: Int) -> Bool {
+  public func addInk(_ strokes: [[CGPoint]], onPage pageIndex: Int, contents: String? = nil) -> Bool {
     let strokes = strokes.filter { $0.count > 1 }
     guard let page = document.page(at: pageIndex), let first = strokes.first?.first else { return false }
     let points = strokes.flatMap(\.self)
@@ -88,6 +89,7 @@ extension PDFDocumentController {
     border.lineWidth = Self.inkLineWidth
     annotation.border = border
     annotation.color = AnnotationPalette.ink
+    annotation.contents = contents
     for stroke in strokes {
       // Ink paths are in the annotation's own space, from its bounds' origin.
       let path = CGMutablePath()
@@ -98,6 +100,55 @@ extension PDFDocumentController {
     add([(annotation, page)])
     return true
   }
+
+  /// Places a saved signature on a page as ink (F1c, FR-EDIT-004).
+  ///
+  /// It is `width` points wide and centred in the lower third of the page. Returns whether it was
+  /// placed. The signature's strokes are in a unit box from the top left; the page's space runs up from the
+  /// bottom left, so the vertical axis is flipped.
+  @discardableResult
+  public func placeSignature(_ signature: SavedSignature, onPage pageIndex: Int, width: CGFloat = 180) -> Bool {
+    guard let page = document.page(at: pageIndex), signature.aspectRatio > 0 else { return false }
+    let box = page.bounds(for: .cropBox)
+    let signatureWidth = min(width, box.width * 0.8)
+    let size = CGSize(width: signatureWidth, height: signatureWidth / CGFloat(signature.aspectRatio))
+    let origin = CGPoint(x: box.midX - size.width / 2, y: box.minY + box.height / 3 - size.height / 2)
+    let strokes: [[CGPoint]] = signature.strokes.map { stroke in
+      stroke.map { point in
+        let x: CGFloat = origin.x + CGFloat(point.x) * size.width
+        let y: CGFloat = origin.y + (1 - CGFloat(point.y)) * size.height
+        return CGPoint(x: x, y: y)
+      }
+    }
+    return addInk(strokes, onPage: pageIndex, contents: Self.signatureContents)
+  }
+
+  /// Places a typed name as a signature (F1c).
+  ///
+  /// It is a standard free-text annotation in a script font, for anyone who cannot or prefers not to
+  /// draw. Returns whether it was placed.
+  @discardableResult
+  public func placeTypedSignature(_ name: String, onPage pageIndex: Int) -> Bool {
+    let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !name.isEmpty, let page = document.page(at: pageIndex) else { return false }
+    let font = PlatformFont(name: "SnellRoundhand", size: 28) ?? PlatformFont.systemFont(ofSize: 28)
+    let width = min(CGFloat(name.count) * 17 + 40, page.bounds(for: .cropBox).width * 0.8)
+    let box = page.bounds(for: .cropBox)
+    let bounds = CGRect(x: box.midX - width / 2, y: box.minY + box.height / 3 - 22, width: width, height: 44)
+    let annotation = PDFAnnotation(bounds: bounds, forType: .freeText, withProperties: nil)
+    annotation.contents = name
+    annotation.font = font
+    annotation.fontColor = AnnotationPalette.ink
+    annotation.color = .clear
+    let border = PDFBorder()
+    border.lineWidth = 0
+    annotation.border = border
+    add([(annotation, page)])
+    return true
+  }
+
+  /// The contents of a placed signature's ink, so it can be told apart from drawing.
+  public static let signatureContents = "Signature"
 
   private func markUp(_ selection: PDFSelection, as markup: TextMarkup) -> Bool {
     var added: [(PDFAnnotation, PDFPage)] = []
