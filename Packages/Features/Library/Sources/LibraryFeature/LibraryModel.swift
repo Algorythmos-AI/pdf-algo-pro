@@ -62,6 +62,9 @@ public final class LibraryModel {
   public var errorMessage: String?
   /// The document shown next to the list.
   public var selection: DocumentSelection?
+  /// Whether the last search failed (rather than finding nothing).
+  public private(set) var isSearchUnavailable = false
+
   /// Whether an import is running.
   public private(set) var isImporting = false
 
@@ -92,10 +95,25 @@ public final class LibraryModel {
   // MARK: - Loading
 
   /// Opens the library: purges expired deletions, picks up files added in the Files app, loads.
+  ///
+  /// The housekeeping runs without the user asking, so a failure does not interrupt them: it is
+  /// counted for "Report a problem" and retried on the next launch.
   public func load() async {
-    _ = try? await library.purgeExpired(now: now())
-    if let added = try? await library.reconcileWithFiles() {
-      for document in added { _ = try? await intake.refresh(document.id) }
+    do {
+      _ = try await library.purgeExpired(now: now())
+    } catch {
+      await telemetry.record("quality.operation.failed")
+    }
+    do {
+      for document in try await library.reconcileWithFiles() {
+        do {
+          _ = try await intake.refresh(document.id)
+        } catch {
+          await telemetry.record("quality.operation.failed")
+        }
+      }
+    } catch {
+      await telemetry.record("quality.operation.failed")
     }
     await reload()
     phase = .loaded
@@ -117,9 +135,18 @@ public final class LibraryModel {
     let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !trimmed.isEmpty else {
       results = nil
+      isSearchUnavailable = false
       return
     }
-    results = (try? await index.search(trimmed, in: documents)) ?? []
+    do {
+      results = try await index.search(trimmed, in: documents)
+      isSearchUnavailable = false
+    } catch {
+      // Not "no results": the search itself failed, and saying so is honest.
+      results = []
+      isSearchUnavailable = true
+      await telemetry.record("quality.operation.failed")
+    }
   }
 
   /// The document for a search hit.

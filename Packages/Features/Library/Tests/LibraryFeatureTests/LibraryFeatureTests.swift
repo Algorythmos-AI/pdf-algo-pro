@@ -76,6 +76,30 @@ struct LibraryModelTests {
     #expect(harness.model.results == nil)
   }
 
+  @Test("A search that fails says so instead of showing no results")
+  func searchFailure() async {
+    let harness = Harness()
+    await harness.model.load()
+    await harness.index.failSearches(true)
+    harness.model.query = "invoice"
+    await harness.model.search()
+    #expect(harness.model.isSearchUnavailable)
+    #expect(await harness.telemetry.events.contains("quality.operation.failed"))
+    await harness.index.failSearches(false)
+    await harness.model.search()
+    #expect(!harness.model.isSearchUnavailable)
+  }
+
+  @Test("Housekeeping failures are counted and the library still opens")
+  func housekeepingFailure() async {
+    let harness = Harness()
+    await harness.library.failNext(with: .fileAccessFailed)
+    await harness.model.load()
+    #expect(harness.model.phase == .loaded)
+    #expect(harness.model.errorMessage == nil)
+    #expect(await harness.telemetry.events.contains("quality.operation.failed"))
+  }
+
   @Test("Sections and sort order change what is shown, and the sort is remembered")
   func sectionsAndSort() async throws {
     let harness = Harness()

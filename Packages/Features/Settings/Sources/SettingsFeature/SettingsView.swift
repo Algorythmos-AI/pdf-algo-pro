@@ -1,12 +1,14 @@
 import Core
 import DesignSystem
 import SwiftUI
+import UIKit
 
 /// The Settings screen.
 public struct SettingsView: View {
   @State private var model: SettingsModel
   @Environment(\.openURL) private var openURL
   @Environment(\.dismiss) private var dismiss
+  @State private var reportWithoutMail: String?
   private let version: String
 
   /// Creates Settings; `version` is shown in About.
@@ -63,7 +65,12 @@ public struct SettingsView: View {
         Section {
           Toggle(isOn: $model.includesDiagnostics) { Text("Include a diagnostics summary", bundle: .module) }
           Button {
-            Task { if let url = await model.supportEmailURL() { openURL(url) } }
+            Task {
+              guard let url = await model.supportEmailURL() else { return }
+              let report = await model.supportReport()
+              // With no email account set up, the link opens nothing; offer the address and a copy instead.
+              openURL(url) { accepted in if !accepted { reportWithoutMail = report } }
+            }
           } label: {
             Text("Report a problem", bundle: .module)
           }
@@ -87,6 +94,24 @@ public struct SettingsView: View {
         } header: {
           Text("About", bundle: .module).foregroundStyle(Color.ds.labelSecondary)
         }
+      }
+      .alert(
+        Text("No email account is set up", bundle: .module),
+        isPresented: Binding(get: { reportWithoutMail != nil }, set: { if !$0 { reportWithoutMail = nil } })
+      ) {
+        Button {
+          UIPasteboard.general.string = reportWithoutMail
+          reportWithoutMail = nil
+        } label: {
+          Text("Copy the report", bundle: .module)
+        }
+        Button(role: .cancel) {
+          reportWithoutMail = nil
+        } label: {
+          Text("Close", bundle: .module)
+        }
+      } message: {
+        Text("Send your report to \(SettingsModel.supportAddress) from any email app.", bundle: .module)
       }
       .navigationTitle(Text("Settings", bundle: .module))
       .toolbar {

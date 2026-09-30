@@ -197,9 +197,16 @@ public actor FakeIndex: DocumentIndexing {
   public private(set) var stored: [DocumentID: [PageText]] = [:]
   /// Documents removed, in order.
   public private(set) var removed: [DocumentID] = []
+  /// When `true`, searches throw, as a damaged index would.
+  public private(set) var failsSearches = false
 
   /// Creates an empty index.
   public init() {}
+
+  /// Makes searches fail or succeed.
+  public func failSearches(_ fails: Bool) {
+    failsSearches = fails
+  }
 
   /// Stores page texts directly.
   public func seed(_ id: DocumentID, pages: [PageText]) {
@@ -224,7 +231,8 @@ public actor FakeIndex: DocumentIndexing {
 
   /// Documents matching a query, best first.
   public func search(_ query: String, in documents: [Document]) async throws -> [SearchHit] {
-    documents.compactMap { document in
+    if failsSearches { throw LibraryError.fileAccessFailed }
+    return documents.compactMap { document in
       if document.title.localizedCaseInsensitiveContains(query) {
         return SearchHit(documentID: document.id, pageIndex: nil, snippet: nil)
       }

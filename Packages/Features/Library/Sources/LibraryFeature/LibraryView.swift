@@ -257,7 +257,12 @@ public struct LibraryView<Detail: View>: View {
 
   private func searchResults(_ results: [SearchHit]) -> some View {
     Group {
-      if results.isEmpty {
+      if model.isSearchUnavailable {
+        EmptyState(Text("Search isn't available right now", bundle: .module), systemImage: "magnifyingglass") {
+          Text("Your documents are safe. Try again in a moment.", bundle: .module)
+        }
+        .accessibilityIdentifier("library.search.unavailable")
+      } else if results.isEmpty {
         ContentUnavailableView.search(text: model.query)
       } else {
         List(results) { hit in

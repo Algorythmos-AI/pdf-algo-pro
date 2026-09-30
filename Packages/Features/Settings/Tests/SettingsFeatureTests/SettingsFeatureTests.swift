@@ -51,6 +51,15 @@ struct SettingsModelTests {
     #expect(withDiagnostics.absoluteString.contains("0.1.0"))
   }
 
+  @Test("Without an email account, the report can be copied and names the address")
+  func reportWithoutMail() async {
+    let (model, _, _) = makeModel()
+    #expect(!(await model.supportReport()).contains("0.1.0"))
+    model.includesDiagnostics = true
+    #expect(await model.supportReport().contains("0.1.0"))
+    #expect(SettingsModel.supportAddress == "info@algorythmos.com.au")
+  }
+
   @Test func screenRenders() {
     let (model, _, _) = makeModel()
     #expect(

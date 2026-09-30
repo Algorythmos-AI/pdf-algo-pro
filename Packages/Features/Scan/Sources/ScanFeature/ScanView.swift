@@ -45,7 +45,7 @@ public struct ScanView: View {
         }
         .fileImporter(isPresented: $isChoosingImages, allowedContentTypes: [.image], allowsMultipleSelection: true) {
           result in
-          if case .success(let urls) = result { Task { await model.process(ImageLoader.images(at: urls)) } }
+          if case .success(let urls) = result { Task { await model.process(files: urls) } }
         }
     }
   }
@@ -100,6 +100,13 @@ public struct ScanView: View {
         Text("Choose images", bundle: .module).minimumTarget()
       }
       .accessibilityIdentifier("scan.images")
+      if let notice = model.notice {
+        Text(notice)
+          .font(.footnote)
+          .multilineTextAlignment(.center)
+          .foregroundStyle(Color.ds.labelSecondary)
+          .accessibilityIdentifier("scan.notice")
+      }
     }
     .readableWidth()
     .centeredScrolling()

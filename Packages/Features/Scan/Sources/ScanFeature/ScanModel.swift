@@ -3,6 +3,7 @@ import CoreGraphics
 import Foundation
 import Observation
 import PDFEngine
+import Scanning
 
 /// Scanning to a searchable PDF, entirely on device (FR-SCAN-001, FR-SCAN-002).
 @MainActor
@@ -22,6 +23,9 @@ public final class ScanModel {
 
   /// What is shown.
   public private(set) var phase: Phase = .ready
+
+  /// A note about chosen files that could not be used, shown until the next choice.
+  public private(set) var notice: String?
 
   private let intake: DocumentIntake
   private let builder: SearchablePDFBuilder
@@ -73,6 +77,16 @@ public final class ScanModel {
     }
     self.work = work
     await work.value
+  }
+
+  /// Scans images chosen in Files; files that are not images are skipped, and the notice says so.
+  public func process(files urls: [URL]) async {
+    let images = ImageLoader.images(at: urls)
+    let skipped = urls.count - images.count
+    notice =
+      skipped > 0
+      ? String(localized: "\(skipped) of the chosen files weren't images, so they were skipped.", bundle: .module) : nil
+    await process(images)
   }
 
   /// Cancels recognition; nothing is saved.
