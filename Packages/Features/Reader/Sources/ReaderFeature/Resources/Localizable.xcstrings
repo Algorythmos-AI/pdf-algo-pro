@@ -455,6 +455,16 @@
         }
       }
     },
+    "Cross" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Croix"
+          }
+        }
+      }
+    },
     "Delete" : {
       "localizations" : {
         "fr" : {
@@ -631,6 +641,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Surlignage"
+          }
+        }
+      }
+    },
+    "Initials, Paid, Received…" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Initiales, Payé, Reçu…"
           }
         }
       }
@@ -1335,6 +1355,16 @@
         }
       }
     },
+    "Text or initials…" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Texte ou initiales…"
+          }
+        }
+      }
+    },
     "Text recognition didn't finish. The document hasn't changed." : {
       "localizations" : {
         "fr" : {
@@ -1557,6 +1587,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ce lien mène à un fichier ou à une autre app, il ne peut donc pas être ouvert depuis un document : %@"
+          }
+        }
+      }
+    },
+    "Tick" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Coche"
+          }
+        }
+      }
+    },
+    "Today's date" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Date du jour"
           }
         }
       }

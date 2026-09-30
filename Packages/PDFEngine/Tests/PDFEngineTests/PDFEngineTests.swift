@@ -142,6 +142,26 @@ struct ControllerTests {
     #expect(PDFDocumentController.hasRoom(toWrite: 1_000_000_000, available: nil))
   }
 
+  @Test("Stamps go on the page as framed text other apps can read, and survive a save (FR-ANN-006)")
+  func stamps() throws {
+    let controller = try PDFDocumentController(data: SyntheticPDF.makeSample())
+    let day = Date(timeIntervalSince1970: 1_800_000_000)
+    #expect(controller.addStamp(.date(day), onPage: 0))
+    #expect(controller.addStamp(.tick, onPage: 0))
+    #expect(controller.addStamp(.text("Paid"), onPage: 1))
+    #expect(!controller.addStamp(.text("   "), onPage: 0))
+    #expect(!controller.addStamp(.cross, onPage: 9))
+    #expect(!controller.addStamp(.text(String(repeating: "x", count: 61)), onPage: 0))
+    let url = temporaryURL()
+    try controller.save(to: url)
+    let page = try #require(PDFDocument(url: url)?.page(at: 0))
+    let texts = page.annotations.filter { $0.type == "FreeText" }.compactMap(\.contents)
+    #expect(texts.contains("✓") && texts.contains(PDFDocumentController.Stamp.date(day).text))
+    let box = page.bounds(for: .cropBox)
+    #expect(page.annotations.allSatisfy { box.contains($0.bounds) })
+    controller.undoManager.undo()
+  }
+
   @Test("Form entries count as changes and are saved (defect D1)")
   func formEntriesAreSaved() throws {
     let controller = try PDFDocumentController(data: TestPDFs.makeForm())

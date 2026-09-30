@@ -17,6 +17,7 @@ public struct ReaderView<Assistant: View>: View {
   @State private var isEditingSelection = false
   @State private var selectionText = ""
   @State private var textBoxText = ""
+  @State private var stampText = ""
   @State private var pageNumber = ""
   @Environment(\.scenePhase) private var scenePhase
   private let assistant: (ReaderAssistantContext) -> Assistant
@@ -33,6 +34,22 @@ public struct ReaderView<Assistant: View>: View {
       .navigationTitle(model.document?.title ?? "")
       .navigationBarTitleDisplayMode(.inline)
       .toolbar { ReaderToolbar(model: model, isAddingNote: $isAddingNote, isAddingTextBox: $isAddingTextBox) }
+      .alert(Text("Stamp", bundle: .module), isPresented: $model.isAddingStampText) {
+        TextField(text: $stampText) { Text("Initials, Paid, Received…", bundle: .module) }
+        Button {
+          let text = stampText
+          stampText = ""
+          Task { await model.addStamp(.text(text)) }
+        } label: {
+          Text("Add", bundle: .module)
+        }
+        .disabled(stampText.trimmingCharacters(in: .whitespaces).isEmpty)
+        Button(role: .cancel) {
+          stampText = ""
+        } label: {
+          Text("Cancel", bundle: .module)
+        }
+      }
       .alert(Text("Edit text", bundle: .module), isPresented: $isEditingSelection) {
         TextField(text: $selectionText) { Text("Text", bundle: .module) }
         Button {

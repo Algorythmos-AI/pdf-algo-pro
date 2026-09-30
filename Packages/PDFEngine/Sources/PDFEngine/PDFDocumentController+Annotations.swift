@@ -182,6 +182,56 @@ extension PDFDocumentController {
     return true
   }
 
+  /// A stamp to put on a page (FR-ANN-006).
+  public enum Stamp: Equatable, Sendable {
+    /// A date, written in the reader's locale.
+    case date(Date)
+    /// A tick.
+    case tick
+    /// A cross.
+    case cross
+    /// Any short text, such as initials, "Paid" or "Received".
+    case text(String)
+
+    /// What the stamp says.
+    public var text: String {
+      switch self {
+      case .date(let date): date.formatted(date: .long, time: .omitted)
+      case .tick: "✓"
+      case .cross: "✗"
+      case .text(let text): text.trimmingCharacters(in: .whitespacesAndNewlines)
+      }
+    }
+  }
+
+  /// Puts a stamp near the top right of a page (FR-ANN-006).
+  ///
+  /// It is a framed text annotation, which other PDF apps show and can edit. Returns whether it was
+  /// placed.
+  @discardableResult
+  public func addStamp(_ stamp: Stamp, onPage pageIndex: Int) -> Bool {
+    let text = stamp.text
+    guard !text.isEmpty, text.count <= 60, let page = document.page(at: pageIndex) else { return false }
+    let box = page.bounds(for: .cropBox)
+    let isMark = stamp == .tick || stamp == .cross
+    let fontSize: CGFloat = isMark ? 28 : 16
+    let width = min(isMark ? 44 : CGFloat(text.count) * 10 + 28, box.width * 0.6)
+    let height = isMark ? 44 : 30.0
+    let margin = min(box.width, box.height) * 0.06
+    let bounds = CGRect(x: box.maxX - margin - width, y: box.maxY - margin - height, width: width, height: height)
+    let annotation = PDFAnnotation(bounds: bounds, forType: .freeText, withProperties: nil)
+    annotation.contents = text
+    annotation.font = PlatformFont.boldSystemFont(ofSize: fontSize)
+    annotation.fontColor = stamp == .cross ? AnnotationPalette.red : AnnotationPalette.ink
+    annotation.alignment = .center
+    annotation.color = .clear
+    let border = PDFBorder()
+    border.lineWidth = isMark ? 0 : 2
+    annotation.border = border
+    add([(annotation, page)])
+    return true
+  }
+
   /// Places a saved signature on a page as ink (F1c, FR-EDIT-004).
   ///
   /// It is `width` points wide and centred in the lower third of the page. Returns whether it was

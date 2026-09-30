@@ -395,6 +395,18 @@ public final class ReaderModel {
     controller?.clearSelection()
   }
 
+  /// Whether a stamp's text (initials, "Paid" and the like) is being asked for.
+  public var isAddingStampText = false
+
+  /// Puts a stamp on the page on screen and saves (FR-ANN-006).
+  public func addStamp(_ stamp: PDFDocumentController.Stamp) async {
+    guard let controller, checkAnnotatingIsAllowed(controller),
+      controller.addStamp(stamp, onPage: controller.currentPageIndex)
+    else { return }
+    updateUndoState()
+    await save()
+  }
+
   /// Adds a text box to the page on screen and saves (F2b).
   public func addTextBox(_ text: String) async {
     guard let controller, checkAnnotatingIsAllowed(controller),
