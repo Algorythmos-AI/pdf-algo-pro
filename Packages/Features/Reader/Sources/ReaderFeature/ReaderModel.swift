@@ -248,6 +248,30 @@ public final class ReaderModel {
     }
   }
 
+  // MARK: - Editing annotations
+
+  /// The annotation the person selected on the page, if any (F3, FR-ANN-002).
+  public var selection: AnnotationSelection? { controller?.selection }
+
+  /// Deletes the selected annotation and saves; undo brings it back.
+  public func deleteSelection() async {
+    guard let controller, checkAnnotatingIsAllowed(controller), controller.deleteSelection() else { return }
+    updateUndoState()
+    await save()
+  }
+
+  /// Replaces the text of the selected note or text box and saves.
+  public func setSelectionText(_ text: String) async {
+    guard let controller, checkAnnotatingIsAllowed(controller), controller.setSelectionText(text) else { return }
+    updateUndoState()
+    await save()
+  }
+
+  /// Clears the selection.
+  public func clearSelection() {
+    controller?.clearSelection()
+  }
+
   /// Adds a text box to the page on screen and saves (F2b).
   public func addTextBox(_ text: String) async {
     guard let controller, checkAnnotatingIsAllowed(controller),

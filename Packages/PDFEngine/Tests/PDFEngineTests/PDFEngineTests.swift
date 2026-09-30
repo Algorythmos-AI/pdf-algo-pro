@@ -261,6 +261,56 @@ struct ControllerTests {
     #expect(controller.annotationCount(onPage: 0) == 0)
   }
 
+  @Test("A tap selects the annotation under it; its text can be edited and it can be deleted, undoably (F3)")
+  func selection() throws {
+    // The note is saved and reopened, so the edits below are the only changes undo sees: in a test
+    // every change happens in one run-loop event, which UndoManager groups together.
+    let original = try PDFDocumentController(data: TestPDFs.makeForm())
+    original.addNote("First", onPage: 0)
+    let url = temporaryURL()
+    try original.save(to: url)
+    let controller = try PDFDocumentController(url: url)
+    let box = try #require(controller.document.page(at: 0)?.bounds(for: .cropBox))
+    let note = CGPoint(x: box.minX + 36, y: box.maxY - 36)
+    #expect(controller.selectAnnotation(at: note, onPage: 0))
+    #expect(controller.selection == AnnotationSelection(kind: .note, pageIndex: 0, text: "First"))
+    #expect(controller.selection?.isTextEditable == true)
+
+    #expect(!controller.setSelectionText("   "))
+    #expect(controller.setSelectionText("Second") && controller.selection?.text == "Second")
+    let annotation = try #require(controller.document.page(at: 0)?.annotations.first { $0.type == "Text" })
+    #expect(annotation.contents == "Second")
+    controller.undoManager.undo()
+    #expect(annotation.contents == "First")
+
+    let before = controller.annotationCount(onPage: 0)
+    #expect(controller.deleteSelection() && controller.selection == nil)
+    #expect(controller.annotationCount(onPage: 0) == before - 1)
+    controller.undoManager.undo()
+    #expect(controller.annotationCount(onPage: 0) == before)
+    #expect(!controller.deleteSelection(), "Nothing selected")
+
+    #expect(!controller.selectAnnotation(at: CGPoint(x: 100, y: 610), onPage: 0), "Form fields are not selectable")
+    #expect(!controller.selectAnnotation(at: CGPoint(x: box.midX, y: box.midY), onPage: 0))
+    #expect(!controller.selectAnnotation(at: note, onPage: 9) && controller.selection == nil)
+  }
+
+  @Test("Every annotation type gets a kind")
+  func annotationKinds() {
+    let kinds: [(PDFAnnotationSubtype, AnnotationSelection.Kind)] = [
+      (.highlight, .highlight), (.underline, .underline), (.strikeOut, .strikeThrough), (.text, .note), (.ink, .ink),
+      (.square, .rectangle), (.circle, .oval), (.line, .line), (.freeText, .textBox), (.stamp, .stamp),
+      (PDFAnnotationSubtype(rawValue: "/Caret"), .other),
+    ]
+    for (subtype, kind) in kinds {
+      let annotation = PDFAnnotation(
+        bounds: .init(x: 0, y: 0, width: 10, height: 10), forType: subtype, withProperties: nil)
+      #expect(PDFDocumentController.kind(of: annotation) == kind, "\(subtype.rawValue)")
+    }
+    let link = PDFAnnotation(bounds: .init(x: 0, y: 0, width: 10, height: 10), forType: .link, withProperties: nil)
+    #expect(!PDFDocumentController.isSelectable(link))
+  }
+
   @Test("Every markup kind becomes a standard PDF annotation", arguments: TextMarkup.allCases)
   func markupKinds(markup: TextMarkup) throws {
     let controller = try PDFDocumentController(data: SyntheticPDF.makeSample())

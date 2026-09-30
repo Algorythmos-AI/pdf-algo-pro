@@ -51,6 +51,10 @@ public final class PDFDocumentController {
   public internal(set) var isDrawing = false
   /// What a drag draws while drawing is on.
   public internal(set) var drawingTool = DrawingTool.pen
+  /// The annotation the person selected, if any (F3).
+  public internal(set) var selection: AnnotationSelection?
+  /// The selected annotation itself; PDFKit objects stay out of `selection`.
+  @ObservationIgnored var selected: (annotation: PDFAnnotation, page: PDFPage)?
   /// How pages are laid out.
   public var displayMode: ReaderDisplayMode = .continuous {
     didSet { view?.apply(displayMode) }

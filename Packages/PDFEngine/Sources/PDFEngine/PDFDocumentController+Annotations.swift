@@ -247,7 +247,7 @@ extension PDFDocumentController {
     return true
   }
 
-  private func add(_ annotations: [(PDFAnnotation, PDFPage)]) {
+  func add(_ annotations: [(PDFAnnotation, PDFPage)]) {
     for (annotation, page) in annotations { page.addAnnotation(annotation) }
     hasUnsavedChanges = true
     undoManager.registerUndo(withTarget: self) { controller in
@@ -255,7 +255,7 @@ extension PDFDocumentController {
     }
   }
 
-  private func remove(_ annotations: [(PDFAnnotation, PDFPage)]) {
+  func remove(_ annotations: [(PDFAnnotation, PDFPage)]) {
     for (annotation, page) in annotations { page.removeAnnotation(annotation) }
     hasUnsavedChanges = true
     undoManager.registerUndo(withTarget: self) { controller in

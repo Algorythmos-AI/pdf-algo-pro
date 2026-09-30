@@ -340,6 +340,46 @@ struct ReaderModelTests {
     _ = ReaderToolbar.label(for: tool)
   }
 
+  @Test("A selected annotation can be deleted and its text edited, each saved (F3, FR-ANN-002)")
+  func editingAnnotations() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.makeSample())
+    let reader = harness.reader(for: document)
+    await reader.load()
+    await reader.addTextBox("Draft")
+    let box = try #require(reader.controller?.document.page(at: 0)?.annotations.first?.bounds)
+    #expect(reader.controller?.selectAnnotation(at: CGPoint(x: box.midX, y: box.midY), onPage: 0) == true)
+    #expect(reader.selection?.kind == .textBox)
+    await reader.setSelectionText("Final")
+    let url = try await harness.library.fileURL(for: document.id)
+    #expect(PDFDocument(url: url)?.page(at: 0)?.annotations.first?.contents == "Final")
+    await reader.deleteSelection()
+    #expect(reader.selection == nil)
+    #expect(try PDFDocumentController(url: url).annotationCount(onPage: 0) == 0)
+    reader.clearSelection()
+
+    let restricted = harness.reader(
+      for: await harness.seed(
+        try TestPDFs.makeProtected(
+          userPassword: nil, ownerPassword: "owner-\(UUID())", permissions: [.allowsLowQualityPrinting])))
+    await restricted.load()
+    let page = try #require(restricted.controller?.document.page(at: 0))
+    page.addAnnotation(
+      PDFAnnotation(bounds: CGRect(x: 100, y: 100, width: 50, height: 50), forType: .square, withProperties: nil))
+    #expect(restricted.controller?.selectAnnotation(at: CGPoint(x: 125, y: 125), onPage: 0) == true)
+    await restricted.deleteSelection()
+    #expect(restricted.errorMessage?.contains("doesn't allow") == true && restricted.selection != nil)
+  }
+
+  @Test("The selection bar draws for every kind at a large text size", arguments: AnnotationSelection.Kind.allCases)
+  func selectionBarDraws(kind: AnnotationSelection.Kind) {
+    let view = SelectionBar(
+      selection: AnnotationSelection(kind: kind, pageIndex: 0, text: "Text"), onEdit: {}, onDelete: {}, onDone: {}
+    )
+    .frame(width: 390).environment(\.dynamicTypeSize, .accessibility3)
+    #expect(ImageRenderer(content: view).uiImage != nil)
+  }
+
   @Test("Layout choices are remembered")
   func displayMode() async throws {
     let harness = Harness()

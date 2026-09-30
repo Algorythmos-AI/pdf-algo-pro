@@ -31,6 +31,8 @@ final class PDFReaderHostView: PDFView {
   private weak var controller: PDFDocumentController?
   #if canImport(UIKit)
     private var inkCapture: InkCaptureView?
+    // PDFView is the delegate of its own recognizers, so the tap gets a delegate of its own.
+    private let tapDelegate = SimultaneousGestureDelegate()
   #endif
 
   func configure(for controller: PDFDocumentController) {
@@ -50,6 +52,14 @@ final class PDFReaderHostView: PDFView {
       }
     }
     self.controller = controller
+    #if canImport(UIKit)
+      // Selecting annotations (F3) works alongside PDFKit's own taps: links still open and text
+      // selection still clears.
+      let tap = UITapGestureRecognizer(target: self, action: #selector(tapped(_:)))
+      tap.cancelsTouchesInView = false
+      tap.delegate = tapDelegate
+      addGestureRecognizer(tap)
+    #endif
     controller.attach(self)
   }
 
@@ -125,3 +135,28 @@ final class PDFReaderHostView: PDFView {
   }
 
 }
+
+#if canImport(UIKit)
+  extension PDFReaderHostView {
+    /// Selects the annotation under a tap, or clears the selection (F3).
+    @objc fileprivate func tapped(_ recognizer: UITapGestureRecognizer) {
+      guard let controller, !controller.isDrawing, let document else { return }
+      let point = recognizer.location(in: self)
+      guard let page = page(for: point, nearest: false) else {
+        controller.clearSelection()
+        return
+      }
+      controller.selectAnnotation(at: convert(point, to: page), onPage: document.index(for: page))
+    }
+  }
+
+  /// Lets a recognizer work alongside the others on the same view.
+  final class SimultaneousGestureDelegate: NSObject, UIGestureRecognizerDelegate {
+    func gestureRecognizer(
+      _ gestureRecognizer: UIGestureRecognizer,
+      shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+    ) -> Bool {
+      true
+    }
+  }
+#endif

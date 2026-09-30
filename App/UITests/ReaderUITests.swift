@@ -103,4 +103,23 @@ final class ReaderUITests: UITestCase {
     XCTAssertTrue(undo.waitForExistence(timeout: 5))
     XCTAssertTrue(undo.isEnabled, "The rectangle and the text box were added")
   }
+
+  func testATappedAnnotationCanBeDeleted() throws {
+    let app = launch(["-skip-onboarding", "-seed-library", "sample"])
+    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
+    app.buttons["reader.markup"].tap()
+    app.buttons["Draw"].tap()
+    let area = app.descendants(matching: .any)["reader.drawing"].firstMatch
+    XCTAssertTrue(area.waitForExistence(timeout: 5))
+    area.coordinate(withNormalizedOffset: CGVector(dx: 0.3, dy: 0.4))
+      .press(forDuration: 0.1, thenDragTo: area.coordinate(withNormalizedOffset: CGVector(dx: 0.7, dy: 0.44)))
+    app.buttons["reader.doneDrawing"].tap()
+    let pages = app.descendants(matching: .any)["reader.pages"].firstMatch
+    pages.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.42)).tap()
+    let bar = app.descendants(matching: .any)["reader.selection.actionBar"].firstMatch
+    XCTAssertTrue(bar.waitForExistence(timeout: 5), "Tapping the drawing selects it (F3)")
+    try audit(app)
+    app.buttons["reader.selection.delete"].tap()
+    XCTAssertFalse(bar.waitForExistence(timeout: 2), "Deleting clears the selection")
+  }
 }
