@@ -2,6 +2,7 @@ import Core
 import CoreGraphics
 import CoreTestSupport
 import Foundation
+import ImageIO
 import PDFEngineTestSupport
 import PDFKit
 import Testing
@@ -495,6 +496,149 @@ struct ControllerTests {
     #expect(controller.outline.map(\.title) == ["Chapter", "Section"])
     #expect(controller.outline.map(\.depth) == [0, 1])
     #expect(controller.outline.map(\.pageIndex) == [1, 2])
+  }
+}
+
+@MainActor
+@Suite("Toolkit: pages, flatten, images and passwords")
+struct ToolkitTests {
+  private func titles(_ controller: PDFDocumentController) -> [String] {
+    controller.pageTexts().map { $0.text.trimmingCharacters(in: .whitespacesAndNewlines) }
+  }
+
+  private func three() throws -> PDFDocumentController {
+    try PDFDocumentController(data: SyntheticPDF.make(pages: ["One", "Two", "Three"]))
+  }
+
+  @Test("Pages rotate, move and delete, each one undo step, and the result saves (FR-ORG-001)")
+  func organise() throws {
+    let controller = try three()
+    // In the app each change is its own event, so its own undo step; here each is grouped by hand.
+    controller.undoManager.groupsByEvent = false
+    func step(_ change: () -> Bool) -> Bool {
+      controller.undoManager.beginUndoGrouping()
+      defer { controller.undoManager.endUndoGrouping() }
+      return change()
+    }
+    #expect(step { controller.rotatePages([1], by: 90) })
+    #expect(controller.document.page(at: 1)?.rotation == 90)
+    #expect(step { controller.movePage(from: 2, to: 0) })
+    #expect(titles(controller) == ["Three", "One", "Two"])
+    #expect(step { controller.deletePages([1]) })
+    #expect(titles(controller) == ["Three", "Two"])
+    controller.undoManager.undo()
+    #expect(titles(controller) == ["Three", "One", "Two"])
+    controller.undoManager.undo()
+    #expect(titles(controller) == ["One", "Two", "Three"])
+    controller.undoManager.undo()
+    #expect(controller.document.page(at: 1)?.rotation == 0)
+    controller.undoManager.redo()
+    #expect(controller.document.page(at: 1)?.rotation == 90)
+
+    #expect(step { controller.movePage(from: 0, to: 2) })
+    let url = temporaryURL()
+    try controller.save(to: url)
+    let reopened = try PDFDocumentController(url: url)
+    #expect(titles(reopened) == ["Two", "Three", "One"])
+    #expect(reopened.document.page(at: 0)?.rotation == 90)
+  }
+
+  @Test("Page changes that make no sense change nothing")
+  func invalidPageChanges() throws {
+    let controller = try three()
+    #expect(!controller.deletePages([0, 1, 2]), "At least one page stays")
+    #expect(!controller.deletePages([7]))
+    #expect(!controller.deletePages([]))
+    #expect(!controller.rotatePages([0], by: 45))
+    #expect(!controller.rotatePages([0], by: 360))
+    #expect(!controller.movePage(from: 0, to: 3))
+    #expect(!controller.movePage(from: 1, to: 1))
+    #expect(!controller.hasUnsavedChanges)
+  }
+
+  @Test("A document whose author forbids assembly can't be organised")
+  func assemblyRestricted() throws {
+    let controller = try PDFDocumentController(
+      data: TestPDFs.makeProtected(userPassword: nil, ownerPassword: "owner-pw", permissions: []))
+    #expect(!controller.allowsOrganizing)
+    #expect(!controller.deletePages([0]))
+    #expect(throws: PDFEngineError.restricted) { try controller.extractPages([0]) }
+  }
+
+  @Test("Extracted pages keep the document's order and their annotations")
+  func extract() throws {
+    let controller = try three()
+    controller.addNote("Keep me", onPage: 2)
+    let data = try controller.extractPages([2, 0])
+    let extracted = try PDFDocumentController(data: data)
+    #expect(titles(extracted) == ["One", "Three"])
+    #expect(extracted.annotationCount(onPage: 1) == 1)
+    #expect(controller.pageCount == 3, "The document itself is unchanged")
+  }
+
+  @Test("Flattening draws annotations into the page and keeps the text (FR-ORG-006)")
+  func flatten() throws {
+    let controller = try PDFDocumentController(data: SyntheticPDF.makeSample())
+    controller.addNote("Flattened", onPage: 0)
+    #expect(controller.markUp(text: "INV-2026-0042", as: .highlight))
+    let flat = try PDFDocumentController(data: controller.flattenedData())
+    #expect(flat.pageCount == controller.pageCount)
+    #expect((0..<flat.pageCount).allSatisfy { flat.annotationCount(onPage: $0) == 0 })
+    #expect(!flat.find("INV-2026-0042").isEmpty, "Text stays text")
+  }
+
+  @Test(
+    "Pages export as PNG and JPEG at the asked scale (FR-ORG-007)",
+    arguments: PDFDocumentController.ImageFormat.allCases)
+  func images(format: PDFDocumentController.ImageFormat) throws {
+    let controller = try three()
+    let data = try controller.imageData(ofPage: 0, format: format, scale: 1)
+    let source = try #require(CGImageSourceCreateWithData(data as CFData, nil))
+    let image = try #require(CGImageSourceCreateImageAtIndex(source, 0, nil))
+    #expect(image.width == 612 && image.height == 792)
+    #expect(throws: PDFEngineError.renderFailed) { try controller.imageData(ofPage: 9, format: format) }
+  }
+
+  @Test("Pictures become a PDF, one page each, fitted to A4 (FR-ORG-008)")
+  func pdfFromPictures() throws {
+    let wide = try #require(SyntheticPDF.makeTextImage("Wide", size: CGSize(width: 2000, height: 1000)))
+    let small = try #require(SyntheticPDF.makeTextImage("Small", size: CGSize(width: 300, height: 400)))
+    let controller = try PDFDocumentController(data: ImagePDF.make(from: [wide, small]))
+    #expect(controller.pageCount == 2)
+    #expect(controller.document.page(at: 0)?.bounds(for: .mediaBox).size == CGSize(width: 842, height: 421))
+    #expect(controller.document.page(at: 1)?.bounds(for: .mediaBox).size == CGSize(width: 300, height: 400))
+    #expect(throws: PDFEngineError.saveFailed) { try ImagePDF.make(from: []) }
+  }
+
+  @Test("A password can be added, and removed with the owner password only (FR-EDIT-006)")
+  func passwords() throws {
+    let controller = try three()
+    #expect(!controller.canRemovePassword && !controller.removePassword())
+    #expect(!controller.setPassword(""))
+    #expect(controller.setPassword("secret") && controller.needsSaving)
+    let url = temporaryURL()
+    try controller.save(to: url)
+    let locked = try PDFDocumentController(url: url)
+    #expect(locked.isLocked)
+    #expect(locked.unlock(password: "secret"))
+    #expect(locked.canRemovePassword)
+    #expect(locked.removePassword())
+    try locked.save(to: url)
+    let open = try PDFDocumentController(url: url)
+    #expect(!open.isLocked && !open.document.isEncrypted)
+    #expect(titles(open) == ["One", "Two", "Three"])
+    locked.addNote("After", onPage: 0)
+    try locked.save(to: url)
+    #expect(try !PDFDocumentController(url: url).document.isEncrypted, "Later saves stay unencrypted")
+  }
+
+  @Test("A password that only opens the document can't remove the author's protection")
+  func userPasswordCannotRemove() throws {
+    let controller = try PDFDocumentController(
+      data: TestPDFs.makeProtected(userPassword: "user-pw", ownerPassword: "owner-pw", permissions: []))
+    #expect(controller.unlock(password: "user-pw"))
+    #expect(!controller.canRemovePassword && !controller.removePassword())
+    #expect(!controller.setPassword("mine"))
   }
 }
 
