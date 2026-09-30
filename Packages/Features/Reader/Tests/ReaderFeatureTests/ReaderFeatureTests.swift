@@ -261,6 +261,22 @@ struct ReaderModelTests {
     #expect(try Data(contentsOf: try await harness.library.fileURL(for: signed.id)) == original)
   }
 
+  @Test("Saving with no changes leaves the file untouched, byte for byte (Trust suite, plan §4.1)")
+  func unchangedSaveIsANoOp() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.makeSample())
+    let reader = harness.reader(for: document)
+    await reader.load()
+    let url = try await harness.library.fileURL(for: document.id)
+    let bytes = try Data(contentsOf: url)
+    let modified = try url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
+    #expect(await reader.save())
+    await reader.saveBeforeSuspending(keepAlive: { {} })
+    #expect(try Data(contentsOf: url) == bytes)
+    #expect(try url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate == modified)
+    #expect(await !harness.library.hasPreviousVersion(of: document.id), "No earlier version is kept for a no-op")
+  }
+
   @Test("Notes and markup save automatically and can be undone (FR-ANN-001, FR-EDIT-007)")
   func annotations() async throws {
     let harness = Harness()

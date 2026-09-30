@@ -1005,6 +1005,16 @@ struct GoldenCorpusTests {
     try controller.save(to: url)
     try exportForValidation(url, name: item.name, password: item.password)
 
+    // A second, independent reader (plan §3 B2): Core Graphics parses the saved file page by page.
+    let parsed = try #require(CGPDFDocument(url as CFURL), "\(item.name): Core Graphics can't open the saved file")
+    if let password = item.password { #expect(parsed.unlockWithPassword(password), "\(item.name)") }
+    #expect(parsed.numberOfPages == item.pageCount, "\(item.name)")
+    for number in 1...max(parsed.numberOfPages, 1) where parsed.numberOfPages > 0 {
+      let page = try #require(parsed.page(at: number), "\(item.name), page \(number)")
+      #expect(!page.getBoxRect(.mediaBox).isEmpty, "\(item.name), page \(number)")
+      #expect(page.dictionary != nil, "\(item.name), page \(number)")
+    }
+
     let reopened = try PDFDocumentController(url: url)
     if let password = item.password { #expect(reopened.unlock(password: password)) }
     #expect(reopened.pageCount == item.pageCount, "\(item.name)")
