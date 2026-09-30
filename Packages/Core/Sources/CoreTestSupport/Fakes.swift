@@ -158,6 +158,34 @@ public actor FakeDocumentLibrary: DocumentLibrary {
     documents[id] = nil
   }
 
+  /// Where a save keeps the version from before it, in this fake's folder.
+  public func previousVersionURL(for id: DocumentID) async throws -> URL? {
+    try check()
+    _ = try existing(id)
+    return previousFile(of: id)
+  }
+
+  /// Whether the version from before the last save is kept.
+  public func hasPreviousVersion(of id: DocumentID) async -> Bool {
+    FileManager.default.fileExists(atPath: previousFile(of: id).path)
+  }
+
+  /// Swaps a document's file with the version from before its last save.
+  public func restorePreviousVersion(of id: DocumentID) async throws {
+    try check()
+    let current = folder.appendingPathComponent(try existing(id).fileName)
+    let previous = previousFile(of: id)
+    guard let earlier = try? Data(contentsOf: previous), let now = try? Data(contentsOf: current) else {
+      throw LibraryError.notFound
+    }
+    try earlier.write(to: current)
+    try now.write(to: previous)
+  }
+
+  private func previousFile(of id: DocumentID) -> URL {
+    folder.appendingPathComponent("previous-\(id.rawValue.uuidString).pdf")
+  }
+
   /// Permanently deletes documents that have been in Recently Deleted for 30 days or more.
   public func purgeExpired(now: Date) async throws -> [DocumentID] {
     try check()

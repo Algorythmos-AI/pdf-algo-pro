@@ -245,6 +245,17 @@ struct ReaderToolbar: ToolbarContent {
               }
             }
           }
+          if model.canRestorePreviousVersion {
+            Button {
+              model.confirmsRestore = true
+            } label: {
+              Label {
+                Text("Restore the version before the last save", bundle: .module)
+              } icon: {
+                Image(systemName: "clock.arrow.circlepath")
+              }
+            }
+          }
         } label: {
           Label {
             Text("More", bundle: .module)

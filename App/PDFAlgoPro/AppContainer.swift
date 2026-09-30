@@ -81,7 +81,8 @@ final class AppContainer {
     let libraryIndex = LibraryIndex(storeURL: folders.indexStore)
     indexLevel = libraryIndex.level
     let library = FileDocumentLibrary(
-      documentsFolder: folders.documents, deletedFolder: folders.recentlyDeleted, index: libraryIndex)
+      documentsFolder: folders.documents, deletedFolder: folders.recentlyDeleted,
+      previousVersionsFolder: folders.previousVersions, index: libraryIndex)
     self.library = library
     let spotlight: (any SpotlightIndexing)? =
       environment.isUITesting ? nil : SpotlightIndexer(includesText: { settings.load().isSpotlightTextIncluded })
@@ -152,6 +153,9 @@ final class AppContainer {
 struct Folders {
   let documents: URL
   let recentlyDeleted: URL
+  /// Each document's version from before its last save (FR-EDIT-008, first step): not backed up, so a
+  /// restored device starts without them.
+  let previousVersions: URL
   let indexStore: URL
   let searchIndex: URL
   /// MetricKit summaries: about this device, so not backed up.
@@ -177,6 +181,10 @@ struct Folders {
     // Earlier builds excluded all of Derived; clear that, so the index store is backed up again.
     Self.setExcludedFromBackup(false, &derived)
     Self.setExcludedFromBackup(true, &search)
+    var previous = derived.appendingPathComponent("PreviousVersions", isDirectory: true)
+    try? fileManager.createDirectory(at: previous, withIntermediateDirectories: true)
+    Self.setExcludedFromBackup(true, &previous)
+    previousVersions = previous
     indexStore = derived.appendingPathComponent("Library.store")
     searchIndex = search
     var diagnostics = support.appendingPathComponent("Diagnostics", isDirectory: true)

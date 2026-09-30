@@ -8,6 +8,8 @@ public enum PDFEngineError: Error, Equatable, Sendable {
   case passwordRequired
   /// Writing the document failed; the file on disk is unchanged.
   case saveFailed
+  /// The device is too full to save safely; the file on disk is unchanged.
+  case insufficientSpace
   /// A page could not be rendered.
   case renderFailed
   /// The document's protection does not allow the change: its author restricted it, or writing it

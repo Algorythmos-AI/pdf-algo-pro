@@ -106,6 +106,41 @@ struct ControllerTests {
     #expect(reopened.annotationCount(onPage: 0) == 1)
   }
 
+  @Test("A save keeps the version from before it (FR-EDIT-008, first step)")
+  func saveKeepsThePreviousVersion() throws {
+    let url = try write(SyntheticPDF.makeSample())
+    let before = try Data(contentsOf: url)
+    let previous = temporaryURL("previous")
+    try Data("stale".utf8).write(to: previous)
+    let controller = try PDFDocumentController(url: url)
+    controller.addNote("Check the date", onPage: 0)
+    try controller.save(to: url, keepingPreviousAt: previous)
+    #expect(try Data(contentsOf: previous) == before, "The kept version is the file as it was, replacing any older one")
+    #expect(try PDFDocumentController(url: url).annotationCount(onPage: 0) == 1)
+  }
+
+  @Test("A save without a kept version writes nothing else")
+  func saveWithoutPreviousKeepsNothing() throws {
+    let folder = FileManager.default.temporaryDirectory.appendingPathComponent("save-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    let url = folder.appendingPathComponent("doc.pdf")
+    try SyntheticPDF.makeSample().write(to: url)
+    let controller = try PDFDocumentController(url: url)
+    controller.addNote("Note", onPage: 0)
+    let before = Set(try FileManager.default.contentsOfDirectory(atPath: folder.path))
+    try controller.save(to: url)
+    #expect(Set(try FileManager.default.contentsOfDirectory(atPath: folder.path)) == before)
+  }
+
+  @Test("A save needs room for the new file and a margin; unknown free space doesn't block it")
+  func roomToSave() {
+    let spare = PDFDocumentController.spareSpace
+    #expect(PDFDocumentController.hasRoom(toWrite: 1_000, available: spare + 1_000))
+    #expect(!PDFDocumentController.hasRoom(toWrite: 1_000, available: spare + 999))
+    #expect(!PDFDocumentController.hasRoom(toWrite: 0, available: 0))
+    #expect(PDFDocumentController.hasRoom(toWrite: 1_000_000_000, available: nil))
+  }
+
   @Test("Form entries count as changes and are saved (defect D1)")
   func formEntriesAreSaved() throws {
     let controller = try PDFDocumentController(data: TestPDFs.makeForm())

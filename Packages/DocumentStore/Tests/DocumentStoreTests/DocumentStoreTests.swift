@@ -18,6 +18,7 @@ private struct Harness {
     let clock = self.clock
     library = FileDocumentLibrary(
       documentsFolder: root.appendingPathComponent("Documents"), deletedFolder: root.appendingPathComponent("Deleted"),
+      previousVersionsFolder: root.appendingPathComponent("Previous"),
       index: LibraryIndex(storeURL: storeURL ?? root.appendingPathComponent("Index/library.store")), now: { clock.now })
   }
 
@@ -163,6 +164,53 @@ struct FileDocumentLibraryTests {
     try await harness.library.deletePermanently(document.id)
     #expect(!FileManager.default.fileExists(atPath: url.path))
     await #expect(throws: LibraryError.notFound) { try await harness.library.fileURL(for: document.id) }
+  }
+
+  @Test("Nothing to restore until a save has kept an earlier version (FR-EDIT-008)")
+  func noPreviousVersionAtFirst() async throws {
+    let harness = try Harness()
+    let document = try await harness.library.addDocument(data: pdf, title: "Fresh")
+    #expect(await !harness.library.hasPreviousVersion(of: document.id))
+    await #expect(throws: LibraryError.notFound) { try await harness.library.restorePreviousVersion(of: document.id) }
+  }
+
+  @Test("Restoring swaps the file with the earlier version, so restoring again undoes it (FR-EDIT-008)")
+  func restoreSwaps() async throws {
+    let harness = try Harness()
+    let document = try await harness.library.addDocument(data: pdf, title: "Lease")
+    let url = try await harness.library.fileURL(for: document.id)
+    let previous = try #require(try await harness.library.previousVersionURL(for: document.id))
+    let edited = Data("%PDF-1.7\n% edited\n%%EOF\n".utf8)
+    try FileManager.default.copyItem(at: url, to: previous)
+    try edited.write(to: url)
+    #expect(await harness.library.hasPreviousVersion(of: document.id))
+
+    try await harness.library.restorePreviousVersion(of: document.id)
+    #expect(try Data(contentsOf: url) == pdf)
+    #expect(try Data(contentsOf: previous) == edited)
+    try await harness.library.restorePreviousVersion(of: document.id)
+    #expect(try Data(contentsOf: url) == edited)
+    #expect(try Data(contentsOf: previous) == pdf)
+    let folder = previous.deletingLastPathComponent()
+    #expect(try FileManager.default.contentsOfDirectory(atPath: folder.path) == [previous.lastPathComponent])
+  }
+
+  @Test("Deleting a document, or finding its file gone, removes its earlier version (FR-LIB-006)")
+  func earlierVersionsGoWithTheDocument() async throws {
+    let harness = try Harness()
+    for removal in ["delete", "reconcile"] {
+      let document = try await harness.library.addDocument(data: pdf, title: removal)
+      let url = try await harness.library.fileURL(for: document.id)
+      let previous = try #require(try await harness.library.previousVersionURL(for: document.id))
+      try FileManager.default.copyItem(at: url, to: previous)
+      if removal == "delete" {
+        try await harness.library.deletePermanently(document.id)
+      } else {
+        try FileManager.default.removeItem(at: url)
+        _ = try await harness.library.reconcileWithFiles()
+      }
+      #expect(!FileManager.default.fileExists(atPath: previous.path), "\(removal)")
+    }
   }
 
   @Test("Changes to one document at the same time never undo each other")

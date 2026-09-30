@@ -92,6 +92,49 @@ struct ReaderModelTests {
     guard case .failed = missing.phase else { throw Failure.unexpected }
   }
 
+  @Test("A save keeps the version before it, which can be restored and restored back (FR-EDIT-008)")
+  func restoresTheVersionBeforeTheLastSave() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.makeSample())
+    let reader = harness.reader(for: document)
+    await reader.load()
+    #expect(!reader.canRestorePreviousVersion)
+    await reader.addNote("Check this")
+    #expect(reader.canRestorePreviousVersion)
+    let url = try await harness.library.fileURL(for: document.id)
+
+    await reader.restorePreviousVersion()
+    #expect(reader.phase == .ready && reader.errorMessage == nil)
+    #expect(try PDFDocumentController(url: url).annotationCount(onPage: 0) == 0)
+    await reader.restorePreviousVersion()
+    #expect(try PDFDocumentController(url: url).annotationCount(onPage: 0) == 1)
+  }
+
+  @Test("A document that won't open offers the version before its last save")
+  func damagedFileRecovers() async throws {
+    let harness = Harness()
+    let document = await harness.seed(Data("%PDF-garbage".utf8))
+    let previous = try #require(try await harness.library.previousVersionURL(for: document.id))
+    try SyntheticPDF.makeSample().write(to: previous)
+    let reader = harness.reader(for: document)
+    await reader.load()
+    guard case .failed = reader.phase else { throw Failure.unexpected }
+    #expect(reader.canRestorePreviousVersion)
+    await reader.restorePreviousVersion()
+    #expect(reader.phase == .ready)
+  }
+
+  @Test("A failed restore says so and leaves the document as it was")
+  func failedRestore() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.makeSample())
+    let reader = harness.reader(for: document)
+    await reader.load()
+    await reader.restorePreviousVersion()
+    #expect(reader.errorMessage != nil)
+    #expect(reader.phase == .ready)
+  }
+
   @Test("Notes and markup save automatically and can be undone (FR-ANN-001, FR-EDIT-007)")
   func annotations() async throws {
     let harness = Harness()
