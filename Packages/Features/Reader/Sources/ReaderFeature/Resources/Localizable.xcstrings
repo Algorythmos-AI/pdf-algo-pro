@@ -557,6 +557,16 @@
         }
       }
     },
+    "Recognising text" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reconnaissance du texte"
+          }
+        }
+      }
+    },
     "Recognising text on this device…" : {
       "localizations" : {
         "fr" : {

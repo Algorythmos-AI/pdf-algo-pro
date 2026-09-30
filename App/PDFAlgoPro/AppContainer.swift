@@ -104,8 +104,14 @@ final class AppContainer {
     #endif
     builder = SearchablePDFBuilder(recognizer: VisionTextRecognizer())
     telemetry = LocalTelemetry()
+    // Recognition a person starts can go on with its progress in a Live Activity (P8b). The identifier
+    // family is declared in Info.plist (BGTaskSchedulerPermittedIdentifiers).
+    let continued = ContinuedProcessing(
+      family: "\(Bundle.main.bundleIdentifier ?? "com.algorythmos.pdfalgopro").recognition")
+    continued.register()
     recognition = RecognitionCoordinator(
-      library: library, intake: intake, builder: builder, telemetry: telemetry, folder: folders.recognition)
+      library: library, intake: intake, builder: builder, telemetry: telemetry, folder: folders.recognition,
+      continued: continued)
     diagnosticsLog = DiagnosticsLog(file: folders.diagnostics.appendingPathComponent("problems.json"))
     metricKit = environment.isUITesting ? nil : MetricKitCollector(log: diagnosticsLog)
     metricKit?.start()

@@ -492,7 +492,7 @@ public final class ReaderModel {
       await save()
       // A failed save has already said so; replacing the file now would lose those changes.
       guard controller?.needsSaving != true else { return }
-      recognition.start(documentID)
+      recognition.start(documentID, startedFor: document?.title ?? "")
     }
   }
 
