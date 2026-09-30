@@ -61,6 +61,36 @@ public enum TestPDFs {
     return data as Data
   }
 
+  /// A one-page PDF with the text "Damaged metadata" whose Info dictionary has a key that is not
+  /// valid UTF-8, as in a damaged file, beside a title, an author, keywords and a creation date.
+  ///
+  /// PDFKit raises an Objective-C exception, which ends the app, when it reads that dictionary.
+  public static func makeWithUnreadableInfoKey() -> Data {
+    let content = "BT /F1 18 Tf 72 700 Td (Damaged metadata) Tj ET"
+    let objects: [[UInt8]] = [
+      Array("<< /Type /Catalog /Pages 2 0 R >>".utf8),
+      Array("<< /Type /Pages /Kids [3 0 R] /Count 1 >>".utf8),
+      Array(
+        ("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R "
+          + "/Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> >>").utf8),
+      Array("<< /Length \(content.utf8.count) >>\nstream\n\(content)\nendstream".utf8),
+      Array("<< /Title (Damaged metadata) /Author (Test author) /Keywords (corpus metadata) ".utf8)
+        + Array("/CreationDate (D:20260930120000Z) /Br".utf8) + [0xFF] + Array("ken (x) >>".utf8),
+    ]
+    var output = Array("%PDF-1.7\n".utf8)
+    var offsets: [Int] = []
+    for (index, body) in objects.enumerated() {
+      offsets.append(output.count)
+      output += Array("\(index + 1) 0 obj\n".utf8) + body + Array("\nendobj\n".utf8)
+    }
+    let xref = output.count
+    output += Array("xref\n0 \(objects.count + 1)\n0000000000 65535 f \n".utf8)
+    for offset in offsets { output += Array(String(format: "%010d 00000 n \n", offset).utf8) }
+    output += Array(
+      "trailer\n<< /Size \(objects.count + 1) /Root 1 0 R /Info 5 0 R >>\nstartxref\n\(xref)\n%%EOF\n".utf8)
+    return Data(output)
+  }
+
   /// The `/V` entry of a field on the first page, read with Core Graphics rather than PDFKit, so a
   /// test sees what another PDF reader would.
   public static func storedValue(of field: String, in url: URL) -> String? {
