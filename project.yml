@@ -62,6 +62,11 @@ packages:
     path: Packages/Features/Scan
   Settings:
     path: Packages/Features/Settings
+  # Test-only (ADR-0018): linked by PDFAlgoProTests alone, never by the app. Pinned exactly; 1.19.4 rather than
+  # the newest release, so a dependency is at least a few weeks old before it runs in CI.
+  SnapshotTesting:
+    url: https://github.com/pointfreeco/swift-snapshot-testing
+    exactVersion: 1.19.4
 targets:
   PDFAlgoPro:
     type: application
@@ -156,8 +161,12 @@ targets:
     platform: iOS
     sources:
       - path: App/Tests
+        excludes:
+          - "**/__Snapshots__"
     dependencies:
       - target: PDFAlgoPro
+      - package: SnapshotTesting
+        product: SnapshotTesting
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
