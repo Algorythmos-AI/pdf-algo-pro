@@ -31,7 +31,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 
-NETWORK = re.compile(r"\b(URLSession|URLRequest|NWConnection|WKWebView)\b|^\s*import\s+Network\b", re.M)
+NETWORK = re.compile(r"\b(URLSession|URLRequest|NWConnection|WKWebView)\b|^\s*import\s+(Network|CloudKit)\b", re.M)
 COLOUR = re.compile(r"Color\(\s*hex:|UIColor\(\s*red:|Color\(\s*red:|#[0-9A-Fa-f]{6}\b")
 VENDOR_SDK = re.compile(r"^\s*import\s+(PSPDFKit|PSPDFKitUI|Nutrient|NutrientUI|PDFNet|Tools)\b", re.M)
 REQUIRED_REASON = {
@@ -42,7 +42,7 @@ REQUIRED_REASON = {
 }
 APP_ICON = "App/PDFAlgoPro/Resources/Assets.xcassets/AppIcon.appiconset"
 ALLOWED = {
-    "network": ("Packages/Intelligence/", "Packages/Commerce/", "Packages/Telemetry/"),
+    "network": ("Packages/Intelligence/", "Packages/Commerce/", "Packages/Telemetry/", "Packages/RemoteConfig/"),
     "colour": ("Packages/DesignSystem/",),
     "vendor": ("Packages/PDFEngine/",),
 }
@@ -154,7 +154,7 @@ def main() -> int:
                     if pattern.search(text):
                         used_categories.add(category)
             if NETWORK.search(text) and not rel.startswith(ALLOWED["network"]) and not is_test(rel):
-                errors.append(f"{rel}: networking is only allowed in Intelligence, Commerce and Telemetry")
+                errors.append(f"{rel}: networking is only allowed in Intelligence, Commerce, Telemetry and RemoteConfig")
             if COLOUR.search(text) and not rel.startswith(ALLOWED["colour"]):
                 errors.append(f"{rel}: colour literals belong in DesignSystem tokens")
             if VENDOR_SDK.search(text) and not rel.startswith(ALLOWED["vendor"]):

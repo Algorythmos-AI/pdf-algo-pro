@@ -33,6 +33,7 @@ Owner: Architecture · Reviewed: when a decision changes
 | [ADR-0021](0021-ai-provider-routing-and-failover.md) | AI provider routing and failover | accepted |
 | [ADR-0022](0022-apple-first-capability-baseline.md) | Apple-first capability baseline | accepted |
 | [ADR-0023](0023-ios-26-floor-built-with-xcode-27.md) | iOS 26 floor, built with the Xcode 27 SDK (supersedes the floor in ADR-0001) | accepted |
+| [ADR-0024](0024-remote-configuration-package.md) | Remote configuration in its own package, read from the CloudKit public database | accepted |
 
 ## Writing one
 
