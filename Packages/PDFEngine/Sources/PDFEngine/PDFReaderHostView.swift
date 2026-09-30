@@ -100,8 +100,9 @@ final class PDFReaderHostView: PDFView {
   }
 
   /// Shows or removes the drawing layer over the pages.
-  func setDrawing(_ isDrawing: Bool) {
+  func setDrawing(_ isDrawing: Bool, tool: DrawingTool) {
     #if canImport(UIKit)
+      inkCapture?.tool = tool
       guard isDrawing != (inkCapture != nil) else { return }
       guard isDrawing else {
         inkCapture?.removeFromSuperview()
@@ -109,6 +110,7 @@ final class PDFReaderHostView: PDFView {
         return
       }
       let capture = InkCaptureView(frame: bounds)
+      capture.tool = tool
       capture.autoresizingMask = [.flexibleWidth, .flexibleHeight]
       capture.onStroke = { [weak self] points in self?.finishStroke(points) }
       addSubview(capture)

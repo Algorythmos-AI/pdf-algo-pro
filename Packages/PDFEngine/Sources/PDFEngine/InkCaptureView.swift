@@ -12,6 +12,8 @@
   final class InkCaptureView: UIView, UIGestureRecognizerDelegate {
     /// Called with each finished stroke.
     var onStroke: (([CGPoint]) -> Void)?
+    /// What the drag draws, so the preview matches what will be added.
+    var tool = DrawingTool.pen
     private let stroke = CAShapeLayer()
     private let recognizer = InkStrokeRecognizer()
 
@@ -60,10 +62,31 @@
     }
 
     private func redraw(_ points: [CGPoint]) {
-      let path = UIBezierPath()
-      if let first = points.first {
+      guard let first = points.first, let last = points.last else {
+        stroke.path = nil
+        return
+      }
+      let box = CGRect(
+        x: min(first.x, last.x), y: min(first.y, last.y), width: abs(last.x - first.x), height: abs(last.y - first.y))
+      let path: UIBezierPath
+      switch tool {
+      case .pen:
+        path = UIBezierPath()
         path.move(to: first)
         for point in points.dropFirst() { path.addLine(to: point) }
+      case .rectangle:
+        path = UIBezierPath(rect: box)
+      case .oval:
+        path = UIBezierPath(ovalIn: box)
+      case .arrow:
+        path = UIBezierPath()
+        path.move(to: first)
+        path.addLine(to: last)
+        let angle = atan2(last.y - first.y, last.x - first.x)
+        for side in [CGFloat.pi * 5 / 6, -CGFloat.pi * 5 / 6] {
+          path.move(to: last)
+          path.addLine(to: CGPoint(x: last.x + 14 * cos(angle + side), y: last.y + 14 * sin(angle + side)))
+        }
       }
       stroke.path = path.cgPath
     }

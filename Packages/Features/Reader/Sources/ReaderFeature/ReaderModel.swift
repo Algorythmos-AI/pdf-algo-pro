@@ -240,12 +240,21 @@ public final class ReaderModel {
   public var isDrawing: Bool { controller?.isDrawing ?? false }
 
   /// Starts or stops drawing; each stroke is saved and can be undone.
-  public func setDrawing(_ isDrawing: Bool) {
+  public func setDrawing(_ isDrawing: Bool, tool: DrawingTool = .pen) {
     guard let controller else { return }
     if isDrawing, !checkAnnotatingIsAllowed(controller) { return }
-    controller.setDrawing(isDrawing) { [weak self] in
+    controller.setDrawing(isDrawing, tool: tool) { [weak self] in
       Task { await self?.inkAdded() }
     }
+  }
+
+  /// Adds a text box to the page on screen and saves (F2b).
+  public func addTextBox(_ text: String) async {
+    guard let controller, checkAnnotatingIsAllowed(controller),
+      controller.addTextBox(text, onPage: controller.currentPageIndex)
+    else { return }
+    updateUndoState()
+    await save()
   }
 
   private func inkAdded() async {

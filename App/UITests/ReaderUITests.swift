@@ -78,4 +78,29 @@ final class ReaderUITests: UITestCase {
     XCTAssertTrue(undo.waitForExistence(timeout: 5))
     XCTAssertTrue(undo.isEnabled, "The signature was placed and can be undone")
   }
+
+  func testShapesAndTextBoxesAreAdded() throws {
+    let app = launch(["-skip-onboarding", "-seed-library", "sample"])
+    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
+    let markup = app.buttons["reader.markup"]
+    markup.tap()
+    app.buttons["Shapes"].tap()
+    app.buttons["Rectangle"].tap()
+    let area = app.descendants(matching: .any)["reader.drawing"].firstMatch
+    XCTAssertTrue(area.waitForExistence(timeout: 5), "Shapes are drawn like ink (F2b)")
+    area.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.3))
+      .press(forDuration: 0.1, thenDragTo: area.coordinate(withNormalizedOffset: CGVector(dx: 0.7, dy: 0.45)))
+    app.buttons["reader.doneDrawing"].tap()
+    markup.tap()
+    app.buttons["Text box"].tap()
+    let text = app.alerts.firstMatch.textFields.firstMatch
+    XCTAssertTrue(text.waitForExistence(timeout: 5))
+    text.tap()
+    text.typeText("Check with accounts")
+    app.alerts.buttons["Add"].tap()
+    markup.tap()
+    let undo = app.buttons["Undo"]
+    XCTAssertTrue(undo.waitForExistence(timeout: 5))
+    XCTAssertTrue(undo.isEnabled, "The rectangle and the text box were added")
+  }
 }

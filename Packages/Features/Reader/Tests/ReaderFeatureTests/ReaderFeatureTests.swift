@@ -315,6 +315,31 @@ struct ReaderModelTests {
     #expect(ImageRenderer(content: preview).uiImage != nil)
   }
 
+  @Test("Shapes are drawn with the chosen tool and text boxes are added, each saved (F2b)")
+  func shapesAndTextBoxes() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.makeSample())
+    let reader = harness.reader(for: document)
+    await reader.load()
+    reader.setDrawing(true, tool: .arrow)
+    #expect(reader.controller?.drawingTool == .arrow)
+    reader.controller?.strokeEnded([CGPoint(x: 100, y: 500), CGPoint(x: 300, y: 450)], onPage: 0)
+    reader.setDrawing(false)
+    await reader.addTextBox("Check with accounts")
+    await reader.addTextBox("  ")
+    let url = try await harness.library.fileURL(for: document.id)
+    for _ in 0..<200 where (try? PDFDocumentController(url: url).annotationCount(onPage: 0)) != 2 {
+      try await Task.sleep(for: .milliseconds(10))
+    }
+    let types = try #require(PDFDocument(url: url)?.page(at: 0)?.annotations.map(\.type))
+    #expect(Set(types) == ["Line", "FreeText"])
+  }
+
+  @Test("Every drawing tool has a label", arguments: DrawingTool.allCases)
+  func toolLabels(tool: DrawingTool) {
+    _ = ReaderToolbar.label(for: tool)
+  }
+
   @Test("Layout choices are remembered")
   func displayMode() async throws {
     let harness = Harness()

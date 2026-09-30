@@ -221,6 +221,46 @@ struct ControllerTests {
     #expect(controller.annotationCount(onPage: 0) == 0)
   }
 
+  @Test(
+    "Rectangles, ovals and arrows become standard annotations between the drag's ends (F2b)",
+    arguments: [(DrawingTool.rectangle, "Square"), (.oval, "Circle"), (.arrow, "Line")])
+  func shapes(tool: DrawingTool, type: String) throws {
+    let controller = try PDFDocumentController(data: SyntheticPDF.makeSample())
+    #expect(!controller.addShape(tool, from: CGPoint(x: 100, y: 100), to: CGPoint(x: 102, y: 101), onPage: 0))
+    #expect(!controller.addShape(.pen, from: CGPoint(x: 100, y: 100), to: CGPoint(x: 300, y: 200), onPage: 0))
+    #expect(controller.addShape(tool, from: CGPoint(x: 300, y: 200), to: CGPoint(x: 100, y: 400), onPage: 0))
+    let url = temporaryURL()
+    try controller.save(to: url)
+    let shape = try #require(PDFDocument(url: url)?.page(at: 0)?.annotations.first { $0.type == type })
+    #expect(shape.bounds.contains(CGPoint(x: 200, y: 300)))
+    #expect(shape.bounds.width >= 200 && shape.bounds.height >= 200)
+    controller.undoManager.undo()
+    #expect(controller.annotationCount(onPage: 0) == 0)
+  }
+
+  @Test("The drawing tool decides what a stroke adds")
+  func strokesFollowTheTool() throws {
+    let controller = try PDFDocumentController(data: SyntheticPDF.makeSample())
+    controller.setDrawing(true, tool: .oval)
+    #expect(controller.drawingTool == .oval)
+    controller.strokeEnded([CGPoint(x: 100, y: 100), CGPoint(x: 150, y: 120), CGPoint(x: 250, y: 200)], onPage: 0)
+    #expect(controller.document.page(at: 0)?.annotations.first?.type == "Circle")
+    controller.setDrawing(false)
+  }
+
+  @Test("A text box keeps its text and can be undone")
+  func textBox() throws {
+    let controller = try PDFDocumentController(data: SyntheticPDF.makeSample())
+    #expect(!controller.addTextBox("  ", onPage: 0))
+    #expect(controller.addTextBox("Check this total\nwith accounts", onPage: 0))
+    let url = temporaryURL()
+    try controller.save(to: url)
+    let box = try #require(PDFDocument(url: url)?.page(at: 0)?.annotations.first { $0.type == "FreeText" })
+    #expect(box.contents == "Check this total\nwith accounts")
+    controller.undoManager.undo()
+    #expect(controller.annotationCount(onPage: 0) == 0)
+  }
+
   @Test("Every markup kind becomes a standard PDF annotation", arguments: TextMarkup.allCases)
   func markupKinds(markup: TextMarkup) throws {
     let controller = try PDFDocumentController(data: SyntheticPDF.makeSample())

@@ -12,6 +12,8 @@ public struct ReaderView<Assistant: View>: View {
   @State private var password = ""
   @State private var noteText = ""
   @State private var isAddingNote = false
+  @State private var isAddingTextBox = false
+  @State private var textBoxText = ""
   @State private var pageNumber = ""
   @Environment(\.scenePhase) private var scenePhase
   private let assistant: (ReaderAssistantContext) -> Assistant
@@ -27,7 +29,21 @@ public struct ReaderView<Assistant: View>: View {
     content
       .navigationTitle(model.document?.title ?? "")
       .navigationBarTitleDisplayMode(.inline)
-      .toolbar { ReaderToolbar(model: model, isAddingNote: $isAddingNote) }
+      .toolbar { ReaderToolbar(model: model, isAddingNote: $isAddingNote, isAddingTextBox: $isAddingTextBox) }
+      .alert(Text("Add a text box", bundle: .module), isPresented: $isAddingTextBox) {
+        TextField(text: $textBoxText) { Text("Text", bundle: .module) }
+        Button {
+          Task { await model.addTextBox(textBoxText) }
+          textBoxText = ""
+        } label: {
+          Text("Add", bundle: .module)
+        }
+        Button(role: .cancel) {
+          textBoxText = ""
+        } label: {
+          Text("Cancel", bundle: .module)
+        }
+      }
       .sheet(item: $model.assistantTask) { task in
         assistant(model.assistantContext(for: task))
       }

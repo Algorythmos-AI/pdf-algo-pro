@@ -49,6 +49,8 @@ public final class PDFDocumentController {
   public internal(set) var hasUnsavedChanges = false
   /// Whether touches on the page draw ink instead of scrolling and selecting (F2a).
   public internal(set) var isDrawing = false
+  /// What a drag draws while drawing is on.
+  public internal(set) var drawingTool = DrawingTool.pen
   /// How pages are laid out.
   public var displayMode: ReaderDisplayMode = .continuous {
     didSet { view?.apply(displayMode) }
@@ -181,7 +183,7 @@ public final class PDFDocumentController {
   func attach(_ view: PDFReaderHostView) {
     self.view = view
     view.apply(displayMode)
-    view.setDrawing(isDrawing)
+    view.setDrawing(isDrawing, tool: drawingTool)
     if let pendingPageIndex, let page = document.page(at: pendingPageIndex) {
       view.show(page)
       self.pendingPageIndex = nil

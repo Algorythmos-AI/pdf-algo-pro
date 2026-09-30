@@ -7,6 +7,7 @@ import UIKit
 struct ReaderToolbar: ToolbarContent {
   let model: ReaderModel
   @Binding var isAddingNote: Bool
+  @Binding var isAddingTextBox: Bool
 
   var body: some ToolbarContent {
     ToolbarItemGroup(placement: .primaryAction) {
@@ -80,6 +81,30 @@ struct ReaderToolbar: ToolbarContent {
               Text("Draw", bundle: .module)
             } icon: {
               Image(systemName: "pencil.tip")
+            }
+          }
+          Menu {
+            ForEach([DrawingTool.rectangle, .oval, .arrow], id: \.self) { tool in
+              Button {
+                model.setDrawing(true, tool: tool)
+              } label: {
+                Self.label(for: tool)
+              }
+            }
+          } label: {
+            Label {
+              Text("Shapes", bundle: .module)
+            } icon: {
+              Image(systemName: "square.on.circle")
+            }
+          }
+          Button {
+            isAddingTextBox = true
+          } label: {
+            Label {
+              Text("Text box", bundle: .module)
+            } icon: {
+              Image(systemName: "character.textbox")
             }
           }
           Button {
@@ -228,6 +253,35 @@ struct ReaderToolbar: ToolbarContent {
           }
         }
         .accessibilityIdentifier("reader.more")
+      }
+    }
+  }
+
+  static func label(for tool: DrawingTool) -> Label<Text, Image> {
+    switch tool {
+    case .pen:
+      Label {
+        Text("Draw", bundle: .module)
+      } icon: {
+        Image(systemName: "pencil.tip")
+      }
+    case .rectangle:
+      Label {
+        Text("Rectangle", bundle: .module)
+      } icon: {
+        Image(systemName: "rectangle")
+      }
+    case .oval:
+      Label {
+        Text("Oval", bundle: .module)
+      } icon: {
+        Image(systemName: "oval")
+      }
+    case .arrow:
+      Label {
+        Text("Arrow", bundle: .module)
+      } icon: {
+        Image(systemName: "arrow.up.right")
       }
     }
   }

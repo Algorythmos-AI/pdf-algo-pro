@@ -19,6 +19,18 @@ public enum TextMarkup: String, CaseIterable, Sendable {
   }
 }
 
+/// What a drag on the page draws (F2a, F2b).
+public enum DrawingTool: String, CaseIterable, Sendable {
+  /// Freehand ink.
+  case pen
+  /// A rectangle from where the drag starts to where it ends.
+  case rectangle
+  /// An oval inside that rectangle.
+  case oval
+  /// A line with an arrowhead where the drag ends.
+  case arrow
+}
+
 extension PDFDocumentController {
   /// The number of annotations on a page, not counting the pop-ups PDFKit attaches to notes.
   public func annotationCount(onPage pageIndex: Int) -> Int {
@@ -55,16 +67,22 @@ extension PDFDocumentController {
   ///
   /// While it is on, a stroke on a page becomes an ink annotation and `onStroke` runs, so the reader
   /// can save; scrolling and selection wait until it is off.
-  public func setDrawing(_ isDrawing: Bool, onStroke: @escaping @MainActor () -> Void = {}) {
+  public func setDrawing(
+    _ isDrawing: Bool, tool: DrawingTool = .pen, onStroke: @escaping @MainActor () -> Void = {}
+  ) {
     self.isDrawing = isDrawing
+    drawingTool = tool
     onInk = isDrawing ? onStroke : nil
-    view?.setDrawing(isDrawing)
+    view?.setDrawing(isDrawing, tool: tool)
   }
 
   /// A stroke finished on a page, in page space; the page view calls this while drawing.
   func strokeEnded(_ points: [CGPoint], onPage pageIndex: Int) {
-    guard isDrawing, addInk([points], onPage: pageIndex) else { return }
-    onInk?()
+    guard isDrawing, let first = points.first, let last = points.last else { return }
+    let added =
+      drawingTool == .pen
+      ? addInk([points], onPage: pageIndex) : addShape(drawingTool, from: first, to: last, onPage: pageIndex)
+    if added { onInk?() }
   }
 
   /// The width of the pen, in points.
@@ -97,6 +115,69 @@ extension PDFDocumentController {
       for point in stroke.dropFirst() { path.addLine(to: CGPoint(x: point.x - bounds.minX, y: point.y - bounds.minY)) }
       annotation.add(PlatformBezierPath(cgPath: path))
     }
+    add([(annotation, page)])
+    return true
+  }
+
+  /// Adds a rectangle, oval or arrow between two points in page space (F2b).
+  ///
+  /// They are the standard `/Square`, `/Circle` and `/Line` annotations. Returns whether it was added:
+  /// shapes smaller than a few points, and the pen, which draws ink, are not.
+  @discardableResult
+  public func addShape(_ tool: DrawingTool, from start: CGPoint, to end: CGPoint, onPage pageIndex: Int) -> Bool {
+    guard tool != .pen, let page = document.page(at: pageIndex), hypot(end.x - start.x, end.y - start.y) >= 6 else {
+      return false
+    }
+    let box = CGRect(
+      x: min(start.x, end.x), y: min(start.y, end.y), width: abs(end.x - start.x), height: abs(end.y - start.y))
+    let annotation: PDFAnnotation
+    switch tool {
+    case .rectangle, .oval:
+      annotation = PDFAnnotation(
+        bounds: box.insetBy(dx: -Self.inkLineWidth, dy: -Self.inkLineWidth), forType: tool == .oval ? .circle : .square,
+        withProperties: nil)
+    case .arrow:
+      // Room around the line for the arrowhead; the end points are in the annotation's own space.
+      let bounds = box.insetBy(dx: -Self.inkLineWidth * 6, dy: -Self.inkLineWidth * 6)
+      annotation = PDFAnnotation(bounds: bounds, forType: .line, withProperties: nil)
+      annotation.startPoint = CGPoint(x: start.x - bounds.minX, y: start.y - bounds.minY)
+      annotation.endPoint = CGPoint(x: end.x - bounds.minX, y: end.y - bounds.minY)
+      annotation.endLineStyle = .closedArrow
+      annotation.interiorColor = AnnotationPalette.ink
+    case .pen:
+      return false
+    }
+    let border = PDFBorder()
+    border.lineWidth = Self.inkLineWidth
+    annotation.border = border
+    annotation.color = AnnotationPalette.ink
+    add([(annotation, page)])
+    return true
+  }
+
+  /// Adds a text box to a page (F2b).
+  ///
+  /// It is a standard free-text annotation with a thin border, centred in the upper third of the page.
+  /// Returns whether it was added; blank text is not.
+  @discardableResult
+  public func addTextBox(_ text: String, onPage pageIndex: Int) -> Bool {
+    let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !text.isEmpty, let page = document.page(at: pageIndex) else { return false }
+    let box = page.bounds(for: .cropBox)
+    let lines = text.split(whereSeparator: \.isNewline)
+    let longest = lines.map(\.count).max() ?? 0
+    let width = min(CGFloat(longest) * 8.5 + 24, box.width * 0.8)
+    let height = CGFloat(max(lines.count, 1)) * 20 + 12
+    let bounds = CGRect(
+      x: box.midX - width / 2, y: box.minY + box.height * 2 / 3 - height / 2, width: width, height: height)
+    let annotation = PDFAnnotation(bounds: bounds, forType: .freeText, withProperties: nil)
+    annotation.contents = text
+    annotation.font = PlatformFont.systemFont(ofSize: 15)
+    annotation.fontColor = AnnotationPalette.ink
+    annotation.color = .clear
+    let border = PDFBorder()
+    border.lineWidth = 1
+    annotation.border = border
     add([(annotation, page)])
     return true
   }
