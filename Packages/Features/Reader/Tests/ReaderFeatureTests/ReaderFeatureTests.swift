@@ -277,6 +277,73 @@ struct ReaderModelTests {
     #expect(await !harness.library.hasPreviousVersion(of: document.id), "No earlier version is kept for a no-op")
   }
 
+  @Test("The file watcher hears a coordinated write made on another thread, without a crash (H5)")
+  func watcherHearsOtherThreads() async throws {
+    let url = FileManager.default.temporaryDirectory.appendingPathComponent("watched-\(UUID().uuidString).pdf")
+    try SyntheticPDF.make(pages: ["One"]).write(to: url)
+    defer { try? FileManager.default.removeItem(at: url) }
+    let heard = Heard()
+    let watcher = FileWatcher(url: url) { heard.count += 1 }
+    watcher.start()
+    defer { watcher.stop() }
+    let data = try SyntheticPDF.make(pages: ["Two"])
+    // File coordination reads the presenter's URL and queue on its own threads; this failed with a
+    // main-actor isolation crash when the watcher inherited the module's default isolation.
+    await Task.detached {
+      var error: NSError?
+      NSFileCoordinator(filePresenter: nil).coordinate(writingItemAt: url, options: .forReplacing, error: &error) {
+        try? data.write(to: $0)
+      }
+    }.value
+    for _ in 0..<100 where heard.count == 0 { try await Task.sleep(for: .milliseconds(20)) }
+    #expect(heard.count > 0)
+  }
+
+  @Test("Another app's change is shown when nothing is unsaved; its own saves aren't mistaken for one (H5)")
+  func otherAppChange() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.make(pages: ["Mine"]), title: "Shared")
+    let reader = harness.reader(for: document)
+    await reader.load()
+    await reader.addNote("Saved here")
+    await reader.fileChangedOnDisk()
+    #expect(reader.notice == nil && !reader.hasConflictingChange, "Its own save isn't another app's change")
+
+    let url = try await harness.library.fileURL(for: document.id)
+    try SyntheticPDF.make(pages: ["Theirs", "Two"]).write(to: url)
+    await reader.fileChangedOnDisk()
+    #expect(reader.notice != nil && reader.controller?.pageCount == 2)
+    reader.stopWatching()
+  }
+
+  @Test("With unsaved changes, the person keeps theirs as a copy or takes the other version (H5)")
+  func conflictingChange() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.make(pages: ["Mine"]), title: "Shared")
+    let reader = harness.reader(for: document)
+    await reader.load()
+    let url = try await harness.library.fileURL(for: document.id)
+    reader.controller?.addNote("Not saved yet", onPage: 0)
+    try SyntheticPDF.make(pages: ["Theirs", "Two"]).write(to: url)
+    await reader.fileChangedOnDisk()
+    #expect(reader.hasConflictingChange)
+
+    await reader.keepMineAsCopy()
+    #expect(!reader.hasConflictingChange && reader.notice != nil)
+    #expect(reader.controller?.pageCount == 2, "The original now shows the other app's version")
+    let titles = try await harness.library.documents(in: .all, sortedBy: .title).map(\.title)
+    #expect(titles.contains("Shared (my version)"))
+
+    reader.controller?.addNote("Again", onPage: 0)
+    try SyntheticPDF.make(pages: ["Third"]).write(to: url)
+    await reader.fileChangedOnDisk()
+    await reader.useOtherVersion()
+    #expect(reader.controller?.pageCount == 1 && reader.controller?.needsSaving == false)
+    await reader.setWatching(false)
+    await reader.setWatching(true)
+    reader.stopWatching()
+  }
+
   @Test("Notes and markup save automatically and can be undone (FR-ANN-001, FR-EDIT-007)")
   func annotations() async throws {
     let harness = Harness()
@@ -979,4 +1046,10 @@ private final class SilentSpeech: SpeechEngine {
 
   func speak(_ text: String) { spoken.append(text) }
   func stop() { stops += 1 }
+}
+
+/// Counts file-change notifications in a test.
+@MainActor
+private final class Heard {
+  var count = 0
 }

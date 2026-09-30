@@ -21,6 +21,8 @@ Store notes (see the changelog strategy).
   (on the Lock Screen and in the Dynamic Island); you can cancel it from there.
 - A digitally signed PDF keeps its valid signature: your changes are saved in a copy marked
   "(edited)", and the app says so.
+- If another app changes a document while it is open, the reader shows the new version; if you have
+  unsaved changes, you choose to keep yours as a copy or use the other version, so nothing is lost.
 - The native iOS foundation app: onboarding with AI-first options, a library in the Files-visible
   Documents folder with Recently Deleted, search across titles, tags and recognised text (and
   Spotlight), a PDFKit reader with markup, notes, read aloud and on-device text recognition, scanning

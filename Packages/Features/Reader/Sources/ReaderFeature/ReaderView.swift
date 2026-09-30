@@ -172,10 +172,38 @@ public struct ReaderView<Assistant: View>: View {
       .task { await model.load() }
       .onChange(of: model.controller?.currentPageIndex) { Task { await model.recordPosition() } }
       .onChange(of: scenePhase) { _, phase in
-        guard phase == .background else { return }
-        Task { await model.saveBeforeSuspending(keepAlive: { BackgroundTime.begin("Save document") }) }
+        switch phase {
+        case .background:
+          Task {
+            await model.saveBeforeSuspending(keepAlive: { BackgroundTime.begin("Save document") })
+            await model.setWatching(false)
+          }
+        case .active:
+          Task { await model.setWatching(true) }
+        default:
+          break
+        }
+      }
+      .alert(
+        Text("This document changed in another app", bundle: .module), isPresented: $model.hasConflictingChange
+      ) {
+        Button {
+          Task { await model.keepMineAsCopy() }
+        } label: {
+          Text("Keep mine as a copy", bundle: .module)
+        }
+        Button(role: .destructive) {
+          Task { await model.useOtherVersion() }
+        } label: {
+          Text("Use the other version", bundle: .module)
+        }
+      } message: {
+        Text(
+          "You have changes that aren't saved yet. Keep yours as a new document, or drop them and show the other app's version.",
+          bundle: .module)
       }
       .onDisappear {
+        model.stopWatching()
         model.speech.stop()
         Task {
           await model.save()
