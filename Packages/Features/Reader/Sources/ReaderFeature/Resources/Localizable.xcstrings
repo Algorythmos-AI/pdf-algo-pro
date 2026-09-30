@@ -1,12 +1,42 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@ (flattened)" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ (aplati)"
+          }
+        }
+      }
+    },
     "%@ (pages)" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ (pages)"
+          }
+        }
+      }
+    },
+    "%@ (smaller)" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ (allégé)"
+          }
+        }
+      }
+    },
+    "%@ page %lld" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ page %lld"
           }
         }
       }
@@ -95,6 +125,16 @@
         }
       }
     },
+    "Add a password" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouter un mot de passe"
+          }
+        }
+      }
+    },
     "Add a text box" : {
       "localizations" : {
         "fr" : {
@@ -125,6 +165,26 @@
         }
       }
     },
+    "Anyone opening the document will need this password. Keep it somewhere safe: it can't be recovered." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il faudra ce mot de passe pour ouvrir le document. Conservez-le en lieu sûr : il ne peut pas être récupéré."
+          }
+        }
+      }
+    },
+    "Anyone with the file will be able to open it, print it and copy from it." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toute personne ayant le fichier pourra l’ouvrir, l’imprimer et en copier le contenu."
+          }
+        }
+      }
+    },
     "Arrow" : {
       "localizations" : {
         "fr" : {
@@ -151,6 +211,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Poser une question"
+          }
+        }
+      }
+    },
+    "Balanced, for printing" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Équilibré, pour l’impression"
           }
         }
       }
@@ -231,6 +301,36 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Impossible de copier ces pages. Le document n’a pas changé."
+          }
+        }
+      }
+    },
+    "Couldn't make a flattened copy. The document hasn't changed." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible de créer une copie aplatie. Le document n’a pas changé."
+          }
+        }
+      }
+    },
+    "Couldn't make a smaller copy. The document hasn't changed." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible de créer une copie allégée. Le document n’a pas changé."
+          }
+        }
+      }
+    },
+    "Couldn't make an image of this page." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible de créer une image de cette page."
           }
         }
       }
@@ -525,6 +625,16 @@
         }
       }
     },
+    "Only the document's owner password can remove its protection." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seul le mot de passe propriétaire du document peut en retirer la protection."
+          }
+        }
+      }
+    },
     "Open" : {
       "localizations" : {
         "fr" : {
@@ -685,6 +795,36 @@
         }
       }
     },
+    "Reduce file size" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Réduire la taille"
+          }
+        }
+      }
+    },
+    "Remove password" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retirer le mot de passe"
+          }
+        }
+      }
+    },
+    "Remove the password?" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retirer le mot de passe ?"
+          }
+        }
+      }
+    },
     "Restore" : {
       "localizations" : {
         "fr" : {
@@ -755,6 +895,16 @@
         }
       }
     },
+    "Saved a smaller copy, “%@”: %@ down to %@." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copie allégée enregistrée, « %1$@ » : de %2$@ à %3$@."
+          }
+        }
+      }
+    },
     "Saved on this device" : {
       "localizations" : {
         "fr" : {
@@ -815,6 +965,26 @@
         }
       }
     },
+    "Share a flattened copy" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Partager une copie aplatie"
+          }
+        }
+      }
+    },
+    "Share this page as an image" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Partager cette page en image"
+          }
+        }
+      }
+    },
     "Signature" : {
       "localizations" : {
         "fr" : {
@@ -841,6 +1011,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Page unique"
+          }
+        }
+      }
+    },
+    "Smallest, for email" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le plus léger, pour l’e-mail"
           }
         }
       }
@@ -965,6 +1145,26 @@
         }
       }
     },
+    "The document no longer needs a password." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le document ne demande plus de mot de passe."
+          }
+        }
+      }
+    },
+    "The document now needs its password to open." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le document demande désormais son mot de passe pour s’ouvrir."
+          }
+        }
+      }
+    },
     "The pages are in a new document, “%@”." : {
       "localizations" : {
         "fr" : {
@@ -1031,6 +1231,16 @@
         }
       }
     },
+    "This document is already about as small as it gets." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce document est déjà presque aussi léger que possible."
+          }
+        }
+      }
+    },
     "This document is no longer in the library." : {
       "localizations" : {
         "fr" : {
@@ -1057,6 +1267,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "L’auteur de ce document ne permet pas d’en modifier les pages."
+          }
+        }
+      }
+    },
+    "This document's author doesn't allow its password to be changed." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L’auteur de ce document ne permet pas d’en changer le mot de passe."
           }
         }
       }

@@ -172,6 +172,45 @@ struct ReaderModelTests {
     #expect(reader.canUndo)
   }
 
+  @Test("Tools share a flattened copy and a page image, and reduce size into a copy or say it's small")
+  func tools() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.makeSample(), title: "Invoice")
+    let reader = harness.reader(for: document)
+    await reader.load()
+    await reader.shareFlattened()
+    let flat = try #require(reader.sharing?.url)
+    #expect(flat.lastPathComponent == "Invoice (flattened).pdf")
+    #expect(try PDFDocumentController(url: flat).pageCount == 3)
+    await reader.sharePageImage()
+    #expect(reader.sharing?.url.pathExtension == "png" && reader.sharing?.url != flat)
+
+    await reader.reduceSize(.email)
+    #expect(reader.notice != nil && reader.errorMessage == nil, "A small text document says so, or makes a copy")
+    let titles = try await harness.library.documents(in: .all, sortedBy: .title).map(\.title)
+    #expect(titles.allSatisfy { $0 == "Invoice" || $0 == "Invoice (smaller)" })
+  }
+
+  @Test("A password is added and removed from the reader, and the file follows (FR-EDIT-006)")
+  func passwordTools() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.makeSample())
+    let reader = harness.reader(for: document)
+    await reader.load()
+    let url = try await harness.library.fileURL(for: document.id)
+    #expect(!reader.isPasswordProtected)
+    await reader.removePassword()
+    #expect(reader.errorMessage != nil, "Nothing to remove")
+    reader.errorMessage = nil
+    await reader.setPassword("secret")
+    #expect(reader.isPasswordProtected && reader.notice != nil)
+    #expect(try PDFDocumentController(url: url).isLocked)
+    #expect(reader.canRemovePassword)
+    await reader.removePassword()
+    #expect(!reader.isPasswordProtected)
+    #expect(try !PDFDocumentController(url: url).isLocked)
+  }
+
   @Test("A document whose author forbids changing its pages says so")
   func organiseRestricted() async throws {
     let harness = Harness()

@@ -106,6 +106,15 @@ extension PDFDocumentController {
     case remove
   }
 
+  /// Whether a password protects the document, counting a change waiting for the next save.
+  public var isPasswordProtected: Bool {
+    switch pendingProtection {
+    case .set: true
+    case .remove: false
+    case nil: wasEncrypted
+    }
+  }
+
   /// Whether the password can be removed: the document is protected, and was opened with its owner
   /// password (a password that only opens it can't lift the author's protection).
   public var canRemovePassword: Bool {
