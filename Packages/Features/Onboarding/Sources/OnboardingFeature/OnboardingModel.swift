@@ -7,8 +7,8 @@ import Observation
 @MainActor
 @Observable
 public final class OnboardingModel {
-  /// The options, in the fixed order.
-  public let intents = OnboardingIntent.allCases
+  /// The options this build offers, in the fixed order (FR-ONB-007).
+  public let intents = OnboardingIntent.offered
   /// The chosen intents, in the order they were chosen; the first leads the home screen.
   public private(set) var selected: [OnboardingIntent] = []
   /// Whether document intelligence can run on this device, once known.
