@@ -1,2 +1,5 @@
 /* Privacy - Camera Usage Description. The app names are not translated here: they come from build settings per configuration (A14). */
 "NSCameraUsageDescription" = "PDF Algo Pro n’utilise l’appareil photo que lorsque vous numérisez un document. Les numérisations restent sur cet appareil.";
+
+/* Privacy - Face ID Usage Description. */
+"NSFaceIDUsageDescription" = "Avec le verrouillage de l’app, Face ID déverrouille vos documents. La vérification se fait sur cet appareil uniquement.";

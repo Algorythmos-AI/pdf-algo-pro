@@ -22,6 +22,9 @@ public final class SettingsModel {
   private let onChange: (AppSettings) -> Void
   private let measureVersions: () async -> Int64
   private let removeVersions: () async throws -> Void
+  private let authenticate: ((String) async -> Bool)?
+  /// How this device confirms its owner for App Lock; `nil` when it can't (no passcode is set).
+  public let lockMethod: AppLockMethod?
 
   /// Creates the model.
   ///
@@ -31,16 +34,21 @@ public final class SettingsModel {
   ///   - onChange: Tells the app the settings changed.
   ///   - versionsSize: Measures the space earlier versions of documents take.
   ///   - deleteVersions: Deletes every earlier version; the documents themselves are untouched.
+  ///   - lockMethod: How this device confirms its owner, for App Lock; `nil` hides nothing but disables it.
+  ///   - authenticate: Asks the owner to confirm, with the reason shown.
   public init(
     store: any SettingsStoring, diagnostics: @escaping () async -> String,
     onChange: @escaping (AppSettings) -> Void, versionsSize: @escaping () async -> Int64 = { 0 },
-    deleteVersions: @escaping () async throws -> Void = {}
+    deleteVersions: @escaping () async throws -> Void = {}, lockMethod: AppLockMethod? = nil,
+    authenticate: ((String) async -> Bool)? = nil
   ) {
     self.store = store
     self.diagnostics = diagnostics
     self.onChange = onChange
     measureVersions = versionsSize
     removeVersions = deleteVersions
+    self.lockMethod = lockMethod
+    self.authenticate = authenticate
     settings = store.load()
   }
 
@@ -119,6 +127,22 @@ public final class SettingsModel {
         bundle: .module)
     }
     await loadStorage()
+  }
+
+  // MARK: - App Lock (FR-SET-002)
+
+  /// Whether opening the app asks for Face ID, Touch ID or the passcode.
+  public var isAppLockEnabled: Bool { settings.isAppLockEnabled }
+
+  /// Turns App Lock on or off once the owner confirms, so it can't be set up or removed by someone else.
+  public func setAppLock(_ isOn: Bool) async {
+    guard isOn != settings.isAppLockEnabled, lockMethod != nil, let authenticate else { return }
+    let reason =
+      isOn
+      ? String(localized: "Confirm it's you to turn on App Lock", bundle: .module)
+      : String(localized: "Confirm it's you to turn off App Lock", bundle: .module)
+    guard await authenticate(reason) else { return }
+    update { $0.isAppLockEnabled = isOn }
   }
 
   private func update(_ change: (inout AppSettings) -> Void) {

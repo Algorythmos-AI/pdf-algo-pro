@@ -27,6 +27,10 @@ final class AppModel {
   var sheet: Sheet?
   let container: AppContainer
   let library: LibraryModel
+  /// App Lock (FR-SET-002).
+  let lock: AppLock
+  /// How this device confirms its owner, read once at launch; `nil` without a passcode.
+  let lockMethod: AppLockMethod?
   @ObservationIgnored private var reader: (selection: DocumentSelection, model: ReaderModel)?
   @ObservationIgnored private(set) lazy var onboarding = OnboardingModel(
     settings: container.settings, intelligence: container.intelligence, telemetry: container.telemetry
@@ -35,6 +39,9 @@ final class AppModel {
   init(container: AppContainer) {
     self.container = container
     settings = container.settings.load()
+    let store = container.settings
+    lock = AppLock(authenticator: container.authenticator) { store.load().isAppLockEnabled }
+    lockMethod = container.authenticator.method()
     library = LibraryModel(
       library: container.library, intake: container.intake, index: container.index, settings: container.settings,
       telemetry: container.telemetry, thumbnails: container.thumbnails)
@@ -128,10 +135,12 @@ final class AppModel {
       store: container.settings, diagnostics: { [container] in await container.diagnostics() },
       onChange: { [weak self] settings in
         guard let self else { return }
-        let textSettingChanged = settings.isSpotlightTextIncluded != self.settings.isSpotlightTextIncluded
+        let textSettingChanged = settings.indexesTextInSpotlight != self.settings.indexesTextInSpotlight
         self.settings = settings
+        self.lock.settingChanged()
         if textSettingChanged { Task { await self.container.reindexSpotlight() } }
       }, versionsSize: { [container] in await container.library.versionsSize() },
-      deleteVersions: { [container] in try await container.library.deleteAllVersions() })
+      deleteVersions: { [container] in try await container.library.deleteAllVersions() }, lockMethod: lockMethod,
+      authenticate: { [container] reason in await container.authenticator.authenticate(reason: reason) })
   }
 }

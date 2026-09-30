@@ -65,6 +65,8 @@ final class AppContainer {
   ///
   /// UI tests use their own Keychain service, so they never see or change real signatures.
   let signatures: any SignatureStoring
+  /// Face ID, Touch ID or the passcode, for App Lock (FR-SET-002).
+  let authenticator: any DeviceAuthenticating = LocalAuthenticator()
   let thumbnails = ThumbnailCache()
   let indexLevel: LibraryIndex.StoreLevel
   let environment: LaunchEnvironment
@@ -88,7 +90,7 @@ final class AppContainer {
       previousVersionsFolder: folders.previousVersions, index: libraryIndex)
     self.library = library
     let spotlight: (any SpotlightIndexing)? =
-      environment.isUITesting ? nil : SpotlightIndexer(includesText: { settings.load().isSpotlightTextIncluded })
+      environment.isUITesting ? nil : SpotlightIndexer(includesText: { settings.load().indexesTextInSpotlight })
     let index = LocalSearchIndex(folder: folders.searchIndex, spotlight: spotlight)
     self.index = index
     intake = DocumentIntake(library: library, inspector: PDFKitInspector(), index: index)

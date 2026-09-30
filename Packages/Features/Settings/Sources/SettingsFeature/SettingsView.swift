@@ -66,11 +66,18 @@ public struct SettingsView: View {
             bundle: .module)
           Toggle(isOn: $model.isSpotlightTextIncluded) { Text("Document text in Spotlight", bundle: .module) }
             .accessibilityIdentifier("settings.spotlightText")
+            .disabled(model.isAppLockEnabled)
+          Toggle(isOn: Binding(get: { model.isAppLockEnabled }, set: { isOn in Task { await model.setAppLock(isOn) } }))
+          {
+            Self.lockTitle(model.lockMethod)
+          }
+          .disabled(model.lockMethod == nil)
+          .accessibilityIdentifier("settings.appLock")
         } header: {
           Text("Privacy", bundle: .module).foregroundStyle(Color.ds.labelSecondary)
         } footer: {
           Text(
-            "Titles and tags are always searchable in Spotlight. Turn this off to keep what documents say out of system search.",
+            "Titles and tags are always searchable in Spotlight. Turn this off to keep what documents say out of system search. App Lock hides the app's screen in the app switcher and keeps document text out of Spotlight.",
             bundle: .module
           )
           .foregroundStyle(Color.ds.labelSecondary)
@@ -189,6 +196,16 @@ public struct SettingsView: View {
           }
         }
       }
+    }
+  }
+
+  static func lockTitle(_ method: AppLockMethod?) -> Text {
+    switch method {
+    case .faceID: Text("Require Face ID", bundle: .module)
+    case .touchID: Text("Require Touch ID", bundle: .module)
+    case .opticID: Text("Require Optic ID", bundle: .module)
+    case .passcode: Text("Require passcode", bundle: .module)
+    case nil: Text("App Lock (set a device passcode to use it)", bundle: .module)
     }
   }
 

@@ -41,6 +41,16 @@
         }
       }
     },
+    "App Lock (set a device passcode to use it)" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verrouillage de l’app (définissez un code sur l’appareil pour l’utiliser)"
+          }
+        }
+      }
+    },
     "Before each save, the app keeps the version it replaces for 30 days, so a change can be undone. Deleting this history leaves your documents as they are." : {
       "localizations" : {
         "fr" : {
@@ -77,6 +87,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Fermer"
+          }
+        }
+      }
+    },
+    "Confirm it's you to turn off App Lock" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirmez votre identité pour désactiver le verrouillage de l’app"
+          }
+        }
+      }
+    },
+    "Confirm it's you to turn on App Lock" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirmez votre identité pour activer le verrouillage de l’app"
           }
         }
       }
@@ -311,6 +341,46 @@
         }
       }
     },
+    "Require Face ID" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exiger Face ID"
+          }
+        }
+      }
+    },
+    "Require Optic ID" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exiger Optic ID"
+          }
+        }
+      }
+    },
+    "Require passcode" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exiger le code"
+          }
+        }
+      }
+    },
+    "Require Touch ID" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exiger Touch ID"
+          }
+        }
+      }
+    },
     "Scan to PDF" : {
       "localizations" : {
         "fr" : {
@@ -421,12 +491,12 @@
         }
       }
     },
-    "Titles and tags are always searchable in Spotlight. Turn this off to keep what documents say out of system search." : {
+    "Titles and tags are always searchable in Spotlight. Turn this off to keep what documents say out of system search. App Lock hides the app's screen in the app switcher and keeps document text out of Spotlight." : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Les titres et les tags sont toujours consultables dans Spotlight. Désactivez cette option pour exclure le contenu des documents de la recherche du système."
+            "value" : "Les titres et les tags sont toujours consultables dans Spotlight. Désactivez cette option pour exclure le contenu des documents de la recherche du système. Le verrouillage de l’app masque son écran dans le sélecteur d’apps et exclut le texte des documents de Spotlight."
           }
         }
       }
