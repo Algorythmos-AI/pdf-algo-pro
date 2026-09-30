@@ -6,6 +6,7 @@ import LibraryFeature
 import OCR
 import Observation
 import OnboardingFeature
+import PDFEngine
 import ReaderFeature
 import ScanFeature
 import SettingsFeature
@@ -62,10 +63,23 @@ final class AppModel {
     if container.environment.seedsSample {
       Task { await library.addSample() }
     }
+    if container.environment.seedsLocked {
+      Task { [library, container] in
+        // A synthetic document; its password is a fixture, known to the UI tests.
+        guard let data = try? SyntheticPDF.makeEncrypted(pages: ["Locked page"], password: Self.lockedSamplePassword),
+          let document = try? await container.intake.add(data: data, title: "Locked sample")
+        else { return }
+        await library.reload()
+        library.open(document.id)
+      }
+    }
     Task { await container.migrateSpotlightIfNeeded() }
     // Text recognition the app was stopped in the middle of goes on from where it was (P8).
     Task { await container.recognition.resumePending() }
   }
+
+  /// The password of the `-seed-library locked` document (a test fixture).
+  static let lockedSamplePassword = "open-sesame"
 
   // MARK: - Routing
 

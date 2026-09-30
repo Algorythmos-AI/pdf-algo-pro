@@ -123,4 +123,19 @@ final class ReaderUITests: UITestCase {
     app.buttons["reader.selection.delete"].tap()
     XCTAssertFalse(bar.waitForExistence(timeout: 2), "Deleting clears the selection")
   }
+
+  func testAWrongPasswordSaysSoAndTheRightOneOpensTheDocument() throws {
+    let app = launch(["-skip-onboarding", "-seed-library", "locked"])
+    let field = app.secureTextFields["reader.password"]
+    XCTAssertTrue(field.waitForExistence(timeout: 15), "A protected document asks for its password")
+    field.tap()
+    field.typeText("not-the-password\n")
+    XCTAssertTrue(
+      app.descendants(matching: .any)["reader.wrongPassword"].waitForExistence(timeout: 5),
+      "A wrong password says so and leaves the document closed")
+    try audit(app)
+    field.tap()
+    field.typeText("open-sesame\n")
+    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 10), "The right one opens it")
+  }
 }
