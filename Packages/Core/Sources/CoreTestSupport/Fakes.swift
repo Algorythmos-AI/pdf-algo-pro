@@ -68,6 +68,16 @@ public actor FakeDocumentLibrary: DocumentLibrary {
     return folder.appendingPathComponent(try existing(id).fileName)
   }
 
+  /// The document whose file is at `url`, or `nil` when `url` is not in this fake's folder.
+  ///
+  /// Unlike the real library, files put in the folder are not added in place.
+  public func document(at url: URL) async throws -> Document? {
+    guard url.deletingLastPathComponent().standardizedFileURL.path == folder.standardizedFileURL.path else {
+      return nil
+    }
+    return documents.values.first { !$0.isDeleted && $0.fileName == url.lastPathComponent }
+  }
+
   /// Copies a PDF into the library, reading it with coordinated, security-scoped access.
   public func importDocument(from url: URL) async throws -> Document {
     try check()
@@ -159,10 +169,10 @@ public actor FakeDocumentLibrary: DocumentLibrary {
   /// Brings the index in line with the files: PDFs added outside the app (for example in the Files app) are added,
   /// entries whose file is gone are removed.
   ///
-  /// Returns the documents added, which still need inspecting and indexing.
-  public func reconcileWithFiles() async throws -> [Document] {
+  /// Returns what changed; this fake never finds new files.
+  public func reconcileWithFiles() async throws -> Reconciliation {
     try check()
-    return []
+    return Reconciliation()
   }
 }
 
@@ -197,9 +207,16 @@ public actor FakeIndex: DocumentIndexing {
   public private(set) var stored: [DocumentID: [PageText]] = [:]
   /// Documents removed, in order.
   public private(set) var removed: [DocumentID] = []
+  /// When `true`, searches throw, as a damaged index would.
+  public private(set) var failsSearches = false
 
   /// Creates an empty index.
   public init() {}
+
+  /// Makes searches fail or succeed.
+  public func failSearches(_ fails: Bool) {
+    failsSearches = fails
+  }
 
   /// Stores page texts directly.
   public func seed(_ id: DocumentID, pages: [PageText]) {
@@ -217,6 +234,16 @@ public actor FakeIndex: DocumentIndexing {
     removed.append(id)
   }
 
+  /// Removes the stored text of every document not in `ids`.
+  public func prune(keeping ids: Set<DocumentID>) async -> [DocumentID] {
+    let stale = stored.keys.filter { !ids.contains($0) }
+    for id in stale {
+      stored[id] = nil
+      removed.append(id)
+    }
+    return Array(stale)
+  }
+
   /// The stored page texts of a document, for intelligence and reading aloud.
   public func pages(of id: DocumentID) async throws -> [PageText] {
     stored[id] ?? []
@@ -224,7 +251,8 @@ public actor FakeIndex: DocumentIndexing {
 
   /// Documents matching a query, best first.
   public func search(_ query: String, in documents: [Document]) async throws -> [SearchHit] {
-    documents.compactMap { document in
+    if failsSearches { throw LibraryError.fileAccessFailed }
+    return documents.compactMap { document in
       if document.title.localizedCaseInsensitiveContains(query) {
         return SearchHit(documentID: document.id, pageIndex: nil, snippet: nil)
       }

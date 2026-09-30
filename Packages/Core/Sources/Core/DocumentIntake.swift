@@ -19,7 +19,13 @@ public struct DocumentIntake: Sendable {
   }
 
   /// Imports a file from outside the library.
+  ///
+  /// A file already in the library's folder, opened from the Files app, opens its document instead of
+  /// being copied again. One added there since the last launch is inspected and indexed first.
   public func importFile(at url: URL) async throws -> Document {
+    if let existing = try await library.document(at: url) {
+      return existing.pageCount == 0 ? try await finish(existing, isNew: false) : existing
+    }
     let document = try await library.importDocument(from: url)
     return try await finish(document, isNew: true)
   }

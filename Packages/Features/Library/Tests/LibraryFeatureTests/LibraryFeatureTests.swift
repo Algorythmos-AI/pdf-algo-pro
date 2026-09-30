@@ -46,6 +46,17 @@ struct LibraryModelTests {
     #expect(!harness.model.isImporting)
   }
 
+  @Test("Opening a file from the library's folder opens the existing document")
+  func openInPlace() async throws {
+    let harness = Harness()
+    let document = await harness.library.seed(Document(title: "Lease", fileName: "l.pdf", addedAt: .now, pageCount: 2))
+    await harness.model.load()
+    await harness.model.importFiles([harness.library.folder.appendingPathComponent("l.pdf")])
+    #expect(harness.model.documents.map(\.id) == [document.id])
+    #expect(harness.model.selection?.id == document.id)
+    #expect(harness.model.errorMessage == nil)
+  }
+
   @Test("A single import opens the document")
   func singleImportOpens() async throws {
     let harness = Harness()
@@ -74,6 +85,30 @@ struct LibraryModelTests {
     harness.model.query = "  "
     await harness.model.search()
     #expect(harness.model.results == nil)
+  }
+
+  @Test("A search that fails says so instead of showing no results")
+  func searchFailure() async {
+    let harness = Harness()
+    await harness.model.load()
+    await harness.index.failSearches(true)
+    harness.model.query = "invoice"
+    await harness.model.search()
+    #expect(harness.model.isSearchUnavailable)
+    #expect(await harness.telemetry.events.contains("quality.operation.failed"))
+    await harness.index.failSearches(false)
+    await harness.model.search()
+    #expect(!harness.model.isSearchUnavailable)
+  }
+
+  @Test("Housekeeping failures are counted and the library still opens")
+  func housekeepingFailure() async {
+    let harness = Harness()
+    await harness.library.failNext(with: .fileAccessFailed)
+    await harness.model.load()
+    #expect(harness.model.phase == .loaded)
+    #expect(harness.model.errorMessage == nil)
+    #expect(await harness.telemetry.events.contains("quality.operation.failed"))
   }
 
   @Test("Sections and sort order change what is shown, and the sort is remembered")
@@ -107,6 +142,26 @@ struct LibraryModelTests {
     await harness.model.deletePermanently(document.id)
     #expect(await harness.index.removed == [document.id])
     #expect(harness.model.documents.isEmpty)
+  }
+
+  @Test("Opening the library removes the search text of purged and vanished documents (FR-LIB-006)")
+  func housekeepingRemovesDerivedData() async throws {
+    let harness = Harness()
+    let kept = await harness.library.seed(Document(title: "Kept", fileName: "k.pdf", addedAt: .now))
+    let binned = await harness.library.seed(
+      Document(title: "Binned", fileName: "b.pdf", addedAt: .now, deletedAt: .now.addingTimeInterval(-31 * 86_400)))
+    let recent = await harness.library.seed(
+      Document(title: "Recent", fileName: "r.pdf", addedAt: .now, deletedAt: .now))
+    let orphan = DocumentID()
+    for id in [kept.id, binned.id, recent.id, orphan] {
+      await harness.index.seed(id, pages: [PageText(pageIndex: 0, text: "text")])
+    }
+
+    await harness.model.load()
+
+    #expect(Set(await harness.index.removed) == [binned.id, orphan])
+    #expect(Set(await harness.index.stored.keys) == [kept.id, recent.id], "Recently Deleted keeps its text")
+    #expect(await harness.telemetry.events.isEmpty)
   }
 
   @Test func renameFavouriteAndTags() async throws {

@@ -63,6 +63,25 @@ public actor FileDocumentLibrary: DocumentLibrary {
 
   // MARK: - Adding
 
+  /// The document whose file is at `url`, or `nil` when `url` is not in the library's folder.
+  ///
+  /// The Files app shows that folder, so a file opened from there is already in the library. A PDF put
+  /// there since the library last looked is added in place, not copied.
+  public func document(at url: URL) async throws -> Document? {
+    let file = url.resolvingSymlinksInPath().standardizedFileURL
+    let folder = documentsFolder.resolvingSymlinksInPath().standardizedFileURL
+    guard file.isFileURL, file.deletingLastPathComponent().path == folder.path else { return nil }
+    return try await exclusively {
+      let name = file.lastPathComponent
+      if let known = try await index.all().first(where: { !$0.isDeleted && $0.fileName == name }) { return known }
+      guard file.pathExtension.lowercased() == "pdf", fileManager.fileExists(atPath: file.path) else { return nil }
+      let createdAt = (try? file.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? now()
+      let document = Document(title: file.deletingPathExtension().lastPathComponent, fileName: name, addedAt: createdAt)
+      try await index.upsert(document)
+      return document
+    }
+  }
+
   /// Copies a PDF into the library, reading it with coordinated, security-scoped access.
   public func importDocument(from url: URL) async throws -> Document {
     let scoped = url.startAccessingSecurityScopedResource()
@@ -226,12 +245,15 @@ public actor FileDocumentLibrary: DocumentLibrary {
   /// Brings the index in line with the files: PDFs added outside the app (for example in the Files app) are added,
   /// entries whose file is gone are removed.
   ///
-  /// Returns the documents added, which still need inspecting and indexing.
-  public func reconcileWithFiles() async throws -> [Document] {
+  /// Returns the documents added, which still need inspecting and indexing, and the entries removed,
+  /// whose derived data must be removed too.
+  public func reconcileWithFiles() async throws -> Reconciliation {
     try await exclusively {
       let entries = try await index.all()
+      var removed: [DocumentID] = []
       for document in entries where !fileManager.fileExists(atPath: location(of: document).path) {
         try await index.delete(document.id)
+        removed.append(document.id)
       }
       let known = Set(entries.filter { !$0.isDeleted }.map(\.fileName))
       let files =
@@ -245,7 +267,20 @@ public actor FileDocumentLibrary: DocumentLibrary {
         try await index.upsert(document)
         added.append(document)
       }
-      return added
+      // Files in Recently Deleted without an entry (after the index was rebuilt) come back as deleted
+      // documents, deleted now, so they are purged on schedule instead of staying on the device forever.
+      let knownDeleted = Set(entries.filter(\.isDeleted).map(\.fileName))
+      let deletedFiles =
+        (try? fileManager.contentsOfDirectory(at: deletedFolder, includingPropertiesForKeys: [.creationDateKey])) ?? []
+      for file in deletedFiles
+      where file.pathExtension.lowercased() == "pdf" && !knownDeleted.contains(file.lastPathComponent) {
+        let createdAt = (try? file.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? now()
+        try await index.upsert(
+          Document(
+            title: file.deletingPathExtension().lastPathComponent, fileName: file.lastPathComponent, addedAt: createdAt,
+            deletedAt: now()))
+      }
+      return Reconciliation(added: added, removed: removed)
     }
   }
 

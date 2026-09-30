@@ -36,6 +36,12 @@ public final class SettingsModel {
     set { update { $0.isIntelligenceHidden = newValue } }
   }
 
+  /// Whether document text goes to system Spotlight; titles and tags always do (FR-LIB-005, T-11).
+  public var isSpotlightTextIncluded: Bool {
+    get { settings.isSpotlightTextIncluded }
+    set { update { $0.isSpotlightTextIncluded = newValue } }
+  }
+
   /// The reader's page layout.
   public var readerDisplayMode: ReaderDisplayMode {
     get { settings.readerDisplayMode }
@@ -58,19 +64,28 @@ public final class SettingsModel {
     }
   }
 
+  /// Where problem reports go.
+  public static let supportAddress = "info@algorythmos.com.au"
+
   /// The support email, with the diagnostics summary only when the user chose to include it.
   public func supportEmailURL() async -> URL? {
     var components = URLComponents()
     components.scheme = "mailto"
-    components.path = "info@algorythmos.com.au"
+    components.path = Self.supportAddress
+    components.queryItems = [
+      URLQueryItem(name: "subject", value: "PDF Algo Pro support"),
+      URLQueryItem(name: "body", value: await supportReport()),
+    ]
+    return components.url
+  }
+
+  /// The report text, for copying when no email account is set up.
+  public func supportReport() async -> String {
     var body = String(localized: "Describe what happened:\n\n", bundle: .module)
     if includesDiagnostics {
       body += "\n\n---\n\(await diagnostics())"
     }
-    components.queryItems = [
-      URLQueryItem(name: "subject", value: "PDF Algo Pro support"), URLQueryItem(name: "body", value: body),
-    ]
-    return components.url
+    return body
   }
 
   private func update(_ change: (inout AppSettings) -> Void) {

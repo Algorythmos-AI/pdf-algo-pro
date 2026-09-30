@@ -62,6 +62,9 @@ public final class LibraryModel {
   public var errorMessage: String?
   /// The document shown next to the list.
   public var selection: DocumentSelection?
+  /// Whether the last search failed (rather than finding nothing).
+  public private(set) var isSearchUnavailable = false
+
   /// Whether an import is running.
   public private(set) var isImporting = false
 
@@ -91,14 +94,55 @@ public final class LibraryModel {
 
   // MARK: - Loading
 
-  /// Opens the library: purges expired deletions, picks up files added in the Files app, loads.
+  /// Opens the library: purges expired deletions, picks up files added in the Files app, removes the
+  /// search text and Spotlight entries of documents that are gone (FR-LIB-006), then loads.
+  ///
+  /// The housekeeping runs without the user asking, so a failure does not interrupt them: it is
+  /// counted for "Report a problem" and retried on the next launch.
   public func load() async {
-    _ = try? await library.purgeExpired(now: now())
-    if let added = try? await library.reconcileWithFiles() {
-      for document in added { _ = try? await intake.refresh(document.id) }
+    do {
+      for id in try await library.purgeExpired(now: now()) { await removeDerivedData(of: id) }
+    } catch {
+      await telemetry.record("quality.operation.failed")
     }
+    do {
+      let reconciliation = try await library.reconcileWithFiles()
+      for id in reconciliation.removed { await removeDerivedData(of: id) }
+      for document in reconciliation.added {
+        do {
+          _ = try await intake.refresh(document.id)
+        } catch {
+          await telemetry.record("quality.operation.failed")
+        }
+      }
+    } catch {
+      await telemetry.record("quality.operation.failed")
+    }
+    await pruneDerivedData()
     await reload()
     phase = .loaded
+  }
+
+  private func removeDerivedData(of id: DocumentID) async {
+    do {
+      try await index.remove(id)
+    } catch {
+      await telemetry.record("quality.operation.failed")
+    }
+  }
+
+  /// Removes derived data the library no longer has documents for.
+  ///
+  /// This happens after the library index is rebuilt with new identifiers. Documents in Recently
+  /// Deleted keep theirs until they are purged. Nothing is pruned when the library cannot be listed.
+  private func pruneDerivedData() async {
+    do {
+      let current = try await library.documents(in: .all, sortedBy: .title)
+      let deleted = try await library.documents(in: .recentlyDeleted, sortedBy: .title)
+      _ = await index.prune(keeping: Set((current + deleted).map(\.id)))
+    } catch {
+      await telemetry.record("quality.operation.failed")
+    }
   }
 
   /// Reloads the current section and tags.
@@ -117,9 +161,18 @@ public final class LibraryModel {
     let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !trimmed.isEmpty else {
       results = nil
+      isSearchUnavailable = false
       return
     }
-    results = (try? await index.search(trimmed, in: documents)) ?? []
+    do {
+      results = try await index.search(trimmed, in: documents)
+      isSearchUnavailable = false
+    } catch {
+      // Not "no results": the search itself failed, and saying so is honest.
+      results = []
+      isSearchUnavailable = true
+      await telemetry.record("quality.operation.failed")
+    }
   }
 
   /// The document for a search hit.

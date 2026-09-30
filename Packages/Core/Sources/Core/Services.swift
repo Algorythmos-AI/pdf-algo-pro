@@ -11,6 +11,11 @@ public protocol DocumentLibrary: Sendable {
   func allTags() async throws -> [String]
   /// The file URL of a document, for reading and coordinated writing.
   func fileURL(for id: DocumentID) async throws -> URL
+  /// The document whose file is at `url`, or `nil` when `url` is not in the library's folder.
+  ///
+  /// The Files app shows that folder, so a file opened from there is already in the library. A PDF put
+  /// there since the library last looked is added in place, not copied.
+  func document(at url: URL) async throws -> Document?
   /// Copies a PDF into the library, reading it with coordinated, security-scoped access.
   func importDocument(from url: URL) async throws -> Document
   /// Adds PDF data (for example a new scan) as a document.
@@ -36,9 +41,23 @@ public protocol DocumentLibrary: Sendable {
   /// Permanently deletes documents that have been in Recently Deleted for 30 days or more.
   func purgeExpired(now: Date) async throws -> [DocumentID]
   /// Brings the index in line with the files: PDFs added outside the app (for example in the Files
-  /// app) are added, entries whose file is gone are removed. Returns the documents added, which
-  /// still need inspecting and indexing.
-  func reconcileWithFiles() async throws -> [Document]
+  /// app) are added, entries whose file is gone are removed.
+  func reconcileWithFiles() async throws -> Reconciliation
+}
+
+/// What reconciling the library index with the files changed.
+public struct Reconciliation: Equatable, Sendable {
+  /// Documents found without an entry; they still need inspecting and indexing.
+  public var added: [Document]
+  /// Entries removed because their file is gone; their search text and Spotlight entry must go too
+  /// (FR-LIB-006).
+  public var removed: [DocumentID]
+
+  /// Creates a result.
+  public init(added: [Document] = [], removed: [DocumentID] = []) {
+    self.added = added
+    self.removed = removed
+  }
 }
 
 /// Errors from the library.
@@ -109,6 +128,9 @@ public protocol DocumentIndexing: Sendable {
   func index(_ document: Document, pages: [PageText]) async throws
   /// Removes a document and its derived text (FR-LIB-006).
   func remove(_ id: DocumentID) async throws
+  /// Removes the derived text and Spotlight entries of every document not in `ids`, for example
+  /// after the library index was rebuilt with new identifiers. Returns the identifiers removed.
+  func prune(keeping ids: Set<DocumentID>) async -> [DocumentID]
   /// The stored page texts of a document, for intelligence and reading aloud.
   func pages(of id: DocumentID) async throws -> [PageText]
   /// Documents matching a query, best first.

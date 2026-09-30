@@ -34,6 +34,15 @@ struct SettingsModelTests {
     #expect(model.isChosen(.scan) && !model.isChosen(.read))
   }
 
+  @Test("Document text can be kept out of Spotlight (FR-LIB-005, T-11)")
+  func spotlightText() {
+    let (model, store, changes) = makeModel()
+    #expect(model.isSpotlightTextIncluded)
+    model.isSpotlightTextIncluded = false
+    #expect(!store.load().isSpotlightTextIncluded && !model.isSpotlightTextIncluded)
+    #expect(changes.values.last?.isSpotlightTextIncluded == false)
+  }
+
   @Test func readerLayout() {
     let (model, store, _) = makeModel()
     model.readerDisplayMode = .singlePage
@@ -49,6 +58,15 @@ struct SettingsModelTests {
     model.includesDiagnostics = true
     let withDiagnostics = try #require(await model.supportEmailURL())
     #expect(withDiagnostics.absoluteString.contains("0.1.0"))
+  }
+
+  @Test("Without an email account, the report can be copied and names the address")
+  func reportWithoutMail() async {
+    let (model, _, _) = makeModel()
+    #expect(!(await model.supportReport()).contains("0.1.0"))
+    model.includesDiagnostics = true
+    #expect(await model.supportReport().contains("0.1.0"))
+    #expect(SettingsModel.supportAddress == "info@algorythmos.com.au")
   }
 
   @Test func screenRenders() {

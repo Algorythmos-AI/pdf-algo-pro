@@ -1,9 +1,11 @@
 import Core
 import CoreTestSupport
 import Foundation
+import ImageIO
 import PDFEngine
 import SwiftUI
 import Testing
+import UniformTypeIdentifiers
 
 @testable import ScanFeature
 
@@ -48,6 +50,25 @@ struct ScanModelTests {
     #expect(await telemetry.events == ["quality.operation.failed"])
     failing.reset()
     #expect(failing.phase == .ready)
+  }
+
+  @Test("Chosen files that aren't images are skipped, and the notice says how many")
+  func skippedFiles() async throws {
+    let (model, library, _, _) = makeModel()
+    let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    let image = folder.appendingPathComponent("page.png")
+    let destination = try #require(
+      CGImageDestinationCreateWithURL(image as CFURL, UTType.png.identifier as CFString, 1, nil))
+    CGImageDestinationAddImage(destination, try #require(SyntheticPDF.makeTextImage("Receipt")), nil)
+    #expect(CGImageDestinationFinalize(destination))
+    let text = folder.appendingPathComponent("notes.txt")
+    try Data("not an image".utf8).write(to: text)
+    await model.process(files: [image, text])
+    #expect(model.notice?.contains("1") == true)
+    #expect(try await library.documents(in: .all, sortedBy: .title).count == 1)
+    await model.process(files: [image])
+    #expect(model.notice == nil)
   }
 
   @Test func titlesCarryTheDate() {

@@ -153,7 +153,8 @@ private struct FakeLibrary: DocumentLibrary {
   func restore(_ id: DocumentID) async throws {}
   func deletePermanently(_ id: DocumentID) async throws {}
   func purgeExpired(now: Date) async throws -> [DocumentID] { [] }
-  func reconcileWithFiles() async throws -> [Document] { [] }
+  func reconcileWithFiles() async throws -> Reconciliation { Reconciliation() }
+  func document(at url: URL) async throws -> Document? { nil }
 }
 
 /// The Keychain adapter runs here, hosted by the app, because the Keychain needs the app's
@@ -179,5 +180,18 @@ struct KeychainSignatureStoreTests {
     #expect(try await store.signatures() == [second])
     try await store.delete(second.id)
     #expect(try await store.signatures().isEmpty)
+  }
+}
+
+@Suite("Folders")
+struct FoldersTests {
+  @Test("The library index is backed up; only the search text is excluded (ADR-0006 addendum)")
+  func backupExclusion() throws {
+    let folders = Folders(isUITesting: true)
+    let derived = folders.indexStore.deletingLastPathComponent()
+    let indexValues = try derived.resourceValues(forKeys: [.isExcludedFromBackupKey])
+    let searchValues = try folders.searchIndex.resourceValues(forKeys: [.isExcludedFromBackupKey])
+    #expect(indexValues.isExcludedFromBackup == false)
+    #expect(searchValues.isExcludedFromBackup == true)
   }
 }

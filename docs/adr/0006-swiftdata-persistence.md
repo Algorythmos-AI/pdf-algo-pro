@@ -13,3 +13,9 @@
 **Pillars served.** PIL-1, PIL-6
 
 **References.** [SwiftData](https://developer.apple.com/documentation/swiftdata) · [Fatbobman's Swift Weekly #139 (WWDC26 summary)](https://fatbobman.com/en/weekly/issue-139/)
+
+**Addendum (2026-09-30).** "The index can always be rebuilt from the files" holds for the document list and
+the search text, not for what people add: favourites, tags, reading positions and deletion dates exist only in
+the index. The index store is therefore backed up with the app's data; only the search text, which is rebuilt
+from the files, is excluded from backups. After a rebuild, files left in Recently Deleted return as deleted
+documents, so they are still purged after 30 days.

@@ -54,3 +54,61 @@ private final class Clock: @unchecked Sendable {
   var now: Date { lock.withLock { value } }
   func advance(by seconds: TimeInterval) { lock.withLock { value += seconds } }
 }
+
+@Suite("Diagnostics log")
+struct DiagnosticsLogTests {
+  private static let start = Date(timeIntervalSince1970: 1_800_000_000)
+
+  private final class Clock: @unchecked Sendable {
+    private let lock = NSLock()
+    private var current = DiagnosticsLogTests.start
+    var now: Date { lock.withLock { current } }
+    func advance(days: Double) { lock.withLock { current += days * 86_400 } }
+  }
+
+  @Test("System-reported problems are kept on the device for 30 days and summarised (P6)")
+  func keepsAndSummarises() async throws {
+    let file = FileManager.default.temporaryDirectory.appendingPathComponent("diagnostics-\(UUID())/problems.json")
+    let clock = Clock()
+    let log = DiagnosticsLog(file: file, now: { clock.now })
+    #expect(await log.summary() == ["System-reported problems (30 days): none"])
+
+    await log.add([
+      DiagnosticRecord(kind: .crash, date: Self.start, build: "41", detail: "exception 1, signal 11"),
+      DiagnosticRecord(kind: .hang, date: Self.start, build: "41", detail: "2.5 sec"),
+    ])
+    clock.advance(days: 20)
+    await log.add([DiagnosticRecord(kind: .crash, date: clock.now, build: "42")])
+
+    let reopened = DiagnosticsLog(file: file, now: { clock.now })
+    #expect(
+      await reopened.summary() == [
+        "System-reported crash (30 days): 2, latest in build 42",
+        "System-reported hang (30 days): 1, latest in build 41, 2.5 sec",
+      ])
+    clock.advance(days: 15)
+    #expect(await reopened.recent().map(\.build) == ["42"], "Older than 30 days are not reported")
+    await reopened.add([])
+    #expect(await DiagnosticsLog(file: file, now: { clock.now }).recent().count == 1, "and are removed")
+  }
+
+  @Test("The log keeps at most 100 records, newest first to survive")
+  func capacity() async {
+    let file = FileManager.default.temporaryDirectory.appendingPathComponent("diagnostics-\(UUID())/problems.json")
+    let log = DiagnosticsLog(file: file, now: { Self.start })
+    let records = (0..<150).map {
+      DiagnosticRecord(kind: .cpuException, date: Self.start.addingTimeInterval(Double(-$0)), build: "\($0)")
+    }
+    await log.add(records)
+    let kept = await log.recent()
+    #expect(kept.count == DiagnosticsLog.capacity && kept.last?.build == "0")
+  }
+
+  @Test("The diagnostics summary ends with the system-reported problems")
+  func summaryIncludesProblems() {
+    let summary = DiagnosticsSummary(
+      appVersion: "1.0", build: "42", system: "iOS 26", libraryIndex: "persistent", documentCount: 3, events: [:],
+      problems: ["System-reported problems (30 days): none"])
+    #expect(summary.lines.last == "System-reported problems (30 days): none")
+  }
+}

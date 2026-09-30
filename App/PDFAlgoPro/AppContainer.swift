@@ -55,6 +55,9 @@ final class AppContainer {
   let intelligence: any DocumentIntelligence
   let builder: SearchablePDFBuilder
   let telemetry: LocalTelemetry
+  /// Problems MetricKit reported, kept on this device (P6).
+  let diagnosticsLog: DiagnosticsLog
+  private let metricKit: MetricKitCollector?
   let thumbnails = ThumbnailCache()
   let indexLevel: LibraryIndex.StoreLevel
   let environment: LaunchEnvironment
@@ -76,7 +79,8 @@ final class AppContainer {
     let library = FileDocumentLibrary(
       documentsFolder: folders.documents, deletedFolder: folders.recentlyDeleted, index: libraryIndex)
     self.library = library
-    let spotlight: (any SpotlightIndexing)? = environment.isUITesting ? nil : SpotlightIndexer()
+    let spotlight: (any SpotlightIndexing)? =
+      environment.isUITesting ? nil : SpotlightIndexer(includesText: { settings.load().isSpotlightTextIncluded })
     let index = LocalSearchIndex(folder: folders.searchIndex, spotlight: spotlight)
     self.index = index
     intake = DocumentIntake(library: library, inspector: PDFKitInspector(), index: index)
@@ -92,6 +96,9 @@ final class AppContainer {
     #endif
     builder = SearchablePDFBuilder(recognizer: VisionTextRecognizer())
     telemetry = LocalTelemetry()
+    diagnosticsLog = DiagnosticsLog(file: folders.diagnostics.appendingPathComponent("problems.json"))
+    metricKit = environment.isUITesting ? nil : MetricKitCollector(log: diagnosticsLog)
+    metricKit?.start()
   }
 
   /// The diagnostics summary for "Report a problem": app, system and health only (FR-SET-003).
@@ -102,8 +109,24 @@ final class AppContainer {
       appVersion: info["CFBundleShortVersionString"] as? String ?? "?",
       build: info["CFBundleVersion"] as? String ?? "?",
       system: ProcessInfo.processInfo.operatingSystemVersionString, libraryIndex: "\(indexLevel)", documentCount: count,
-      events: await telemetry.todaysCounts()
+      events: await telemetry.todaysCounts(), problems: await diagnosticsLog.summary()
     ).text
+  }
+
+  /// Writes every document to Spotlight again, after the text setting changed (defect D11).
+  func reindexSpotlight() async {
+    await index.reindexSpotlight((try? await library.documents(in: .all, sortedBy: .title)) ?? [])
+  }
+
+  /// Moves Spotlight to the protected index once (defect D11).
+  ///
+  /// Empties the index earlier builds wrote to, then reindexes. Later launches do nothing.
+  func migrateSpotlightIfNeeded(defaults: UserDefaults = .standard) async {
+    let key = "spotlight.indexVersion"
+    guard !environment.isUITesting, defaults.integer(forKey: key) < 2 else { return }
+    await SpotlightIndexer.retireLegacyIndex()
+    await reindexSpotlight()
+    defaults.set(2, forKey: key)
   }
 
   /// The app version for About.
@@ -115,13 +138,18 @@ final class AppContainer {
 
 /// Where the app keeps things.
 ///
-/// Documents are in the Documents folder, which the Files app shows as "On My iPhone › PDF Algo Pro" (FR-LIB-001);
-/// derived data is in Application Support and excluded from backups because it is rebuilt from the files (ADR-0006).
-private struct Folders {
+/// Documents are in the Documents folder, which the Files app shows as "On My iPhone › PDF Algo Pro" (FR-LIB-001).
+///
+/// The library index in Application Support is backed up: it holds what the files cannot give back (favourites, tags,
+/// reading positions, deletion dates). Only the search text, which is rebuilt from the files, is excluded from backups
+/// (ADR-0006 addendum).
+struct Folders {
   let documents: URL
   let recentlyDeleted: URL
   let indexStore: URL
   let searchIndex: URL
+  /// MetricKit summaries: about this device, so not backed up.
+  let diagnostics: URL
 
   init(isUITesting: Bool) {
     let fileManager = FileManager.default
@@ -138,11 +166,22 @@ private struct Folders {
     }
     recentlyDeleted = support.appendingPathComponent("RecentlyDeleted", isDirectory: true)
     var derived = support.appendingPathComponent("Derived", isDirectory: true)
-    try? fileManager.createDirectory(at: derived, withIntermediateDirectories: true)
-    var values = URLResourceValues()
-    values.isExcludedFromBackup = true
-    try? derived.setResourceValues(values)
+    var search = derived.appendingPathComponent("SearchIndex", isDirectory: true)
+    try? fileManager.createDirectory(at: search, withIntermediateDirectories: true)
+    // Earlier builds excluded all of Derived; clear that, so the index store is backed up again.
+    Self.setExcludedFromBackup(false, &derived)
+    Self.setExcludedFromBackup(true, &search)
     indexStore = derived.appendingPathComponent("Library.store")
-    searchIndex = derived.appendingPathComponent("SearchIndex", isDirectory: true)
+    searchIndex = search
+    var diagnostics = support.appendingPathComponent("Diagnostics", isDirectory: true)
+    try? fileManager.createDirectory(at: diagnostics, withIntermediateDirectories: true)
+    Self.setExcludedFromBackup(true, &diagnostics)
+    self.diagnostics = diagnostics
+  }
+
+  private static func setExcludedFromBackup(_ excluded: Bool, _ url: inout URL) {
+    var values = URLResourceValues()
+    values.isExcludedFromBackup = excluded
+    try? url.setResourceValues(values)
   }
 }

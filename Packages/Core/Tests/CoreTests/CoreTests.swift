@@ -229,6 +229,9 @@ struct SettingsTests {
     #expect(decodedNewer == AppSettings(hasCompletedOnboarding: true, intents: [.scan]))
     let roundTrip = try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(decodedNewer))
     #expect(roundTrip == decodedNewer)
+    #expect(decodedOlder.isSpotlightTextIncluded, "Settings from before the Spotlight switch keep text in Spotlight")
+    let off = AppSettings(isSpotlightTextIncluded: false)
+    #expect(try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(off)) == off)
   }
 }
 
@@ -249,6 +252,33 @@ struct DocumentIntakeTests {
 
     #expect(document.pageCount == 2 && document.hasTextLayer && !document.isEncrypted)
     #expect(try await index.pages(of: document.id) == inspection.pages)
+  }
+
+  @Test("Opening a file already in the library opens that document instead of copying it")
+  func fileInTheLibraryIsNotCopied() async throws {
+    let library = FakeDocumentLibrary()
+    let index = FakeIndex()
+    let known = await library.seed(Document(title: "Lease", fileName: "lease.pdf", addedAt: .distantPast, pageCount: 3))
+    let fresh = await library.seed(Document(title: "New", fileName: "new.pdf", addedAt: .distantPast))
+    let intake = DocumentIntake(library: library, inspector: FakeInspector(), index: index)
+
+    #expect(try await intake.importFile(at: library.folder.appendingPathComponent("lease.pdf")) == known)
+    #expect(await index.stored[known.id] == nil, "An inspected document is not inspected again")
+    let inspected = try await intake.importFile(at: library.folder.appendingPathComponent("new.pdf"))
+    #expect(inspected.id == fresh.id && inspected.pageCount > 0)
+    #expect(await index.stored[fresh.id] != nil, "A document never inspected is inspected and indexed")
+    #expect(try await library.documents(in: .all, sortedBy: .title).count == 2)
+  }
+
+  @Test("A file already in the library is kept when it cannot be read")
+  func fileInTheLibraryIsKeptWhenUnreadable() async throws {
+    let library = FakeDocumentLibrary()
+    let seeded = await library.seed(Document(title: "Lease", fileName: "lease.pdf", addedAt: .distantPast))
+    let intake = DocumentIntake(library: library, inspector: FakeInspector(fails: true), index: FakeIndex())
+    await #expect(throws: (any Error).self) {
+      try await intake.importFile(at: library.folder.appendingPathComponent("lease.pdf"))
+    }
+    #expect(try await library.document(withID: seeded.id) != nil)
   }
 
   @Test("A file that cannot be read as a PDF leaves no document behind")

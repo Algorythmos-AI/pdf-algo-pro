@@ -31,13 +31,42 @@ public actor LocalSearchIndex: DocumentIndexing {
   }
 
   /// Removes a document and its derived text (FR-LIB-006).
+  ///
+  /// The Spotlight entry goes first, so a file that cannot be removed never leaves the document
+  /// findable in Spotlight.
   public func remove(_ id: DocumentID) async throws {
     cache[id] = nil
+    await spotlight?.remove(id)
     let url = file(for: id)
     if FileManager.default.fileExists(atPath: url.path) {
       try FileManager.default.removeItem(at: url)
     }
-    await spotlight?.remove(id)
+  }
+
+  /// Removes the derived text and Spotlight entries of every document not in `ids`.
+  public func prune(keeping ids: Set<DocumentID>) async -> [DocumentID] {
+    let files = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? []
+    var removed: [DocumentID] = []
+    for file in files where file.pathExtension == "json" {
+      guard let id = DocumentID(string: file.deletingPathExtension().lastPathComponent), !ids.contains(id) else {
+        continue
+      }
+      try? await remove(id)
+      removed.append(id)
+    }
+    return removed
+  }
+
+  /// Writes every document to Spotlight again from the stored text (defect D11).
+  ///
+  /// Used after the Spotlight index or the text setting changed. Documents in Recently Deleted are
+  /// removed from Spotlight.
+  public func reindexSpotlight(_ documents: [Document]) async {
+    guard let spotlight else { return }
+    for document in documents {
+      let text = ((try? await pages(of: document.id)) ?? []).map(\.text).joined(separator: "\n")
+      await spotlight.index(document, text: text)
+    }
   }
 
   /// The stored page texts of a document, for intelligence and reading aloud.

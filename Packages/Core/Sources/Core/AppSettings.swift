@@ -20,6 +20,8 @@ public struct AppSettings: Hashable, Codable, Sendable {
   public var readerDisplayMode: ReaderDisplayMode
   /// The library's sort order.
   public var librarySort: LibrarySort
+  /// Whether document text goes to system Spotlight as well as titles and tags (FR-LIB-005, T-11).
+  public var isSpotlightTextIncluded: Bool
 
   /// Creates settings; the defaults are what a new install starts with.
   public init(
@@ -27,17 +29,19 @@ public struct AppSettings: Hashable, Codable, Sendable {
     intents: [OnboardingIntent] = [],
     isIntelligenceHidden: Bool = false,
     readerDisplayMode: ReaderDisplayMode = .continuous,
-    librarySort: LibrarySort = .recentlyOpened
+    librarySort: LibrarySort = .recentlyOpened,
+    isSpotlightTextIncluded: Bool = true
   ) {
     self.hasCompletedOnboarding = hasCompletedOnboarding
     self.intents = intents
     self.isIntelligenceHidden = isIntelligenceHidden
     self.readerDisplayMode = readerDisplayMode
     self.librarySort = librarySort
+    self.isSpotlightTextIncluded = isSpotlightTextIncluded
   }
 
   private enum CodingKeys: String, CodingKey {
-    case hasCompletedOnboarding, intents, isIntelligenceHidden, readerDisplayMode, librarySort
+    case hasCompletedOnboarding, intents, isIntelligenceHidden, readerDisplayMode, librarySort, isSpotlightTextIncluded
   }
 
   /// Decodes leniently, so settings survive updates in both directions.
@@ -57,6 +61,7 @@ public struct AppSettings: Hashable, Codable, Sendable {
     readerDisplayMode =
       value(String.self, .readerDisplayMode).flatMap(ReaderDisplayMode.init(rawValue:)) ?? defaults.readerDisplayMode
     librarySort = value(String.self, .librarySort).flatMap(LibrarySort.init(rawValue:)) ?? defaults.librarySort
+    isSpotlightTextIncluded = value(Bool.self, .isSpotlightTextIncluded) ?? defaults.isSpotlightTextIncluded
   }
 }
 

@@ -64,6 +64,23 @@ struct LocalSearchIndexTests {
     #expect(try await index.search("   ", in: [byTitle]).isEmpty)
   }
 
+  @Test("Spotlight can be rebuilt from the stored text; deleted documents leave it (defect D11)")
+  func reindexSpotlight() async throws {
+    let spotlight = RecordingSpotlight()
+    let index = try makeIndex(spotlight: spotlight)
+    let kept = document("Kept")
+    var binned = document("Binned")
+    try await index.index(kept, pages: [PageText(pageIndex: 0, text: "first"), PageText(pageIndex: 1, text: "second")])
+    binned.deletedAt = .now
+
+    await index.reindexSpotlight([kept, binned])
+
+    #expect(await spotlight.indexed[kept.id] == "first\nsecond")
+    #expect(await spotlight.indexed[binned.id] == "", "Recorded as sent; the real indexer removes deleted documents")
+    await LocalSearchIndex(folder: FileManager.default.temporaryDirectory.appendingPathComponent("s-\(UUID())"))
+      .reindexSpotlight([kept])
+  }
+
   @Test("Stored text survives a relaunch and is deleted with the document (FR-LIB-006)")
   func persistenceAndRemoval() async throws {
     let folder = FileManager.default.temporaryDirectory.appendingPathComponent("search-\(UUID())")
@@ -79,6 +96,40 @@ struct LocalSearchIndexTests {
     #expect(try await reopened.pages(of: report.id).isEmpty)
     #expect(await spotlight.removed == [report.id, report.id])
     #expect(try FileManager.default.contentsOfDirectory(atPath: folder.path).isEmpty)
+  }
+
+  @Test("Pruning removes the text and Spotlight entries of documents the library no longer has (FR-LIB-006)")
+  func prune() async throws {
+    let folder = FileManager.default.temporaryDirectory.appendingPathComponent("search-\(UUID())")
+    let spotlight = RecordingSpotlight()
+    let index = LocalSearchIndex(folder: folder, spotlight: spotlight)
+    let kept = document("Kept")
+    let stale = document("Stale")
+    for item in [kept, stale] { try await index.index(item, pages: [PageText(pageIndex: 0, text: item.title)]) }
+    try Data("{}".utf8).write(to: folder.appendingPathComponent("not-an-id.json"))
+
+    #expect(await index.prune(keeping: [kept.id]) == [stale.id])
+
+    #expect(try await index.pages(of: stale.id).isEmpty)
+    #expect(try await index.pages(of: kept.id).map(\.text) == ["Kept"])
+    #expect(await spotlight.removed == [stale.id])
+    #expect(await index.prune(keeping: [kept.id]).isEmpty)
+    #expect(await LocalSearchIndex(folder: folder.appendingPathComponent("missing")).prune(keeping: []).isEmpty)
+  }
+
+  @Test("Spotlight forgets a document even when its stored text cannot be removed")
+  func spotlightFirst() async throws {
+    let folder = FileManager.default.temporaryDirectory.appendingPathComponent("search-\(UUID())")
+    let spotlight = RecordingSpotlight()
+    let index = LocalSearchIndex(folder: folder, spotlight: spotlight)
+    let report = document("Report")
+    try await index.index(report, pages: [PageText(pageIndex: 0, text: "text")])
+    try FileManager.default.setAttributes([.posixPermissions: 0o500], ofItemAtPath: folder.path)
+    defer { try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: folder.path) }
+
+    await #expect(throws: (any Error).self) { try await index.remove(report.id) }
+
+    #expect(await spotlight.removed == [report.id])
   }
 
   @Test func snippetsAreShortAndMarkTruncation() {
@@ -107,6 +158,8 @@ struct SpotlightItemTests {
     #expect(item.attributeSet.title == "Contract")
     #expect(item.attributeSet.keywords == ["legal"])
     #expect(item.attributeSet.textContent?.count == SpotlightIndexer.textLimit)
+    #expect(SpotlightIndexer.item(for: value, text: nil).attributeSet.textContent == nil, "Titles only")
+    #expect(SpotlightIndexer.item(for: value, text: nil).attributeSet.title == "Contract")
   }
 
   @Test func indexingAndRemovalNeverThrow() async {

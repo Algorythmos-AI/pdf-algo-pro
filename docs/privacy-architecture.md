@@ -293,6 +293,10 @@ device --question + excerpts (TLS)--> Anthropic Messages API --answer--> device
   names, paths, text, questions, answers, consent history or disk-space figures.
 - **Flow:** the user taps "Report a problem"; the app shows the full summary; the user sends it by
   email if they choose. Nothing is sent automatically.
+- **MetricKit summaries** (kind, date, build and the system's short reason, such as the exception
+  type or a hang's duration; never call stacks) are kept on the device for 30 days, at most 100, in
+  a file excluded from backup. TestFlight and App Store crash reports stay the primary source; they
+  reach the team through Apple only when the person shares diagnostics with developers.
 - **Retention:** `Assumption:` 12 months after the case closes; deletion on request.
 
 ### Opt-in telemetry (V2, FR-SET-004)
