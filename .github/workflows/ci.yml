@@ -246,6 +246,61 @@ jobs:
           path: Tests.xcresult
           retention-days: 7
 
+  pdf-export:
+    name: pdf-export (advisory)
+    needs: changes
+    # Advisory for its first two weeks (plan §3 B2): a failure is visible here but doesn't fail the run.
+    if: ${{ !cancelled() && needs.changes.outputs.ios == 'true' }}
+    continue-on-error: true
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Select the pinned Xcode (fail if missing)
+        run: |
+          xcode="/Applications/$XCODE_APP"
+          if [ ! -d "$xcode" ]; then
+            echo "::error::$XCODE_APP is not installed on this runner image; update the pin (PAP-029)"
+            exit 1
+          fi
+          sudo xcode-select -s "$xcode/Contents/Developer"
+      - name: Save every golden-corpus document through the engine
+        env:
+          PDF_VALIDATION_OUT: ${{ runner.temp }}/saved
+        run: swift test --package-path Packages/PDFEngine --filter GoldenCorpusTests
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: saved-pdfs
+          path: ${{ runner.temp }}/saved
+          retention-days: 7
+
+  pdf-validation:
+    name: pdf-validation (advisory)
+    needs: pdf-export
+    continue-on-error: true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      QPDF_VERSION: 12.4.2
+      # From the release's qpdf-12.4.2.sha256 (qpdf is Apache-2.0).
+      QPDF_SHA256: db367d897829f22c4198ce1094143c9d467bd6ee7dfabc44ba6f02056b24f8b1
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install pinned qpdf (checksum verified)
+        run: |
+          curl -sSL -o qpdf.zip "https://github.com/qpdf/qpdf/releases/download/v${QPDF_VERSION}/qpdf-${QPDF_VERSION}-bin-linux-x86_64.zip"
+          echo "${QPDF_SHA256}  qpdf.zip" | sha256sum -c -
+          unzip -q qpdf.zip -d "$RUNNER_TEMP/qpdf"
+          dirname "$(find "$RUNNER_TEMP/qpdf" -type f -name qpdf -path '*/bin/*' | head -1)" >> "$GITHUB_PATH"
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: saved-pdfs
+          path: saved
+      - name: qpdf reads every saved file without errors
+        run: |
+          qpdf --version | head -1
+          scripts/ci/validate_pdfs.sh saved
+
   performance:
     name: performance
     # The Performance test plan (P9): nightly and on request, never on pull requests. It compares each
