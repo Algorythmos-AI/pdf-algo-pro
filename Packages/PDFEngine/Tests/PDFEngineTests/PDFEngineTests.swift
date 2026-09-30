@@ -801,6 +801,27 @@ struct DocumentDetailsTests {
   }
 }
 
+@Suite("Merging (FR-LIB-009)")
+struct MergeTests {
+  @Test("Documents merge in order with their pages and annotations; locked or broken ones stop it")
+  @MainActor
+  func merge() throws {
+    let first = try write(SyntheticPDF.make(pages: ["One", "Two"]))
+    let annotated = try PDFDocumentController(data: SyntheticPDF.make(pages: ["Three"]))
+    annotated.addNote("Kept", onPage: 0)
+    let second = temporaryURL()
+    try annotated.save(to: second)
+    let merged = try PDFDocumentController(data: PDFMerge.merge([first, second]))
+    #expect(
+      merged.pageTexts().map { $0.text.trimmingCharacters(in: .whitespacesAndNewlines) } == ["One", "Two", "Three"])
+    #expect(merged.annotationCount(onPage: 2) == 1)
+    let locked = try write(TestPDFs.makeProtected(userPassword: "pw", ownerPassword: "o", permissions: []))
+    #expect(throws: PDFEngineError.passwordRequired) { try PDFMerge.merge([first, locked]) }
+    #expect(throws: PDFEngineError.unreadable) { try PDFMerge.merge([first, try write(Data("x".utf8))]) }
+    #expect(throws: PDFEngineError.saveFailed) { try PDFMerge.merge([]) }
+  }
+}
+
 @Suite("Rendering")
 struct RenderingTests {
   @Test func pagesRenderAtTheRequestedSize() throws {

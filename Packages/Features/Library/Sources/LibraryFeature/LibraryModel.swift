@@ -333,6 +333,64 @@ public final class LibraryModel {
     if selection?.id == id { selection = nil }
   }
 
+  /// The documents last moved to Recently Deleted together, until the move is undone or forgotten
+  /// (FR-LIB-009).
+  public private(set) var lastDeleted: [DocumentID] = []
+
+  /// Moves several documents to Recently Deleted; `undoDelete()` puts them back.
+  public func delete(_ ids: [DocumentID]) async {
+    for id in ids { await delete(id) }
+    lastDeleted = ids
+  }
+
+  /// Puts back the documents last moved to Recently Deleted together.
+  public func undoDelete() async {
+    let ids = lastDeleted
+    lastDeleted = []
+    for id in ids { await restore(id) }
+  }
+
+  /// Forgets the last group deleted, once the chance to undo has passed.
+  public func forgetLastDeleted() {
+    lastDeleted = []
+  }
+
+  /// Marks or unmarks several documents as favourites.
+  public func setFavorite(_ isFavorite: Bool, for ids: [DocumentID]) async {
+    await perform {
+      for id in ids { try await self.library.setFavorite(isFavorite, for: id) }
+    }
+  }
+
+  /// The files of several documents, for sharing.
+  public func fileURLs(for ids: [DocumentID]) async -> [URL] {
+    var urls: [URL] = []
+    for id in ids {
+      if let url = try? await library.fileURL(for: id) { urls.append(url) }
+    }
+    return urls
+  }
+
+  /// Combines documents, in the library's order, into a new document and opens it; the originals stay.
+  public func merge(_ ids: [DocumentID]) async {
+    let ordered = documents.filter { ids.contains($0.id) }
+    guard ordered.count > 1 else { return }
+    do {
+      let urls = await fileURLs(for: ordered.map(\.id))
+      let data = try await Task.detached(priority: .userInitiated) { try PDFMerge.merge(urls) }.value
+      let title = String(localized: "\(ordered[0].title) and \(ordered.count - 1) more", bundle: .module)
+      let document = try await intake.add(data: data, title: title)
+      await reload()
+      selection = DocumentSelection(id: document.id)
+    } catch PDFEngineError.passwordRequired {
+      errorMessage = String(
+        localized: "A password-protected document can't be merged. Remove its password first. Nothing changed.",
+        bundle: .module)
+    } catch {
+      errorMessage = String(localized: "Couldn't merge those documents. Nothing changed.", bundle: .module)
+    }
+  }
+
   /// Restores a document from Recently Deleted.
   public func restore(_ id: DocumentID) async {
     await perform {

@@ -21,6 +21,10 @@ public struct LibraryView<Detail: View>: View {
   @State private var renaming: Document?
   @State private var tagging: Document?
   @State private var showingInfo: InfoSheet?
+  /// Whether the list is selecting documents to act on together (FR-LIB-009).
+  @State private var isSelecting = false
+  @State private var chosen: Set<DocumentID> = []
+  @State private var shareURLs: [URL] = []
   @State private var confirmingPermanentDelete: Document?
   @State private var newTitle = ""
   private let onScan: () -> Void
@@ -203,6 +207,20 @@ public struct LibraryView<Detail: View>: View {
       return !urls.isEmpty
     }
     .toolbar {
+      if isSelecting {
+        ToolbarItemGroup(placement: .bottomBar) { selectionActions }
+      }
+      if !model.documents.isEmpty, model.results == nil, model.section != .recentlyDeleted {
+        ToolbarItem(placement: .topBarTrailing) {
+          Button {
+            isSelecting.toggle()
+            chosen = []
+          } label: {
+            isSelecting ? Text("Done", bundle: .module) : Text("Select", bundle: .module)
+          }
+          .accessibilityIdentifier("library.select")
+        }
+      }
       if sizeClass == .compact {
         // On iPhone the sidebar is one step back, so Settings is also on the list's toolbar.
         ToolbarItem(placement: .topBarLeading) {
@@ -278,19 +296,105 @@ public struct LibraryView<Detail: View>: View {
           .padding(Spacing.s150)
           .background(.regularMaterial, in: Capsule())
           .padding(Spacing.s200)
+      } else if !model.lastDeleted.isEmpty {
+        undoBanner
       }
+    }
+    .task(id: model.lastDeleted) {
+      guard !model.lastDeleted.isEmpty else { return }
+      try? await Task.sleep(for: .seconds(8))
+      model.forgetLastDeleted()
+    }
+    .task(id: chosen) {
+      shareURLs = await model.fileURLs(for: Array(chosen))
     }
   }
 
+  /// What can be done with the chosen documents together (FR-LIB-009).
+  @ViewBuilder private var selectionActions: some View {
+    let ids = model.documents.map(\.id).filter { chosen.contains($0) }
+    ShareLink(items: shareURLs) {
+      Label {
+        Text("Share", bundle: .module)
+      } icon: {
+        Image(systemName: "square.and.arrow.up")
+      }
+    }
+    .disabled(shareURLs.isEmpty)
+    Button {
+      let allFavourite = model.documents.filter { chosen.contains($0.id) }.allSatisfy(\.isFavorite)
+      Task { await model.setFavorite(!allFavourite, for: ids) }
+    } label: {
+      Label {
+        Text("Favourite", bundle: .module)
+      } icon: {
+        Image(systemName: "star")
+      }
+    }
+    .disabled(ids.isEmpty)
+    Button {
+      Task {
+        await model.merge(ids)
+        isSelecting = false
+        chosen = []
+      }
+    } label: {
+      Label {
+        Text("Merge", bundle: .module)
+      } icon: {
+        Image(systemName: "rectangle.stack.badge.plus")
+      }
+    }
+    .disabled(ids.count < 2)
+    .accessibilityIdentifier("library.merge")
+    Button(role: .destructive) {
+      Task {
+        await model.delete(ids)
+        isSelecting = false
+        chosen = []
+      }
+    } label: {
+      Label {
+        Text("Delete", bundle: .module)
+      } icon: {
+        Image(systemName: "trash")
+      }
+    }
+    .disabled(ids.isEmpty)
+  }
+
+  /// Says what was just deleted, with Undo, for a few seconds.
+  private var undoBanner: some View {
+    HStack(spacing: Spacing.s150) {
+      Text("\(model.lastDeleted.count) moved to Recently deleted", bundle: .module).font(.callout)
+      Button {
+        Task { await model.undoDelete() }
+      } label: {
+        Text("Undo", bundle: .module).bold()
+      }
+      .accessibilityIdentifier("library.undoDelete")
+    }
+    .padding(.horizontal, Spacing.s200)
+    .padding(.vertical, Spacing.s150)
+    .background(.regularMaterial, in: Capsule())
+    .padding(Spacing.s200)
+  }
+
   private var documentList: some View {
-    List {
-      if model.showsPrimaryAction {
+    List(selection: $chosen) {
+      if !isSelecting, model.showsPrimaryAction {
         primaryActionCard.listRowSeparator(.hidden)
       }
       ForEach(model.documents) { document in
-        row(document, snippet: nil, pageIndex: nil)
+        if isSelecting {
+          DocumentRow(document: document, snippet: nil, thumbnail: { await model.thumbnail(for: document) })
+            .tag(document.id)
+        } else {
+          row(document, snippet: nil, pageIndex: nil)
+        }
       }
     }
+    .environment(\.editMode, .constant(isSelecting ? .active : .inactive))
     .listStyle(.plain)
     .accessibilityIdentifier("library.list")
   }
