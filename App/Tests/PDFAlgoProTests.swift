@@ -6,6 +6,7 @@ import DocumentStore
 import Foundation
 import LibraryFeature
 import ReaderFeature
+import SwiftUI
 import Testing
 
 @testable import PDFAlgoPro
@@ -201,5 +202,81 @@ struct FoldersTests {
     let searchValues = try folders.searchIndex.resourceValues(forKeys: [.isExcludedFromBackupKey])
     #expect(indexValues.isExcludedFromBackup == false)
     #expect(searchValues.isExcludedFromBackup == true)
+  }
+}
+
+/// A device whose owner confirms, or doesn't, as the test says.
+private final class FakeAuthenticator: DeviceAuthenticating, @unchecked Sendable {
+  var confirms = true
+  var asked = 0
+
+  func method() -> AppLockMethod? { .faceID }
+
+  func authenticate(reason: String) async -> Bool {
+    asked += 1
+    return confirms
+  }
+}
+
+@MainActor
+@Suite("App Lock")
+struct AppLockTests {
+  @Test("With App Lock on, the app starts locked, asks once, and unlocks when the owner confirms (FR-SET-002)")
+  func unlocksOnLaunch() async {
+    let device = FakeAuthenticator()
+    let lock = AppLock(authenticator: device) { true }
+    #expect(lock.isLocked && lock.showsCover)
+    await lock.scenePhaseChanged(to: .active)
+    #expect(!lock.isLocked && !lock.showsCover)
+    #expect(device.asked == 1)
+  }
+
+  @Test("A failed confirmation stays locked and doesn't ask again by itself")
+  func failedConfirmation() async {
+    let device = FakeAuthenticator()
+    device.confirms = false
+    let lock = AppLock(authenticator: device) { true }
+    await lock.scenePhaseChanged(to: .active)
+    #expect(lock.isLocked)
+    // Face ID's prompt makes the scene inactive and active again; that must not loop.
+    await lock.scenePhaseChanged(to: .inactive)
+    await lock.scenePhaseChanged(to: .active)
+    #expect(device.asked == 1)
+    device.confirms = true
+    await lock.unlock()
+    #expect(!lock.isLocked)
+  }
+
+  @Test("Going to the background locks; the app switcher only covers (H3)")
+  func backgroundLocks() async {
+    let device = FakeAuthenticator()
+    let lock = AppLock(authenticator: device) { true }
+    await lock.scenePhaseChanged(to: .active)
+    await lock.scenePhaseChanged(to: .inactive)
+    #expect(lock.showsCover && !lock.isLocked, "The switcher's snapshot shows no document")
+    await lock.scenePhaseChanged(to: .active)
+    #expect(!lock.showsCover)
+    await lock.scenePhaseChanged(to: .inactive)
+    await lock.scenePhaseChanged(to: .background)
+    #expect(lock.isLocked)
+    await lock.scenePhaseChanged(to: .active)
+    #expect(!lock.isLocked && device.asked == 2)
+  }
+
+  @Test("With App Lock off, nothing is covered or asked")
+  func off() async {
+    let device = FakeAuthenticator()
+    var enabled = false
+    let lock = AppLock(authenticator: device) { enabled }
+    await lock.scenePhaseChanged(to: .inactive)
+    await lock.scenePhaseChanged(to: .background)
+    await lock.scenePhaseChanged(to: .active)
+    #expect(!lock.showsCover && device.asked == 0)
+    enabled = true
+    await lock.scenePhaseChanged(to: .background)
+    #expect(lock.isLocked)
+    enabled = false
+    lock.settingChanged()
+    #expect(!lock.isLocked && !lock.showsCover, "Turning it off unlocks")
   }
 }

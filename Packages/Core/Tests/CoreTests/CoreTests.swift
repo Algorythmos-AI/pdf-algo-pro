@@ -246,6 +246,10 @@ struct SettingsTests {
     #expect(decodedOlder.isSpotlightTextIncluded, "Settings from before the Spotlight switch keep text in Spotlight")
     let off = AppSettings(isSpotlightTextIncluded: false)
     #expect(try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(off)) == off)
+    #expect(!decodedOlder.isAppLockEnabled, "Settings from before App Lock leave it off")
+    let locked = AppSettings(isAppLockEnabled: true)
+    #expect(try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(locked)) == locked)
+    #expect(!locked.indexesTextInSpotlight && AppSettings().indexesTextInSpotlight && !off.indexesTextInSpotlight)
   }
 }
 

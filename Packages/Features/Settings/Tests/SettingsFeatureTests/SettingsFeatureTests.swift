@@ -50,6 +50,31 @@ struct SettingsModelTests {
     #expect(model.versionsSize == 10)
   }
 
+  @Test("App Lock turns on and off only when the owner confirms (FR-SET-002)")
+  func appLock() async {
+    let store = InMemorySettingsStore()
+    let answers = Answers()
+    let model = SettingsModel(
+      store: store, diagnostics: { "" }, onChange: { _ in }, lockMethod: .faceID,
+      authenticate: { _ in answers.next() })
+    answers.values = [false]
+    await model.setAppLock(true)
+    #expect(!model.isAppLockEnabled, "Not confirmed")
+    answers.values = [true]
+    await model.setAppLock(true)
+    #expect(model.isAppLockEnabled && store.load().isAppLockEnabled)
+    #expect(!store.load().indexesTextInSpotlight, "Document text leaves Spotlight while locked (H3)")
+    answers.values = [true]
+    await model.setAppLock(false)
+    #expect(!model.isAppLockEnabled)
+
+    let noPasscode = SettingsModel(
+      store: InMemorySettingsStore(), diagnostics: { "" }, onChange: { _ in }, lockMethod: nil,
+      authenticate: { _ in true })
+    await noPasscode.setAppLock(true)
+    #expect(!noPasscode.isAppLockEnabled, "A device without a passcode can't be locked")
+  }
+
   @Test("Home intents can be changed later, keeping their order (FR-ONB-003)")
   func intents() {
     let (model, store, _) = makeModel()
@@ -111,4 +136,12 @@ private final class Changes {
 private final class Sizes {
   var value: Int64
   init(value: Int64) { self.value = value }
+}
+
+private final class Answers {
+  var values: [Bool] = []
+
+  func next() -> Bool {
+    values.isEmpty ? false : values.removeFirst()
+  }
 }

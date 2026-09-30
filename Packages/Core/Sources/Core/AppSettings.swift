@@ -22,6 +22,8 @@ public struct AppSettings: Hashable, Codable, Sendable {
   public var librarySort: LibrarySort
   /// Whether document text goes to system Spotlight as well as titles and tags (FR-LIB-005, T-11).
   public var isSpotlightTextIncluded: Bool
+  /// Whether opening the app asks for Face ID, Touch ID or the passcode (FR-SET-002).
+  public var isAppLockEnabled: Bool
 
   /// Creates settings; the defaults are what a new install starts with.
   public init(
@@ -30,7 +32,8 @@ public struct AppSettings: Hashable, Codable, Sendable {
     isIntelligenceHidden: Bool = false,
     readerDisplayMode: ReaderDisplayMode = .continuous,
     librarySort: LibrarySort = .recentlyOpened,
-    isSpotlightTextIncluded: Bool = true
+    isSpotlightTextIncluded: Bool = true,
+    isAppLockEnabled: Bool = false
   ) {
     self.hasCompletedOnboarding = hasCompletedOnboarding
     self.intents = intents
@@ -38,10 +41,15 @@ public struct AppSettings: Hashable, Codable, Sendable {
     self.readerDisplayMode = readerDisplayMode
     self.librarySort = librarySort
     self.isSpotlightTextIncluded = isSpotlightTextIncluded
+    self.isAppLockEnabled = isAppLockEnabled
   }
+
+  /// Whether document text goes to Spotlight: only when chosen, and never while App Lock is on (H3).
+  public var indexesTextInSpotlight: Bool { isSpotlightTextIncluded && !isAppLockEnabled }
 
   private enum CodingKeys: String, CodingKey {
     case hasCompletedOnboarding, intents, isIntelligenceHidden, readerDisplayMode, librarySort, isSpotlightTextIncluded
+    case isAppLockEnabled
   }
 
   /// Decodes leniently, so settings survive updates in both directions.
@@ -62,6 +70,7 @@ public struct AppSettings: Hashable, Codable, Sendable {
       value(String.self, .readerDisplayMode).flatMap(ReaderDisplayMode.init(rawValue:)) ?? defaults.readerDisplayMode
     librarySort = value(String.self, .librarySort).flatMap(LibrarySort.init(rawValue:)) ?? defaults.librarySort
     isSpotlightTextIncluded = value(Bool.self, .isSpotlightTextIncluded) ?? defaults.isSpotlightTextIncluded
+    isAppLockEnabled = value(Bool.self, .isAppLockEnabled) ?? defaults.isAppLockEnabled
   }
 }
 

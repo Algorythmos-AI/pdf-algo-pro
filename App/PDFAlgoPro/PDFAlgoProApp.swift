@@ -27,6 +27,7 @@ struct PDFAlgoProApp: App {
 /// The first screen: onboarding once, then the library with the reader beside it.
 struct RootView: View {
   @Bindable var app: AppModel
+  @Environment(\.scenePhase) private var scenePhase
 
   var body: some View {
     Group {
@@ -48,6 +49,8 @@ struct RootView: View {
         SettingsView(model: app.makeSettings(), version: app.container.version, internalTools: app.internalTools)
       }
     }
+    .background(LockWindowPresenter(lock: app.lock, method: app.lockMethod))
+    .onChange(of: scenePhase, initial: true) { _, phase in Task { await app.lock.scenePhaseChanged(to: phase) } }
     .onOpenURL { app.handle($0) }
     .onContinueUserActivity(CSSearchableItemActionType) { app.handleSpotlight($0) }
   }

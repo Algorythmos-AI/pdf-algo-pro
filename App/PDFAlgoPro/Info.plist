@@ -63,6 +63,8 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>PDF Algo Pro uses the camera only when you scan a document. Scans stay on this device.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>With App Lock on, Face ID unlocks your documents. It is checked on this device only.</string>
 	<key>NSUserActivityTypes</key>
 	<array>
 		<string>com.apple.corespotlightitem</string>
