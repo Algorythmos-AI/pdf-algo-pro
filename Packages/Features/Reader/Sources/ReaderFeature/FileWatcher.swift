@@ -5,7 +5,11 @@ import Foundation
 /// The library folder is visible in the Files app, so another app can write a document while it is
 /// open here. The watcher is registered only while the reader is in the foreground: a file presenter
 /// in a suspended app can hold up other apps' file coordination.
-final class FileWatcher: NSObject, NSFilePresenter, @unchecked Sendable {
+///
+/// It is nonisolated: file coordination reads `presentedItemURL` and `presentedItemOperationQueue`
+/// from its own threads, and in this main-actor module they would otherwise be main-actor state that
+/// the runtime refuses to read off the main thread.
+nonisolated final class FileWatcher: NSObject, NSFilePresenter, @unchecked Sendable {
   let presentedItemURL: URL?
   let presentedItemOperationQueue = OperationQueue.main
   private let onChange: @MainActor () -> Void
