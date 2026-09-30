@@ -10,6 +10,13 @@ Store notes (see the changelog strategy).
 ## [Unreleased]
 
 ### Added
+- PDF from photos: hold Import in the library and choose photos; each becomes a page, upright, in a
+  new document. No access to your photo library is needed.
+- Tools in the reader's More menu: reduce file size into a smaller copy (for email or for printing),
+  add or remove a password, share a flattened copy that nobody can change, and share the page on
+  screen as an image.
+- Organise pages: in Pages, choose Select to rotate pages, move one earlier or later, delete pages,
+  or copy them into a new document. Each change can be undone.
 - Recognising text you start carries on if you leave the app, with its progress shown by the system
   (on the Lock Screen and in the Dynamic Island); you can cancel it from there.
 - The native iOS foundation app: onboarding with AI-first options, a library in the Files-visible

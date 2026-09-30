@@ -146,6 +146,95 @@ struct ReaderModelTests {
     #expect(reader.phase == .ready)
   }
 
+  @Test("Pages rotate, move, delete and copy out from the page grid, each saved (FR-ORG-001)")
+  func organisePages() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.make(pages: ["One", "Two", "Three"]), title: "Report")
+    let reader = harness.reader(for: document)
+    await reader.load()
+    let url = try await harness.library.fileURL(for: document.id)
+    func titles() throws -> [String] {
+      try PDFDocumentController(url: url).pageTexts().map { $0.text.trimmingCharacters(in: .whitespacesAndNewlines) }
+    }
+    #expect(reader.allowsOrganizing)
+    await reader.rotatePages([0], clockwise: true)
+    #expect(try PDFDocumentController(url: url).document.page(at: 0)?.rotation == 90)
+    #expect(await reader.movePage(2, earlier: true) == 1)
+    #expect(try titles() == ["One", "Three", "Two"])
+    #expect(await reader.movePage(0, earlier: true) == nil, "The first page can't move earlier")
+    await reader.deletePages([0, 1, 2])
+    #expect(reader.errorMessage != nil && reader.controller?.pageCount == 3, "At least one page stays")
+    reader.errorMessage = nil
+    await reader.deletePages([1])
+    #expect(try titles() == ["One", "Two"])
+    await reader.extractPages([1])
+    #expect(reader.notice != nil)
+    #expect(try await harness.library.documents(in: .all, sortedBy: .title).map(\.title).contains("Report (pages)"))
+    #expect(reader.canUndo)
+  }
+
+  @Test("Tools share a flattened copy and a page image, and reduce size into a copy or say it's small")
+  func tools() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.makeSample(), title: "Invoice")
+    let reader = harness.reader(for: document)
+    await reader.load()
+    await reader.shareFlattened()
+    let flat = try #require(reader.sharing?.url)
+    #expect(flat.lastPathComponent == "Invoice (flattened).pdf")
+    #expect(try PDFDocumentController(url: flat).pageCount == 3)
+    await reader.sharePageImage()
+    #expect(reader.sharing?.url.pathExtension == "png" && reader.sharing?.url != flat)
+
+    await reader.reduceSize(.email)
+    #expect(reader.notice != nil && reader.errorMessage == nil, "A small text document says so, or makes a copy")
+    let titles = try await harness.library.documents(in: .all, sortedBy: .title).map(\.title)
+    #expect(titles.allSatisfy { $0 == "Invoice" || $0 == "Invoice (smaller)" })
+  }
+
+  @Test("A password is added and removed from the reader, and the file follows (FR-EDIT-006)")
+  func passwordTools() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.makeSample())
+    let reader = harness.reader(for: document)
+    await reader.load()
+    let url = try await harness.library.fileURL(for: document.id)
+    #expect(!reader.isPasswordProtected)
+    await reader.removePassword()
+    #expect(reader.errorMessage != nil, "Nothing to remove")
+    reader.errorMessage = nil
+    await reader.setPassword("secret")
+    #expect(reader.isPasswordProtected && reader.notice != nil)
+    #expect(try PDFDocumentController(url: url).isLocked)
+    #expect(reader.canRemovePassword)
+    await reader.removePassword()
+    #expect(!reader.isPasswordProtected)
+    #expect(try !PDFDocumentController(url: url).isLocked)
+  }
+
+  @Test("A document whose author forbids changing its pages says so")
+  func organiseRestricted() async throws {
+    let harness = Harness()
+    let document = await harness.seed(
+      try TestPDFs.makeProtected(userPassword: nil, ownerPassword: "owner-pw", permissions: []))
+    let reader = harness.reader(for: document)
+    await reader.load()
+    #expect(!reader.allowsOrganizing)
+    await reader.deletePages([0])
+    #expect(reader.errorMessage != nil)
+  }
+
+  @Test("The page grid draws while selecting, at a large text size")
+  func pageGridDraws() async throws {
+    let harness = Harness()
+    let reader = harness.reader(for: await harness.seed(try SyntheticPDF.makeSample()))
+    await reader.load()
+    let view = PageGrid(model: reader, isSelecting: true, selection: .constant([1])).frame(width: 390, height: 800)
+      .environment(\.dynamicTypeSize, .accessibility3)
+    #expect(ImageRenderer(content: view).uiImage != nil)
+    #expect(ImageRenderer(content: PageGridSheet(model: reader).frame(width: 390, height: 800)).uiImage != nil)
+  }
+
   @Test("Notes and markup save automatically and can be undone (FR-ANN-001, FR-EDIT-007)")
   func annotations() async throws {
     let harness = Harness()

@@ -66,7 +66,9 @@ public final class PDFDocumentController {
   @ObservationIgnored var onInk: (@MainActor () -> Void)?
   @ObservationIgnored private var pendingPageIndex: Int?
   @ObservationIgnored var password: String?
-  @ObservationIgnored let wasEncrypted: Bool
+  @ObservationIgnored var wasEncrypted: Bool
+  /// A password change waiting for the next save (FR-EDIT-006).
+  @ObservationIgnored var pendingProtection: ProtectionChange?
   /// Form fields and their values when the document was opened, unlocked or last saved.
   @ObservationIgnored var formValues: [(widget: PDFAnnotation, value: FormValue)] = []
   /// Undo for every annotation change (FR-EDIT-007).

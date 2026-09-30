@@ -57,6 +57,8 @@ public final class ReaderModel {
   private var isPreparingRecognition = false
   /// A message for the last failed action.
   public var errorMessage: String?
+  /// A notice that an action did something other than the obvious, such as making a new document.
+  public var notice: String?
   /// The assistant sheet, when open.
   public var assistantTask: AssistantTask?
   /// A citation to open once the assistant sheet has finished closing.
@@ -264,6 +266,67 @@ public final class ReaderModel {
     }
   }
 
+  // MARK: - Organising pages (FR-ORG-001)
+
+  /// Whether the document's author allows its pages to be organised.
+  public var allowsOrganizing: Bool { controller?.allowsOrganizing ?? false }
+
+  /// Rotates pages by 90 degrees, clockwise or not, and saves.
+  public func rotatePages(_ pages: IndexSet, clockwise: Bool) async {
+    guard let controller, checkOrganizingIsAllowed(controller) else { return }
+    guard controller.rotatePages(pages, by: clockwise ? 90 : -90) else { return }
+    await pagesChanged()
+  }
+
+  /// Deletes pages and saves; at least one page always stays.
+  public func deletePages(_ pages: IndexSet) async {
+    guard let controller, checkOrganizingIsAllowed(controller) else { return }
+    guard controller.deletePages(pages) else {
+      errorMessage = String(localized: "A document needs at least one page.", bundle: .module)
+      return
+    }
+    await pagesChanged()
+  }
+
+  /// Moves a page one place earlier or later and saves.
+  ///
+  /// - Returns: The page's new position, or `nil` when it couldn't move.
+  @discardableResult
+  public func movePage(_ page: Int, earlier: Bool) async -> Int? {
+    guard let controller, checkOrganizingIsAllowed(controller) else { return nil }
+    let target = earlier ? page - 1 : page + 1
+    guard controller.movePage(from: page, to: target) else { return nil }
+    await pagesChanged()
+    return target
+  }
+
+  /// Copies pages into a new document in the library; this document is unchanged.
+  public func extractPages(_ pages: IndexSet) async {
+    guard let controller, checkOrganizingIsAllowed(controller) else { return }
+    do {
+      let data = try controller.extractPages(pages)
+      let title = document?.title ?? ""
+      let copy = try await intake.add(data: data, title: String(localized: "\(title) (pages)", bundle: .module))
+      notice = String(localized: "The pages are in a new document, “\(copy.title)”.", bundle: .module)
+    } catch {
+      errorMessage = String(localized: "Couldn't copy those pages. The document hasn't changed.", bundle: .module)
+    }
+  }
+
+  private func pagesChanged() async {
+    updateUndoState()
+    await save()
+  }
+
+  private func checkOrganizingIsAllowed(_ controller: PDFDocumentController) -> Bool {
+    guard controller.allowsOrganizing else {
+      errorMessage = String(localized: "This document's author doesn't allow its pages to be changed.", bundle: .module)
+      return false
+    }
+    return true
+  }
+
+  // MARK: - Editing annotations
   // MARK: - Editing annotations
 
   /// The annotation the person selected on the page, if any (F3, FR-ANN-002).
@@ -470,6 +533,102 @@ public final class ReaderModel {
     sharing = SharedFile(url: url, allowsPrinting: allowsPrinting)
   }
 
+  // MARK: - Tools (FR-ORG-004, FR-ORG-006, FR-ORG-007, FR-EDIT-006)
+
+  /// Whether "Add a password" is asking for the password.
+  public var isAddingPassword = false
+  /// Whether "Remove password" is asking for confirmation.
+  public var confirmsPasswordRemoval = false
+  /// Whether a password protects the document.
+  public var isPasswordProtected: Bool { controller?.isPasswordProtected ?? false }
+  /// Whether the password can be removed (opened with the owner password).
+  public var canRemovePassword: Bool { controller?.canRemovePassword ?? false }
+
+  /// Shares a copy with notes, markup and form entries drawn into the pages, so nobody can change them.
+  public func shareFlattened() async {
+    guard let controller, await save() else { return }
+    do {
+      let url = try Self.shareableFile(
+        controller.flattenedData(),
+        named: String(localized: "\(document?.title ?? "") (flattened)", bundle: .module), extension: "pdf")
+      sharing = SharedFile(url: url, allowsPrinting: allowsPrinting)
+    } catch {
+      errorMessage = String(localized: "Couldn't make a flattened copy. The document hasn't changed.", bundle: .module)
+    }
+  }
+
+  /// Shares the page on screen as a PNG image, with its notes and markup.
+  public func sharePageImage() async {
+    guard let controller else { return }
+    do {
+      let page = controller.currentPageIndex
+      let url = try Self.shareableFile(
+        controller.imageData(ofPage: page, format: .png),
+        named: String(localized: "\(document?.title ?? "") page \(page + 1)", bundle: .module), extension: "png")
+      sharing = SharedFile(url: url, allowsPrinting: allowsPrinting)
+    } catch {
+      errorMessage = String(localized: "Couldn't make an image of this page.", bundle: .module)
+    }
+  }
+
+  /// Saves a smaller copy of the document in the library, or says it is already about as small as
+  /// it gets; the document itself is unchanged (FR-ORG-004).
+  public func reduceSize(_ preset: PDFDocumentController.CompressionPreset) async {
+    guard let controller, await save(), let fileURL else { return }
+    do {
+      let original = (try? fileURL.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? .max
+      guard let data = try controller.compressed(preset, comparedTo: original) else {
+        notice = String(localized: "This document is already about as small as it gets.", bundle: .module)
+        return
+      }
+      let title = document?.title ?? ""
+      let copy = try await intake.add(data: data, title: String(localized: "\(title) (smaller)", bundle: .module))
+      let before = original.formatted(.byteCount(style: .file))
+      let after = data.count.formatted(.byteCount(style: .file))
+      notice = String(localized: "Saved a smaller copy, “\(copy.title)”: \(before) down to \(after).", bundle: .module)
+    } catch PDFEngineError.restricted {
+      errorMessage = Self.restrictedMessage
+    } catch {
+      errorMessage = String(localized: "Couldn't make a smaller copy. The document hasn't changed.", bundle: .module)
+    }
+  }
+
+  /// Protects the document with a password and saves (FR-EDIT-006).
+  public func setPassword(_ password: String) async {
+    guard let controller else { return }
+    guard controller.setPassword(password) else {
+      errorMessage = String(
+        localized: "This document's author doesn't allow its password to be changed.", bundle: .module)
+      return
+    }
+    if await save() {
+      notice = String(localized: "The document now needs its password to open.", bundle: .module)
+    }
+  }
+
+  /// Removes the password and every restriction, and saves (FR-EDIT-006).
+  public func removePassword() async {
+    guard let controller, controller.removePassword() else {
+      errorMessage = String(
+        localized: "Only the document's owner password can remove its protection.", bundle: .module)
+      return
+    }
+    if await save() {
+      notice = String(localized: "The document no longer needs a password.", bundle: .module)
+    }
+  }
+
+  /// A file to share, under a readable name, in a folder of its own in the temporary directory.
+  static func shareableFile(_ data: Data, named name: String, extension ext: String) throws -> URL {
+    let folder = FileManager.default.temporaryDirectory.appendingPathComponent("Share-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    let safe = name.components(separatedBy: CharacterSet(charactersIn: "/\\:")).joined(separator: "-")
+    let url = folder.appendingPathComponent(safe.isEmpty ? "Document" : safe).appendingPathExtension(ext)
+    try data.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+    return url
+  }
+
+  // MARK: - Recognition
   // MARK: - Recognition
 
   /// Whether the document has pages with no text, so recognition can help (FR-SCAN-003).

@@ -8,6 +8,7 @@ import UIKit
 ///
 /// Chrome recedes so the document is the interface (design system, principle 2).
 public struct ReaderView<Assistant: View>: View {
+  @State private var newPassword = ""
   @State private var model: ReaderModel
   @State private var password = ""
   @State private var noteText = ""
@@ -112,6 +113,49 @@ public struct ReaderView<Assistant: View>: View {
       } message: {
         Text(
           "Changes since the last save are replaced. You can switch back the same way.", bundle: .module)
+      }
+      .alert(Text("Add a password", bundle: .module), isPresented: $model.isAddingPassword) {
+        SecureField(text: $newPassword) { Text("Password", bundle: .module) }
+          .accessibilityIdentifier("reader.newPassword")
+        Button {
+          let password = newPassword
+          newPassword = ""
+          Task { await model.setPassword(password) }
+        } label: {
+          Text("Add", bundle: .module)
+        }
+        .disabled(newPassword.isEmpty)
+        Button(role: .cancel) {
+          newPassword = ""
+        } label: {
+          Text("Cancel", bundle: .module)
+        }
+      } message: {
+        Text(
+          "Anyone opening the document will need this password. Keep it somewhere safe: it can't be recovered.",
+          bundle: .module)
+      }
+      .confirmationDialog(
+        Text("Remove the password?", bundle: .module), isPresented: $model.confirmsPasswordRemoval,
+        titleVisibility: .visible
+      ) {
+        Button(role: .destructive) {
+          Task { await model.removePassword() }
+        } label: {
+          Text("Remove password", bundle: .module)
+        }
+      } message: {
+        Text("Anyone with the file will be able to open it, print it and copy from it.", bundle: .module)
+      }
+      .alert(
+        Text(model.notice ?? ""),
+        isPresented: Binding(get: { model.notice != nil }, set: { if !$0 { model.notice = nil } })
+      ) {
+        Button {
+          model.notice = nil
+        } label: {
+          Text("OK", bundle: .module)
+        }
       }
       .alert(
         Text("Something went wrong", bundle: .module),
