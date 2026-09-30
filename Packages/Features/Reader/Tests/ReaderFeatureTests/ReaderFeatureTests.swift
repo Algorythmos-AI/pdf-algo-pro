@@ -713,7 +713,14 @@ struct ReaderModelTests {
     let reader = harness.reader(for: await harness.seed(try SyntheticPDF.makeSample()))
     await reader.load()
     #expect(reader.annotationSummaries.isEmpty)
+    func draws() -> Bool {
+      let sheet = AnnotationListSheet(model: reader).frame(width: 390, height: 700)
+        .environment(\.dynamicTypeSize, .accessibility3)
+      return ImageRenderer(content: sheet).uiImage != nil
+    }
+    #expect(draws(), "The empty list draws")
     await reader.addTextBox("Check the total")
+    #expect(draws(), "The list with an annotation draws")
     #expect(reader.annotationSummaries.map(\.kind) == [.textBox])
     let text = reader.annotationsText()
     #expect(text.contains("Page 1") && text.contains("Text box: Check the total"))
