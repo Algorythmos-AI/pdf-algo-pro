@@ -7,6 +7,13 @@ import XCTest
 /// top-level screen passes an accessibility audit (NFR-A11Y-001). Journeys live in one file per feature.
 @MainActor
 class UITestCase: XCTestCase {
+  /// How long a journey waits for an AI result (an answer, "not found", or unavailability).
+  ///
+  /// The scripted router answers at once, but on a loaded runner the sheet, the keyboard and each
+  /// accessibility query over a page's text can take seconds; an answer arrived after a 10-second wait
+  /// (issue #81). A real regression still fails, only later.
+  static let answerTimeout: TimeInterval = 30
+
   func launch(_ arguments: [String]) -> XCUIApplication {
     continueAfterFailure = false
     let app = XCUIApplication()

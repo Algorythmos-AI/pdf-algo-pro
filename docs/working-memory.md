@@ -26,6 +26,7 @@ building it are PAP-031 and PAP-032. The readiness gate is still **NOT READY** f
 | TestFlight readiness ([#47](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/47)) | Validation build installed; open: #75 (AI evaluation), then the evaluation screen, performance, background OCR, French and snapshot tests | Stop the line first (#76); then one pull request at a time; the owner gives the go for build 1 |
 | Flaky accessibility audit ([#44](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/44)) | Quarantined (#45) | Root cause and remove the quarantine by 2026-10-06 |
 | Flaky large-text audits and Markup menu tap ([#76](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/76)) | Stricter still-screen wait; bar-button contrast quarantined | Five green runs, then remove the quarantine if possible, by 2026-10-07 |
+| Flaky assistant answer wait ([#81](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/81)) | Answer waits raised to 30 s (`UITestCase.answerTimeout`) | Five green runs, then close, by 2026-10-07 |
 | Organisation catalog entry | Catalog entry pending owner review | Owner review and merge |
 | Backlog issues | 36 issues synced from `docs/planning/backlog.yaml`, on the project board | Owner creates the project views and built-in workflows in the web interface |
 | Xcode Cloud Staging workflow (readiness M5) | Configured (manual start, internal only, Xcode 26.6); the validation build archived and installed | Nightly after build 1 (PAP-031); Release workflow before V1 |
