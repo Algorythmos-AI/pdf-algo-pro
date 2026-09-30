@@ -217,6 +217,67 @@ struct ReaderToolbar: ToolbarContent {
               Image(systemName: "list.bullet.indent")
             }
           }
+          Section {
+            Menu {
+              Button {
+                Task { await model.reduceSize(.email) }
+              } label: {
+                Text("Smallest, for email", bundle: .module)
+              }
+              Button {
+                Task { await model.reduceSize(.balanced) }
+              } label: {
+                Text("Balanced, for printing", bundle: .module)
+              }
+            } label: {
+              Label {
+                Text("Reduce file size", bundle: .module)
+              } icon: {
+                Image(systemName: "arrow.down.right.and.arrow.up.left")
+              }
+            }
+            if model.isPasswordProtected {
+              if model.canRemovePassword {
+                Button {
+                  model.confirmsPasswordRemoval = true
+                } label: {
+                  Label {
+                    Text("Remove password", bundle: .module)
+                  } icon: {
+                    Image(systemName: "lock.open")
+                  }
+                }
+              }
+            } else {
+              Button {
+                model.isAddingPassword = true
+              } label: {
+                Label {
+                  Text("Add a password", bundle: .module)
+                } icon: {
+                  Image(systemName: "lock")
+                }
+              }
+            }
+            Button {
+              Task { await model.shareFlattened() }
+            } label: {
+              Label {
+                Text("Share a flattened copy", bundle: .module)
+              } icon: {
+                Image(systemName: "square.stack.3d.down.forward")
+              }
+            }
+            Button {
+              Task { await model.sharePageImage() }
+            } label: {
+              Label {
+                Text("Share this page as an image", bundle: .module)
+              } icon: {
+                Image(systemName: "photo")
+              }
+            }
+          }
           Picker(
             selection: Binding(get: { model.controller?.displayMode ?? .continuous }, set: { model.setDisplayMode($0) })
           ) {
