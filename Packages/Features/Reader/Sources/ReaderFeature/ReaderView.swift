@@ -114,6 +114,16 @@ public struct ReaderView<Assistant: View>: View {
           "Changes since the last save are replaced. You can switch back the same way.", bundle: .module)
       }
       .alert(
+        Text(model.notice ?? ""),
+        isPresented: Binding(get: { model.notice != nil }, set: { if !$0 { model.notice = nil } })
+      ) {
+        Button {
+          model.notice = nil
+        } label: {
+          Text("OK", bundle: .module)
+        }
+      }
+      .alert(
         Text("Something went wrong", bundle: .module),
         isPresented: Binding(get: { model.errorMessage != nil }, set: { if !$0 { model.errorMessage = nil } })
       ) {

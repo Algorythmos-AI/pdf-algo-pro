@@ -43,14 +43,21 @@ struct OutlineSheet: View {
   }
 }
 
-/// The page grid in its own navigation stack, with a Done button.
+/// The page grid in its own navigation stack, with a Done button and, where the author allows it,
+/// Select for organising pages (FR-ORG-001).
 struct PageGridSheet: View {
   let model: ReaderModel
+  @State private var isSelecting = false
+  @State private var selection: IndexSet = []
 
   var body: some View {
     NavigationStack {
-      PageGrid(model: model)
-        .navigationTitle(Text("Pages", bundle: .module))
+      PageGrid(model: model, isSelecting: isSelecting, selection: $selection)
+        .navigationTitle(
+          isSelecting && !selection.isEmpty
+            ? Text("\(selection.count) selected", bundle: .module) : Text("Pages", bundle: .module)
+        )
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
           ToolbarItem(placement: .confirmationAction) {
             Button {
@@ -59,30 +66,149 @@ struct PageGridSheet: View {
               Text("Done", bundle: .module)
             }
           }
+          if model.allowsOrganizing {
+            ToolbarItem(placement: .topBarLeading) {
+              Button {
+                isSelecting.toggle()
+                selection = []
+              } label: {
+                isSelecting ? Text("Cancel", bundle: .module) : Text("Select", bundle: .module)
+              }
+              .accessibilityIdentifier("pages.select")
+            }
+          }
+          if isSelecting {
+            ToolbarItemGroup(placement: .bottomBar) { actions }
+          }
         }
+    }
+  }
+
+  @ViewBuilder private var actions: some View {
+    let none = selection.isEmpty
+    Button {
+      Task { await model.rotatePages(selection, clockwise: false) }
+    } label: {
+      Label {
+        Text("Rotate left", bundle: .module)
+      } icon: {
+        Image(systemName: "rotate.left")
+      }
+    }
+    .disabled(none)
+    Button {
+      Task { await model.rotatePages(selection, clockwise: true) }
+    } label: {
+      Label {
+        Text("Rotate right", bundle: .module)
+      } icon: {
+        Image(systemName: "rotate.right")
+      }
+    }
+    .disabled(none)
+    Button {
+      move(earlier: true)
+    } label: {
+      Label {
+        Text("Move earlier", bundle: .module)
+      } icon: {
+        Image(systemName: "arrow.left")
+      }
+    }
+    .disabled(selection.count != 1 || selection.first == 0)
+    Button {
+      move(earlier: false)
+    } label: {
+      Label {
+        Text("Move later", bundle: .module)
+      } icon: {
+        Image(systemName: "arrow.right")
+      }
+    }
+    .disabled(selection.count != 1 || selection.first == (model.controller?.pageCount ?? 1) - 1)
+    Menu {
+      Button {
+        Task { await model.extractPages(selection) }
+      } label: {
+        Label {
+          Text("Copy to a new document", bundle: .module)
+        } icon: {
+          Image(systemName: "doc.on.doc")
+        }
+      }
+      Button(role: .destructive) {
+        let pages = selection
+        selection = []
+        Task { await model.deletePages(pages) }
+      } label: {
+        Label {
+          Text("Delete pages", bundle: .module)
+        } icon: {
+          Image(systemName: "trash")
+        }
+      }
+    } label: {
+      Label {
+        Text("More", bundle: .module)
+      } icon: {
+        Image(systemName: "ellipsis.circle")
+      }
+    }
+    .disabled(none)
+    .accessibilityIdentifier("pages.more")
+  }
+
+  private func move(earlier: Bool) {
+    guard let page = selection.first else { return }
+    Task {
+      if let moved = await model.movePage(page, earlier: earlier) { selection = [moved] }
     }
   }
 }
 
-/// A grid of page thumbnails; tapping one jumps to it (FR-READ-002).
+/// A grid of page thumbnails: tapping one jumps to it (FR-READ-002), or, while selecting, selects it.
 struct PageGrid: View {
   let model: ReaderModel
+  var isSelecting = false
+  @Binding var selection: IndexSet
   private let thumbnails = ThumbnailCache()
+
+  init(model: ReaderModel, isSelecting: Bool = false, selection: Binding<IndexSet> = .constant([])) {
+    self.model = model
+    self.isSelecting = isSelecting
+    _selection = selection
+  }
 
   var body: some View {
     ScrollView {
       LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: Spacing.s200)], spacing: Spacing.s200) {
         ForEach(0..<(model.controller?.pageCount ?? 0), id: \.self) { pageIndex in
+          let isSelected = selection.contains(pageIndex)
           Button {
-            model.openAfterClosingSheets(pageIndex: pageIndex)
+            if isSelecting {
+              if isSelected { selection.remove(pageIndex) } else { selection.insert(pageIndex) }
+            } else {
+              model.openAfterClosingSheets(pageIndex: pageIndex)
+            }
           } label: {
             PageThumbnail(
               pageIndex: pageIndex, url: model.fileURL, version: model.document?.modifiedAt ?? .distantPast,
               cache: thumbnails,
-              isCurrent: model.controller?.currentPageIndex == pageIndex)
+              isCurrent: isSelecting ? isSelected : model.controller?.currentPageIndex == pageIndex
+            )
+            .overlay(alignment: .topTrailing) {
+              if isSelecting {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                  .font(.title3).foregroundStyle(isSelected ? Color.ds.brandTint : Color.ds.labelSecondary)
+                  .background(Circle().fill(Color.ds.backgroundPrimary))
+                  .padding(Spacing.s050)
+                  .accessibilityHidden(true)
+              }
+            }
           }
           .buttonStyle(.plain)
           .accessibilityLabel(Text("Page \(pageIndex + 1)", bundle: .module))
+          .accessibilityAddTraits(isSelecting && isSelected ? .isSelected : [])
         }
       }
       .padding(Spacing.s200)
@@ -111,7 +237,8 @@ private struct PageThumbnail: View {
       .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(isCurrent ? Color.ds.brandTint : .clear, lineWidth: 2))
       Text("\(pageIndex + 1)").font(.caption.monospacedDigit())
     }
-    .task(id: url) {
+    // Keyed by the file's version too, so pages redraw after they are rotated, moved or deleted.
+    .task(id: "\(url?.path ?? "")|\(version.timeIntervalSince1970)") {
       guard let url else { return }
       image = await cache.thumbnail(for: url, pageIndex: pageIndex, version: version, maximumPixelSize: 256)
     }

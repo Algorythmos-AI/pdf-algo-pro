@@ -10,6 +10,8 @@ Store notes (see the changelog strategy).
 ## [Unreleased]
 
 ### Added
+- Organise pages: in Pages, choose Select to rotate pages, move one earlier or later, delete pages,
+  or copy them into a new document. Each change can be undone.
 - Recognising text you start carries on if you leave the app, with its progress shown by the system
   (on the Lock Screen and in the Dynamic Island); you can cancel it from there.
 - The native iOS foundation app: onboarding with AI-first options, a library in the Files-visible
