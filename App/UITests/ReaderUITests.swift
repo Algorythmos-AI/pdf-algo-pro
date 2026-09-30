@@ -49,8 +49,8 @@ final class ReaderUITests: UITestCase {
     XCTAssertTrue(done.waitForExistence(timeout: 5), "Drawing mode shows Done (F2a)")
     let area = app.descendants(matching: .any)["reader.drawing"].firstMatch
     XCTAssertTrue(area.waitForExistence(timeout: 5))
-    area.coordinate(withNormalizedOffset: CGVector(dx: 0.3, dy: 0.4))
-      .press(forDuration: 0.1, thenDragTo: area.coordinate(withNormalizedOffset: CGVector(dx: 0.7, dy: 0.5)))
+    point(0.3, 0.4, in: area, of: app)
+      .press(forDuration: 0.1, thenDragTo: point(0.7, 0.5, in: area, of: app))
     done.tap()
     markup.tap()
     let undo = app.buttons["Undo"]
@@ -88,8 +88,8 @@ final class ReaderUITests: UITestCase {
     app.buttons["Rectangle"].tap()
     let area = app.descendants(matching: .any)["reader.drawing"].firstMatch
     XCTAssertTrue(area.waitForExistence(timeout: 5), "Shapes are drawn like ink (F2b)")
-    area.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.3))
-      .press(forDuration: 0.1, thenDragTo: area.coordinate(withNormalizedOffset: CGVector(dx: 0.7, dy: 0.45)))
+    point(0.25, 0.3, in: area, of: app)
+      .press(forDuration: 0.1, thenDragTo: point(0.7, 0.45, in: area, of: app))
     app.buttons["reader.doneDrawing"].tap()
     markup.tap()
     app.buttons["Text box"].tap()
@@ -111,11 +111,11 @@ final class ReaderUITests: UITestCase {
     app.buttons["Draw"].tap()
     let area = app.descendants(matching: .any)["reader.drawing"].firstMatch
     XCTAssertTrue(area.waitForExistence(timeout: 5))
-    area.coordinate(withNormalizedOffset: CGVector(dx: 0.3, dy: 0.4))
-      .press(forDuration: 0.1, thenDragTo: area.coordinate(withNormalizedOffset: CGVector(dx: 0.7, dy: 0.44)))
+    point(0.3, 0.4, in: area, of: app)
+      .press(forDuration: 0.1, thenDragTo: point(0.7, 0.44, in: area, of: app))
     app.buttons["reader.doneDrawing"].tap()
     let pages = app.descendants(matching: .any)["reader.pages"].firstMatch
-    pages.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.42)).tap()
+    point(0.5, 0.42, in: pages, of: app).tap()
     let bar = app.descendants(matching: .any)["reader.selection.actionBar"].firstMatch
     XCTAssertTrue(bar.waitForExistence(timeout: 5), "Tapping the drawing selects it (F3)")
     try audit(app)

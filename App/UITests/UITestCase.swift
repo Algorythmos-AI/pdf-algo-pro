@@ -15,6 +15,34 @@ class UITestCase: XCTestCase {
     return app
   }
 
+  /// A point in an element, as a coordinate relative to the app.
+  ///
+  /// The element's frame is read once. A coordinate relative to the element looks the element up again
+  /// for every event of a gesture, which on a busy runner takes seconds, because a page's text makes the
+  /// accessibility tree large, and stretched a drag until it drew nothing (issue #68).
+  func point(_ dx: CGFloat, _ dy: CGFloat, in element: XCUIElement, of app: XCUIApplication) -> XCUICoordinate {
+    let frame = element.frame
+    return app.coordinate(withNormalizedOffset: .zero)
+      .withOffset(CGVector(dx: frame.minX + frame.width * dx, dy: frame.minY + frame.height * dy))
+  }
+
+  /// Waits, for up to four seconds, until two screenshots taken a quarter of a second apart match.
+  ///
+  /// An element exists before it has finished appearing: at launch the system cross-fades from the
+  /// launch screen, and a sheet slides in. An audit taken then measures half-drawn text (issue
+  /// #69). A screen that never stops changing, such as one with a blinking caret, is audited
+  /// after the four seconds.
+  private func waitUntilStill(_ app: XCUIApplication) {
+    var previous = app.screenshot().pngRepresentation
+    let deadline = Date().addingTimeInterval(4)
+    while Date() < deadline {
+      Thread.sleep(forTimeInterval: 0.25)
+      let current = app.screenshot().pngRepresentation
+      if current == previous { return }
+      previous = current
+    }
+  }
+
   /// The accessibility audit on the current screen.
   ///
   /// Four kinds of finding are excluded narrowly:
@@ -42,6 +70,7 @@ class UITestCase: XCTestCase {
   /// Quarantined (issue #53, flaky): the audit itself sometimes gives up with "Audit failed to complete in
   /// time" on a loaded runner. That timeout is recorded the same way; the journey goes on.
   func audit(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) throws {
+    waitUntilStill(app)
     let bars =
       app.navigationBars.allElementsBoundByIndex.map(\.frame) + app.toolbars.allElementsBoundByIndex.map(\.frame)
     let actionBars = app.descendants(matching: .any)
