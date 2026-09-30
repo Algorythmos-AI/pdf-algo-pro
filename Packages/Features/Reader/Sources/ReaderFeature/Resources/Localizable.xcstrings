@@ -185,6 +185,16 @@
         }
       }
     },
+    "Annotations" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annotations"
+          }
+        }
+      }
+    },
     "Anyone opening the document will need this password. Keep it somewhere safe: it can't be recovered." : {
       "localizations" : {
         "fr" : {
@@ -655,6 +665,16 @@
         }
       }
     },
+    "Highlights, notes, drawings and signatures you add appear here." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les surlignages, notes, dessins et signatures que vous ajoutez apparaissent ici."
+          }
+        }
+      }
+    },
     "Initials, Paid, Received…" : {
       "localizations" : {
         "fr" : {
@@ -781,6 +801,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Déplacer vers le haut"
+          }
+        }
+      }
+    },
+    "No annotations yet" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucune annotation"
           }
         }
       }
@@ -1221,6 +1251,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Partager une copie aplatie"
+          }
+        }
+      }
+    },
+    "Share as text" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Partager en texte"
           }
         }
       }

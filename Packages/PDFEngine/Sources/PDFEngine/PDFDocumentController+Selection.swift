@@ -39,7 +39,57 @@ public struct AnnotationSelection: Equatable, Sendable {
   public var isTextEditable: Bool { kind == .note || kind == .textBox }
 }
 
+/// One annotation in the document's list of annotations (FR-ANN-003).
+public struct AnnotationSummary: Identifiable, Equatable, Sendable {
+  /// Its position in the list, stable while the document is unchanged.
+  public let id: Int
+  /// What kind of annotation it is.
+  public let kind: AnnotationSelection.Kind
+  /// The zero-based page it is on.
+  public let pageIndex: Int
+  /// Its text: what a note or text box says, or the words a highlight, underline or strike-through marks.
+  public let text: String?
+  /// Whether it is a placed signature.
+  public let isSignature: Bool
+
+  /// Creates a summary.
+  public init(id: Int, kind: AnnotationSelection.Kind, pageIndex: Int, text: String?, isSignature: Bool) {
+    self.id = id
+    self.kind = kind
+    self.pageIndex = pageIndex
+    self.text = text
+    self.isSignature = isSignature
+  }
+}
+
 extension PDFDocumentController {
+  /// Every annotation a person can see and select, in page order and top to bottom on each page (FR-ANN-003).
+  public func annotationSummaries() -> [AnnotationSummary] {
+    var summaries: [AnnotationSummary] = []
+    for pageIndex in 0..<document.pageCount {
+      guard let page = document.page(at: pageIndex) else { continue }
+      let annotations = page.annotations.filter(Self.isSelectable).sorted { $0.bounds.maxY > $1.bounds.maxY }
+      for annotation in annotations {
+        let kind = Self.kind(of: annotation)
+        let text: String?
+        switch kind {
+        case .highlight, .underline, .strikeThrough:
+          text = page.selection(for: annotation.bounds)?.string
+        case .ink:
+          text = nil
+        default:
+          text = annotation.contents
+        }
+        let trimmed = text?.trimmingCharacters(in: .whitespacesAndNewlines)
+        summaries.append(
+          AnnotationSummary(
+            id: summaries.count, kind: kind, pageIndex: pageIndex, text: trimmed?.isEmpty == false ? trimmed : nil,
+            isSignature: kind == .ink && annotation.contents == Self.signatureContents))
+      }
+    }
+    return summaries
+  }
+
   /// Selects the topmost annotation at a point in page space.
   ///
   /// Clears the selection when there is none, and returns whether one was selected. Form fields, links and pop-ups are not selectable: they are part of how the document works, not
