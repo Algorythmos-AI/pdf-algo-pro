@@ -240,6 +240,13 @@ struct ReaderScreen: View {
 - Use `await` on a main-actor function instead of `MainActor.run`; never `DispatchQueue.main`.
 - `MainActor.assumeIsolated` only inside adapters where the framework documents a main-thread
   callback.
+- In a main-actor-by-default package, declare `nonisolated` any type that a system framework calls
+  from its own threads: `NSFilePresenter`, `Transferable` export and similar delegates and
+  providers. Their properties and methods would otherwise be main-actor isolated. The compiler
+  accepts the conformance, and the runtime isolation check then stops the app when the framework
+  calls from another thread. That happened with the reader's file watcher (#101): file coordination
+  read `presentedItemURL` off the main thread. A unit test that drives the callback from another
+  thread catches this; typechecking does not.
 
 ### Decision: default isolation per package
 
