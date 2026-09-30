@@ -937,7 +937,9 @@ private final class ProgressLog: @unchecked Sendable {
 }
 
 @MainActor
-@Suite("Golden corpus")
+/// Serialized: the cases share the main actor, and the large round trips (500 and 1,000 pages) would
+/// otherwise hold it while the malformed cases' time limits run (issue #111).
+@Suite("Golden corpus", .serialized)
 struct GoldenCorpusTests {
   @Test(
     "Every readable document opens, renders, searches, annotates and saves (W3.1, FR-READ-001)",
@@ -947,7 +949,7 @@ struct GoldenCorpusTests {
   }
 
   @Test(
-    "Malformed and fuzzed files fail cleanly or open; none crashes or hangs", .timeLimit(.minutes(1)),
+    "Malformed and fuzzed files fail cleanly or open; none crashes or hangs", .timeLimit(.minutes(3)),
     arguments: GoldenCorpus.malformed())
   func malformed(_ item: GoldenCorpus.Malformed) async throws {
     let url = try write(item.data)
