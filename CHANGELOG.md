@@ -12,6 +12,8 @@ Store notes (see the changelog strategy).
 ### Added
 - App Lock: Settings › Privacy can require Face ID, Touch ID, Optic ID or the passcode to open the app.
   While it is on, the app switcher shows no document and document text stays out of Spotlight.
+- Tapping a web, email or phone link in a document now shows its full address and asks before
+  opening it. Links to files, other apps or scripts are never opened; their address can be copied.
 - PDF from photos: hold Import in the library and choose photos; each becomes a page, upright, in a
   new document. No access to your photo library is needed.
 - Tools in the reader's More menu: reduce file size into a smaller copy (for email or for printing),

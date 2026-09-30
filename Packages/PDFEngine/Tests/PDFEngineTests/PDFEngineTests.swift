@@ -406,6 +406,30 @@ struct ControllerTests {
     #expect(!controller.setSelectionColor(.blue), "Nothing selected")
   }
 
+  @Test(
+    "Only web, email and phone links can be opened from a document (T-02)",
+    arguments: [
+      ("https://example.com/terms", true), ("http://example.com", true), ("mailto:help@example.com", true),
+      ("tel:+61400000000", true), ("HTTPS://EXAMPLE.COM", true), ("file:///etc/hosts", false),
+      ("javascript:alert(1)", false), ("data:text/html,hi", false), ("shortcuts://run-shortcut?name=x", false),
+      ("https:///no-host", false), ("pdfalgopro://open", false),
+    ])
+  func linkPolicy(address: String, openable: Bool) throws {
+    let link = DocumentLink(url: try #require(URL(string: address)))
+    #expect(link.isOpenable == openable)
+    #expect(link.address == address)
+  }
+
+  @Test("A tapped link waits for the person instead of opening (T-02)")
+  func tappedLink() throws {
+    let controller = try PDFDocumentController(data: SyntheticPDF.make(pages: ["Page"]))
+    let url = try #require(URL(string: "https://example.com"))
+    controller.linkTapped(url)
+    #expect(controller.tappedLink == DocumentLink(url: url))
+    controller.dismissLink()
+    #expect(controller.tappedLink == nil)
+  }
+
   @Test("Every annotation type gets a kind")
   func annotationKinds() {
     let kinds: [(PDFAnnotationSubtype, AnnotationSelection.Kind)] = [
