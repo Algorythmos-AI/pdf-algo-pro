@@ -55,6 +55,8 @@ public final class ReaderModel {
   public var errorMessage: String?
   /// The assistant sheet, when open.
   public var assistantTask: AssistantTask?
+  /// A citation to open once the assistant sheet has finished closing.
+  @ObservationIgnored private var pendingReveal: Citation?
   /// Whether the outline sheet is open.
   public var showsOutline = false
   /// Whether the page grid is open.
@@ -379,9 +381,25 @@ public final class ReaderModel {
     ReaderAssistantContext(
       task: task, pages: { [weak self] in await self?.pageTexts() ?? [] },
       reveal: { [weak self] citation in
-        self?.assistantTask = nil
-        self?.controller?.reveal(citation)
+        guard let self else { return }
+        guard assistantTask != nil else {
+          controller?.reveal(citation)
+          return
+        }
+        pendingReveal = citation
+        assistantTask = nil
       })
+  }
+
+  /// Opens the citation chosen in the assistant, once its sheet has closed.
+  ///
+  /// While a large sheet is open it shrinks the reader behind it; the page view re-lays out as the
+  /// reader grows back and could scroll back to the page it showed before. Opening the page after
+  /// the sheet has gone keeps the citation's page on screen.
+  public func assistantDismissed() {
+    guard let citation = pendingReveal else { return }
+    pendingReveal = nil
+    controller?.reveal(citation)
   }
 }
 
