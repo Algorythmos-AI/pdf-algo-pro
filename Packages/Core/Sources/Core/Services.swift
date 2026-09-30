@@ -43,6 +43,23 @@ public protocol DocumentLibrary: Sendable {
   /// Brings the index in line with the files: PDFs added outside the app (for example in the Files
   /// app) are added, entries whose file is gone are removed.
   func reconcileWithFiles() async throws -> Reconciliation
+  /// Where a save keeps the version of a document from before it, or `nil` when this library keeps
+  /// none (FR-EDIT-008, first step).
+  func previousVersionURL(for id: DocumentID) async throws -> URL?
+  /// Whether the version from before the last save is kept.
+  func hasPreviousVersion(of id: DocumentID) async -> Bool
+  /// Swaps a document's file with the version from before its last save, so restoring can itself be
+  /// undone the same way.
+  func restorePreviousVersion(of id: DocumentID) async throws
+}
+
+extension DocumentLibrary {
+  /// A library that keeps no earlier versions.
+  public func previousVersionURL(for id: DocumentID) async throws -> URL? { nil }
+  /// A library that keeps no earlier versions.
+  public func hasPreviousVersion(of id: DocumentID) async -> Bool { false }
+  /// A library that keeps no earlier versions.
+  public func restorePreviousVersion(of id: DocumentID) async throws { throw LibraryError.notFound }
 }
 
 /// What reconciling the library index with the files changed.

@@ -6,9 +6,15 @@ extension PDFDocumentController {
   ///
   /// An encrypted document stays encrypted, with the same restrictions (see `protectionOptions()`).
   ///
+  /// - Parameters:
+  ///   - url: The document's file.
+  ///   - previous: Where to keep the file as it was before this save (FR-EDIT-008, first step), replacing
+  ///     any version kept there before; `nil` keeps none. On APFS the copy is a clone, so it takes no
+  ///     space until the files differ.
   /// - Throws: `PDFEngineError.restricted` when the document's author does not allow the change;
-  ///   `PDFEngineError.saveFailed` when writing fails.
-  public func save(to url: URL) throws {
+  ///   `PDFEngineError.insufficientSpace` when the device is too full to save safely;
+  ///   `PDFEngineError.saveFailed` when writing fails, or when the earlier version can't be kept.
+  public func save(to url: URL, keepingPreviousAt previous: URL? = nil) throws {
     let options = try protectionOptions()
     let staging = FileManager.default.temporaryDirectory.appendingPathComponent("save-\(UUID().uuidString).pdf")
     defer { try? FileManager.default.removeItem(at: staging) }
@@ -16,13 +22,22 @@ extension PDFDocumentController {
     guard document.write(to: staging, withOptions: options), let data = try? Data(contentsOf: staging),
       PDFDocument(data: data) != nil
     else { throw PDFEngineError.saveFailed }
+    let available = try? url.deletingLastPathComponent()
+      .resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
+      .volumeAvailableCapacityForImportantUsage
+    guard Self.hasRoom(toWrite: data.count, available: available) else { throw PDFEngineError.insufficientSpace }
     var coordinationError: NSError?
     var writeError: (any Error)?
     NSFileCoordinator(filePresenter: nil).coordinate(
       writingItemAt: url, options: .forReplacing, error: &coordinationError
     ) {
       target in
+      let fileManager = FileManager.default
       do {
+        if let previous, fileManager.fileExists(atPath: target.path) {
+          if fileManager.fileExists(atPath: previous.path) { try fileManager.removeItem(at: previous) }
+          try fileManager.copyItem(at: target, to: previous)
+        }
         try data.write(to: target, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
       } catch {
         writeError = error
@@ -31,6 +46,19 @@ extension PDFDocumentController {
     guard coordinationError == nil, writeError == nil else { throw PDFEngineError.saveFailed }
     hasUnsavedChanges = false
     recordFormValues()
+  }
+
+  /// Room kept free beyond the new file, so a save never fills the device (`Assumption:` 50 MB).
+  static let spareSpace: Int64 = 50_000_000
+
+  /// Whether a file of `byteCount` bytes can be written safely with `available` bytes free.
+  ///
+  /// The atomic write holds the new file next to the old one until it replaces it, and the kept earlier
+  /// version holds the old one's space after that, so the new file must fit whole, with room to spare.
+  /// When the free space can't be read, the save goes ahead and the write itself reports a full disk.
+  static func hasRoom(toWrite byteCount: Int, available: Int64?) -> Bool {
+    guard let available else { return true }
+    return available >= Int64(byteCount) + spareSpace
   }
 
   /// Whether the document's author allows notes and markup; always true for unencrypted documents.

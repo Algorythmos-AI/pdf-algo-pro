@@ -71,6 +71,10 @@ public final class ReaderModel {
   public var showsGoToPage = false
   /// The saved file the share sheet is showing, if it is open.
   public var sharing: SharedFile?
+  /// Whether the version from before the last save is kept and can be restored (FR-EDIT-008, first step).
+  public private(set) var canRestorePreviousVersion = false
+  /// Whether "Restore the version before the last save" is asking for confirmation.
+  public var confirmsRestore = false
   /// Whether there is an annotation change to undo.
   public private(set) var canUndo = false
   /// Whether there is an undone annotation change to redo.
@@ -113,6 +117,7 @@ public final class ReaderModel {
 
   /// Opens the file at the page asked for, or where the user left off (FR-READ-006).
   public func load() async {
+    canRestorePreviousVersion = await library.hasPreviousVersion(of: documentID)
     do {
       guard let document = try await library.document(withID: documentID) else {
         phase = .failed(String(localized: "This document is no longer in the library.", bundle: .module))
@@ -395,18 +400,46 @@ public final class ReaderModel {
     controller.endEditing()
     guard controller.needsSaving else { return true }
     do {
-      try controller.save(to: try await library.fileURL(for: documentID))
+      try controller.save(
+        to: try await library.fileURL(for: documentID),
+        keepingPreviousAt: try await library.previousVersionURL(for: documentID))
       try await library.recordModified(documentID)
+      canRestorePreviousVersion = await library.hasPreviousVersion(of: documentID)
       await telemetry.record("task.core.completed")
       return true
     } catch PDFEngineError.restricted {
       errorMessage = Self.restrictedMessage
+    } catch PDFEngineError.insufficientSpace {
+      errorMessage = String(
+        localized:
+          "Couldn't save your changes because this iPhone is almost full. The document on disk hasn't changed. Free up some space, then try again.",
+        bundle: .module)
+      await telemetry.record("quality.operation.failed")
     } catch {
       errorMessage = String(
         localized: "Couldn't save your changes. The document on disk hasn't changed. Try again.", bundle: .module)
       await telemetry.record("quality.operation.failed")
     }
     return false
+  }
+
+  // MARK: - The version before the last save
+
+  /// Puts back the version from before the last save and reopens the document (FR-EDIT-008, first step).
+  ///
+  /// Unsaved changes are dropped, which the confirmation says. The current version becomes the kept
+  /// one, so restoring again undoes the restore.
+  public func restorePreviousVersion() async {
+    speech.stop()
+    controller = nil
+    phase = .loading
+    do {
+      try await library.restorePreviousVersion(of: documentID)
+    } catch {
+      errorMessage = String(
+        localized: "Couldn't restore the earlier version. The document hasn't changed.", bundle: .module)
+    }
+    await load()
   }
 
   // MARK: - Sharing

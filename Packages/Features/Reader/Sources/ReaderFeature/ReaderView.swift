@@ -100,6 +100,19 @@ public struct ReaderView<Assistant: View>: View {
       } message: {
         Text("This document has \(model.controller?.pageCount ?? 0) pages.", bundle: .module)
       }
+      .confirmationDialog(
+        Text("Restore the version before the last save?", bundle: .module), isPresented: $model.confirmsRestore,
+        titleVisibility: .visible
+      ) {
+        Button(role: .destructive) {
+          Task { await model.restorePreviousVersion() }
+        } label: {
+          Text("Restore", bundle: .module)
+        }
+      } message: {
+        Text(
+          "Changes since the last save are replaced. You can switch back the same way.", bundle: .module)
+      }
       .alert(
         Text("Something went wrong", bundle: .module),
         isPresented: Binding(get: { model.errorMessage != nil }, set: { if !$0 { model.errorMessage = nil } })
@@ -152,6 +165,16 @@ public struct ReaderView<Assistant: View>: View {
     case .failed(let message):
       EmptyState(Text("Can't open this document", bundle: .module), systemImage: "exclamationmark.triangle") {
         Text(message)
+      } actions: {
+        if model.canRestorePreviousVersion {
+          Button {
+            Task { await model.restorePreviousVersion() }
+          } label: {
+            Text("Restore the version before the last save", bundle: .module)
+          }
+          .buttonStyle(.borderedProminent)
+          .accessibilityIdentifier("reader.restorePrevious")
+        }
       }
     case .ready:
       if let controller = model.controller {

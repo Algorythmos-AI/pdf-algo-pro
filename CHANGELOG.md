@@ -21,6 +21,9 @@ Store notes (see the changelog strategy).
   annotation to edit its text or delete it (#66).
 - Signatures: draw one and keep it in the Keychain on this device only, or type your name, then
   place it on the page (#59, #66).
+- Every save keeps the version from before it, and "Restore the version before the last save" in the
+  reader's More menu puts it back (restoring again switches back). A document that won't open offers
+  the same. Saving stops with a clear message when the device is too full to save safely.
 - Find in the document, go to a page by number, and share or print from the reader (#58).
 - A tag editor for documents, and onboarding choices that open the assistant on a chosen PDF (#57).
 - A setting to keep what documents say out of Spotlight; titles and tags stay searchable (#61).

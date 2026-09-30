@@ -11,6 +11,7 @@ public actor FileDocumentLibrary: DocumentLibrary {
 
   private let documentsFolder: URL
   private let deletedFolder: URL
+  private let previousVersionsFolder: URL?
   private let index: LibraryIndex
   private let now: @Sendable () -> Date
   private let fileManager = FileManager.default
@@ -25,16 +26,20 @@ public actor FileDocumentLibrary: DocumentLibrary {
   /// - Parameters:
   ///   - documentsFolder: Where documents live; the app passes its Documents folder, shown in Files.
   ///   - deletedFolder: Where Recently Deleted keeps files; not shown in Files.
+  ///   - previousVersionsFolder: Where each document's version from before its last save is kept, not
+  ///     shown in Files; `nil` keeps none.
   ///   - index: The metadata index.
   ///   - now: The clock, injected so tests never wait.
   public init(
-    documentsFolder: URL, deletedFolder: URL, index: LibraryIndex, now: @escaping @Sendable () -> Date = { Date() }
+    documentsFolder: URL, deletedFolder: URL, previousVersionsFolder: URL? = nil, index: LibraryIndex,
+    now: @escaping @Sendable () -> Date = { Date() }
   ) {
     self.documentsFolder = documentsFolder
     self.deletedFolder = deletedFolder
+    self.previousVersionsFolder = previousVersionsFolder
     self.index = index
     self.now = now
-    for folder in [documentsFolder, deletedFolder] {
+    for folder in [documentsFolder, deletedFolder] + [previousVersionsFolder].compactMap(\.self) {
       try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
     }
   }
@@ -225,6 +230,7 @@ public actor FileDocumentLibrary: DocumentLibrary {
       }
       guard coordinationError == nil, removeError == nil else { throw LibraryError.fileAccessFailed }
     }
+    removePreviousVersion(of: document.id)
     try await index.delete(document.id)
   }
 
@@ -252,6 +258,7 @@ public actor FileDocumentLibrary: DocumentLibrary {
       let entries = try await index.all()
       var removed: [DocumentID] = []
       for document in entries where !fileManager.fileExists(atPath: location(of: document).path) {
+        removePreviousVersion(of: document.id)
         try await index.delete(document.id)
         removed.append(document.id)
       }
@@ -282,6 +289,73 @@ public actor FileDocumentLibrary: DocumentLibrary {
       }
       return Reconciliation(added: added, removed: removed)
     }
+  }
+
+  // MARK: - The version before the last save
+
+  /// Where a save keeps the version of a document from before it, or `nil` when this library keeps
+  /// none (FR-EDIT-008, first step).
+  public func previousVersionURL(for id: DocumentID) async throws -> URL? {
+    _ = try await existing(id)
+    return previousFile(of: id)
+  }
+
+  /// Whether the version from before the last save is kept.
+  public func hasPreviousVersion(of id: DocumentID) async -> Bool {
+    guard let url = previousFile(of: id) else { return false }
+    return fileManager.fileExists(atPath: url.path)
+  }
+
+  /// Swaps a document's file with the version from before its last save, so restoring can itself be
+  /// undone the same way.
+  ///
+  /// - Throws: `LibraryError.notFound` when no earlier version is kept; `LibraryError.fileAccessFailed`
+  ///   when the swap fails, in which case both files are as they were.
+  public func restorePreviousVersion(of id: DocumentID) async throws {
+    try await exclusively {
+      var document = try await existing(id)
+      guard let previous = previousFile(of: id), fileManager.fileExists(atPath: previous.path) else {
+        throw LibraryError.notFound
+      }
+      var coordinationError: NSError?
+      var swapError: (any Error)?
+      NSFileCoordinator(filePresenter: nil).coordinate(
+        writingItemAt: location(of: document), options: .forReplacing, writingItemAt: previous,
+        options: .forReplacing, error: &coordinationError
+      ) { current, earlier in
+        let fileManager = FileManager.default
+        // A clone of the current file, which becomes the kept version once the earlier one is in place.
+        let kept = earlier.deletingLastPathComponent().appendingPathComponent("swap-\(UUID().uuidString).pdf")
+        do {
+          try fileManager.copyItem(at: current, to: kept)
+        } catch {
+          swapError = error
+          return
+        }
+        do {
+          _ = try fileManager.replaceItemAt(current, withItemAt: earlier)
+        } catch {
+          try? fileManager.removeItem(at: kept)
+          swapError = error
+          return
+        }
+        // The earlier version is in place. If the clone can't take its name, it stays under its own
+        // name rather than being lost; the next save keeps a new earlier version.
+        try? fileManager.moveItem(at: kept, to: earlier)
+      }
+      guard coordinationError == nil, swapError == nil else { throw LibraryError.fileAccessFailed }
+      document.modifiedAt = now()
+      try await index.upsert(document)
+    }
+  }
+
+  private func previousFile(of id: DocumentID) -> URL? {
+    previousVersionsFolder?.appendingPathComponent("\(id.rawValue.uuidString).pdf")
+  }
+
+  private func removePreviousVersion(of id: DocumentID) {
+    guard let url = previousFile(of: id), fileManager.fileExists(atPath: url.path) else { return }
+    try? fileManager.removeItem(at: url)
   }
 
   // MARK: - One change at a time
