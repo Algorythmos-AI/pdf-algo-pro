@@ -62,8 +62,7 @@ final class ReaderUITests: UITestCase {
     let app = launch(["-skip-onboarding", "-seed-library", "sample"])
     XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
     let markup = app.buttons["reader.markup"]
-    markup.tap()
-    app.buttons["Signature"].tap()
+    tapMenuItem(app.buttons["Signature"], in: markup)
     let name = app.textFields["signature.typedName"]
     XCTAssertTrue(name.waitForExistence(timeout: 5), "The signature sheet opens (F1c)")
     try audit(app)

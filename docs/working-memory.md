@@ -23,6 +23,7 @@ approved the push to the first internal TestFlight build at the V1 quality bar (
 |---|---|---|
 | TestFlight readiness ([#47](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/47)) | Plan approved; bar B1–B13; work in four lanes, one pull request per item | Items ticked in #47 as they merge; validation build after the first night |
 | Flaky accessibility audit ([#44](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/44)) | Quarantined (#45) | Root cause and remove the quarantine by 2026-10-06 |
+| Flaky large-text audits and Markup menu tap ([#76](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/76)) | Stricter still-screen wait; bar-button contrast quarantined | Five green runs, then remove the quarantine if possible, by 2026-10-07 |
 | Organisation catalog entry | Catalog entry pending owner review | Owner review and merge |
 | Backlog issues | 36 issues synced from `docs/planning/backlog.yaml`, on the project board | Owner creates the project views and built-in workflows in the web interface |
 | Xcode Cloud Staging workflow (readiness M5) | Designed; post-clone script and Staging scheme in progress | Owner onboards the Staging product in Xcode; the workflow is configured through the App Store Connect API (PAP-030) |
