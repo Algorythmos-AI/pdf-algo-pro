@@ -103,7 +103,7 @@ final class ReaderUITests: UITestCase {
     XCTAssertTrue(undo.isEnabled, "The rectangle and the text box were added")
   }
 
-  func testATappedAnnotationCanBeDeleted() throws {
+  func testATappedAnnotationCanBeResizedAndDeleted() throws {
     let app = launch(["-skip-onboarding", "-seed-library", "sample"])
     XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
     app.buttons["reader.markup"].tap()
@@ -118,6 +118,8 @@ final class ReaderUITests: UITestCase {
     let bar = app.descendants(matching: .any)["reader.selection.actionBar"].firstMatch
     XCTAssertTrue(bar.waitForExistence(timeout: 5), "Tapping the drawing selects it (F3)")
     try audit(app)
+    tapMenuItem(app.buttons["Larger"], in: app.buttons["reader.selection.style"])
+    XCTAssertTrue(bar.waitForExistence(timeout: 5), "Resizing keeps it selected (FR-ANN-005)")
     app.buttons["reader.selection.delete"].tap()
     XCTAssertFalse(bar.waitForExistence(timeout: 2), "Deleting clears the selection")
   }
