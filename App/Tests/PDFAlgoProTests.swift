@@ -96,6 +96,16 @@ struct AppTests {
     _ = try await ScanDocumentIntent().perform()
     #expect(app.sheet == .scan)
     #expect(!PDFAlgoProShortcuts.appShortcuts.isEmpty)
+
+    // Summarise returns the summary, labelled as generated on this device, and needs the device unlocked.
+    #expect(SummarizeDocumentIntent.authenticationPolicy == .requiresAuthentication)
+    let summarize = SummarizeDocumentIntent()
+    summarize.target = entity
+    _ = try await summarize.perform()
+    let id = try #require(DocumentID(string: entity.id))
+    let summary = try await IntentRouter.shared.summary(of: id)
+    #expect(summary.contains("Generated on this device"))
+    await #expect(throws: IntentFailure.self) { try await IntentRouter.shared.summary(of: DocumentID()) }
   }
 
   @Test("A route that arrives before the app attaches is delivered on attach")

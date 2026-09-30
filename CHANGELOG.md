@@ -18,6 +18,8 @@ Store notes (see the changelog strategy).
   opens its page, and the list can be shared as text.
 - Extracted fields can be shared as a CSV file that opens correctly in Excel and Numbers: accents are
   kept, and where numbers use a decimal comma (as in French) the columns are separated by semicolons.
+- Siri and Shortcuts can summarise a document: "Summarise … with PDF Algo Pro" returns the summary with
+  the pages it cites, made on this device, and needs the iPhone unlocked.
 - PDF from photos: hold Import in the library and choose photos; each becomes a page, upright, in a
   new document. No access to your photo library is needed.
 - Tools in the reader's More menu: reduce file size into a smaller copy (for email or for printing),
