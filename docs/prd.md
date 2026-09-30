@@ -97,7 +97,8 @@ targets are only defined here; their values are held privately.
 **Acceptance (Must):**
 
 - *FR-ONB-001/002.* Given a fresh install, when the app launches, then the intent question shows the
-  twelve options in the order listed, and a Skip control leads to the library.
+  options in the order listed, less those whose feature isn't in the build (FR-ONB-007), and a Skip
+  control leads to the library.
 - *FR-ONB-003.* Given the user picked "Scan to PDF", when the home screen appears, then its primary
   action is Scan, and Settings > Home shows "Scan to PDF" as changeable.
 - *FR-ONB-004.* Given a fresh install, when the user opens a document and completes any core task,

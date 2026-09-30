@@ -32,6 +32,20 @@ public enum OnboardingIntent: String, CaseIterable, Codable, Sendable, Identifia
   /// The intent's stable identifier.
   public var id: String { rawValue }
 
+  /// Whether this build can do what the intent asks for, so onboarding and Settings offer it.
+  ///
+  /// An option is left out, not labelled "coming later", until its feature ships (FR-ONB-007); turn it
+  /// on here in the pull request that ships the feature.
+  public var isOffered: Bool {
+    switch self {
+    case .editText, .convert, .organize: false
+    default: true
+    }
+  }
+
+  /// The options this build offers, in the fixed order (FR-ONB-001, FR-ONB-007).
+  public static var offered: [OnboardingIntent] { allCases.filter(\.isOffered) }
+
   /// Whether the intent is one of the AI-first options, which need document intelligence.
   public var usesIntelligence: Bool {
     switch self {
