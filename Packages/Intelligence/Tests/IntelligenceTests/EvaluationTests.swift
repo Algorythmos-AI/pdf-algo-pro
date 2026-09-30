@@ -61,6 +61,9 @@ private let goodResponses: [String: String] = [
   "Quel est le montant du loyer ?": "Le loyer est de 1 180 EUR par mois [p2].",
   "Quel est le dépôt de garantie ?": "Le dépôt de garantie est de 2 360 EUR [p2].",
   "Quelle est la durée du bail ?": "Le bail court trois ans à compter du 1er septembre 2026 [p3].",
+  "When is it due?": "Payment is due within 30 days [p2].",
+  "So how much do I owe?": "The total due is 1,240.00 AUD [p2].",
+  "Et quand faut-il la payer ?": "Le paiement est dû sous 45 jours [p2].",
 ]
 
 @Suite("AI evaluation")
