@@ -834,11 +834,44 @@ struct ReaderModelTests {
     #expect(!speech.isSpeaking && engine.spoken.isEmpty, "Blank text is not spoken")
     speech.speak(" One ")
     #expect(speech.isSpeaking && engine.spoken == ["One"])
-    engine.onEnd?()
+    engine.onEnd?(true)
     #expect(!speech.isSpeaking)
     speech.speak("Two")
     speech.stop()
     #expect(!speech.isSpeaking && engine.stops == 1)
+  }
+
+  @Test("Reading goes on page by page, skips blank pages, turns the pages and stops at the end (FR-READ-008)")
+  func readsPageAfterPage() {
+    let engine = SilentSpeech()
+    let speech = SpeechReader(engine: engine)
+    let pages = ["One", "  ", "Three", "Four"]
+    var shown: [Int] = []
+    speech.read(from: 0, pageCount: pages.count, text: { pages[$0] }, onPage: { shown.append($0) })
+    #expect(engine.spoken == ["One"] && speech.isSpeaking)
+    engine.onEnd?(true)
+    #expect(engine.spoken == ["One", "Three"] && shown == [0, 2], "The blank page is skipped")
+    engine.onEnd?(true)
+    engine.onEnd?(true)
+    #expect(engine.spoken == ["One", "Three", "Four"] && !speech.isSpeaking, "Reading stops after the last page")
+  }
+
+  @Test("A cancel or a stop ends reading; it doesn't go on to the next page")
+  func readingStops() {
+    let engine = SilentSpeech()
+    let speech = SpeechReader(engine: engine)
+    speech.read(from: 1, pageCount: 3, text: { "Page \($0)" }, onPage: { _ in })
+    #expect(engine.spoken == ["Page 1"])
+    engine.onEnd?(false)
+    #expect(!speech.isSpeaking)
+    engine.onEnd?(true)
+    #expect(engine.spoken == ["Page 1"], "Nothing more after a cancel")
+    speech.read(from: 0, pageCount: 3, text: { "Page \($0)" }, onPage: { _ in })
+    speech.stop()
+    engine.onEnd?(true)
+    #expect(engine.spoken == ["Page 1", "Page 0"] && !speech.isSpeaking)
+    speech.read(from: 5, pageCount: 3, text: { "Page \($0)" }, onPage: { _ in })
+    #expect(!speech.isSpeaking, "Past the end there is nothing to read")
   }
 
   @Test("The system engine touches the voices only when asked to speak")
@@ -1083,7 +1116,7 @@ final class BackgroundLog {
 /// A speech engine that records what it was asked to say and never touches the system voices.
 @MainActor
 private final class SilentSpeech: SpeechEngine {
-  var onEnd: (() -> Void)?
+  var onEnd: ((_ finished: Bool) -> Void)?
   private(set) var spoken: [String] = []
   private(set) var stops = 0
 

@@ -219,14 +219,19 @@ public final class ReaderModel {
     try? await library.recordOpened(documentID, pageIndex: controller.currentPageIndex)
   }
 
-  /// Reads the current page aloud, or stops (FR-READ-004).
+  /// Reads aloud from the page on screen to the end of the document, or stops (FR-READ-004, FR-READ-008).
+  ///
+  /// The pages turn as it goes, so starting again carries on from the page on screen.
   public func toggleReadAloud() {
     guard let controller else { return }
     if speech.isSpeaking {
       speech.stop()
     } else {
-      // Only the page on screen is read, so a long document does not extract every page first.
-      speech.speak(controller.pageText(at: controller.currentPageIndex))
+      // Each page's text is taken when it is reached, so a long document is never extracted up front.
+      speech.read(
+        from: controller.currentPageIndex, pageCount: controller.pageCount,
+        text: { [weak controller] in controller?.pageText(at: $0) ?? "" },
+        onPage: { [weak controller] in controller?.goTo(pageIndex: $0) })
     }
   }
 
