@@ -357,6 +357,13 @@ changes leaves the content unchanged; and a save interrupted part-way (simulated
 write) leaves the previous version intact (NFR-REL-002). Digitally signed files are checked to
 confirm the signature is still valid after an annotation-only save, or that the user was warned.
 
+Saved files are also checked by a reader other than PDFKit (plan revision 3, §3 B2). In CI the
+`pdf-export` job saves every golden-corpus document through the engine and uploads the files, and
+`pdf-validation` runs `qpdf --check` on each with qpdf 12.4.2 (Apache-2.0), downloaded by pinned
+version and SHA-256 (`scripts/ci/validate_pdfs.sh`). Warnings are reported; errors fail the job. Both
+jobs are advisory for their first two weeks, then become required. A PDFium render and a Core
+Graphics parse are the next checks to add.
+
 ### True-redaction verification
 
 Redaction must remove content, not cover it (FR-EDIT-005). For every redaction test document,

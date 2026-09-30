@@ -937,6 +937,23 @@ struct GoldenCorpusTests {
     _ = try? controller.save(to: temporaryURL())
   }
 
+  /// Copies a saved file for the independent checks in CI (plan §3 B2).
+  ///
+  /// qpdf then reads every file this suite saves. Only when `PDF_VALIDATION_OUT` names a folder; a
+  /// password goes beside it.
+  private static func exportForValidation(_ url: URL, name: String, password: String?) throws {
+    guard let folder = ProcessInfo.processInfo.environment["PDF_VALIDATION_OUT"], !folder.isEmpty else { return }
+    let directory = URL(fileURLWithPath: folder, isDirectory: true)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    let safe = name.map { $0.isLetter || $0.isNumber ? $0 : "-" }
+    let target = directory.appendingPathComponent(String(safe) + ".pdf")
+    try? FileManager.default.removeItem(at: target)
+    try FileManager.default.copyItem(at: url, to: target)
+    if let password {
+      try Data(password.utf8).write(to: target.deletingPathExtension().appendingPathExtension("password"))
+    }
+  }
+
   private static func check(_ item: GoldenCorpus.Case) throws {
     let url = try write(item.make())
     let controller = try PDFDocumentController(url: url)
@@ -959,6 +976,7 @@ struct GoldenCorpusTests {
     let before = controller.annotationCount(onPage: 0)
     controller.addNote("Corpus note", onPage: 0)
     try controller.save(to: url)
+    try exportForValidation(url, name: item.name, password: item.password)
 
     let reopened = try PDFDocumentController(url: url)
     if let password = item.password { #expect(reopened.unlock(password: password)) }
