@@ -336,8 +336,9 @@ fake passes it too, so feature tests rely on a fake that behaves like the real e
   or `/DerivedData/`. Previews therefore go in `<View>+Previews.swift`
   ([Swift style guide](swift-style-guide.md#files-and-type-layout)).
 - **Device-only files** (`DEVICE_ONLY` in the script) are excluded too, because they need hardware the
-  simulator does not have: today only the document camera adapter, since `VNDocumentCameraViewController`
-  raises "Document camera is not available" on the simulator. Each entry states its reason, every CI run
+  simulator does not have: the document camera adapter, since `VNDocumentCameraViewController` raises
+  "Document camera is not available" on the simulator, and the MetricKit adapter, which the simulator
+  never calls (the log it writes to is tested). Each entry states its reason, every CI run
   prints the list, and each has an on-device check in the
   [release checklist](release-management.md). Keep such a file to the adapter alone; logic that can run
   on the simulator goes in another file, where it counts.

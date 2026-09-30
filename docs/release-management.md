@@ -60,7 +60,8 @@ section and drafts the store text. Then the release pull request is opened from 
 - [ ] Staging build of this commit used on a real iPhone (and iPad if touched)
 - [ ] Device-only code, excluded from coverage ([testing strategy](testing-strategy.md#coverage)),
       checked on that iPhone: scan two pages with the document camera and save them, then open the
-      camera again and cancel
+      camera again and cancel; in Xcode, Debug › Simulate MetricKit Payloads, relaunch, and check that
+      Settings › Report a problem lists the simulated crash and hang
 - [ ] Performance budgets: results linked
 - [ ] Golden PDF corpus: no regressions (results linked)
 - [ ] OCR accuracy (EN, FR): within thresholds (results linked)

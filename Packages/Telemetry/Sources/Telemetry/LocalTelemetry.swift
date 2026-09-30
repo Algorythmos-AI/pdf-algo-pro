@@ -71,7 +71,8 @@ public struct DiagnosticsSummary: Sendable, Equatable {
 
   /// Builds the summary.
   public init(
-    appVersion: String, build: String, system: String, libraryIndex: String, documentCount: Int, events: [String: Int]
+    appVersion: String, build: String, system: String, libraryIndex: String, documentCount: Int,
+    events: [String: Int], problems: [String] = []
   ) {
     var lines = [
       "App: PDF Algo Pro \(appVersion) (\(build))",
@@ -80,6 +81,7 @@ public struct DiagnosticsSummary: Sendable, Equatable {
       "Documents: \(Self.bucket(documentCount))",
     ]
     lines += events.keys.sorted().map { "Event \($0): \(events[$0] ?? 0)" }
+    lines += problems
     self.lines = lines
   }
 

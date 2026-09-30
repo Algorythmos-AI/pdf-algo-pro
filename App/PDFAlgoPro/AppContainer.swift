@@ -55,6 +55,9 @@ final class AppContainer {
   let intelligence: any DocumentIntelligence
   let builder: SearchablePDFBuilder
   let telemetry: LocalTelemetry
+  /// Problems MetricKit reported, kept on this device (P6).
+  let diagnosticsLog: DiagnosticsLog
+  private let metricKit: MetricKitCollector?
   let thumbnails = ThumbnailCache()
   let indexLevel: LibraryIndex.StoreLevel
   let environment: LaunchEnvironment
@@ -93,6 +96,9 @@ final class AppContainer {
     #endif
     builder = SearchablePDFBuilder(recognizer: VisionTextRecognizer())
     telemetry = LocalTelemetry()
+    diagnosticsLog = DiagnosticsLog(file: folders.diagnostics.appendingPathComponent("problems.json"))
+    metricKit = environment.isUITesting ? nil : MetricKitCollector(log: diagnosticsLog)
+    metricKit?.start()
   }
 
   /// The diagnostics summary for "Report a problem": app, system and health only (FR-SET-003).
@@ -103,7 +109,7 @@ final class AppContainer {
       appVersion: info["CFBundleShortVersionString"] as? String ?? "?",
       build: info["CFBundleVersion"] as? String ?? "?",
       system: ProcessInfo.processInfo.operatingSystemVersionString, libraryIndex: "\(indexLevel)", documentCount: count,
-      events: await telemetry.todaysCounts()
+      events: await telemetry.todaysCounts(), problems: await diagnosticsLog.summary()
     ).text
   }
 
@@ -142,6 +148,8 @@ struct Folders {
   let recentlyDeleted: URL
   let indexStore: URL
   let searchIndex: URL
+  /// MetricKit summaries: about this device, so not backed up.
+  let diagnostics: URL
 
   init(isUITesting: Bool) {
     let fileManager = FileManager.default
@@ -165,6 +173,10 @@ struct Folders {
     Self.setExcludedFromBackup(true, &search)
     indexStore = derived.appendingPathComponent("Library.store")
     searchIndex = search
+    var diagnostics = support.appendingPathComponent("Diagnostics", isDirectory: true)
+    try? fileManager.createDirectory(at: diagnostics, withIntermediateDirectories: true)
+    Self.setExcludedFromBackup(true, &diagnostics)
+    self.diagnostics = diagnostics
   }
 
   private static func setExcludedFromBackup(_ excluded: Bool, _ url: inout URL) {

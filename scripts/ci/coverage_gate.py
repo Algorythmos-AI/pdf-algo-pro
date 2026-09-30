@@ -25,6 +25,8 @@ EXCLUDED_SUFFIXES = ("Previews.swift",)
 DEVICE_ONLY = {
     "Packages/Scanning/Sources/Scanning/DocumentCamera.swift":
         "VNDocumentCameraViewController raises 'Document camera is not available' on the simulator",
+    "Packages/Telemetry/Sources/Telemetry/MetricKitCollector.swift":
+        "MetricKit delivers diagnostic reports only on a device; the simulator never calls the subscriber",
 }
 EXCLUDED_PARTS = ("/Generated/", "/Tests/", "/UITests/", "TestSupport/", "/.build/", "/DerivedData/", "/SourcePackages/")
 MODULE = re.compile(r"/Packages/(?:[^/]+/)*?Sources/([^/]+)/|/App/(PDFAlgoPro)/")
