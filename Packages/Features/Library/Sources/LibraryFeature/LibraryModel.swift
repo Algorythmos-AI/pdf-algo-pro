@@ -200,6 +200,12 @@ public final class LibraryModel {
       && !documents.contains { $0.lastOpenedAt != nil && $0.title != SampleContent.title }
   }
 
+  /// What a document's file says about itself, for the info sheet (FR-LIB-008); `nil` when it can't be read.
+  public func details(for document: Document) async -> DocumentDetails? {
+    guard let url = try? await library.fileURL(for: document.id) else { return nil }
+    return await Task.detached(priority: .userInitiated) { DocumentDetails.of(fileAt: url) }.value
+  }
+
   /// The home action, personalised by onboarding (FR-ONB-003).
   ///
   /// With AI hidden, an AI intent falls back to importing: AI never appears uninvited (FR-AI-009).

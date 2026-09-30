@@ -32,6 +32,8 @@ Store notes (see the changelog strategy).
   unsaved changes, you choose to keep yours as a copy or use the other version, so nothing is lost.
 - Follow-up questions in the assistant: ask about the answer you just got, and the earlier questions
   and answers stay on screen with their sources. Answers still come only from the document.
+- Document info, from a document's menu in the library: file name, size, pages, dates, author, the
+  app that made it, PDF version, and whether a password protects it or printing and copying are allowed.
 - The native iOS foundation app: onboarding with AI-first options, a library in the Files-visible
   Documents folder with Recently Deleted, search across titles, tags and recognised text (and
   Spotlight), a PDFKit reader with markup, notes, read aloud and on-device text recognition, scanning

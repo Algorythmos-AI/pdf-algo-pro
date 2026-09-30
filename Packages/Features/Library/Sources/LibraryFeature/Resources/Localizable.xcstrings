@@ -209,12 +209,42 @@
         }
       }
     },
+    "Added" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajouté"
+          }
+        }
+      }
+    },
     "All documents" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tous les documents"
+          }
+        }
+      }
+    },
+    "Allowed" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Autorisée"
+          }
+        }
+      }
+    },
+    "Author" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auteur"
           }
         }
       }
@@ -229,12 +259,32 @@
         }
       }
     },
+    "Changed" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dernière modification"
+          }
+        }
+      }
+    },
     "Chat with a PDF" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Discuter avec un PDF"
+          }
+        }
+      }
+    },
+    "Choose a document from the library." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisissez un document dans la bibliothèque."
           }
         }
       }
@@ -259,16 +309,6 @@
         }
       }
     },
-    "Choose a document from the library." : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Choisissez un document dans la bibliothèque."
-          }
-        }
-      }
-    },
     "Choose files" : {
       "localizations" : {
         "fr" : {
@@ -279,12 +319,32 @@
         }
       }
     },
+    "Copying text" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copie du texte"
+          }
+        }
+      }
+    },
     "Couldn't make a PDF from those photos. Nothing changed." : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Impossible de créer un PDF à partir de ces photos. Rien n’a changé."
+          }
+        }
+      }
+    },
+    "Created" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Créé"
           }
         }
       }
@@ -379,6 +439,26 @@
         }
       }
     },
+    "File name" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nom du fichier"
+          }
+        }
+      }
+    },
+    "From the file" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "D’après le fichier"
+          }
+        }
+      }
+    },
     "Import" : {
       "localizations" : {
         "fr" : {
@@ -435,6 +515,56 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Déjà utilisés"
+          }
+        }
+      }
+    },
+    "In your library" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dans votre bibliothèque"
+          }
+        }
+      }
+    },
+    "Info" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Infos"
+          }
+        }
+      }
+    },
+    "Last opened" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dernière ouverture"
+          }
+        }
+      }
+    },
+    "Made with" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Créé avec"
+          }
+        }
+      }
+    },
+    "Modified" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modifié le"
           }
         }
       }
@@ -499,6 +629,26 @@
         }
       }
     },
+    "None" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun"
+          }
+        }
+      }
+    },
+    "Not allowed" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non autorisée"
+          }
+        }
+      }
+    },
     "Nothing deleted in the last 30 days" : {
       "localizations" : {
         "fr" : {
@@ -539,6 +689,36 @@
         }
       }
     },
+    "Pages" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pages"
+          }
+        }
+      }
+    },
+    "Password" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mot de passe"
+          }
+        }
+      }
+    },
+    "Password protected · %@" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Protégé par mot de passe · %@"
+          }
+        }
+      }
+    },
     "PDF Algo Pro" : {
       "localizations" : {
         "fr" : {
@@ -559,12 +739,22 @@
         }
       }
     },
-    "Password protected · %@" : {
+    "PDF made by" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Protégé par mot de passe · %@"
+            "value" : "PDF produit par"
+          }
+        }
+      }
+    },
+    "PDF version" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version PDF"
           }
         }
       }
@@ -575,6 +765,36 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Photos %@"
+          }
+        }
+      }
+    },
+    "Printing" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impression"
+          }
+        }
+      }
+    },
+    "Protected" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Protégé"
+          }
+        }
+      }
+    },
+    "Protection" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Protection"
           }
         }
       }
@@ -689,6 +909,16 @@
         }
       }
     },
+    "Size" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Taille"
+          }
+        }
+      }
+    },
     "Something went wrong" : {
       "localizations" : {
         "fr" : {
@@ -765,6 +995,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ce fichier n’est pas un PDF que cette app peut lire. Rien n’a été ajouté."
+          }
+        }
+      }
+    },
+    "Title" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Titre"
           }
         }
       }
