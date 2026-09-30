@@ -211,8 +211,10 @@ class UITestCase: XCTestCase {
           settling.append(Self.describe(issue))
           return true
         }
-      } else if issue.auditType == .elementDetection {
-        // "Potentially inaccessible text" without an element (issue #76).
+      } else if issue.auditType == .elementDetection || issue.auditType == .contrast {
+        // "Potentially inaccessible text", or a contrast failure, without an element (issue #76): with no
+        // element there is no frame to check again once the screen settles, and it has only ever been
+        // seen on a sheet's bar while it appears.
         settling.append(Self.describe(issue))
         return true
       }
