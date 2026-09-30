@@ -161,9 +161,10 @@ public final class LibraryModel {
     }
   }
 
-  /// Searches the whole library, whichever section is showing, so a document is found wherever it is
-  /// filed (FR-LIB-003); in Recently Deleted, it searches the deleted documents. An empty query clears
-  /// the results.
+  /// Searches the whole library, whichever section is showing (FR-LIB-003).
+  ///
+  /// A document is found wherever it is filed; in Recently Deleted, the search covers the deleted
+  /// documents. An empty query clears the results.
   public func search() async {
     let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !trimmed.isEmpty else {
