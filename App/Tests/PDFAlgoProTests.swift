@@ -102,7 +102,10 @@ struct AppTests {
   func composition() async {
     let app = makeApp()
     let id = DocumentID()
-    _ = app.makeReader(for: DocumentSelection(id: id, pageIndex: 2, task: .ask))
+    let selection = DocumentSelection(id: id, pageIndex: 2, task: .ask)
+    let reader = app.makeReader(for: selection)
+    #expect(app.makeReader(for: selection) === reader, "One reader per selection, however often the view asks")
+    #expect(app.makeReader(for: DocumentSelection(id: id)) !== reader)
     _ = app.makeScan()
     _ = app.makeSettings()
     _ = app.onboarding

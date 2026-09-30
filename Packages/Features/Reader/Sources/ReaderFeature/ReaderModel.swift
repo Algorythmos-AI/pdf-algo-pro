@@ -13,6 +13,16 @@ public struct ReaderAssistantContext {
   public let reveal: (Citation) -> Void
 }
 
+/// A saved document file offered to the share sheet.
+public struct SharedFile: Identifiable, Equatable {
+  /// The file.
+  public let url: URL
+  /// Whether the share sheet may offer Print.
+  public let allowsPrinting: Bool
+  /// The file's identity.
+  public var id: URL { url }
+}
+
 /// One open document (FR-READ-001 to FR-READ-006, FR-ANN-001, FR-SCAN-003).
 @MainActor
 @Observable
@@ -49,8 +59,16 @@ public final class ReaderModel {
   public var showsOutline = false
   /// Whether the page grid is open.
   public var showsPages = false
+  /// Whether "Go to page" is asking for a page number.
+  public var showsGoToPage = false
+  /// The saved file the share sheet is showing, if it is open.
+  public var sharing: SharedFile?
+  /// Whether there is an annotation change to undo.
+  public private(set) var canUndo = false
+  /// Whether there is an undone annotation change to redo.
+  public private(set) var canRedo = false
   /// Read aloud.
-  public let speech = SpeechReader()
+  public let speech: SpeechReader
 
   private let documentID: DocumentID
   private let startPage: Int?
@@ -67,7 +85,7 @@ public final class ReaderModel {
     selection documentID: DocumentID, pageIndex: Int? = nil, task: AssistantTask? = nil, library: any DocumentLibrary,
     intake: DocumentIntake, index: any DocumentIndexing, settings: any SettingsStoring,
     telemetry: any TelemetryRecording,
-    builder: SearchablePDFBuilder
+    builder: SearchablePDFBuilder, speech: SpeechReader = SpeechReader()
   ) {
     self.documentID = documentID
     startPage = pageIndex
@@ -78,6 +96,7 @@ public final class ReaderModel {
     self.settings = settings
     self.telemetry = telemetry
     self.builder = builder
+    self.speech = speech
   }
 
   // MARK: - Opening
@@ -140,6 +159,20 @@ public final class ReaderModel {
     settings.save(current)
   }
 
+  /// Goes to the page a person typed, counting from 1 (FR-READ-002); says so when there is no such page.
+  @discardableResult
+  public func goToPage(_ text: String) -> Bool {
+    guard let controller else { return false }
+    guard let number = Int(text.trimmingCharacters(in: .whitespacesAndNewlines)), (1...controller.pageCount) ~= number
+    else {
+      errorMessage = String(
+        localized: "Enter a page number from 1 to \(controller.pageCount).", bundle: .module)
+      return false
+    }
+    controller.goTo(pageIndex: number - 1)
+    return true
+  }
+
   /// Records the reading position; called when the page changes and when the reader closes.
   public func recordPosition() async {
     guard let controller, phase == .ready else { return }
@@ -152,7 +185,8 @@ public final class ReaderModel {
     if speech.isSpeaking {
       speech.stop()
     } else {
-      speech.speak(controller.pageTexts()[safe: controller.currentPageIndex]?.text ?? "")
+      // Only the page on screen is read, so a long document does not extract every page first.
+      speech.speak(controller.pageText(at: controller.currentPageIndex))
     }
   }
 
@@ -161,10 +195,12 @@ public final class ReaderModel {
   /// Marks up the selected text and saves; returns whether anything was selected.
   @discardableResult
   public func markUpSelection(_ markup: TextMarkup) async -> Bool {
-    guard let controller, controller.markUpSelection(markup) else {
+    guard let controller, checkAnnotatingIsAllowed(controller) else { return false }
+    guard controller.markUpSelection(markup) else {
       errorMessage = String(localized: "Select some text first, then choose how to mark it.", bundle: .module)
       return false
     }
+    updateUndoState()
     await save()
     return true
   }
@@ -172,29 +208,100 @@ public final class ReaderModel {
   /// Adds a note to the current page and saves.
   public func addNote(_ text: String) async {
     let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard let controller, !trimmed.isEmpty else { return }
+    guard let controller, !trimmed.isEmpty, checkAnnotatingIsAllowed(controller) else { return }
     controller.addNote(trimmed, onPage: controller.currentPageIndex)
+    updateUndoState()
     await save()
   }
 
   /// Undoes the last annotation change and saves.
   public func undo() async {
-    controller?.undoManager.undo()
+    guard let controller, controller.undoManager.canUndo else { return }
+    controller.undoManager.undo()
+    updateUndoState()
     await save()
   }
 
+  /// Redoes the last undone annotation change and saves.
+  public func redo() async {
+    guard let controller, controller.undoManager.canRedo else { return }
+    controller.undoManager.redo()
+    updateUndoState()
+    await save()
+  }
+
+  /// Says so when the document's author does not allow notes and markup (defect D9).
+  private func checkAnnotatingIsAllowed(_ controller: PDFDocumentController) -> Bool {
+    guard controller.allowsAnnotating else {
+      errorMessage = Self.restrictedMessage
+      return false
+    }
+    return true
+  }
+
+  private static var restrictedMessage: String {
+    String(
+      localized: "The author of this document doesn't allow notes, markup or changes to it, so nothing was changed.",
+      bundle: .module)
+  }
+
+  private func updateUndoState() {
+    canUndo = controller?.undoManager.canUndo ?? false
+    canRedo = controller?.undoManager.canRedo ?? false
+  }
+
+  /// Saves before the app is suspended, so nothing typed or marked is lost if the system ends it.
+  ///
+  /// `keepAlive` asks the system for time to finish (on iOS, a background task) and returns the call
+  /// that ends it; the reader ends it once the save and the reading position are written (defect D2).
+  public func saveBeforeSuspending(keepAlive: () -> (@MainActor () -> Void)) async {
+    let finished = keepAlive()
+    await save()
+    await recordPosition()
+    finished()
+  }
+
   /// Writes changes atomically (autosave, FR-EDIT-007); a failed save changes nothing on disk.
-  public func save() async {
-    guard let controller, controller.hasUnsavedChanges else { return }
+  ///
+  /// Form entries count as changes, including text still being typed into a field (defect D1).
+  ///
+  /// Returns whether the file on disk now has every change; a failure has already been explained.
+  @discardableResult
+  public func save() async -> Bool {
+    guard let controller else { return false }
+    controller.endEditing()
+    guard controller.needsSaving else { return true }
     do {
       try controller.save(to: try await library.fileURL(for: documentID))
       try await library.recordModified(documentID)
       await telemetry.record("task.core.completed")
+      return true
+    } catch PDFEngineError.restricted {
+      errorMessage = Self.restrictedMessage
     } catch {
       errorMessage = String(
         localized: "Couldn't save your changes. The document on disk hasn't changed. Try again.", bundle: .module)
       await telemetry.record("quality.operation.failed")
     }
+    return false
+  }
+
+  // MARK: - Sharing
+
+  /// The saved file, ready to share or print: changes are saved first, so what leaves the app is what
+  /// the person sees. `nil` when saving failed, which has been explained.
+  public func fileForSharing() async -> URL? {
+    guard phase == .ready, await save() else { return nil }
+    return try? await library.fileURL(for: documentID)
+  }
+
+  /// Whether the document's author allows printing; always true for unencrypted documents.
+  public var allowsPrinting: Bool { controller?.allowsPrinting ?? false }
+
+  /// Saves, then opens the share sheet with the file.
+  public func share() async {
+    guard let url = await fileForSharing() else { return }
+    sharing = SharedFile(url: url, allowsPrinting: allowsPrinting)
   }
 
   // MARK: - Recognition
@@ -207,7 +314,7 @@ public final class ReaderModel {
 
   /// Recognises text on device and replaces the file with a searchable version, with progress.
   ///
-  /// Unsaved notes and markup are saved first, so the searchable version includes them. If the
+  /// Unsaved notes, markup and form entries are saved first, so the searchable version includes them. If the
   /// document changes while recognition runs, the file is left alone, so nothing added meanwhile is lost.
   public func recognizeText() {
     guard recognitionProgress == nil else { return }
@@ -217,7 +324,7 @@ public final class ReaderModel {
       do {
         await save()
         // A failed save has already said so; replacing the file now would lose those changes.
-        guard controller?.hasUnsavedChanges != true else { return }
+        guard controller?.needsSaving != true else { return }
         let url = try await library.fileURL(for: documentID)
         let version = try FileVersion(url)
         let result = try await builder.addTextLayer(toPDFAt: url) { progress in
@@ -226,7 +333,7 @@ public final class ReaderModel {
         // Stopped during the last page: the builder has finished, but the file is left as it was.
         try Task.checkCancellation()
         // No suspension between this check and the write, so no save can slip in between.
-        guard controller?.hasUnsavedChanges != true, try FileVersion(url) == version else {
+        guard controller?.needsSaving != true, try FileVersion(url) == version else {
           errorMessage = String(
             localized: "The document changed while its text was being recognised, so it wasn't replaced. Try again.",
             bundle: .module)
@@ -237,6 +344,7 @@ public final class ReaderModel {
         let reopened = try PDFDocumentController(url: url)
         reopened.displayMode = settings.load().readerDisplayMode
         controller = reopened
+        updateUndoState()
         show(reopened)
         await telemetry.record("task.core.completed")
       } catch is CancellationError {
@@ -274,12 +382,6 @@ public final class ReaderModel {
         self?.assistantTask = nil
         self?.controller?.reveal(citation)
       })
-  }
-}
-
-extension Array {
-  fileprivate subscript(safe index: Int) -> Element? {
-    indices.contains(index) ? self[index] : nil
   }
 }
 

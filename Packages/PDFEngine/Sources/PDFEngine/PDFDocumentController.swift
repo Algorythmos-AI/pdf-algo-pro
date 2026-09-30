@@ -3,24 +3,6 @@ import Foundation
 import Observation
 import PDFKit
 
-/// A text markup annotation the reader can add to selected text (FR-ANN-001).
-public enum TextMarkup: String, CaseIterable, Sendable {
-  /// A translucent highlight.
-  case highlight
-  /// An underline.
-  case underline
-  /// A strike-through.
-  case strikeThrough
-
-  fileprivate var subtype: PDFAnnotationSubtype {
-    switch self {
-    case .highlight: .highlight
-    case .underline: .underline
-    case .strikeThrough: .strikeOut
-    }
-  }
-}
-
 /// An entry in a document's outline (table of contents).
 public struct OutlineItem: Hashable, Sendable, Identifiable {
   /// The entry's title.
@@ -52,7 +34,8 @@ public struct TextMatch: Hashable, Sendable {
 /// One open PDF: pages, text, outline, annotations, navigation and saving.
 ///
 /// PDFKit objects are not `Sendable`, so the controller and everything it owns stay on the main
-/// actor. It is the only type features use to work with an open document.
+/// actor. It is the only type features use to work with an open document. Annotations and saving
+/// are in `PDFDocumentController+Annotations.swift` and `PDFDocumentController+Saving.swift`.
 @MainActor
 @Observable
 public final class PDFDocumentController {
@@ -63,7 +46,7 @@ public final class PDFDocumentController {
   /// Whether the document is still locked by a password.
   public private(set) var isLocked: Bool
   /// Whether there are changes not yet written to disk.
-  public private(set) var hasUnsavedChanges = false
+  public internal(set) var hasUnsavedChanges = false
   /// How pages are laid out.
   public var displayMode: ReaderDisplayMode = .continuous {
     didSet { view?.apply(displayMode) }
@@ -72,8 +55,10 @@ public final class PDFDocumentController {
   @ObservationIgnored let document: PDFDocument
   @ObservationIgnored weak var view: PDFReaderHostView?
   @ObservationIgnored private var pendingPageIndex: Int?
-  @ObservationIgnored private var password: String?
-  @ObservationIgnored private let wasEncrypted: Bool
+  @ObservationIgnored var password: String?
+  @ObservationIgnored let wasEncrypted: Bool
+  /// Form fields and their values when the document was opened, unlocked or last saved.
+  @ObservationIgnored var formValues: [(widget: PDFAnnotation, value: FormValue)] = []
   /// Undo for every annotation change (FR-EDIT-007).
   @ObservationIgnored public let undoManager = UndoManager()
 
@@ -87,6 +72,7 @@ public final class PDFDocumentController {
     self.document = document
     isLocked = document.isLocked
     wasEncrypted = document.isEncrypted
+    recordFormValues()
   }
 
   /// Opens a PDF from data (used by tests and previews).
@@ -97,6 +83,7 @@ public final class PDFDocumentController {
     self.document = document
     isLocked = document.isLocked
     wasEncrypted = document.isEncrypted
+    recordFormValues()
   }
 
   /// Unlocks an encrypted document; returns whether the password was right.
@@ -105,6 +92,7 @@ public final class PDFDocumentController {
     guard document.unlock(withPassword: password) else { return false }
     self.password = password
     isLocked = false
+    recordFormValues()
     view?.reload()
     return true
   }
@@ -113,6 +101,11 @@ public final class PDFDocumentController {
 
   /// The number of pages.
   public var pageCount: Int { document.pageCount }
+
+  /// The text of one page, from the text layer; empty when the page has none or does not exist.
+  public func pageText(at pageIndex: Int) -> String {
+    document.page(at: pageIndex)?.string ?? ""
+  }
 
   /// The text of every page, from the text layer.
   public func pageTexts() -> [PageText] {
@@ -176,6 +169,11 @@ public final class PDFDocumentController {
     return true
   }
 
+  /// Shows the system find bar, which finds text and moves between matches (FR-READ-003).
+  public func showFind() {
+    view?.presentFind()
+  }
+
   func attach(_ view: PDFReaderHostView) {
     self.view = view
     view.apply(displayMode)
@@ -189,102 +187,4 @@ public final class PDFDocumentController {
     currentPageIndex = document.index(for: page)
   }
 
-  // MARK: - Annotations
-
-  /// The number of annotations on a page, not counting the pop-ups PDFKit attaches to notes.
-  public func annotationCount(onPage pageIndex: Int) -> Int {
-    document.page(at: pageIndex)?.annotations.filter { $0.type?.lowercased() != "popup" }.count ?? 0
-  }
-
-  /// Marks up the current selection; returns `false` when nothing is selected.
-  @discardableResult
-  public func markUpSelection(_ markup: TextMarkup) -> Bool {
-    guard let selection = view?.currentSelection else { return false }
-    return markUp(selection, as: markup)
-  }
-
-  /// Marks up the first occurrence of some text (used by tests and by citations).
-  @discardableResult
-  public func markUp(text: String, as markup: TextMarkup) -> Bool {
-    guard let selection = document.findString(text, withOptions: [.caseInsensitive]).first else { return false }
-    return markUp(selection, as: markup)
-  }
-
-  /// Adds a note annotation near the top-left corner of a page.
-  public func addNote(_ contents: String, onPage pageIndex: Int) {
-    guard let page = document.page(at: pageIndex) else { return }
-    let bounds = page.bounds(for: .cropBox)
-    let note = PDFAnnotation(
-      bounds: CGRect(x: bounds.minX + 24, y: bounds.maxY - 48, width: 24, height: 24), forType: .text,
-      withProperties: nil)
-    note.contents = contents
-    note.color = AnnotationPalette.yellow
-    add([(note, page)])
-  }
-
-  private func markUp(_ selection: PDFSelection, as markup: TextMarkup) -> Bool {
-    var added: [(PDFAnnotation, PDFPage)] = []
-    for line in selection.selectionsByLine() {
-      for page in line.pages {
-        let bounds = line.bounds(for: page)
-        guard bounds.width > 0, bounds.height > 0 else { continue }
-        let annotation = PDFAnnotation(bounds: bounds, forType: markup.subtype, withProperties: nil)
-        annotation.color = markup == .highlight ? AnnotationPalette.yellow : AnnotationPalette.red
-        added.append((annotation, page))
-      }
-    }
-    guard !added.isEmpty else { return false }
-    add(added)
-    return true
-  }
-
-  private func add(_ annotations: [(PDFAnnotation, PDFPage)]) {
-    for (annotation, page) in annotations { page.addAnnotation(annotation) }
-    hasUnsavedChanges = true
-    undoManager.registerUndo(withTarget: self) { controller in
-      MainActor.assumeIsolated { controller.remove(annotations) }
-    }
-  }
-
-  private func remove(_ annotations: [(PDFAnnotation, PDFPage)]) {
-    for (annotation, page) in annotations { page.removeAnnotation(annotation) }
-    hasUnsavedChanges = true
-    undoManager.registerUndo(withTarget: self) { controller in
-      MainActor.assumeIsolated { controller.add(annotations) }
-    }
-  }
-
-  // MARK: - Saving
-
-  /// Writes the document atomically with coordinated access; a failed save leaves the file unchanged (NFR-REL-002).
-  ///
-  /// Encrypted documents keep their password.
-  ///
-  /// - Throws: `PDFEngineError.saveFailed`.
-  public func save(to url: URL) throws {
-    var options: [PDFDocumentWriteOption: Any] = [:]
-    if wasEncrypted, let password {
-      options[.userPasswordOption] = password
-      options[.ownerPasswordOption] = password
-    }
-    let staging = FileManager.default.temporaryDirectory.appendingPathComponent("save-\(UUID().uuidString).pdf")
-    defer { try? FileManager.default.removeItem(at: staging) }
-    guard document.write(to: staging, withOptions: options), let data = try? Data(contentsOf: staging),
-      PDFDocument(data: data) != nil
-    else { throw PDFEngineError.saveFailed }
-    var coordinationError: NSError?
-    var writeError: (any Error)?
-    NSFileCoordinator(filePresenter: nil).coordinate(
-      writingItemAt: url, options: .forReplacing, error: &coordinationError
-    ) {
-      target in
-      do {
-        try data.write(to: target, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
-      } catch {
-        writeError = error
-      }
-    }
-    guard coordinationError == nil, writeError == nil else { throw PDFEngineError.saveFailed }
-    hasUnsavedChanges = false
-  }
 }

@@ -123,6 +123,16 @@ The sections below give each flow in detail.
   after a redaction the app offers to remove other versions of the file
   ([removeOtherVersionsOfItem(at:)](https://developer.apple.com/documentation/foundation/nsfileversion/removeotherversionsofitem(at:)))
   and explains that copies already shared elsewhere are not affected.
+- **Protected documents keep their protection** when notes, markup or form entries are saved.
+  - **Opened with the user password, or without one:** the user password and the author's
+    restrictions stay as they were, under a new owner password that nobody knows. The user password
+    never gains the owner's rights. The original owner password no longer applies, because the app
+    never had it.
+  - **Opened with the owner password:** that password protects the saved file.
+  - **Changes the author does not allow** (notes and markup, or form entries) are refused, with an
+    explanation, and the file is left as it was.
+  - **Adding recognised text** is not offered for encrypted documents, because the searchable copy
+    would carry no protection.
 - **Leaves the device:** only the saved file, through iCloud Drive.
 - **User control:** undo and redo (FR-EDIT-007); signature management in Settings; password
   protection (FR-EDIT-006).

@@ -1,11 +1,11 @@
-import AVFoundation
 import Core
 import CoreTestSupport
 import Foundation
-import PDFEngine
+import PDFEngineTestSupport
 import SwiftUI
 import Testing
 
+@testable import PDFEngine
 @testable import ReaderFeature
 
 @MainActor
@@ -23,7 +23,8 @@ private struct Harness {
       selection: document.id, pageIndex: pageIndex, task: task, library: library,
       intake: DocumentIntake(library: library, inspector: PDFKitInspector(), index: index), index: index,
       settings: settings, telemetry: telemetry,
-      builder: SearchablePDFBuilder(recognizer: recognizer, renderPixelSize: 400))
+      builder: SearchablePDFBuilder(recognizer: recognizer, renderPixelSize: 400),
+      speech: SpeechReader(engine: SilentSpeech()))
   }
 
   func seed(
@@ -104,6 +105,129 @@ struct ReaderModelTests {
     await reader.undo()
     #expect(try PDFDocumentController(url: url).annotationCount(onPage: 0) == 0)
     #expect(await harness.telemetry.events.contains("task.core.completed"))
+  }
+
+  @Test("Undo and redo follow the annotation history and save each step (FR-EDIT-007)")
+  func undoAndRedo() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.makeSample())
+    let reader = harness.reader(for: document)
+    await reader.load()
+    #expect(!reader.canUndo && !reader.canRedo)
+    await reader.redo()
+    await reader.undo()
+    await reader.addNote("First")
+    #expect(reader.canUndo && !reader.canRedo)
+    let url = try await harness.library.fileURL(for: document.id)
+
+    await reader.undo()
+    #expect(!reader.canUndo && reader.canRedo)
+    #expect(try PDFDocumentController(url: url).annotationCount(onPage: 0) == 0)
+    await reader.redo()
+    #expect(reader.canUndo && !reader.canRedo)
+    #expect(try PDFDocumentController(url: url).annotationCount(onPage: 0) == 1)
+  }
+
+  @Test("Moving to the background saves, keeping the app alive until the save is written (defect D2)")
+  func saveBeforeSuspending() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try TestPDFs.makeForm())
+    let reader = harness.reader(for: document)
+    await reader.load()
+    let widgets = try #require(reader.controller?.document.page(at: 0)?.annotations)
+    try #require(widgets.first { $0.fieldName == "name" }).widgetStringValue = "Grace Hopper"
+    let url = try await harness.library.fileURL(for: document.id)
+    var steps: [String] = []
+
+    await reader.saveBeforeSuspending {
+      steps.append("began")
+      return { steps.append("ended, saved: \(TestPDFs.storedValue(of: "name", in: url) ?? "nothing")") }
+    }
+
+    #expect(steps == ["began", "ended, saved: Grace Hopper"])
+    #expect(try await harness.library.document(withID: document.id)?.lastOpenedAt != nil, "The position is kept too")
+  }
+
+  @Test("Form entries save automatically, with nothing else changed (defect D1)")
+  func formEntriesSave() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try TestPDFs.makeForm())
+    let reader = harness.reader(for: document)
+    await reader.load()
+    let url = try await harness.library.fileURL(for: document.id)
+    let before = try Data(contentsOf: url)
+    await reader.save()
+    #expect(try Data(contentsOf: url) == before, "Nothing to save, nothing written")
+
+    let widgets = try #require(reader.controller?.document.page(at: 0)?.annotations)
+    try #require(widgets.first { $0.fieldName == "name" }).widgetStringValue = "Ada Lovelace"
+    await reader.save()
+
+    #expect(TestPDFs.storedValue(of: "name", in: url) == "Ada Lovelace")
+    #expect(reader.controller?.needsSaving == false)
+    #expect(await harness.telemetry.events.contains("task.core.completed"))
+  }
+
+  @Test("Documents whose author forbids changes say so and stay as they were (defect D9)")
+  func restrictedDocuments() async throws {
+    let harness = Harness()
+    let data = try TestPDFs.makeProtected(
+      userPassword: nil, ownerPassword: "owner-\(UUID())", permissions: [.allowsLowQualityPrinting])
+    let document = await harness.seed(data)
+    let reader = harness.reader(for: document)
+    await reader.load()
+    #expect(reader.phase == .ready)
+
+    await reader.addNote("Not allowed")
+    #expect(reader.errorMessage?.contains("doesn't allow") == true)
+    reader.errorMessage = nil
+    #expect(await !reader.markUpSelection(.highlight))
+    #expect(reader.errorMessage?.contains("doesn't allow") == true)
+    #expect(try Data(contentsOf: try await harness.library.fileURL(for: document.id)) == data)
+    #expect(!reader.canUndo)
+  }
+
+  @Test("Go to page takes a page number from 1, and says when there is no such page (FR-READ-002, FR-READ-003)")
+  func goToPage() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.makeSample())
+    let reader = harness.reader(for: document)
+    #expect(!reader.goToPage("1"), "Nothing happens before the document opens")
+    await reader.load()
+    #expect(reader.goToPage(" 3 "))
+    #expect(reader.controller?.currentPageIndex == 2)
+    for invalid in ["0", "4", "two", ""] {
+      reader.errorMessage = nil
+      #expect(!reader.goToPage(invalid))
+      #expect(reader.errorMessage?.contains("from 1 to 3") == true, "\(invalid)")
+    }
+    #expect(reader.controller?.currentPageIndex == 2)
+    reader.controller?.showFind()
+  }
+
+  @Test("Sharing and printing save first, and respect the author's printing restriction")
+  func shareAndPrint() async throws {
+    let harness = Harness()
+    let form = await harness.seed(try TestPDFs.makeForm())
+    let reader = harness.reader(for: form)
+    #expect(await reader.fileForSharing() == nil, "Nothing to share before the document opens")
+    await reader.load()
+    let widgets = try #require(reader.controller?.document.page(at: 0)?.annotations)
+    try #require(widgets.first { $0.fieldName == "name" }).widgetStringValue = "Katherine Johnson"
+
+    await reader.share()
+
+    let url = try await harness.library.fileURL(for: form.id)
+    #expect(reader.sharing == SharedFile(url: url, allowsPrinting: true))
+    #expect(TestPDFs.storedValue(of: "name", in: url) == "Katherine Johnson", "Shared as the person sees it")
+
+    let restricted = await harness.seed(
+      try TestPDFs.makeProtected(userPassword: nil, ownerPassword: "owner-\(UUID())", permissions: [.allowsCommenting]))
+    let noPrinting = harness.reader(for: restricted)
+    await noPrinting.load()
+    #expect(!noPrinting.allowsPrinting)
+    await noPrinting.share()
+    #expect(noPrinting.sharing?.allowsPrinting == false)
   }
 
   @Test("Layout choices are remembered")
@@ -225,18 +349,25 @@ struct ReaderModelTests {
   }
 
   @Test("Read aloud ends when the system finishes or cancels speech")
-  func speechEnds() async throws {
-    let speech = SpeechReader()
-    let synthesizer = AVSpeechSynthesizer()
-    speech.speak("One")
-    speech.speechSynthesizer(synthesizer, didFinish: AVSpeechUtterance(string: "One"))
-    for _ in 0..<100 where speech.isSpeaking { try await Task.sleep(for: .milliseconds(10)) }
+  func speechEnds() {
+    let engine = SilentSpeech()
+    let speech = SpeechReader(engine: engine)
+    speech.speak("   ")
+    #expect(!speech.isSpeaking && engine.spoken.isEmpty, "Blank text is not spoken")
+    speech.speak(" One ")
+    #expect(speech.isSpeaking && engine.spoken == ["One"])
+    engine.onEnd?()
     #expect(!speech.isSpeaking)
     speech.speak("Two")
-    speech.speechSynthesizer(synthesizer, didCancel: AVSpeechUtterance(string: "Two"))
-    for _ in 0..<100 where speech.isSpeaking { try await Task.sleep(for: .milliseconds(10)) }
-    #expect(!speech.isSpeaking)
     speech.stop()
+    #expect(!speech.isSpeaking && engine.stops == 1)
+  }
+
+  @Test("The system engine touches the voices only when asked to speak")
+  func systemEngineIsLazy() {
+    let engine = SystemSpeechEngine()
+    engine.stop()
+    _ = SpeechReader(engine: engine)
   }
 
   @Test func readAloudToggles() async throws {
@@ -251,7 +382,7 @@ struct ReaderModelTests {
 
   @Test("Every markup kind has a label", arguments: TextMarkup.allCases)
   func markupLabels(markup: TextMarkup) {
-    _ = ReaderView<EmptyView>.label(for: markup)
+    _ = ReaderToolbar.label(for: markup)
   }
 }
 
@@ -276,4 +407,15 @@ private actor GatedRecognizer: TextRecognizing {
     }
     return FakeRecognizer().lines
   }
+}
+
+/// A speech engine that records what it was asked to say and never touches the system voices.
+@MainActor
+private final class SilentSpeech: SpeechEngine {
+  var onEnd: (() -> Void)?
+  private(set) var spoken: [String] = []
+  private(set) var stops = 0
+
+  func speak(_ text: String) { spoken.append(text) }
+  func stop() { stops += 1 }
 }

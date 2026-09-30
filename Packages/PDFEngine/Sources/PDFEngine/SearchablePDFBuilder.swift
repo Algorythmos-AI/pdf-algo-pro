@@ -55,7 +55,7 @@ public actor SearchablePDFBuilder {
   /// added to it: annotations (notes, markup, links, form fields), page rotation, the outline and the
   /// document's metadata.
   ///
-  /// - Throws: `PDFEngineError.unreadable`, `.passwordRequired`, `.saveFailed`, `CancellationError`, or
+  /// - Throws: `PDFEngineError.unreadable`, `.passwordRequired`, `.restricted` (encrypted), `.saveFailed`, `CancellationError`, or
   ///   the recogniser's error.
   public func addTextLayer(
     toPDFAt url: URL, progress: @Sendable (Double) -> Void = { _ in }
@@ -67,6 +67,8 @@ public actor SearchablePDFBuilder {
       let provider = CGDataProvider(data: original as CFData), let source = CGPDFDocument(provider)
     else { throw PDFEngineError.unreadable }
     guard !source.isEncrypted || source.isUnlocked else { throw PDFEngineError.passwordRequired }
+    // The searchable copy is drawn afresh and would carry no encryption or restrictions (defect D9).
+    guard !source.isEncrypted else { throw PDFEngineError.restricted }
     let pageCount = source.numberOfPages
     var recognized: [[RecognizedLine]] = []
     for index in 0..<pageCount {

@@ -33,6 +33,7 @@ let package = Package(
       dependencies: [
         "ReaderFeature", .product(name: "CoreTestSupport", package: "Core"), .product(name: "Core", package: "Core"),
         .product(name: "PDFEngine", package: "PDFEngine"),
+        .product(name: "PDFEngineTestSupport", package: "PDFEngine"),
       ],
       swiftSettings: settings
     ),

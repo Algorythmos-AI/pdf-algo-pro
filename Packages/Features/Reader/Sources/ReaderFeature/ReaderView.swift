@@ -2,6 +2,7 @@ import Core
 import DesignSystem
 import PDFEngine
 import SwiftUI
+import UIKit
 
 /// The reader: the page surface, a floating page indicator, and tools in the toolbar.
 ///
@@ -11,6 +12,8 @@ public struct ReaderView<Assistant: View>: View {
   @State private var password = ""
   @State private var noteText = ""
   @State private var isAddingNote = false
+  @State private var pageNumber = ""
+  @Environment(\.scenePhase) private var scenePhase
   private let assistant: (ReaderAssistantContext) -> Assistant
 
   /// Creates the reader; `assistant` builds the assistant sheet, supplied by the app.
@@ -24,12 +27,13 @@ public struct ReaderView<Assistant: View>: View {
     content
       .navigationTitle(model.document?.title ?? "")
       .navigationBarTitleDisplayMode(.inline)
-      .toolbar { toolbar }
+      .toolbar { ReaderToolbar(model: model, isAddingNote: $isAddingNote) }
       .sheet(item: $model.assistantTask) { task in
         assistant(model.assistantContext(for: task))
       }
-      .sheet(isPresented: $model.showsOutline) { outline }
-      .sheet(isPresented: $model.showsPages) { pageGrid }
+      .sheet(item: $model.sharing) { ShareSheet(file: $0) }
+      .sheet(isPresented: $model.showsOutline) { OutlineSheet(model: model) }
+      .sheet(isPresented: $model.showsPages) { PageGridSheet(model: model) }
       .alert(Text("Add a note", bundle: .module), isPresented: $isAddingNote) {
         TextField(text: $noteText) { Text("Note", bundle: .module) }
         Button {
@@ -42,6 +46,24 @@ public struct ReaderView<Assistant: View>: View {
         } label: {
           Text("Cancel", bundle: .module)
         }
+      }
+      .alert(Text("Go to page", bundle: .module), isPresented: $model.showsGoToPage) {
+        TextField(text: $pageNumber) { Text("Page number", bundle: .module) }
+          .keyboardType(.numberPad)
+          .accessibilityIdentifier("reader.goToPage.number")
+        Button {
+          model.goToPage(pageNumber)
+          pageNumber = ""
+        } label: {
+          Text("Go", bundle: .module)
+        }
+        Button(role: .cancel) {
+          pageNumber = ""
+        } label: {
+          Text("Cancel", bundle: .module)
+        }
+      } message: {
+        Text("This document has \(model.controller?.pageCount ?? 0) pages.", bundle: .module)
       }
       .alert(
         Text("Something went wrong", bundle: .module),
@@ -57,6 +79,10 @@ public struct ReaderView<Assistant: View>: View {
       }
       .task { await model.load() }
       .onChange(of: model.controller?.currentPageIndex) { Task { await model.recordPosition() } }
+      .onChange(of: scenePhase) { _, phase in
+        guard phase == .background else { return }
+        Task { await model.saveBeforeSuspending(keepAlive: Self.beginBackgroundTask) }
+      }
       .onDisappear {
         model.speech.stop()
         Task {
@@ -64,6 +90,22 @@ public struct ReaderView<Assistant: View>: View {
           await model.recordPosition()
         }
       }
+  }
+
+  /// Asks iOS for time to finish saving after the app moves to the background.
+  ///
+  /// Returns the call that ends the request. If the time runs out first, the request is ended then.
+  private static func beginBackgroundTask() -> @MainActor () -> Void {
+    var identifier = UIBackgroundTaskIdentifier.invalid
+    identifier = UIApplication.shared.beginBackgroundTask(withName: "Save document") {
+      UIApplication.shared.endBackgroundTask(identifier)
+      identifier = .invalid
+    }
+    return {
+      guard identifier != .invalid else { return }
+      UIApplication.shared.endBackgroundTask(identifier)
+      identifier = .invalid
+    }
   }
 
   @ViewBuilder private var content: some View {
@@ -141,276 +183,4 @@ public struct ReaderView<Assistant: View>: View {
     .padding(Spacing.s200)
   }
 
-  @ToolbarContentBuilder private var toolbar: some ToolbarContent {
-    ToolbarItemGroup(placement: .primaryAction) {
-      if model.phase == .ready {
-        if model.showsIntelligence {
-          Menu {
-            Button {
-              model.assistantTask = .summarize
-            } label: {
-              Label {
-                Text("Summarise", bundle: .module)
-              } icon: {
-                Image(systemName: "text.append")
-              }
-            }
-            Button {
-              model.assistantTask = .ask
-            } label: {
-              Label {
-                Text("Ask a question", bundle: .module)
-              } icon: {
-                Image(systemName: "bubble.left.and.text.bubble.right")
-              }
-            }
-            Button {
-              model.assistantTask = .extract
-            } label: {
-              Label {
-                Text("Extract data", bundle: .module)
-              } icon: {
-                Image(systemName: "tablecells")
-              }
-            }
-            Button {
-              model.assistantTask = .explainContract
-            } label: {
-              Label {
-                Text("Explain contract", bundle: .module)
-              } icon: {
-                Image(systemName: "doc.text.magnifyingglass")
-              }
-            }
-          } label: {
-            Label {
-              Text("Ask", bundle: .module)
-            } icon: {
-              Image(systemName: "sparkles")
-            }
-          }
-          .accessibilityIdentifier("reader.ask")
-        }
-        Menu {
-          ForEach(TextMarkup.allCases, id: \.self) { markup in
-            Button {
-              Task { await model.markUpSelection(markup) }
-            } label: {
-              Self.label(for: markup)
-            }
-          }
-          Button {
-            isAddingNote = true
-          } label: {
-            Label {
-              Text("Add note", bundle: .module)
-            } icon: {
-              Image(systemName: "note.text.badge.plus")
-            }
-          }
-          Button {
-            Task { await model.undo() }
-          } label: {
-            Label {
-              Text("Undo", bundle: .module)
-            } icon: {
-              Image(systemName: "arrow.uturn.backward")
-            }
-          }
-        } label: {
-          Label {
-            Text("Markup", bundle: .module)
-          } icon: {
-            Image(systemName: "highlighter")
-          }
-        }
-        .accessibilityIdentifier("reader.markup")
-        Menu {
-          Button {
-            model.showsPages = true
-          } label: {
-            Label {
-              Text("Pages", bundle: .module)
-            } icon: {
-              Image(systemName: "square.grid.2x2")
-            }
-          }
-          Button {
-            model.showsOutline = true
-          } label: {
-            Label {
-              Text("Contents", bundle: .module)
-            } icon: {
-              Image(systemName: "list.bullet.indent")
-            }
-          }
-          Picker(
-            selection: Binding(get: { model.controller?.displayMode ?? .continuous }, set: { model.setDisplayMode($0) })
-          ) {
-            Text("Continuous", bundle: .module).tag(ReaderDisplayMode.continuous)
-            Text("Single page", bundle: .module).tag(ReaderDisplayMode.singlePage)
-          } label: {
-            Text("Layout", bundle: .module)
-          }
-          Button {
-            model.toggleReadAloud()
-          } label: {
-            Label {
-              model.speech.isSpeaking ? Text("Stop reading", bundle: .module) : Text("Read aloud", bundle: .module)
-            } icon: {
-              Image(systemName: model.speech.isSpeaking ? "stop.circle" : "speaker.wave.2")
-            }
-          }
-          if model.canRecognizeText {
-            Button {
-              model.recognizeText()
-            } label: {
-              Label {
-                Text("Recognise text", bundle: .module)
-              } icon: {
-                Image(systemName: "text.viewfinder")
-              }
-            }
-          }
-        } label: {
-          Label {
-            Text("More", bundle: .module)
-          } icon: {
-            Image(systemName: "ellipsis.circle")
-          }
-        }
-        .accessibilityIdentifier("reader.more")
-      }
-    }
-  }
-
-  private var outline: some View {
-    NavigationStack {
-      Group {
-        let items = model.controller?.outline ?? []
-        if items.isEmpty {
-          EmptyState(Text("No table of contents", bundle: .module), systemImage: "list.bullet.indent") {
-            Text("This document doesn't include one. Use Pages to jump to a page.", bundle: .module)
-          }
-        } else {
-          List(items) { item in
-            Button {
-              model.controller?.goTo(pageIndex: item.pageIndex)
-              model.showsOutline = false
-            } label: {
-              HStack {
-                Text(item.title).padding(.leading, CGFloat(item.depth) * Spacing.s200)
-                Spacer()
-                Text("\(item.pageIndex + 1)").foregroundStyle(Color.ds.labelSecondary).monospacedDigit()
-              }
-            }
-          }
-        }
-      }
-      .navigationTitle(Text("Contents", bundle: .module))
-      .toolbar {
-        ToolbarItem(placement: .confirmationAction) {
-          Button {
-            model.showsOutline = false
-          } label: {
-            Text("Done", bundle: .module)
-          }
-        }
-      }
-    }
-  }
-
-  private var pageGrid: some View {
-    NavigationStack {
-      PageGrid(model: model)
-        .navigationTitle(Text("Pages", bundle: .module))
-        .toolbar {
-          ToolbarItem(placement: .confirmationAction) {
-            Button {
-              model.showsPages = false
-            } label: {
-              Text("Done", bundle: .module)
-            }
-          }
-        }
-    }
-  }
-
-  static func label(for markup: TextMarkup) -> Label<Text, Image> {
-    switch markup {
-    case .highlight:
-      Label {
-        Text("Highlight", bundle: .module)
-      } icon: {
-        Image(systemName: "highlighter")
-      }
-    case .underline:
-      Label {
-        Text("Underline", bundle: .module)
-      } icon: {
-        Image(systemName: "underline")
-      }
-    case .strikeThrough:
-      Label {
-        Text("Strike through", bundle: .module)
-      } icon: {
-        Image(systemName: "strikethrough")
-      }
-    }
-  }
-}
-
-/// A grid of page thumbnails; tapping one jumps to it (FR-READ-002).
-struct PageGrid: View {
-  let model: ReaderModel
-  private let thumbnails = ThumbnailCache()
-
-  var body: some View {
-    ScrollView {
-      LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: Spacing.s200)], spacing: Spacing.s200) {
-        ForEach(0..<(model.controller?.pageCount ?? 0), id: \.self) { pageIndex in
-          Button {
-            model.controller?.goTo(pageIndex: pageIndex)
-            model.showsPages = false
-          } label: {
-            PageThumbnail(
-              pageIndex: pageIndex, url: model.fileURL, version: model.document?.modifiedAt ?? .distantPast,
-              cache: thumbnails,
-              isCurrent: model.controller?.currentPageIndex == pageIndex)
-          }
-          .buttonStyle(.plain)
-          .accessibilityLabel(Text("Page \(pageIndex + 1)", bundle: .module))
-        }
-      }
-      .padding(Spacing.s200)
-    }
-  }
-}
-
-private struct PageThumbnail: View {
-  let pageIndex: Int
-  let url: URL?
-  let version: Date
-  let cache: ThumbnailCache
-  let isCurrent: Bool
-  @State private var image: CGImage?
-
-  var body: some View {
-    VStack(spacing: Spacing.s050) {
-      Group {
-        if let image {
-          Image(decorative: image, scale: 1).resizable().scaledToFit()
-        } else {
-          Color.ds.backgroundSecondary
-        }
-      }
-      .frame(height: 128)
-      .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(isCurrent ? Color.ds.brandTint : .clear, lineWidth: 2))
-      Text("\(pageIndex + 1)").font(.caption.monospacedDigit())
-    }
-    .task(id: url) {
-      guard let url else { return }
-      image = await cache.thumbnail(for: url, pageIndex: pageIndex, version: version, maximumPixelSize: 256)
-    }
-  }
 }
