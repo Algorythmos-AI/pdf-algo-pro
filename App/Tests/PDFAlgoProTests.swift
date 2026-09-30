@@ -263,6 +263,20 @@ struct AppLockTests {
     #expect(!lock.isLocked && device.asked == 2)
   }
 
+  @Test(
+    "The lock screen draws for every method, locked and only covered",
+    arguments: [AppLockMethod.faceID, .touchID, .opticID, .passcode])
+  func lockScreenDraws(method: AppLockMethod) async {
+    let lock = AppLock(authenticator: FakeAuthenticator()) { true }
+    let locked = LockScreen(lock: lock, method: method).frame(width: 390, height: 800)
+    #expect(ImageRenderer(content: locked).uiImage != nil)
+    #expect(LockScreen.unlockTitle(for: nil) == LockScreen.unlockTitle(for: .passcode))
+    await lock.scenePhaseChanged(to: .active)
+    await lock.scenePhaseChanged(to: .inactive)
+    let covered = LockScreen(lock: lock, method: method).frame(width: 390, height: 800)
+    #expect(ImageRenderer(content: covered).uiImage != nil)
+  }
+
   @Test("With App Lock off, nothing is covered or asked")
   func off() async {
     let device = FakeAuthenticator()
