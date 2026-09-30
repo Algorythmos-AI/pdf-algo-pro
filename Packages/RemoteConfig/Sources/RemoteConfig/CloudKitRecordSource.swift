@@ -22,15 +22,21 @@ public struct CloudKitRecordSource: RemoteRecordSource {
   public func fetchRecords() async throws -> [RemoteRecord] {
     let database = CKContainer(identifier: containerIdentifier).publicCloudDatabase
     let query = CKQuery(recordType: Self.recordType, predicate: NSPredicate(value: true))
-    var records: [RemoteRecord] = []
-    var cursor: CKQueryOperation.Cursor?
-    let (first, next) = try await database.records(matching: query, resultsLimit: 200)
-    records += first.compactMap { try? $0.1.get() }.compactMap(Self.record)
-    cursor = next
+    return try await Self.collect(
+      first: { try await database.records(matching: query, resultsLimit: 200) },
+      next: { try await database.records(continuingMatchFrom: $0, resultsLimit: 200) })
+  }
+
+  /// Follows a query's pages to the end, keeping the records that map; one that failed to load is skipped.
+  static func collect<Cursor>(
+    first: () async throws -> ([(CKRecord.ID, Result<CKRecord, any Error>)], Cursor?),
+    next: (Cursor) async throws -> ([(CKRecord.ID, Result<CKRecord, any Error>)], Cursor?)
+  ) async throws -> [RemoteRecord] {
+    var (page, cursor) = try await first()
+    var records = page.compactMap { try? $0.1.get() }.compactMap(Self.record)
     while let current = cursor {
-      let (more, following) = try await database.records(continuingMatchFrom: current, resultsLimit: 200)
-      records += more.compactMap { try? $0.1.get() }.compactMap(Self.record)
-      cursor = following
+      (page, cursor) = try await next(current)
+      records += page.compactMap { try? $0.1.get() }.compactMap(Self.record)
     }
     return records
   }
