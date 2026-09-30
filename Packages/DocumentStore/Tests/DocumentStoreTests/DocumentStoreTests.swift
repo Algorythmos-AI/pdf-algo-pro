@@ -174,25 +174,67 @@ struct FileDocumentLibraryTests {
     await #expect(throws: LibraryError.notFound) { try await harness.library.restorePreviousVersion(of: document.id) }
   }
 
-  @Test("Restoring swaps the file with the earlier version, so restoring again undoes it (FR-EDIT-008)")
-  func restoreSwaps() async throws {
+  @Test("Each save keeps a version; restoring one keeps the current file too, so it can be undone (FR-EDIT-008)")
+  func versionHistory() async throws {
     let harness = try Harness()
     let document = try await harness.library.addDocument(data: pdf, title: "Lease")
     let url = try await harness.library.fileURL(for: document.id)
-    let previous = try #require(try await harness.library.previousVersionURL(for: document.id))
-    let edited = Data("%PDF-1.7\n% edited\n%%EOF\n".utf8)
-    try FileManager.default.copyItem(at: url, to: previous)
-    try edited.write(to: url)
-    #expect(await harness.library.hasPreviousVersion(of: document.id))
+    let edits = (1...3).map { Data("%PDF-1.7\n% edit \($0)\n%%EOF\n".utf8) }
+    for edit in edits {
+      let kept = try #require(try await harness.library.previousVersionURL(for: document.id))
+      try FileManager.default.copyItem(at: url, to: kept)
+      try edit.write(to: url)
+      harness.clock.advance(days: 1)
+    }
+    let versions = await harness.library.versions(of: document.id)
+    #expect(versions.count == 3 && versions.map(\.savedAt) == versions.map(\.savedAt).sorted(by: >))
+    #expect(await harness.library.versionsSize() > 0)
+
+    let oldest = try #require(versions.last)
+    try await harness.library.restore(oldest, of: document.id)
+    #expect(try Data(contentsOf: url) == pdf, "The first version is back")
+    let after = await harness.library.versions(of: document.id)
+    #expect(after.count == 3 && !after.contains(oldest), "The current file was kept; the restored one moved in")
 
     try await harness.library.restorePreviousVersion(of: document.id)
-    #expect(try Data(contentsOf: url) == pdf)
-    #expect(try Data(contentsOf: previous) == edited)
-    try await harness.library.restorePreviousVersion(of: document.id)
-    #expect(try Data(contentsOf: url) == edited)
-    #expect(try Data(contentsOf: previous) == pdf)
-    let folder = previous.deletingLastPathComponent()
-    #expect(try FileManager.default.contentsOfDirectory(atPath: folder.path) == [previous.lastPathComponent])
+    #expect(try Data(contentsOf: url) == edits[2], "Restoring the newest undoes the restore")
+    try await harness.library.deleteAllVersions()
+    #expect(await !harness.library.hasPreviousVersion(of: document.id))
+    await #expect(throws: LibraryError.notFound) { try await harness.library.restorePreviousVersion(of: document.id) }
+  }
+
+  @Test("Versions past 30 days go, and the quota is the lesser of 2 GB and 5% of free space")
+  func versionRetention() async throws {
+    let harness = try Harness()
+    let document = try await harness.library.addDocument(data: pdf, title: "Old")
+    let url = try await harness.library.fileURL(for: document.id)
+    let first = try #require(try await harness.library.previousVersionURL(for: document.id))
+    try FileManager.default.copyItem(at: url, to: first)
+    harness.clock.advance(days: 31)
+    _ = try await harness.library.previousVersionURL(for: document.id)
+    #expect(await harness.library.versions(of: document.id).isEmpty)
+    #expect(FileDocumentLibrary.versionQuota(available: 100_000_000_000) == 2_000_000_000)
+    #expect(FileDocumentLibrary.versionQuota(available: 10_000_000_000) == 500_000_000)
+    #expect(FileDocumentLibrary.versionQuota(available: nil) == 2_000_000_000)
+  }
+
+  @Test("The single earlier version the first release kept moves into the history (B11)")
+  func migratesSingleVersions() async throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent("migrate-\(UUID())")
+    let previous = root.appendingPathComponent("Previous")
+    try FileManager.default.createDirectory(at: previous, withIntermediateDirectories: true)
+    let clock = TestClock()
+    let library = FileDocumentLibrary(
+      documentsFolder: root.appendingPathComponent("Documents"), deletedFolder: root.appendingPathComponent("Deleted"),
+      previousVersionsFolder: previous, index: LibraryIndex(storeURL: root.appendingPathComponent("i/store")),
+      now: { clock.now })
+    let document = try await library.addDocument(data: pdf, title: "Kept")
+    try pdf.write(to: previous.appendingPathComponent("\(document.id.rawValue.uuidString).pdf"))
+    let reopened = FileDocumentLibrary(
+      documentsFolder: root.appendingPathComponent("Documents"), deletedFolder: root.appendingPathComponent("Deleted"),
+      previousVersionsFolder: previous, index: LibraryIndex(storeURL: root.appendingPathComponent("i/store")),
+      now: { clock.now })
+    #expect(await reopened.versions(of: document.id).count == 1)
   }
 
   @Test("Deleting a document, or finding its file gone, removes its earlier version (FR-LIB-006)")

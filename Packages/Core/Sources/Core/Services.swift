@@ -51,6 +51,31 @@ public protocol DocumentLibrary: Sendable {
   /// Swaps a document's file with the version from before its last save, so restoring can itself be
   /// undone the same way.
   func restorePreviousVersion(of id: DocumentID) async throws
+  /// The kept earlier versions of a document, newest first (FR-EDIT-008).
+  func versions(of id: DocumentID) async -> [DocumentVersion]
+  /// Puts an earlier version back; the current file becomes a kept version, so this can be undone.
+  func restore(_ version: DocumentVersion, of id: DocumentID) async throws
+  /// The space every kept version takes, in bytes.
+  func versionsSize() async -> Int64
+  /// Deletes every kept version of every document.
+  func deleteAllVersions() async throws
+}
+
+/// An earlier version of a document, kept by a save (FR-EDIT-008).
+public struct DocumentVersion: Hashable, Sendable, Identifiable {
+  /// The version's identity within its document.
+  public let id: String
+  /// When the save that replaced it happened.
+  public let savedAt: Date
+  /// Its size in bytes.
+  public let size: Int
+
+  /// Creates a version.
+  public init(id: String, savedAt: Date, size: Int) {
+    self.id = id
+    self.savedAt = savedAt
+    self.size = size
+  }
 }
 
 extension DocumentLibrary {
@@ -60,6 +85,14 @@ extension DocumentLibrary {
   public func hasPreviousVersion(of id: DocumentID) async -> Bool { false }
   /// A library that keeps no earlier versions.
   public func restorePreviousVersion(of id: DocumentID) async throws { throw LibraryError.notFound }
+  /// A library that keeps no earlier versions.
+  public func versions(of id: DocumentID) async -> [DocumentVersion] { [] }
+  /// A library that keeps no earlier versions.
+  public func restore(_ version: DocumentVersion, of id: DocumentID) async throws { throw LibraryError.notFound }
+  /// A library that keeps no earlier versions.
+  public func versionsSize() async -> Int64 { 0 }
+  /// A library that keeps no earlier versions.
+  public func deleteAllVersions() async throws {}
 }
 
 /// What reconciling the library index with the files changed.

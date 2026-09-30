@@ -182,6 +182,18 @@ public actor FakeDocumentLibrary: DocumentLibrary {
     try now.write(to: previous)
   }
 
+  /// The one kept version, as a history of one.
+  public func versions(of id: DocumentID) async -> [DocumentVersion] {
+    guard await hasPreviousVersion(of: id) else { return [] }
+    let size = (try? previousFile(of: id).resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+    return [DocumentVersion(id: "previous", savedAt: .distantPast, size: size)]
+  }
+
+  /// Restores the one kept version.
+  public func restore(_ version: DocumentVersion, of id: DocumentID) async throws {
+    try await restorePreviousVersion(of: id)
+  }
+
   private func previousFile(of id: DocumentID) -> URL {
     folder.appendingPathComponent("previous-\(id.rawValue.uuidString).pdf")
   }

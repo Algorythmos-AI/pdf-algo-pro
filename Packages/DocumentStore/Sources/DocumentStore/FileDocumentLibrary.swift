@@ -42,6 +42,7 @@ public actor FileDocumentLibrary: DocumentLibrary {
     for folder in [documentsFolder, deletedFolder] + [previousVersionsFolder].compactMap(\.self) {
       try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
     }
+    if let previousVersionsFolder { Self.migrateSingleVersions(in: previousVersionsFolder, now: now()) }
   }
 
   // MARK: - Reading
@@ -291,42 +292,83 @@ public actor FileDocumentLibrary: DocumentLibrary {
     }
   }
 
-  // MARK: - The version before the last save
+  // MARK: - Earlier versions (FR-EDIT-008)
 
-  /// Where a save keeps the version of a document from before it, or `nil` when this library keeps
-  /// none (FR-EDIT-008, first step).
+  /// How long earlier versions are kept.
+  public static let versionRetention: TimeInterval = 30 * 24 * 60 * 60
+
+  /// The most space earlier versions may take.
+  ///
+  /// It is the lesser of 2 GB and 5% of the free space (`Assumption:`, plan §3 B1). The oldest go first.
+  static func versionQuota(available: Int64?) -> Int64 {
+    let cap: Int64 = 2_000_000_000
+    guard let available else { return cap }
+    return min(cap, available / 20)
+  }
+
+  /// Where the next save keeps the version it replaces, or `nil` when this library keeps none.
+  ///
+  /// Each call gives a new place in the document's history. Versions past the retention, and the
+  /// oldest ones over the quota, are removed first.
   public func previousVersionURL(for id: DocumentID) async throws -> URL? {
     _ = try await existing(id)
-    return previousFile(of: id)
+    guard let folder = versionsFolder(of: id) else { return nil }
+    try? fileManager.createDirectory(at: folder, withIntermediateDirectories: true)
+    pruneVersions()
+    return uniqueVersionURL(in: folder)
   }
 
-  /// Whether the version from before the last save is kept.
+  /// A new version's place, named by the time now, a millisecond later if that name is taken.
+  private func uniqueVersionURL(in folder: URL) -> URL {
+    var date = now()
+    var url = folder.appendingPathComponent(Self.versionName(date))
+    while fileManager.fileExists(atPath: url.path) {
+      date = date.addingTimeInterval(0.001)
+      url = folder.appendingPathComponent(Self.versionName(date))
+    }
+    return url
+  }
+
+  /// Whether an earlier version is kept.
   public func hasPreviousVersion(of id: DocumentID) async -> Bool {
-    guard let url = previousFile(of: id) else { return false }
-    return fileManager.fileExists(atPath: url.path)
+    !versionFiles(of: id).isEmpty
   }
 
-  /// Swaps a document's file with the version from before its last save, so restoring can itself be
-  /// undone the same way.
-  ///
-  /// - Throws: `LibraryError.notFound` when no earlier version is kept; `LibraryError.fileAccessFailed`
-  ///   when the swap fails, in which case both files are as they were.
+  /// The kept earlier versions of a document, newest first.
+  public func versions(of id: DocumentID) async -> [DocumentVersion] {
+    versionFiles(of: id).map { url in
+      let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+      return DocumentVersion(id: url.lastPathComponent, savedAt: Self.savedAt(url), size: size)
+    }
+  }
+
+  /// Puts back the newest earlier version.
   public func restorePreviousVersion(of id: DocumentID) async throws {
+    guard let newest = await versions(of: id).first else { throw LibraryError.notFound }
+    try await restore(newest, of: id)
+  }
+
+  /// Puts an earlier version back; the current file becomes the newest kept version, so restoring can
+  /// itself be undone the same way.
+  ///
+  /// - Throws: `LibraryError.notFound` when the version isn't kept; `LibraryError.fileAccessFailed`
+  ///   when the swap fails, in which case the files are as they were.
+  public func restore(_ version: DocumentVersion, of id: DocumentID) async throws {
     try await exclusively {
       var document = try await existing(id)
-      guard let previous = previousFile(of: id), fileManager.fileExists(atPath: previous.path) else {
-        throw LibraryError.notFound
-      }
+      guard let folder = versionsFolder(of: id) else { throw LibraryError.notFound }
+      let earlier = folder.appendingPathComponent(version.id)
+      guard fileManager.fileExists(atPath: earlier.path) else { throw LibraryError.notFound }
+      let kept = uniqueVersionURL(in: folder)
       var coordinationError: NSError?
       var swapError: (any Error)?
       NSFileCoordinator(filePresenter: nil).coordinate(
-        writingItemAt: location(of: document), options: .forReplacing, writingItemAt: previous,
+        writingItemAt: location(of: document), options: .forReplacing, writingItemAt: earlier,
         options: .forReplacing, error: &coordinationError
       ) { current, earlier in
         let fileManager = FileManager.default
-        // A clone of the current file, which becomes the kept version once the earlier one is in place.
-        let kept = earlier.deletingLastPathComponent().appendingPathComponent("swap-\(UUID().uuidString).pdf")
         do {
+          // The current file is kept first, so nothing is lost whatever happens next.
           try fileManager.copyItem(at: current, to: kept)
         } catch {
           swapError = error
@@ -337,11 +379,7 @@ public actor FileDocumentLibrary: DocumentLibrary {
         } catch {
           try? fileManager.removeItem(at: kept)
           swapError = error
-          return
         }
-        // The earlier version is in place. If the clone can't take its name, it stays under its own
-        // name rather than being lost; the next save keeps a new earlier version.
-        try? fileManager.moveItem(at: kept, to: earlier)
       }
       guard coordinationError == nil, swapError == nil else { throw LibraryError.fileAccessFailed }
       document.modifiedAt = now()
@@ -349,13 +387,89 @@ public actor FileDocumentLibrary: DocumentLibrary {
     }
   }
 
-  private func previousFile(of id: DocumentID) -> URL? {
-    previousVersionsFolder?.appendingPathComponent("\(id.rawValue.uuidString).pdf")
+  /// The space every kept version takes, in bytes.
+  public func versionsSize() async -> Int64 {
+    allVersionFiles().reduce(0) { total, url in
+      total + Int64((try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
+    }
+  }
+
+  /// Deletes every kept version of every document.
+  public func deleteAllVersions() async throws {
+    guard let root = previousVersionsFolder else { return }
+    for item in (try? fileManager.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)) ?? [] {
+      try fileManager.removeItem(at: item)
+    }
+  }
+
+  /// A version's file name: the time of the save in milliseconds, zero-padded so names sort by time.
+  static func versionName(_ date: Date) -> String {
+    String(format: "%015lld.pdf", Int64(date.timeIntervalSince1970 * 1000))
+  }
+
+  private static func savedAt(_ url: URL) -> Date {
+    let millis = Double(url.deletingPathExtension().lastPathComponent) ?? 0
+    return Date(timeIntervalSince1970: millis / 1000)
+  }
+
+  private func versionsFolder(of id: DocumentID) -> URL? {
+    previousVersionsFolder?.appendingPathComponent(id.rawValue.uuidString, isDirectory: true)
+  }
+
+  /// A document's version files, newest first.
+  private func versionFiles(of id: DocumentID) -> [URL] {
+    guard let folder = versionsFolder(of: id) else { return [] }
+    let files = (try? fileManager.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.fileSizeKey])) ?? []
+    return files.filter { $0.pathExtension == "pdf" && Double($0.deletingPathExtension().lastPathComponent) != nil }
+      .sorted { $0.lastPathComponent > $1.lastPathComponent }
+  }
+
+  private func allVersionFiles() -> [URL] {
+    guard let root = previousVersionsFolder else { return [] }
+    let folders = (try? fileManager.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)) ?? []
+    return folders.flatMap { folder in
+      ((try? fileManager.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.fileSizeKey])) ?? [])
+        .filter { $0.pathExtension == "pdf" }
+    }
+  }
+
+  /// Removes versions past the retention, then the oldest while the total is over the quota.
+  private func pruneVersions() {
+    let cutoff = Self.versionName(now().addingTimeInterval(-Self.versionRetention))
+    var files = allVersionFiles().sorted { $0.lastPathComponent < $1.lastPathComponent }
+    for file in files where file.lastPathComponent < cutoff { try? fileManager.removeItem(at: file) }
+    files = files.filter { $0.lastPathComponent >= cutoff }
+    let available = previousVersionsFolder.flatMap {
+      try? $0.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
+        .volumeAvailableCapacityForImportantUsage
+    }
+    let quota = Self.versionQuota(available: available)
+    var total = files.reduce(Int64(0)) { $0 + Int64((try? $1.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0) }
+    for file in files where total > quota {
+      total -= Int64((try? file.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
+      try? fileManager.removeItem(at: file)
+    }
+  }
+
+  /// Moves the single earlier version the first release kept (`<id>.pdf`) into the document's history
+  /// (bar item B11): nothing kept before is lost.
+  private static func migrateSingleVersions(in root: URL, now: Date) {
+    let fileManager = FileManager.default
+    let files =
+      (try? fileManager.contentsOfDirectory(at: root, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
+    for file in files where file.pathExtension == "pdf" {
+      let name = file.deletingPathExtension().lastPathComponent
+      guard UUID(uuidString: name) != nil else { continue }
+      let folder = root.appendingPathComponent(name, isDirectory: true)
+      try? fileManager.createDirectory(at: folder, withIntermediateDirectories: true)
+      let saved = (try? file.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? now
+      try? fileManager.moveItem(at: file, to: folder.appendingPathComponent(versionName(saved)))
+    }
   }
 
   private func removePreviousVersion(of id: DocumentID) {
-    guard let url = previousFile(of: id), fileManager.fileExists(atPath: url.path) else { return }
-    try? fileManager.removeItem(at: url)
+    guard let folder = versionsFolder(of: id), fileManager.fileExists(atPath: folder.path) else { return }
+    try? fileManager.removeItem(at: folder)
   }
 
   // MARK: - One change at a time

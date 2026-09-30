@@ -121,6 +121,24 @@ struct ReaderModelTests {
     #expect(try PDFDocumentController(url: url).annotationCount(onPage: 0) == 1)
   }
 
+  @Test("The version history lists kept versions and restores one (FR-EDIT-008)")
+  func versionHistory() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.makeSample())
+    let reader = harness.reader(for: document)
+    await reader.load()
+    await reader.addNote("Kept change")
+    await reader.loadVersions()
+    let version = try #require(reader.versions.first)
+    reader.showsVersions = true
+    await reader.restore(version)
+    #expect(!reader.showsVersions && reader.phase == .ready)
+    let url = try await harness.library.fileURL(for: document.id)
+    #expect(try PDFDocumentController(url: url).annotationCount(onPage: 0) == 0)
+    let sheet = VersionHistorySheet(model: reader).frame(width: 390, height: 700)
+    #expect(ImageRenderer(content: sheet).uiImage != nil)
+  }
+
   @Test("A document that won't open offers the version before its last save")
   func damagedFileRecovers() async throws {
     let harness = Harness()

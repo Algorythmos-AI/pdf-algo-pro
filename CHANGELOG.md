@@ -17,6 +17,9 @@ Store notes (see the changelog strategy).
   screen as an image.
 - Organise pages: in Pages, choose Select to rotate pages, move one earlier or later, delete pages,
   or copy them into a new document. Each change can be undone.
+- Version history: before each save the app keeps the version it replaces for 30 days, and More ›
+  Version history restores any of them; the version being replaced is kept too, so a restore can be
+  undone. Settings › Storage shows the space it takes and can delete it.
 - Recognising text you start carries on if you leave the app, with its progress shown by the system
   (on the Lock Screen and in the Dynamic Island); you can cancel it from there.
 - A digitally signed PDF keeps its valid signature: your changes are saved in a copy marked

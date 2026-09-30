@@ -87,8 +87,6 @@ public final class ReaderModel {
   public var sharing: SharedFile?
   /// Whether the version from before the last save is kept and can be restored (FR-EDIT-008, first step).
   public private(set) var canRestorePreviousVersion = false
-  /// Whether "Restore the version before the last save" is asking for confirmation.
-  public var confirmsRestore = false
   /// Whether there is an annotation change to undo.
   public private(set) var canUndo = false
   /// Whether there is an undone annotation change to redo.
@@ -624,11 +622,32 @@ public final class ReaderModel {
   /// Unsaved changes are dropped, which the confirmation says. The current version becomes the kept
   /// one, so restoring again undoes the restore.
   public func restorePreviousVersion() async {
+    await restoring { try await self.library.restorePreviousVersion(of: self.documentID) }
+  }
+
+  /// Whether the version history is showing.
+  public var showsVersions = false
+  /// The document's earlier versions, newest first, once loaded (FR-EDIT-008).
+  public private(set) var versions: [DocumentVersion] = []
+
+  /// Loads the earlier versions for the history.
+  public func loadVersions() async {
+    versions = await library.versions(of: documentID)
+  }
+
+  /// Puts an earlier version back and reopens the document; the current one is kept, so this can be
+  /// undone from the history (FR-EDIT-008).
+  public func restore(_ version: DocumentVersion) async {
+    showsVersions = false
+    await restoring { try await self.library.restore(version, of: self.documentID) }
+  }
+
+  private func restoring(_ swap: @escaping () async throws -> Void) async {
     speech.stop()
     controller = nil
     phase = .loading
     do {
-      try await library.restorePreviousVersion(of: documentID)
+      try await swap()
       // The two versions can differ in their text (a restore across text recognition), so the search
       // text and Spotlight follow the restored file.
       _ = try? await intake.refresh(documentID)
