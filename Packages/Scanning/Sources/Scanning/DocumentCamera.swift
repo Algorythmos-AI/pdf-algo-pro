@@ -7,7 +7,9 @@ import VisionKit
 ///
 /// The camera permission is requested by the system the first time it opens.
 public enum DocumentCamera {
-  /// Whether this device has a document camera (the simulator does not).
+  /// Whether this device has a document camera.
+  ///
+  /// Simulators vary: some report a document camera, and CI runners report none.
   @MainActor public static var isSupported: Bool { VNDocumentCameraViewController.isSupported }
 }
 
