@@ -63,6 +63,25 @@ public actor FileDocumentLibrary: DocumentLibrary {
 
   // MARK: - Adding
 
+  /// The document whose file is at `url`, or `nil` when `url` is not in the library's folder.
+  ///
+  /// The Files app shows that folder, so a file opened from there is already in the library. A PDF put
+  /// there since the library last looked is added in place, not copied.
+  public func document(at url: URL) async throws -> Document? {
+    let file = url.resolvingSymlinksInPath().standardizedFileURL
+    let folder = documentsFolder.resolvingSymlinksInPath().standardizedFileURL
+    guard file.isFileURL, file.deletingLastPathComponent().path == folder.path else { return nil }
+    return try await exclusively {
+      let name = file.lastPathComponent
+      if let known = try await index.all().first(where: { !$0.isDeleted && $0.fileName == name }) { return known }
+      guard file.pathExtension.lowercased() == "pdf", fileManager.fileExists(atPath: file.path) else { return nil }
+      let createdAt = (try? file.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? now()
+      let document = Document(title: file.deletingPathExtension().lastPathComponent, fileName: name, addedAt: createdAt)
+      try await index.upsert(document)
+      return document
+    }
+  }
+
   /// Copies a PDF into the library, reading it with coordinated, security-scoped access.
   public func importDocument(from url: URL) async throws -> Document {
     let scoped = url.startAccessingSecurityScopedResource()

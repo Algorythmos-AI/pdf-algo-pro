@@ -46,6 +46,17 @@ struct LibraryModelTests {
     #expect(!harness.model.isImporting)
   }
 
+  @Test("Opening a file from the library's folder opens the existing document")
+  func openInPlace() async throws {
+    let harness = Harness()
+    let document = await harness.library.seed(Document(title: "Lease", fileName: "l.pdf", addedAt: .now, pageCount: 2))
+    await harness.model.load()
+    await harness.model.importFiles([harness.library.folder.appendingPathComponent("l.pdf")])
+    #expect(harness.model.documents.map(\.id) == [document.id])
+    #expect(harness.model.selection?.id == document.id)
+    #expect(harness.model.errorMessage == nil)
+  }
+
   @Test("A single import opens the document")
   func singleImportOpens() async throws {
     let harness = Harness()

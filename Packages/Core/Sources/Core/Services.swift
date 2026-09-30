@@ -11,6 +11,11 @@ public protocol DocumentLibrary: Sendable {
   func allTags() async throws -> [String]
   /// The file URL of a document, for reading and coordinated writing.
   func fileURL(for id: DocumentID) async throws -> URL
+  /// The document whose file is at `url`, or `nil` when `url` is not in the library's folder.
+  ///
+  /// The Files app shows that folder, so a file opened from there is already in the library. A PDF put
+  /// there since the library last looked is added in place, not copied.
+  func document(at url: URL) async throws -> Document?
   /// Copies a PDF into the library, reading it with coordinated, security-scoped access.
   func importDocument(from url: URL) async throws -> Document
   /// Adds PDF data (for example a new scan) as a document.

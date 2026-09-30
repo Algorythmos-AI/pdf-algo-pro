@@ -68,6 +68,16 @@ public actor FakeDocumentLibrary: DocumentLibrary {
     return folder.appendingPathComponent(try existing(id).fileName)
   }
 
+  /// The document whose file is at `url`, or `nil` when `url` is not in this fake's folder.
+  ///
+  /// Unlike the real library, files put in the folder are not added in place.
+  public func document(at url: URL) async throws -> Document? {
+    guard url.deletingLastPathComponent().standardizedFileURL.path == folder.standardizedFileURL.path else {
+      return nil
+    }
+    return documents.values.first { !$0.isDeleted && $0.fileName == url.lastPathComponent }
+  }
+
   /// Copies a PDF into the library, reading it with coordinated, security-scoped access.
   public func importDocument(from url: URL) async throws -> Document {
     try check()

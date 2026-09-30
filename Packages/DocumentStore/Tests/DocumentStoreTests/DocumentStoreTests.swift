@@ -199,6 +199,33 @@ struct FileDocumentLibraryTests {
     #expect(try await harness.library.reconcileWithFiles() == Reconciliation())
   }
 
+  @Test("A file in the library's folder is found in place and never copied")
+  func documentAtURL() async throws {
+    let harness = try Harness()
+    let known = try await harness.library.importDocument(from: harness.source(named: "Lease.pdf"))
+    let binned = try await harness.library.importDocument(from: harness.source(named: "Old.pdf"))
+    try await harness.library.moveToRecentlyDeleted(binned.id)
+    try pdf.write(to: harness.documentsFolder.appendingPathComponent("From Files.pdf"))
+    try Data("notes".utf8).write(to: harness.documentsFolder.appendingPathComponent("notes.txt"))
+
+    #expect(
+      try await harness.library.document(at: harness.documentsFolder.appendingPathComponent("Lease.pdf")) == known)
+    let adopted = try #require(
+      try await harness.library.document(at: harness.documentsFolder.appendingPathComponent("From Files.pdf")))
+    #expect(adopted.title == "From Files" && adopted.fileName == "From Files.pdf")
+    #expect(
+      try await harness.library.document(at: harness.documentsFolder.appendingPathComponent("From Files.pdf"))
+        == adopted)
+    #expect(try await harness.library.document(at: harness.documentsFolder.appendingPathComponent("notes.txt")) == nil)
+    #expect(try await harness.library.document(at: harness.documentsFolder.appendingPathComponent("Old.pdf")) == nil)
+    #expect(try await harness.library.document(at: harness.documentsFolder.appendingPathComponent("Gone.pdf")) == nil)
+    #expect(try await harness.library.document(at: harness.source(named: "Lease.pdf")) == nil, "Elsewhere is imported")
+    #expect(try await harness.library.document(at: URL(string: "https://example.com/Lease.pdf")!) == nil)
+    let files = try FileManager.default.contentsOfDirectory(atPath: harness.documentsFolder.path).sorted()
+    #expect(files == ["From Files.pdf", "Lease.pdf", "notes.txt"])
+    #expect(try await harness.library.reconcileWithFiles() == Reconciliation(), "Nothing left to pick up")
+  }
+
   @Test("Files left in Recently Deleted after an index rebuild come back as deleted and are purged on time")
   func orphanedDeletedFiles() async throws {
     let harness = try Harness()
