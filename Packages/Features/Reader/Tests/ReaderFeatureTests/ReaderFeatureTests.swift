@@ -16,6 +16,17 @@ private struct Harness {
   let settings = InMemorySettingsStore()
   let telemetry = RecordingTelemetry()
   let signatures = InMemorySignatureStore()
+  let checkpoints = FileManager.default.temporaryDirectory.appendingPathComponent("checkpoints-\(UUID())")
+
+  var intake: DocumentIntake { DocumentIntake(library: library, inspector: PDFKitInspector(), index: index) }
+
+  func coordinator(
+    recognizer: any TextRecognizing = FakeRecognizer(), keepAlive: BackgroundLog = BackgroundLog()
+  ) -> RecognitionCoordinator {
+    RecognitionCoordinator(
+      library: library, intake: intake, builder: SearchablePDFBuilder(recognizer: recognizer, renderPixelSize: 400),
+      telemetry: telemetry, folder: checkpoints, keepAlive: keepAlive.begin)
+  }
 
   func reader(
     for document: Document, pageIndex: Int? = nil, task: AssistantTask? = nil,
@@ -23,9 +34,8 @@ private struct Harness {
   ) -> ReaderModel {
     ReaderModel(
       selection: document.id, pageIndex: pageIndex, task: task, library: library,
-      intake: DocumentIntake(library: library, inspector: PDFKitInspector(), index: index), index: index,
-      settings: settings, telemetry: telemetry,
-      builder: SearchablePDFBuilder(recognizer: recognizer, renderPixelSize: 400), signatures: signatures,
+      intake: intake, index: index, settings: settings, telemetry: telemetry,
+      recognition: coordinator(recognizer: recognizer), signatures: signatures,
       speech: SpeechReader(engine: SilentSpeech()))
   }
 
@@ -624,6 +634,125 @@ private actor GatedRecognizer: TextRecognizing {
       await withCheckedContinuation { gate = $0 }
     }
     return FakeRecognizer().lines
+  }
+}
+
+@MainActor
+@Suite("Recognition in the background (P8)")
+struct RecognitionCoordinatorTests {
+  private static let kept = [
+    RecognizedLine(text: "Kept from before", bounds: CGRect(x: 0.1, y: 0.8, width: 0.5, height: 0.05), confidence: 1)
+  ]
+
+  @Test("After the app was stopped, recognition resumes from the pages already done")
+  func resumesFromCheckpoint() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.makeImageOnly(pages: ["One", "Two", "Three"]), textLayer: false)
+    let url = try await harness.library.fileURL(for: document.id)
+    let checkpoints = RecognitionCheckpoints(folder: harness.checkpoints)
+    try await checkpoints.begin(document.id, version: FileVersion(url))
+    await checkpoints.add(Self.kept, page: 0, for: document.id)
+    let recognizer = CountingRecognizer()
+    let background = BackgroundLog()
+    let coordinator = harness.coordinator(recognizer: recognizer, keepAlive: background)
+
+    await coordinator.resumePending()
+    #expect(coordinator.isRecognizing(document.id))
+    await coordinator.finished(document.id)
+
+    #expect(await recognizer.count == 2, "Only the pages not done before are recognised")
+    let texts = try #require(PDFDocument(url: url)).string ?? ""
+    #expect(texts.contains("Kept from before") && texts.contains("Recognised text"))
+    #expect(try await harness.library.document(withID: document.id)?.hasTextLayer == true)
+    #expect(await checkpoints.pending().isEmpty)
+    #expect(background.begun == 1 && background.ended == 1, "Background time is asked for and given back")
+    #expect(coordinator.progress[document.id] == nil)
+  }
+
+  @Test("A checkpoint for a file that has changed since is discarded")
+  func staleCheckpointIsDiscarded() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.makeImageOnly(pages: ["One", "Two"]), textLayer: false)
+    let other = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID()).pdf")
+    try Data("another file".utf8).write(to: other)
+    let checkpoints = RecognitionCheckpoints(folder: harness.checkpoints)
+    try await checkpoints.begin(document.id, version: FileVersion(other))
+    await checkpoints.add(Self.kept, page: 0, for: document.id)
+    let recognizer = CountingRecognizer()
+    let coordinator = harness.coordinator(recognizer: recognizer)
+
+    await coordinator.resumePending()
+    await coordinator.finished(document.id)
+
+    #expect(await recognizer.count == 2, "Every page is recognised again")
+    let url = try await harness.library.fileURL(for: document.id)
+    #expect(try #require(PDFDocument(url: url)).string?.contains("Kept from before") == false)
+  }
+
+  @Test("Each page is kept as soon as it is recognised, and stopping discards them")
+  func pagesAreKeptAsTheyAreDone() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.makeImageOnly(pages: ["One", "Two"]), textLayer: false)
+    let recognizer = SecondPageGate()
+    let coordinator = harness.coordinator(recognizer: recognizer)
+    let checkpoints = RecognitionCheckpoints(folder: harness.checkpoints)
+
+    coordinator.start(document.id)
+    coordinator.start(document.id)
+    for _ in 0..<200 where await !recognizer.isWaiting { try await Task.sleep(for: .milliseconds(10)) }
+    #expect(await checkpoints.pages(of: document.id).keys.sorted() == [0])
+    #expect(await checkpoints.pending() == [document.id], "A stopped app would resume this")
+    for _ in 0..<100 where coordinator.progress[document.id] != 0.5 { try await Task.sleep(for: .milliseconds(10)) }
+    #expect(coordinator.progress[document.id] == 0.5)
+
+    coordinator.cancel(document.id)
+    await recognizer.open()
+    await coordinator.finished(document.id)
+    #expect(await checkpoints.pending().isEmpty)
+    #expect(!coordinator.isRecognizing(document.id))
+  }
+}
+
+/// Counts the pages it is asked to recognise.
+private actor CountingRecognizer: TextRecognizing {
+  private(set) var count = 0
+
+  func recognizeText(in image: CGImage) async throws -> [RecognizedLine] {
+    count += 1
+    return FakeRecognizer().lines
+  }
+}
+
+/// Recognises the first page, then waits on the second until opened.
+private actor SecondPageGate: TextRecognizing {
+  private(set) var isWaiting = false
+  private var calls = 0
+  private var gate: CheckedContinuation<Void, Never>?
+
+  func open() {
+    gate?.resume()
+    gate = nil
+  }
+
+  func recognizeText(in image: CGImage) async throws -> [RecognizedLine] {
+    calls += 1
+    if calls == 2 {
+      isWaiting = true
+      await withCheckedContinuation { gate = $0 }
+    }
+    return FakeRecognizer().lines
+  }
+}
+
+/// Records requests for background time, instead of asking iOS.
+@MainActor
+final class BackgroundLog {
+  private(set) var begun = 0
+  private(set) var ended = 0
+
+  func begin(_ name: String) -> @MainActor () -> Void {
+    begun += 1
+    return { self.ended += 1 }
   }
 }
 

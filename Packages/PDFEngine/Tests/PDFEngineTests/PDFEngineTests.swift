@@ -613,6 +613,22 @@ struct SearchablePDFTests {
     #expect(document.documentAttributes?[PDFDocumentAttribute.titleAttribute] as? String == "Damaged metadata")
   }
 
+  @Test("Recognition resumes: pages already done are reused, and each new page is handed back (P8)")
+  func textLayerResumes() async throws {
+    let url = try write(SyntheticPDF.makeImageOnly(pages: ["One", "Two", "Three"]))
+    let kept = [
+      RecognizedLine(text: "Kept from before", bounds: CGRect(x: 0.1, y: 0.8, width: 0.5, height: 0.05), confidence: 1)
+    ]
+    let handedBack = PageLog()
+    let progress = ProgressLog()
+    let result = try await SearchablePDFBuilder(recognizer: FakeRecognizer(), renderPixelSize: 400).addTextLayer(
+      toPDFAt: url, resuming: [1: kept], onPage: { index, _ in handedBack.append(index) },
+      progress: { progress.append($0) })
+    #expect(handedBack.values == [0, 2], "Only the pages not done before are recognised")
+    #expect(result.pages.map(\.text) == ["Recognised text", "Kept from before", "Recognised text"])
+    #expect(progress.values.last == 1)
+  }
+
   @Test func lockedAndUnreadablePDFsAreRejected() async throws {
     let builder = SearchablePDFBuilder(recognizer: FakeRecognizer())
     let locked = try write(SyntheticPDF.makeEncrypted(pages: ["x"], password: "pw"))
@@ -702,4 +718,11 @@ struct GoldenCorpusTests {
     #expect(reopened.document.isEncrypted == item.isEncrypted, "\(item.name)")
     if let word = item.searchable { #expect(!reopened.find(word).isEmpty, "\(item.name): \(word) after saving") }
   }
+}
+
+private final class PageLog: @unchecked Sendable {
+  private let lock = NSLock()
+  private var storage: [Int] = []
+  var values: [Int] { lock.withLock { storage } }
+  func append(_ value: Int) { lock.withLock { storage.append(value) } }
 }

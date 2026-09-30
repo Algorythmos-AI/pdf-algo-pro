@@ -4,6 +4,7 @@ import Foundation
 import Intelligence
 import OCR
 import PDFEngine
+import ReaderFeature
 import Search
 import Telemetry
 
@@ -54,6 +55,8 @@ final class AppContainer {
   let intake: DocumentIntake
   let intelligence: any DocumentIntelligence
   let builder: SearchablePDFBuilder
+  /// Recognises text in image-only documents, going on in the background and resuming after a stop (P8).
+  let recognition: RecognitionCoordinator
   let telemetry: LocalTelemetry
   /// Problems MetricKit reported, kept on this device (P6).
   let diagnosticsLog: DiagnosticsLog
@@ -101,6 +104,8 @@ final class AppContainer {
     #endif
     builder = SearchablePDFBuilder(recognizer: VisionTextRecognizer())
     telemetry = LocalTelemetry()
+    recognition = RecognitionCoordinator(
+      library: library, intake: intake, builder: builder, telemetry: telemetry, folder: folders.recognition)
     diagnosticsLog = DiagnosticsLog(file: folders.diagnostics.appendingPathComponent("problems.json"))
     metricKit = environment.isUITesting ? nil : MetricKitCollector(log: diagnosticsLog)
     metricKit?.start()
@@ -160,6 +165,8 @@ struct Folders {
   let searchIndex: URL
   /// MetricKit summaries: about this device, so not backed up.
   let diagnostics: URL
+  /// Pages recognised so far for unfinished text recognition: work in progress, so not backed up.
+  let recognition: URL
 
   init(isUITesting: Bool) {
     let fileManager = FileManager.default
@@ -191,6 +198,10 @@ struct Folders {
     try? fileManager.createDirectory(at: diagnostics, withIntermediateDirectories: true)
     Self.setExcludedFromBackup(true, &diagnostics)
     self.diagnostics = diagnostics
+    var recognition = derived.appendingPathComponent("Recognition", isDirectory: true)
+    try? fileManager.createDirectory(at: recognition, withIntermediateDirectories: true)
+    Self.setExcludedFromBackup(true, &recognition)
+    self.recognition = recognition
   }
 
   private static func setExcludedFromBackup(_ excluded: Bool, _ url: inout URL) {

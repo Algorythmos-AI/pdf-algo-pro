@@ -129,7 +129,7 @@ public struct ReaderView<Assistant: View>: View {
       .onChange(of: model.controller?.currentPageIndex) { Task { await model.recordPosition() } }
       .onChange(of: scenePhase) { _, phase in
         guard phase == .background else { return }
-        Task { await model.saveBeforeSuspending(keepAlive: Self.beginBackgroundTask) }
+        Task { await model.saveBeforeSuspending(keepAlive: { BackgroundTime.begin("Save document") }) }
       }
       .onDisappear {
         model.speech.stop()
@@ -138,22 +138,6 @@ public struct ReaderView<Assistant: View>: View {
           await model.recordPosition()
         }
       }
-  }
-
-  /// Asks iOS for time to finish saving after the app moves to the background.
-  ///
-  /// Returns the call that ends the request. If the time runs out first, the request is ended then.
-  private static func beginBackgroundTask() -> @MainActor () -> Void {
-    var identifier = UIBackgroundTaskIdentifier.invalid
-    identifier = UIApplication.shared.beginBackgroundTask(withName: "Save document") {
-      UIApplication.shared.endBackgroundTask(identifier)
-      identifier = .invalid
-    }
-    return {
-      guard identifier != .invalid else { return }
-      UIApplication.shared.endBackgroundTask(identifier)
-      identifier = .invalid
-    }
   }
 
   @ViewBuilder private var content: some View {
