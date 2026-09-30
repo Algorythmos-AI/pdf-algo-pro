@@ -25,10 +25,7 @@ final class LargeTextUITests: UITestCase {
     XCTAssertTrue(app.buttons["scan.images"].waitForExistence(timeout: 5))
     try audit(app)
     app.buttons["Cancel"].firstMatch.tap()
-    let settings = app.buttons["library.settings"]
-    XCTAssertTrue(settings.waitForExistence(timeout: 5))
-    settings.tap()
-    XCTAssertTrue(app.descendants(matching: .any)["settings.hideAI"].firstMatch.waitForExistence(timeout: 5))
+    tap(app.buttons["library.settings"], until: app.descendants(matching: .any)["settings.hideAI"].firstMatch)
     try audit(app)
   }
 
@@ -36,14 +33,12 @@ final class LargeTextUITests: UITestCase {
     let app = launchLarge(["-skip-onboarding", "-seed-library", "sample"])
     XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
     try audit(app)
-    app.buttons["reader.more"].tap()
-    app.buttons["Contents"].tap()
+    tapMenuItem(app.buttons["Contents"], in: app.buttons["reader.more"])
     let contents = app.navigationBars["Contents"]
     XCTAssertTrue(contents.waitForExistence(timeout: 5))
     try audit(app)
     contents.buttons["Done"].tap()
-    app.buttons["reader.more"].tap()
-    app.buttons["Pages"].tap()
+    tapMenuItem(app.buttons["Pages"], in: app.buttons["reader.more"])
     XCTAssertTrue(app.buttons["Page 3"].waitForExistence(timeout: 5))
     try audit(app)
   }
