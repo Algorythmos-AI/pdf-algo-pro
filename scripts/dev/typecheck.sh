@@ -21,13 +21,15 @@ common=(-sdk $SDK -target arm64-apple-ios26.0-simulator -swift-version 6 -enable
 [[ -d $TOOLCHAIN/lib/swift/host/plugins/testing ]] && common+=(-plugin-path $TOOLCHAIN/lib/swift/host/plugins/testing)
 fail=0
 
-run() { # emit|check module isolation dir [bundle]
+run() { # emit|check module isolation dir [bundle] [file to leave out]
   local mode=$1 m=$2 iso=$3 dir=$4 extra=()
   [[ $iso == main ]] && extra+=(-default-isolation MainActor)
   [[ ${5:-} == bundle ]] && extra+=($BUNDLE)
   local action=(-typecheck)
   [[ $mode == emit ]] && action=(-emit-module -emit-module-path $OUT/$m.swiftmodule)
-  if xcrun swiftc $action -module-name $m -parse-as-library $common $extra $(find $ROOT/$dir -name '*.swift' | sort) 2>$OUT/$m.err; then
+  local files=($(find $ROOT/$dir -name '*.swift' | sort))
+  [[ -n ${6:-} ]] && files=(${files:#*/$6})
+  if xcrun swiftc $action -module-name $m -parse-as-library $common $extra $files 2>$OUT/$m.err; then
     echo "ok   $m"
   else
     echo "FAIL $m"
@@ -55,6 +57,16 @@ for f in Onboarding Library Reader Assistant Scan Settings; do
   run check ${f}FeatureTests main Packages/Features/$f/Tests
 done
 run emit PDFAlgoPro main App/PDFAlgoPro
-run check PDFAlgoProTests main App/Tests
+# The app's tests link the test-only SnapshotTesting package (ADR-0018). Its module is built from the
+# checkout that `xcodebuild -resolvePackageDependencies` made; without one, the snapshot tests are left out.
+snap=${SNAPSHOT_TESTING_SOURCES:-$(ls -d $HOME/Library/Developer/Xcode/DerivedData/PDFAlgoPro-*/SourcePackages/checkouts/swift-snapshot-testing/Sources/SnapshotTesting 2>/dev/null | head -1)}
+if [[ -n $snap && -d $snap ]] && xcrun swiftc -emit-module -emit-module-path $OUT/SnapshotTesting.swiftmodule \
+  -module-name SnapshotTesting -parse-as-library -sdk $SDK -target arm64-apple-ios26.0-simulator -swift-version 5 \
+  -F $PLAT/Developer/Library/Frameworks -I $PLAT/Developer/usr/lib $(find $snap -name '*.swift' | sort) 2>$OUT/snap.err; then
+  run check PDFAlgoProTests main App/Tests
+else
+  echo "skip SnapshotTests.swift (resolve packages, or set SNAPSHOT_TESTING_SOURCES, to check it)"
+  run check PDFAlgoProTests main App/Tests "" SnapshotTests.swift
+fi
 run check PDFAlgoProUITests non App/UITests
 exit $fail

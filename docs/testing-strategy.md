@@ -106,9 +106,16 @@ and never shipped ([ADR-0018](adr/0018-snapshot-testing-test-only-dependency.md)
   device and runtime, and references are re-recorded in a dedicated `test(ds):` pull request when
   that pin changes.
 - **Recording is explicit.** The library records a missing reference automatically by default; CI
-  sets `SNAPSHOT_TESTING_RECORD=never`, so a missing reference fails instead of passing silently.
-  Recording happens locally with `record: .failed` or `.all` and the new images are reviewed in the
-  pull request like code (library documentation, same source).
+  sets `SNAPSHOT_TESTING_RECORD=never`, so a missing or changed reference fails instead of passing
+  silently. References are recorded on the pinned CI simulator, because they depend on the exact
+  runtime: run the `ci` workflow by hand on the branch with `record_snapshots` ticked
+  (`gh workflow run ci.yml --ref <branch> -f record_snapshots=true`), download the `snapshots`
+  artifact, and commit the images, which are reviewed in the pull request like code. The recording run
+  is red by design, because every snapshot assertion fails while recording (library documentation,
+  same source).
+- **What is covered today (B8).** Onboarding, the empty library, Settings and Scan, each in light,
+  dark and an accessibility text size (`App/Tests/SnapshotTests.swift`). The reader and the assistant
+  follow, with a fixed document and the scripted router.
 - **Tolerance.** `perceptualPrecision` slightly below 1 absorbs anti-aliasing differences
   (`Assumption:` 0.98, validated by running the suite twice on the pinned runtime and on a second
   machine); a larger tolerance needs a reason in review.

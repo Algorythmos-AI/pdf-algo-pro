@@ -11,6 +11,14 @@ on:
   schedule:
     - cron: "30 16 * * *"
   workflow_dispatch:
+    inputs:
+      record_snapshots:
+        # Records every snapshot reference on the pinned simulator and keeps them as the `snapshots`
+        # artifact, to be reviewed and committed in a pull request (docs/testing-strategy.md). The tests
+        # fail in recording mode, so the run is red by design.
+        description: Record snapshot references
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -184,9 +192,10 @@ jobs:
           echo "SIM=$device" >> "$GITHUB_ENV"
           # Signed ad hoc ("Sign to Run Locally"), not unsigned: the app-hosted tests use the Keychain, which
           # refuses an unsigned app (errSecMissingEntitlement, -34018). No team or certificate is involved.
+          # Warnings are errors through project.yml and each package manifest, not here: a command-line
+          # setting reaches the test-only SnapshotTesting package, where it clashes with -suppress-warnings.
           xcodebuild build-for-testing -scheme "$SCHEME" -testPlan "$TEST_PLAN" \
-            -destination "id=$device" CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= \
-            SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
+            -destination "id=$device" CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=
       - name: Build Staging for a device (unsigned, optimised, warnings as errors)
         # The configuration Xcode Cloud archives; catches optimised-build failures before TestFlight.
         run: |
@@ -196,6 +205,8 @@ jobs:
         id: tests
         run: |
           # Suites write their reports (OCR accuracy, AI evaluation, performance) to reports/, kept below.
+          # Snapshots: a missing or changed reference fails; only a manual run with record_snapshots records.
+          export TEST_RUNNER_SNAPSHOT_TESTING_RECORD="${{ inputs.record_snapshots && 'all' || 'never' }}"
           TEST_RUNNER_REPORTS_DIR="$GITHUB_WORKSPACE/reports" xcodebuild test-without-building -scheme "$SCHEME" \
             -testPlan "$TEST_PLAN" -destination "id=$SIM" -enableCodeCoverage YES -resultBundlePath Tests.xcresult
       - name: Coverage gate (80% overall and per module)
@@ -219,6 +230,14 @@ jobs:
           path: reports/
           if-no-files-found: ignore
           retention-days: 30
+      - name: Keep the recorded snapshot references
+        if: ${{ !cancelled() && inputs.record_snapshots }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: snapshots
+          path: "**/__Snapshots__/**"
+          if-no-files-found: error
+          retention-days: 7
       - name: Keep the result bundle on failure
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
