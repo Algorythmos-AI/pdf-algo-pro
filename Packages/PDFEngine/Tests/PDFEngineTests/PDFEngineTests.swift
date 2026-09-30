@@ -608,3 +608,63 @@ private final class ProgressLog: @unchecked Sendable {
   var values: [Double] { lock.withLock { storage } }
   func append(_ value: Double) { lock.withLock { storage.append(value) } }
 }
+
+@MainActor
+@Suite("Golden corpus")
+struct GoldenCorpusTests {
+  @Test(
+    "Every readable document opens, renders, searches, annotates and saves (W3.1, FR-READ-001)",
+    arguments: GoldenCorpus.cases)
+  func roundTrip(_ item: GoldenCorpus.Case) throws {
+    try Self.check(item)
+  }
+
+  @Test(
+    "Malformed and fuzzed files fail cleanly or open; none crashes or hangs", .timeLimit(.minutes(1)),
+    arguments: GoldenCorpus.malformed())
+  func malformed(_ item: GoldenCorpus.Malformed) async throws {
+    let url = try write(item.data)
+    _ = try? await PDFKitInspector().inspect(url)
+    guard let controller = try? PDFDocumentController(url: url) else { return }
+    _ = controller.pageTexts()
+    _ = controller.find("page")
+    _ = controller.outline
+    for index in 0..<min(controller.pageCount, 3) {
+      _ = try? PageRenderer.render(pageIndex: index, of: url, maximumPixelSize: 200)
+    }
+    guard controller.pageCount > 0, !controller.isLocked else { return }
+    controller.addNote("Corpus note", onPage: 0)
+    _ = try? controller.save(to: temporaryURL())
+  }
+
+  private static func check(_ item: GoldenCorpus.Case) throws {
+    let url = try write(item.make())
+    let controller = try PDFDocumentController(url: url)
+    if let password = item.password {
+      #expect(controller.isLocked)
+      #expect(controller.unlock(password: password))
+    } else {
+      // Pages of a document with an open password render only after unlocking, which the renderer
+      // does not do; `lockedPagesDoNotRender` covers that.
+      for index in Set([0, item.pageCount - 1]) {
+        let image = try PageRenderer.render(pageIndex: index, of: url, maximumPixelSize: 300)
+        #expect(max(image.width, image.height) <= 300, "\(item.name), page \(index + 1)")
+      }
+    }
+    #expect(!controller.isLocked && controller.pageCount == item.pageCount, "\(item.name)")
+    if let word = item.searchable { #expect(!controller.find(word).isEmpty, "\(item.name): \(word)") }
+    #expect(controller.allowsAnnotating == item.allowsAnnotating, "\(item.name)")
+    guard item.allowsAnnotating else { return }
+
+    let before = controller.annotationCount(onPage: 0)
+    controller.addNote("Corpus note", onPage: 0)
+    try controller.save(to: url)
+
+    let reopened = try PDFDocumentController(url: url)
+    if let password = item.password { #expect(reopened.unlock(password: password)) }
+    #expect(reopened.pageCount == item.pageCount, "\(item.name)")
+    #expect(reopened.annotationCount(onPage: 0) == before + 1, "\(item.name)")
+    #expect(reopened.document.isEncrypted == item.isEncrypted, "\(item.name)")
+    if let word = item.searchable { #expect(!reopened.find(word).isEmpty, "\(item.name): \(word) after saving") }
+  }
+}

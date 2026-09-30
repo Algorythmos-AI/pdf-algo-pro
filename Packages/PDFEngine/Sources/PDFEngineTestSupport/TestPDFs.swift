@@ -52,10 +52,7 @@ public enum TestPDFs {
       let context = CGContext(consumer: consumer, mediaBox: &box, info as CFDictionary)
     else { throw Failure() }
     context.beginPDFPage(nil)
-    let text = NSAttributedString(
-      string: "Protected page", attributes: [.font: CTFontCreateWithName("Helvetica" as CFString, 18, nil)])
-    context.textPosition = CGPoint(x: 72, y: 700)
-    CTLineDraw(CTLineCreateWithAttributedString(text), context)
+    drawText("Protected page", at: CGPoint(x: 72, y: 700), in: context)
     context.endPDFPage()
     context.closePDF()
     return data as Data
@@ -89,6 +86,14 @@ public enum TestPDFs {
     output += Array(
       "trailer\n<< /Size \(objects.count + 1) /Root 1 0 R /Info 5 0 R >>\nstartxref\n\(xref)\n%%EOF\n".utf8)
     return Data(output)
+  }
+
+  /// Draws one line of real (searchable) text.
+  static func drawText(_ text: String, at point: CGPoint, in context: CGContext) {
+    let line = CTLineCreateWithAttributedString(
+      NSAttributedString(string: text, attributes: [.font: CTFontCreateWithName("Helvetica" as CFString, 18, nil)]))
+    context.textPosition = point
+    CTLineDraw(line, context)
   }
 
   /// The `/V` entry of a field on the first page, read with Core Graphics rather than PDFKit, so a
