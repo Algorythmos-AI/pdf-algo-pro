@@ -69,6 +69,9 @@ public final class PDFDocumentController {
   @ObservationIgnored var wasEncrypted: Bool
   /// A password change waiting for the next save (FR-EDIT-006).
   @ObservationIgnored var pendingProtection: ProtectionChange?
+  /// Whether the file was digitally signed when opened; saving it in place would break the signature
+  /// (plan item H9).
+  @ObservationIgnored public let digitalSignature: DigitalSignatureStatus
   /// Form fields and their values when the document was opened, unlocked or last saved.
   @ObservationIgnored var formValues: [(widget: PDFAnnotation, value: FormValue)] = []
   /// Undo for every annotation change (FR-EDIT-007).
@@ -84,6 +87,7 @@ public final class PDFDocumentController {
     self.document = document
     isLocked = document.isLocked
     wasEncrypted = document.isEncrypted
+    digitalSignature = DigitalSignatureStatus.of(fileAt: url)
     recordFormValues()
   }
 
@@ -95,6 +99,7 @@ public final class PDFDocumentController {
     self.document = document
     isLocked = document.isLocked
     wasEncrypted = document.isEncrypted
+    digitalSignature = DigitalSignatureStatus.of(data: data)
     recordFormValues()
   }
 

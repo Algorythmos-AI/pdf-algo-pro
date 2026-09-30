@@ -1,6 +1,16 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@ (edited)" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ (modifié)"
+          }
+        }
+      }
+    },
     "%@ (flattened)" : {
       "localizations" : {
         "fr" : {
@@ -1247,6 +1257,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ce document est déjà presque aussi léger que possible."
+          }
+        }
+      }
+    },
+    "This document is digitally signed, so your changes are saved in a copy, “%@”. The original keeps its valid signature." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce document est signé numériquement : vos modifications sont enregistrées dans une copie, « %@ ». L’original garde sa signature valide."
           }
         }
       }

@@ -747,6 +747,33 @@ struct SaveFaultTests {
   }
 }
 
+@Suite("Digital signatures")
+struct DigitalSignatureTests {
+  @Test("Signed, certified and unsigned documents are told apart (plan item H9)")
+  func status() throws {
+    #expect(DigitalSignatureStatus.of(data: TestPDFs.makeSigned(.signed)) == .signed)
+    #expect(DigitalSignatureStatus.of(data: TestPDFs.makeSigned(.certified)) == .certified)
+    #expect(DigitalSignatureStatus.of(data: TestPDFs.makeSigned(.unsigned)) == .none)
+    #expect(DigitalSignatureStatus.of(data: try SyntheticPDF.makeSample()) == .none)
+    #expect(DigitalSignatureStatus.of(data: Data("not a pdf".utf8)) == .none)
+    let url = try write(TestPDFs.makeSigned(.signed))
+    #expect(DigitalSignatureStatus.of(fileAt: url).isSigned)
+  }
+
+  @MainActor
+  @Test("The controller reports the status of the file it opened")
+  func controller() throws {
+    #expect(try PDFDocumentController(url: write(TestPDFs.makeSigned(.certified))).digitalSignature == .certified)
+    #expect(try PDFDocumentController(data: TestPDFs.makeSigned(.signed)).digitalSignature == .signed)
+    #expect(try PDFDocumentController(data: SyntheticPDF.makeSample()).digitalSignature == .none)
+  }
+
+  @Test("Malformed files never hang or crash the check", arguments: GoldenCorpus.malformed())
+  func malformed(_ item: GoldenCorpus.Malformed) {
+    _ = DigitalSignatureStatus.of(data: item.data)
+  }
+}
+
 @Suite("Rendering")
 struct RenderingTests {
   @Test func pagesRenderAtTheRequestedSize() throws {

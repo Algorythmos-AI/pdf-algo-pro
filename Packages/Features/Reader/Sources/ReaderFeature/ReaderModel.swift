@@ -88,7 +88,12 @@ public final class ReaderModel {
   /// Read aloud.
   public let speech: SpeechReader
 
-  private let documentID: DocumentID
+  /// The document being read.
+  ///
+  /// For a digitally signed document it becomes the copy the changes are saved in, once there is one.
+  private var documentID: DocumentID
+  /// Whether this reader has moved from a signed document to the copy its changes are saved in.
+  private var isEditingCopy = false
   private let startPage: Int?
   private let library: any DocumentLibrary
   private let intake: DocumentIntake
@@ -470,6 +475,10 @@ public final class ReaderModel {
     controller.endEditing()
     guard controller.needsSaving else { return true }
     do {
+      if controller.digitalSignature.isSigned, !isEditingCopy {
+        try await saveSignedAsCopy(controller)
+        return true
+      }
       try controller.save(
         to: try await library.fileURL(for: documentID),
         keepingPreviousAt: try await library.previousVersionURL(for: documentID))
@@ -491,6 +500,29 @@ public final class ReaderModel {
       await telemetry.record("quality.operation.failed")
     }
     return false
+  }
+
+  /// Saves a digitally signed document's changes in a new copy and reads that copy from now on.
+  ///
+  /// Saving through PDFKit rewrites the file, which breaks every signature, so the signed original is
+  /// left as it was (plan item H9).
+  private func saveSignedAsCopy(_ controller: PDFDocumentController) async throws {
+    let staged = FileManager.default.temporaryDirectory.appendingPathComponent("signed-\(UUID().uuidString).pdf")
+    defer { try? FileManager.default.removeItem(at: staged) }
+    try controller.save(to: staged)
+    let data = try Data(contentsOf: staged, options: .mappedIfSafe)
+    let title = document?.title ?? ""
+    let copy = try await intake.add(data: data, title: String(localized: "\(title) (edited)", bundle: .module))
+    documentID = copy.id
+    document = copy
+    fileURL = try await library.fileURL(for: copy.id)
+    isEditingCopy = true
+    canRestorePreviousVersion = false
+    notice = String(
+      localized:
+        "This document is digitally signed, so your changes are saved in a copy, “\(copy.title)”. The original keeps its valid signature.",
+      bundle: .module)
+    await telemetry.record("task.core.completed")
   }
 
   // MARK: - The version before the last save

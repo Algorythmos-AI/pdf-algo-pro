@@ -235,6 +235,32 @@ struct ReaderModelTests {
     #expect(ImageRenderer(content: PageGridSheet(model: reader).frame(width: 390, height: 800)).uiImage != nil)
   }
 
+  @Test("A signed document's changes go into a copy, so its signature stays valid (H9)")
+  func signedDocumentsSaveACopy() async throws {
+    let harness = Harness()
+    let signed = await harness.seed(TestPDFs.makeSigned(.signed), title: "Signed lease")
+    let original = try Data(contentsOf: try await harness.library.fileURL(for: signed.id))
+    // The signature field is itself an annotation on the first page.
+    let existing = try PDFDocumentController(data: original).annotationCount(onPage: 0)
+    let reader = harness.reader(for: signed)
+    await reader.load()
+    await reader.addNote("First")
+    #expect(reader.notice != nil && reader.errorMessage == nil)
+    #expect(
+      try Data(contentsOf: try await harness.library.fileURL(for: signed.id)) == original, "The original is untouched")
+    let titles = try await harness.library.documents(in: .all, sortedBy: .title).map(\.title)
+    #expect(titles.sorted() == ["Signed lease", "Signed lease (edited)"])
+    #expect(reader.document?.title == "Signed lease (edited)")
+
+    reader.notice = nil
+    await reader.addNote("Second")
+    #expect(reader.notice == nil, "Later saves go to the copy without asking again")
+    #expect(try await harness.library.documents(in: .all, sortedBy: .title).count == 2)
+    let copyURL = try #require(reader.fileURL)
+    #expect(try PDFDocumentController(url: copyURL).annotationCount(onPage: 0) == existing + 2)
+    #expect(try Data(contentsOf: try await harness.library.fileURL(for: signed.id)) == original)
+  }
+
   @Test("Notes and markup save automatically and can be undone (FR-ANN-001, FR-EDIT-007)")
   func annotations() async throws {
     let harness = Harness()
