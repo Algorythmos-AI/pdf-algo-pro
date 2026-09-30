@@ -34,6 +34,15 @@ struct SettingsModelTests {
     #expect(model.isChosen(.scan) && !model.isChosen(.read))
   }
 
+  @Test("Document text can be kept out of Spotlight (FR-LIB-005, T-11)")
+  func spotlightText() {
+    let (model, store, changes) = makeModel()
+    #expect(model.isSpotlightTextIncluded)
+    model.isSpotlightTextIncluded = false
+    #expect(!store.load().isSpotlightTextIncluded && !model.isSpotlightTextIncluded)
+    #expect(changes.values.last?.isSpotlightTextIncluded == false)
+  }
+
   @Test func readerLayout() {
     let (model, store, _) = makeModel()
     model.readerDisplayMode = .singlePage

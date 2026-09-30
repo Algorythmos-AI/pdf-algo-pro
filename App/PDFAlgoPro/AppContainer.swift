@@ -76,7 +76,8 @@ final class AppContainer {
     let library = FileDocumentLibrary(
       documentsFolder: folders.documents, deletedFolder: folders.recentlyDeleted, index: libraryIndex)
     self.library = library
-    let spotlight: (any SpotlightIndexing)? = environment.isUITesting ? nil : SpotlightIndexer()
+    let spotlight: (any SpotlightIndexing)? =
+      environment.isUITesting ? nil : SpotlightIndexer(includesText: { settings.load().isSpotlightTextIncluded })
     let index = LocalSearchIndex(folder: folders.searchIndex, spotlight: spotlight)
     self.index = index
     intake = DocumentIntake(library: library, inspector: PDFKitInspector(), index: index)
@@ -104,6 +105,22 @@ final class AppContainer {
       system: ProcessInfo.processInfo.operatingSystemVersionString, libraryIndex: "\(indexLevel)", documentCount: count,
       events: await telemetry.todaysCounts()
     ).text
+  }
+
+  /// Writes every document to Spotlight again, after the text setting changed (defect D11).
+  func reindexSpotlight() async {
+    await index.reindexSpotlight((try? await library.documents(in: .all, sortedBy: .title)) ?? [])
+  }
+
+  /// Moves Spotlight to the protected index once (defect D11).
+  ///
+  /// Empties the index earlier builds wrote to, then reindexes. Later launches do nothing.
+  func migrateSpotlightIfNeeded(defaults: UserDefaults = .standard) async {
+    let key = "spotlight.indexVersion"
+    guard !environment.isUITesting, defaults.integer(forKey: key) < 2 else { return }
+    await SpotlightIndexer.retireLegacyIndex()
+    await reindexSpotlight()
+    defaults.set(2, forKey: key)
   }
 
   /// The app version for About.

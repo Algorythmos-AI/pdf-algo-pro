@@ -41,6 +41,7 @@ final class AppModel {
     if container.environment.seedsSample {
       Task { await library.addSample() }
     }
+    Task { await container.migrateSpotlightIfNeeded() }
   }
 
   // MARK: - Routing
@@ -113,6 +114,11 @@ final class AppModel {
   func makeSettings() -> SettingsModel {
     SettingsModel(
       store: container.settings, diagnostics: { [container] in await container.diagnostics() },
-      onChange: { [weak self] in self?.settings = $0 })
+      onChange: { [weak self] settings in
+        guard let self else { return }
+        let textSettingChanged = settings.isSpotlightTextIncluded != self.settings.isSpotlightTextIncluded
+        self.settings = settings
+        if textSettingChanged { Task { await self.container.reindexSpotlight() } }
+      })
   }
 }

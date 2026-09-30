@@ -36,6 +36,12 @@ public final class SettingsModel {
     set { update { $0.isIntelligenceHidden = newValue } }
   }
 
+  /// Whether document text goes to system Spotlight; titles and tags always do (FR-LIB-005, T-11).
+  public var isSpotlightTextIncluded: Bool {
+    get { settings.isSpotlightTextIncluded }
+    set { update { $0.isSpotlightTextIncluded = newValue } }
+  }
+
   /// The reader's page layout.
   public var readerDisplayMode: ReaderDisplayMode {
     get { settings.readerDisplayMode }

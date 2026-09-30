@@ -59,8 +59,16 @@ public struct SettingsView: View {
           Text(
             "Your documents stay on this device, in the PDF Algo Pro folder you can see in the Files app. The app has no account, no advertising and no tracking.",
             bundle: .module)
+          Toggle(isOn: $model.isSpotlightTextIncluded) { Text("Document text in Spotlight", bundle: .module) }
+            .accessibilityIdentifier("settings.spotlightText")
         } header: {
           Text("Privacy", bundle: .module).foregroundStyle(Color.ds.labelSecondary)
+        } footer: {
+          Text(
+            "Titles and tags are always searchable in Spotlight. Turn this off to keep what documents say out of system search.",
+            bundle: .module
+          )
+          .foregroundStyle(Color.ds.labelSecondary)
         }
         Section {
           Toggle(isOn: $model.includesDiagnostics) { Text("Include a diagnostics summary", bundle: .module) }

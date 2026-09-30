@@ -64,6 +64,23 @@ struct LocalSearchIndexTests {
     #expect(try await index.search("   ", in: [byTitle]).isEmpty)
   }
 
+  @Test("Spotlight can be rebuilt from the stored text; deleted documents leave it (defect D11)")
+  func reindexSpotlight() async throws {
+    let spotlight = RecordingSpotlight()
+    let index = try makeIndex(spotlight: spotlight)
+    let kept = document("Kept")
+    var binned = document("Binned")
+    try await index.index(kept, pages: [PageText(pageIndex: 0, text: "first"), PageText(pageIndex: 1, text: "second")])
+    binned.deletedAt = .now
+
+    await index.reindexSpotlight([kept, binned])
+
+    #expect(await spotlight.indexed[kept.id] == "first\nsecond")
+    #expect(await spotlight.indexed[binned.id] == "", "Recorded as sent; the real indexer removes deleted documents")
+    await LocalSearchIndex(folder: FileManager.default.temporaryDirectory.appendingPathComponent("s-\(UUID())"))
+      .reindexSpotlight([kept])
+  }
+
   @Test("Stored text survives a relaunch and is deleted with the document (FR-LIB-006)")
   func persistenceAndRemoval() async throws {
     let folder = FileManager.default.temporaryDirectory.appendingPathComponent("search-\(UUID())")
@@ -107,6 +124,8 @@ struct SpotlightItemTests {
     #expect(item.attributeSet.title == "Contract")
     #expect(item.attributeSet.keywords == ["legal"])
     #expect(item.attributeSet.textContent?.count == SpotlightIndexer.textLimit)
+    #expect(SpotlightIndexer.item(for: value, text: nil).attributeSet.textContent == nil, "Titles only")
+    #expect(SpotlightIndexer.item(for: value, text: nil).attributeSet.title == "Contract")
   }
 
   @Test func indexingAndRemovalNeverThrow() async {

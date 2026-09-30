@@ -229,6 +229,9 @@ struct SettingsTests {
     #expect(decodedNewer == AppSettings(hasCompletedOnboarding: true, intents: [.scan]))
     let roundTrip = try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(decodedNewer))
     #expect(roundTrip == decodedNewer)
+    #expect(decodedOlder.isSpotlightTextIncluded, "Settings from before the Spotlight switch keep text in Spotlight")
+    let off = AppSettings(isSpotlightTextIncluded: false)
+    #expect(try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(off)) == off)
   }
 }
 

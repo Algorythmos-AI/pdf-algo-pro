@@ -40,6 +40,18 @@ public actor LocalSearchIndex: DocumentIndexing {
     await spotlight?.remove(id)
   }
 
+  /// Writes every document to Spotlight again from the stored text (defect D11).
+  ///
+  /// Used after the Spotlight index or the text setting changed. Documents in Recently Deleted are
+  /// removed from Spotlight.
+  public func reindexSpotlight(_ documents: [Document]) async {
+    guard let spotlight else { return }
+    for document in documents {
+      let text = ((try? await pages(of: document.id)) ?? []).map(\.text).joined(separator: "\n")
+      await spotlight.index(document, text: text)
+    }
+  }
+
   /// The stored page texts of a document, for intelligence and reading aloud.
   public func pages(of id: DocumentID) async throws -> [PageText] {
     if let cached = cache[id] { return cached }
