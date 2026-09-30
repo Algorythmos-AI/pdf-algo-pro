@@ -33,6 +33,7 @@ public actor LocalTelemetry: TelemetryRecording {
   private let calendar: Calendar
   private let now: @Sendable () -> Date
   private var counts: [String: [String: Int]] = [:]
+  private var observers: [@Sendable (String) -> Void] = []
 
   /// Creates a recorder.
   public init(calendar: Calendar = .current, now: @escaping @Sendable () -> Date = { Date() }) {
@@ -49,6 +50,12 @@ public actor LocalTelemetry: TelemetryRecording {
     let day = Self.dayKey(now(), calendar: calendar)
     counts[day, default: [:]][event, default: 0] += 1
     logger.debug("Recorded \(event, privacy: .public)")
+    for observer in observers { observer(event) }
+  }
+
+  /// Hears every catalogued event as it is recorded, on this device (for the rating policy).
+  public func observe(_ observer: @escaping @Sendable (String) -> Void) {
+    observers.append(observer)
   }
 
   /// Today's counts, for the diagnostics summary the user can choose to attach (FR-SET-003).

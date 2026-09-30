@@ -304,3 +304,31 @@ struct AppLockTests {
     #expect(!lock.isLocked && !lock.showsCover, "Turning it off unlocks")
   }
 }
+
+@MainActor
+@Suite("Rating requests")
+struct ReviewPrompterTests {
+  @Test("The prompter counts successes across sessions and asks once, never after an error (plan §6)")
+  func prompter() throws {
+    let defaults = try #require(UserDefaults(suiteName: "reviews-\(UUID())"))
+    var day = Date(timeIntervalSince1970: 1_800_000_000)
+    let first = ReviewPrompter(defaults: defaults, version: "1.0", isEnabled: true, now: { day })
+    first.handle("task.core.completed")
+    first.handle("task.core.completed")
+    day += 86_400
+    first.handle("intelligence.answer.kept")
+    #expect(!first.shouldAskNow(), "Not in the first session")
+
+    let second = ReviewPrompter(defaults: defaults, version: "1.0", isEnabled: true, now: { day })
+    second.handle("quality.operation.failed")
+    #expect(!second.shouldAskNow(), "Not after an error")
+
+    let third = ReviewPrompter(defaults: defaults, version: "1.0", isEnabled: true, now: { day })
+    #expect(third.shouldAskNow())
+    #expect(!third.shouldAskNow(), "Once per version")
+    #expect(!ReviewPrompter(defaults: defaults, version: "1.0", isEnabled: true).shouldAskNow())
+
+    let tests = ReviewPrompter(defaults: defaults, version: "2.0", isEnabled: false)
+    #expect(!tests.shouldAskNow(), "UI tests never see it")
+  }
+}

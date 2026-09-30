@@ -392,3 +392,34 @@ struct SignatureTests {
     await #expect(throws: SignatureStoreError.keychain(-25300)) { try await store.signatures() }
   }
 }
+
+@Suite("Rating requests")
+struct ReviewPolicyTests {
+  @Test("Asked only after three successes on two days, not in the first session, once per version (plan §6)")
+  func due() {
+    var policy = ReviewPolicy()
+    policy.startSession()
+    policy.recordSuccess(on: "2026-10-01")
+    policy.recordSuccess(on: "2026-10-01")
+    policy.recordSuccess(on: "2026-10-02")
+    #expect(!policy.isDue(version: "1.0", sessionHadError: false), "Not in the first session")
+    policy.startSession()
+    #expect(policy.isDue(version: "1.0", sessionHadError: false))
+    #expect(!policy.isDue(version: "1.0", sessionHadError: true), "Never after an error")
+    policy.asked(in: "1.0")
+    #expect(!policy.isDue(version: "1.0", sessionHadError: false), "Once per version")
+    #expect(policy.isDue(version: "1.1", sessionHadError: false))
+  }
+
+  @Test("Successes on a single day aren't enough")
+  func oneDay() {
+    var policy = ReviewPolicy()
+    policy.startSession()
+    policy.startSession()
+    for _ in 0..<5 { policy.recordSuccess(on: "2026-10-01") }
+    #expect(!policy.isDue(version: "1.0", sessionHadError: false))
+    #expect(policy.successDays == ["2026-10-01"])
+    #expect(
+      ReviewPolicy.day(of: Date(timeIntervalSince1970: 0), calendar: Calendar(identifier: .gregorian)).count == 10)
+  }
+}

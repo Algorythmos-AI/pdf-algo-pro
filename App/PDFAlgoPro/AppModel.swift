@@ -32,6 +32,8 @@ final class AppModel {
   let lock: AppLock
   /// How this device confirms its owner, read once at launch; `nil` without a passcode.
   let lockMethod: AppLockMethod?
+  /// Asks for a rating after real successes, at a calm moment (plan §6).
+  let reviews: ReviewPrompter
   @ObservationIgnored private var reader: (selection: DocumentSelection, model: ReaderModel)?
   @ObservationIgnored private(set) lazy var onboarding = OnboardingModel(
     settings: container.settings, intelligence: container.intelligence, telemetry: container.telemetry
@@ -43,6 +45,14 @@ final class AppModel {
     let store = container.settings
     lock = AppLock(authenticator: container.authenticator) { store.load().isAppLockEnabled }
     lockMethod = container.authenticator.method()
+    let reviews = ReviewPrompter(
+      defaults: container.environment.isUITesting
+        ? UserDefaults(suiteName: "ui-testing-reviews") ?? .standard : .standard,
+      version: container.version, isEnabled: !container.environment.isUITesting)
+    self.reviews = reviews
+    Task { [telemetry = container.telemetry] in
+      await telemetry.observe { event in Task { @MainActor in reviews.handle(event) } }
+    }
     library = LibraryModel(
       library: container.library, intake: container.intake, index: container.index, settings: container.settings,
       telemetry: container.telemetry, thumbnails: container.thumbnails)
