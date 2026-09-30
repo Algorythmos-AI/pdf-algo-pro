@@ -124,6 +124,27 @@ struct LibraryModelTests {
     #expect(LibraryModel.image(from: Data()) == nil)
   }
 
+  @Test("Search covers the whole library from any section, and Recently Deleted on its own (FR-LIB-003)")
+  func searchWholeLibrary() async throws {
+    let harness = Harness()
+    let filed = await harness.library.seed(Document(title: "Lease", fileName: "l.pdf", addedAt: .now, tags: ["Home"]))
+    let gone = await harness.library.seed(
+      Document(title: "Old lease", fileName: "o.pdf", addedAt: .now, deletedAt: .now))
+    await harness.index.seed(filed.id, pages: [PageText(pageIndex: 0, text: "Lease agreement")])
+    await harness.index.seed(gone.id, pages: [PageText(pageIndex: 0, text: "Lease agreement")])
+    await harness.model.load()
+    harness.model.section = .favorites
+    await harness.model.reload()
+    #expect(harness.model.documents.isEmpty)
+    harness.model.query = "lease"
+    await harness.model.search()
+    #expect(harness.model.results?.map(\.documentID) == [filed.id], "Found outside Favourites, not in the bin")
+    #expect(harness.model.results?.first.flatMap(harness.model.document(for:))?.title == "Lease")
+    harness.model.section = .recentlyDeleted
+    await harness.model.reload()
+    #expect(harness.model.results?.map(\.documentID) == [gone.id], "Recently Deleted searches the bin only")
+  }
+
   @Test("A search that fails says so instead of showing no results")
   func searchFailure() async {
     let harness = Harness()

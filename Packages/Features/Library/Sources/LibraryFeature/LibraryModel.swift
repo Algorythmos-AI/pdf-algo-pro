@@ -53,6 +53,8 @@ public final class LibraryModel {
   public var query = ""
   /// The documents in the section.
   public private(set) var documents: [Document] = []
+  /// The documents the last search looked through.
+  private var searched: [Document] = []
   /// Search results for the current query, in rank order; `nil` when not searching.
   public private(set) var results: [SearchHit]?
   /// Tags in use, for sidebar sections.
@@ -159,7 +161,9 @@ public final class LibraryModel {
     }
   }
 
-  /// Searches the current section's documents; an empty query clears the results.
+  /// Searches the whole library, whichever section is showing, so a document is found wherever it is
+  /// filed (FR-LIB-003); in Recently Deleted, it searches the deleted documents. An empty query clears
+  /// the results.
   public func search() async {
     let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !trimmed.isEmpty else {
@@ -168,7 +172,9 @@ public final class LibraryModel {
       return
     }
     do {
-      results = try await index.search(trimmed, in: documents)
+      let scope: LibrarySection = section == .recentlyDeleted ? .recentlyDeleted : .all
+      searched = try await library.documents(in: scope, sortedBy: sort)
+      results = try await index.search(trimmed, in: searched)
       isSearchUnavailable = false
     } catch {
       // Not "no results": the search itself failed, and saying so is honest.
@@ -178,9 +184,9 @@ public final class LibraryModel {
     }
   }
 
-  /// The document for a search hit.
+  /// The document for a search hit, which may be outside the section showing.
   public func document(for hit: SearchHit) -> Document? {
-    documents.first { $0.id == hit.documentID }
+    searched.first { $0.id == hit.documentID } ?? documents.first { $0.id == hit.documentID }
   }
 
   /// The home action, personalised by onboarding (FR-ONB-003).
