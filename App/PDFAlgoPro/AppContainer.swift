@@ -21,6 +21,8 @@ struct LaunchEnvironment {
   let seedsSample: Bool
   /// Add a synthetic password-protected document at launch (`-seed-library locked`), for the unlock tests.
   let seedsLocked: Bool
+  /// Add a document whose file is then damaged (`-seed-library damaged`), for the error-recovery test.
+  let seedsDamaged: Bool
   /// Make the scripted intelligence router report that Apple Intelligence is unavailable.
   let intelligenceUnavailable: Bool
   /// Turn off UIKit animations so UI tests do not wait on them.
@@ -35,6 +37,7 @@ struct LaunchEnvironment {
       }
       seedsSample = seed == "sample"
       seedsLocked = seed == "locked"
+      seedsDamaged = seed == "damaged"
       intelligenceUnavailable = arguments.contains("-intelligence-unavailable")
       disablesAnimations = arguments.contains("-disable-animations")
     #else
@@ -42,6 +45,7 @@ struct LaunchEnvironment {
       skipsOnboarding = false
       seedsSample = false
       seedsLocked = false
+      seedsDamaged = false
       intelligenceUnavailable = false
       disablesAnimations = false
     #endif

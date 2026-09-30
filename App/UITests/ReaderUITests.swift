@@ -138,4 +138,12 @@ final class ReaderUITests: UITestCase {
     field.typeText("open-sesame\n")
     XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 10), "The right one opens it")
   }
+
+  func testADamagedFileSaysItCannotOpenAndNothingElseBreaks() throws {
+    let app = launch(["-skip-onboarding", "-seed-library", "damaged"])
+    XCTAssertTrue(
+      app.staticTexts["Can't open this document"].waitForExistence(timeout: 15),
+      "A damaged file explains itself instead of crashing or showing a blank page")
+    try audit(app)
+  }
 }

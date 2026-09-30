@@ -63,6 +63,18 @@ final class AppModel {
     if container.environment.seedsSample {
       Task { await library.addSample() }
     }
+    if container.environment.seedsDamaged {
+      Task { [library, container] in
+        // The sample, with its file then overwritten by bytes that aren't a PDF, as a damaged file would be.
+        guard let data = try? SyntheticPDF.makeSample(),
+          let document = try? await container.intake.add(data: data, title: "Damaged sample"),
+          let url = try? await container.library.fileURL(for: document.id)
+        else { return }
+        try? Data("not a PDF any more".utf8).write(to: url)
+        await library.reload()
+        library.open(document.id)
+      }
+    }
     if container.environment.seedsLocked {
       Task { [library, container] in
         // A synthetic document; its password is a fixture, known to the UI tests.
