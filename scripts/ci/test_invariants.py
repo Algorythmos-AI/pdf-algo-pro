@@ -1,9 +1,10 @@
-"""Tests for the app-icon check in invariants.py, with synthetic PNG headers.
+"""Tests for the app-icon and app-name checks in invariants.py, with synthetic inputs.
 
     uv run --with pytest==8.4.2 pytest -q scripts/ci
 """
 from __future__ import annotations
 
+import json
 import struct
 import sys
 import zlib
@@ -35,3 +36,16 @@ def test_alpha_transparency_size_and_format_are_reported():
 
 def test_the_committed_icon_passes():
     assert invariants.icon_problems() == []
+
+
+def test_info_plist_localisations_never_carry_the_app_names(tmp_path):
+    assert invariants.infoplist_name_problems() == []
+    app = tmp_path / "App" / "PDFAlgoPro"
+    (app / "fr.lproj").mkdir(parents=True)
+    (app / "fr.lproj" / "InfoPlist.strings").write_text(
+        '"NSCameraUsageDescription" = "Appareil photo";\n"CFBundleDisplayName" = "PDF Algo Pro";\n', encoding="utf-8")
+    (app / "Resources").mkdir()
+    (app / "Resources" / "InfoPlist.xcstrings").write_text(json.dumps({"strings": {}}))
+    problems = invariants.infoplist_name_problems(app)
+    assert len(problems) == 2
+    assert "InfoPlist.xcstrings" in problems[0] and "CFBundleDisplayName" in problems[1]

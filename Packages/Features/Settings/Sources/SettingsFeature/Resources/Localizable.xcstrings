@@ -1,7 +1,396 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-
+    "About" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "À propos"
+          }
+        }
+      }
+    },
+    "All tools" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tous les outils"
+          }
+        }
+      }
+    },
+    "Analyse contract" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Analyser un contrat"
+          }
+        }
+      }
+    },
+    "Annotate or highlight" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annoter ou surligner"
+          }
+        }
+      }
+    },
+    "Built by Algorythmos" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conçu par Algorythmos"
+          }
+        }
+      }
+    },
+    "Chat with PDF" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discuter avec un PDF"
+          }
+        }
+      }
+    },
+    "Close" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fermer"
+          }
+        }
+      }
+    },
+    "Continuous" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continu"
+          }
+        }
+      }
+    },
+    "Convert PDF to Word, Excel or PowerPoint" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Convertir un PDF en Word, Excel ou PowerPoint"
+          }
+        }
+      }
+    },
+    "Copy the report" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copier le rapport"
+          }
+        }
+      }
+    },
+    "Describe what happened:\n\n" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Décrivez ce qui s’est passé :\n\n"
+          }
+        }
+      }
+    },
+    "Document intelligence" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Intelligence documentaire"
+          }
+        }
+      }
+    },
+    "Document text in Spotlight" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Texte des documents dans Spotlight"
+          }
+        }
+      }
+    },
+    "Done" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        }
+      }
+    },
+    "Edit PDF text" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modifier le texte d’un PDF"
+          }
+        }
+      }
+    },
+    "Extract data with AI" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Extraire des données avec l’IA"
+          }
+        }
+      }
+    },
+    "Help" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aide"
+          }
+        }
+      }
+    },
+    "Hide AI features" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Masquer les fonctionnalités d’IA"
+          }
+        }
+      }
+    },
+    "Include a diagnostics summary" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inclure un résumé de diagnostic"
+          }
+        }
+      }
+    },
+    "Merge or organise pages" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fusionner ou organiser des pages"
+          }
+        }
+      }
+    },
+    "No email account is set up" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun compte de messagerie n’est configuré"
+          }
+        }
+      }
+    },
+    "Page layout" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disposition des pages"
+          }
+        }
+      }
+    },
+    "Privacy" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confidentialité"
+          }
+        }
+      }
+    },
+    "Read or view" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lire ou consulter"
+          }
+        }
+      }
+    },
+    "Reading" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lecture"
+          }
+        }
+      }
+    },
+    "Report a problem" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signaler un problème"
+          }
+        }
+      }
+    },
+    "Scan to PDF" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Numériser en PDF"
+          }
+        }
+      }
+    },
+    "Send your report to %@ from any email app." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Envoyez votre rapport à %@ depuis n’importe quelle app de messagerie."
+          }
+        }
+      }
+    },
+    "Settings" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Réglages"
+          }
+        }
+      }
+    },
+    "Sign" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signer"
+          }
+        }
+      }
+    },
+    "Single page" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Page unique"
+          }
+        }
+      }
+    },
+    "Summaries, answers and extraction run on this device with Apple Intelligence. Nothing is sent anywhere." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les résumés, les réponses et l’extraction s’exécutent sur cet appareil avec Apple Intelligence. Rien n’est envoyé ailleurs."
+          }
+        }
+      }
+    },
+    "Summarise document" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Résumer un document"
+          }
+        }
+      }
+    },
+    "The first choice leads the home screen." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le premier choix figure en tête de l’écran d’accueil."
+          }
+        }
+      }
+    },
+    "The summary lists the app version, the system and error counts. It never includes your documents." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le résumé indique la version de l’app, le système et le nombre d’erreurs. Il n’inclut jamais vos documents."
+          }
+        }
+      }
+    },
+    "Titles and tags are always searchable in Spotlight. Turn this off to keep what documents say out of system search." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les titres et les tags sont toujours consultables dans Spotlight. Désactivez cette option pour exclure le contenu des documents de la recherche du système."
+          }
+        }
+      }
+    },
+    "Version" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version"
+          }
+        }
+      }
+    },
+    "What you do most" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce que vous faites le plus"
+          }
+        }
+      }
+    },
+    "Your documents stay on this device, in the PDF Algo Pro folder you can see in the Files app. The app has no account, no advertising and no tracking." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vos documents restent sur cet appareil, dans le dossier PDF Algo Pro visible dans l’app Fichiers. L’app n’a ni compte, ni publicité, ni suivi."
+          }
+        }
+      }
+    }
   },
   "version" : "1.0"
 }

@@ -1,7 +1,172 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-
+    "%lld of the chosen files weren't images, so they were skipped." : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld of the chosen files wasn't an image, so it was skipped."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld of the chosen files weren't images, so they were skipped."
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld des fichiers choisis n’étaient pas des images, ils ont donc été ignorés."
+                }
+              },
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld des fichiers choisis n’était pas une image, il a donc été ignoré."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld des fichiers choisis n’étaient pas des images, ils ont donc été ignorés."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Cancel" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annuler"
+          }
+        }
+      }
+    },
+    "Choose images" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisir des images"
+          }
+        }
+      }
+    },
+    "Recognising text on this device…" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reconnaissance du texte sur cet appareil…"
+          }
+        }
+      }
+    },
+    "Scan" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Numériser"
+          }
+        }
+      }
+    },
+    "Scan %@" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Numérisation du %@"
+          }
+        }
+      }
+    },
+    "Scan with camera" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Numériser avec l’appareil photo"
+          }
+        }
+      }
+    },
+    "Scanned pages become a searchable PDF. Text is recognised on this device, in English and French." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les pages numérisées deviennent un PDF avec recherche. Le texte est reconnu sur cet appareil, en anglais et en français."
+          }
+        }
+      }
+    },
+    "Stop" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Arrêter"
+          }
+        }
+      }
+    },
+    "Text recognition didn't finish. Nothing was added to your library." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La reconnaissance du texte n’a pas abouti. Rien n’a été ajouté à votre bibliothèque."
+          }
+        }
+      }
+    },
+    "The scan wasn't saved" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La numérisation n’a pas été enregistrée"
+          }
+        }
+      }
+    },
+    "This device has no document camera. You can make a PDF from photos of pages instead." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cet appareil n’a pas de scanner de documents. Vous pouvez plutôt créer un PDF à partir de photos de pages."
+          }
+        }
+      }
+    },
+    "Try again" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Réessayer"
+          }
+        }
+      }
+    }
   },
   "version" : "1.0"
 }

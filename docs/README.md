@@ -148,6 +148,7 @@ blocks implementation today?
 | [Environments](process/environments.md) | Release | each milestone |
 | [Quality gates](process/quality-gates.md) | Quality | each milestone, and with any change to a workflow, ruleset or threshold |
 | [VoiceOver script](process/voiceover-script.md) | Quality and Design | each milestone, and whenever a screen or journey is added |
+| [Localisation](process/localization.md) | Product and Design | each milestone, and whenever a language is added |
 | [App Store submission](process/runbooks/app-store-submission.md) | Release | after each release |
 | [iOS hotfix](process/runbooks/ios-hotfix.md) | Release | after each hotfix |
 | [Incident response](process/runbooks/incident-response.md) | Operations | after every SEV1 or SEV2, and each milestone |
