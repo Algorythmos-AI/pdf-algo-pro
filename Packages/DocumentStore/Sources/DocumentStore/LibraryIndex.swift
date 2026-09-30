@@ -120,6 +120,11 @@ actor SwiftDataIndexStore {
 /// The library index (ADR-0006), opened with a fallback ladder so a damaged store never stops the
 /// app: on disk, then recreated, then in memory, then a plain dictionary. The index can always be
 /// rebuilt from the files, so no step loses a document.
+///
+/// A store that won't open is moved aside, never deleted: it may hold tags, favourites and titles
+/// that exist nowhere else, and it may simply be newer than this build, as when a tester installs
+/// an older TestFlight build (plan item H6). The last few are kept in a `Kept` folder beside the
+/// store, so they can be recovered.
 public actor LibraryIndex {
   /// How the index was opened.
   public enum StoreLevel: Sendable, Equatable {
@@ -155,9 +160,7 @@ public actor LibraryIndex {
       return (SwiftDataIndexStore(modelContainer: container), .onDisk)
     }
     if let storeURL {
-      for suffix in ["", "-shm", "-wal"] {
-        try? FileManager.default.removeItem(at: URL(fileURLWithPath: storeURL.path + suffix))
-      }
+      keepAside(storeURL)
       if let container = try? makeContainer(schema: schema, url: storeURL) {
         return (SwiftDataIndexStore(modelContainer: container), .recreated)
       }
@@ -167,6 +170,36 @@ public actor LibraryIndex {
       return (SwiftDataIndexStore(modelContainer: container), .inMemory)
     }
     return (nil, .withoutStore)
+  }
+
+  /// How many stores that wouldn't open are kept; older ones are removed.
+  static let keptLimit = 3
+
+  /// The folder unreadable stores are moved to, beside the store.
+  static func keptFolder(for storeURL: URL) -> URL {
+    storeURL.deletingLastPathComponent().appendingPathComponent("Kept", isDirectory: true)
+  }
+
+  /// Moves a store that won't open, with its `-shm` and `-wal` files, into its own folder under `Kept`.
+  private static func keepAside(_ storeURL: URL) {
+    let fileManager = FileManager.default
+    let kept = keptFolder(for: storeURL)
+    // Microseconds since 1970, zero-padded, so the names sort in the order the stores were kept.
+    let stamp = String(format: "%017lld", Int64(Date().timeIntervalSince1970 * 1_000_000))
+    let folder = kept.appendingPathComponent("\(stamp)-\(UUID().uuidString.prefix(8))", isDirectory: true)
+    try? fileManager.createDirectory(at: folder, withIntermediateDirectories: true)
+    for suffix in ["", "-shm", "-wal"] {
+      let file = URL(fileURLWithPath: storeURL.path + suffix)
+      guard fileManager.fileExists(atPath: file.path) else { continue }
+      if (try? fileManager.moveItem(at: file, to: folder.appendingPathComponent(file.lastPathComponent))) == nil {
+        // A file that can't be moved still mustn't stop the app from opening a new store.
+        try? fileManager.removeItem(at: file)
+      }
+    }
+    let folders = (try? fileManager.contentsOfDirectory(at: kept, includingPropertiesForKeys: nil)) ?? []
+    for old in folders.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }).dropLast(keptLimit) {
+      try? fileManager.removeItem(at: old)
+    }
   }
 
   private static func makeContainer(schema: Schema, url: URL) throws -> ModelContainer {

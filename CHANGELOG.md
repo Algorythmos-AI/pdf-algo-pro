@@ -50,6 +50,8 @@ Store notes (see the changelog strategy).
 - On iPad the app uses a single window for now (#54).
 
 ### Fixed
+- A library index that can't be opened, for example after installing an older build, is set aside
+  instead of deleted, so tags, favourites and Recently Deleted dates can be recovered.
 - Form entries are saved, and protected documents keep their password and restrictions when saved
   (#58).
 - Changes are saved when the app moves to the background (#58).
