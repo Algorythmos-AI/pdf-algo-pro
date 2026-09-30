@@ -33,6 +33,9 @@ public final class RecognitionCoordinator {
   @ObservationIgnored private let telemetry: any TelemetryRecording
   @ObservationIgnored private let checkpoints: RecognitionCheckpoints
   @ObservationIgnored private let keepAlive: @MainActor (String) -> @MainActor () -> Void
+  @ObservationIgnored private let continued: (any ContinuedWork)?
+  /// Continued work for recognition a person started, while it runs.
+  @ObservationIgnored private var handles: [DocumentID: any ContinuedWorkHandle] = [:]
   @ObservationIgnored private var jobs: [DocumentID: Task<Void, Never>] = [:]
   @ObservationIgnored private var watchers: [DocumentID: Watcher] = [:]
 
@@ -48,7 +51,8 @@ public final class RecognitionCoordinator {
   public init(
     library: any DocumentLibrary, intake: DocumentIntake, builder: SearchablePDFBuilder,
     telemetry: any TelemetryRecording, folder: URL,
-    keepAlive: @escaping @MainActor (String) -> @MainActor () -> Void = { BackgroundTime.begin($0) }
+    keepAlive: @escaping @MainActor (String) -> @MainActor () -> Void = { BackgroundTime.begin($0) },
+    continued: (any ContinuedWork)? = nil
   ) {
     self.library = library
     self.intake = intake
@@ -56,6 +60,7 @@ public final class RecognitionCoordinator {
     self.telemetry = telemetry
     checkpoints = RecognitionCheckpoints(folder: folder)
     self.keepAlive = keepAlive
+    self.continued = continued
   }
 
   /// Whether a document's text is being recognised.
@@ -76,9 +81,18 @@ public final class RecognitionCoordinator {
   }
 
   /// Starts recognising a document, from its checkpoint if it has one; does nothing if it is running.
-  public func start(_ id: DocumentID) {
+  ///
+  /// When a person started it (`title` is the document's title), the system is asked to keep it going
+  /// with its progress in a Live Activity if they leave the app (P8b). Recognition resumed at launch
+  /// never asks, because the system allows that only after a person's action.
+  public func start(_ id: DocumentID, startedFor title: String? = nil) {
     guard jobs[id] == nil else { return }
     progress[id] = 0
+    if let title, let continued {
+      handles[id] = continued.begin(
+        title: String(localized: "Recognising text", bundle: .module), subtitle: title,
+        onCancel: { [weak self] in self?.cancel(id) })
+    }
     jobs[id] = Task { await run(id) }
   }
 
@@ -99,8 +113,11 @@ public final class RecognitionCoordinator {
 
   private func run(_ id: DocumentID) async {
     let endBackgroundTime = keepAlive("Recognise text")
+    var succeeded = false
     defer {
       endBackgroundTime()
+      handles[id]?.finish(success: succeeded)
+      handles[id] = nil
       progress[id] = nil
       jobs[id] = nil
     }
@@ -122,7 +139,10 @@ public final class RecognitionCoordinator {
         progress: { value in
           Task { @MainActor [weak self] in
             // A late update must not bring back progress for a job that has ended.
-            if self?.jobs[id] != nil { self?.progress[id] = value }
+            if self?.jobs[id] != nil {
+              self?.progress[id] = value
+              self?.handles[id]?.report(progress: value)
+            }
           }
         })
       // Stopped during the last page: the builder has finished, but the file is left as it was.
@@ -139,6 +159,7 @@ public final class RecognitionCoordinator {
         _ = try await intake.refresh(id)
         await telemetry.record("task.core.completed")
         outcome = .replaced
+        succeeded = true
       } else {
         outcome = .fileChanged
       }

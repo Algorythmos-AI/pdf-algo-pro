@@ -21,11 +21,12 @@ private struct Harness {
   var intake: DocumentIntake { DocumentIntake(library: library, inspector: PDFKitInspector(), index: index) }
 
   func coordinator(
-    recognizer: any TextRecognizing = FakeRecognizer(), keepAlive: BackgroundLog = BackgroundLog()
+    recognizer: any TextRecognizing = FakeRecognizer(), keepAlive: BackgroundLog = BackgroundLog(),
+    continued: (any ContinuedWork)? = nil
   ) -> RecognitionCoordinator {
     RecognitionCoordinator(
       library: library, intake: intake, builder: SearchablePDFBuilder(recognizer: recognizer, renderPixelSize: 400),
-      telemetry: telemetry, folder: checkpoints, keepAlive: keepAlive.begin)
+      telemetry: telemetry, folder: checkpoints, keepAlive: keepAlive.begin, continued: continued)
   }
 
   func reader(
@@ -677,6 +678,55 @@ struct RecognitionCoordinatorTests {
     #expect(coordinator.progress[document.id] == nil)
   }
 
+  @Test("Recognition a person starts asks the system to keep it going, with progress (P8b)")
+  func continuedWhenStartedByAPerson() async throws {
+    let harness = Harness()
+    let document = await harness.seed(
+      try SyntheticPDF.makeImageOnly(pages: ["One", "Two"]), title: "Scanned lease", textLayer: false)
+    let continued = ContinuedLog()
+    let coordinator = harness.coordinator(continued: continued)
+    coordinator.start(document.id, startedFor: document.title)
+    await coordinator.finished(document.id)
+    #expect(continued.begun.map(\.subtitle) == ["Scanned lease"])
+    let handle = try #require(continued.handles.first)
+    #expect(handle.finished == true)
+    #expect(!handle.progress.isEmpty && handle.progress.allSatisfy { (0...1).contains($0) })
+  }
+
+  @Test("Resuming at launch, or a system that says no, runs recognition as before")
+  func noContinuedWork() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.makeImageOnly(pages: ["One"]), textLayer: false)
+    let continued = ContinuedLog()
+    continued.available = false
+    let coordinator = harness.coordinator(continued: continued)
+    coordinator.start(document.id)
+    await coordinator.finished(document.id)
+    #expect(continued.begun.isEmpty, "Not started by a person, so the system isn't asked")
+    let other = await harness.seed(try SyntheticPDF.makeImageOnly(pages: ["Two"]), textLayer: false)
+    coordinator.start(other.id, startedFor: "Other")
+    await coordinator.finished(other.id)
+    #expect(continued.begun.count == 1 && continued.handles.isEmpty)
+    #expect(try await harness.library.document(withID: other.id)?.hasTextLayer == true)
+  }
+
+  @Test("Cancelling from the system's interface stops recognition and leaves the file as it was")
+  func cancelledFromTheSystem() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.makeImageOnly(pages: ["One", "Two"]), textLayer: false)
+    let url = try await harness.library.fileURL(for: document.id)
+    let original = try Data(contentsOf: url)
+    let recognizer = GatedRecognizer()
+    let continued = ContinuedLog()
+    let coordinator = harness.coordinator(recognizer: recognizer, continued: continued)
+    coordinator.start(document.id, startedFor: "Doc")
+    continued.cancel?()
+    await recognizer.open()
+    await coordinator.finished(document.id)
+    #expect(try Data(contentsOf: url) == original)
+    #expect(continued.handles.first?.finished == false)
+  }
+
   @Test("A checkpoint for a file that has changed since is discarded")
   func staleCheckpointIsDiscarded() async throws {
     let harness = Harness()
@@ -749,6 +799,31 @@ private actor SecondPageGate: TextRecognizing {
       await withCheckedContinuation { gate = $0 }
     }
     return FakeRecognizer().lines
+  }
+}
+
+/// Continued work that records what the coordinator asked of the system.
+@MainActor
+final class ContinuedLog: ContinuedWork {
+  final class Handle: ContinuedWorkHandle {
+    var progress: [Double] = []
+    var finished: Bool?
+    func report(progress: Double) { self.progress.append(progress) }
+    func finish(success: Bool) { finished = success }
+  }
+
+  var available = true
+  private(set) var begun: [(title: String, subtitle: String)] = []
+  private(set) var handles: [Handle] = []
+  private(set) var cancel: (@MainActor () -> Void)?
+
+  func begin(title: String, subtitle: String, onCancel: @escaping @MainActor () -> Void) -> (any ContinuedWorkHandle)? {
+    begun.append((title, subtitle))
+    guard available else { return nil }
+    cancel = onCancel
+    let handle = Handle()
+    handles.append(handle)
+    return handle
   }
 }
 

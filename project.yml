@@ -128,6 +128,10 @@ targets:
             LSItemContentTypes: [com.adobe.pdf]
         NSUserActivityTypes:
           - com.apple.corespotlightitem
+        # Text recognition a person starts continues with its progress in a Live Activity (P8b); each run
+        # gets its own identifier in this family.
+        BGTaskSchedulerPermittedIdentifiers:
+          - $(PRODUCT_BUNDLE_IDENTIFIER).recognition.*
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.algorythmos.pdfalgopro
