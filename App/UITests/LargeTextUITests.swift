@@ -51,8 +51,7 @@ final class LargeTextUITests: UITestCase {
   func testTheSignatureSheetAtALargeTextSize() throws {
     let app = launchLarge(["-skip-onboarding", "-seed-library", "sample"])
     XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
-    app.buttons["reader.markup"].tap()
-    app.buttons["Signature"].tap()
+    tapMenuItem(app.buttons["Signature"], in: app.buttons["reader.markup"])
     XCTAssertTrue(app.textFields["signature.typedName"].waitForExistence(timeout: 5))
     try audit(app)
   }

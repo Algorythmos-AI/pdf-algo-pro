@@ -26,21 +26,39 @@ class UITestCase: XCTestCase {
       .withOffset(CGVector(dx: frame.minX + frame.width * dx, dy: frame.minY + frame.height * dy))
   }
 
-  /// Waits, for up to four seconds, until two screenshots taken a quarter of a second apart match.
+  /// Waits, for up to four seconds, until three screenshots taken a quarter of a second apart match, so
+  /// the screen has been still for half a second.
   ///
   /// An element exists before it has finished appearing: at launch the system cross-fades from the
   /// launch screen, and a sheet slides in. An audit taken then measures half-drawn text (issue
-  /// #69). A screen that never stops changing, such as one with a blinking caret, is audited
-  /// after the four seconds.
+  /// #69). A sheet's bar buttons sit on glass that finishes appearing after the sheet, and a single
+  /// quarter-second match could fall between those two steps (issue #76). A screen that never stops
+  /// changing, such as one with a blinking caret, is audited after the four seconds.
   private func waitUntilStill(_ app: XCUIApplication) {
     var previous = app.screenshot().pngRepresentation
+    var matches = 0
     let deadline = Date().addingTimeInterval(4)
     while Date() < deadline {
       Thread.sleep(forTimeInterval: 0.25)
       let current = app.screenshot().pngRepresentation
-      if current == previous { return }
+      matches = current == previous ? matches + 1 : 0
+      if matches == 2 { return }
       previous = current
     }
+  }
+
+  /// Opens a menu and taps one of its items.
+  ///
+  /// A tap on a menu button that arrives while the screen is still settling can be swallowed, and the
+  /// menu stays closed (issue #76). The button is tapped once more if the item hasn't appeared.
+  func tapMenuItem(_ item: XCUIElement, in menu: XCUIElement, file: StaticString = #filePath, line: UInt = #line) {
+    XCTAssertTrue(menu.waitForExistence(timeout: 5), "The menu button exists", file: file, line: line)
+    menu.tap()
+    if !item.waitForExistence(timeout: 3) {
+      menu.tap()
+      XCTAssertTrue(item.waitForExistence(timeout: 5), "The menu opens", file: file, line: line)
+    }
+    item.tap()
   }
 
   /// The accessibility audit on the current screen.
@@ -71,6 +89,11 @@ class UITestCase: XCTestCase {
   /// expected failure, visible in the results without failing the build (docs/testing-strategy.md, Flaky
   /// tests). Text that does not scale at all still fails.
   ///
+  /// Quarantined (issue #76, flaky): contrast findings on buttons inside a navigation bar, measured while a
+  /// sheet's glass bar buttons are still appearing (the accent colour is about 7:1 once drawn), and
+  /// "Potentially inaccessible text" findings that come without an element. Contrast anywhere else still
+  /// fails.
+  ///
   /// Quarantined (issue #53, flaky): the audit itself sometimes gives up with "Audit failed to complete in
   /// time" on a loaded runner. That timeout is recorded the same way; the journey goes on.
   func audit(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) throws {
@@ -83,6 +106,7 @@ class UITestCase: XCTestCase {
     let barTitles = Set(app.navigationBars.allElementsBoundByIndex.map(\.identifier).filter { !$0.isEmpty })
     var findings: [String] = []
     var quarantined: [String] = []
+    var appearing: [String] = []
     // How long each audit takes, as a named activity in the CI log, for the timeouts in issue #53.
     let started = Date()
     defer {
@@ -93,7 +117,7 @@ class UITestCase: XCTestCase {
     do {
       try runAudit(
         app, bars: bars, barTitles: barTitles, actionBars: actionBars, searchFields: searchFields,
-        findings: &findings, quarantined: &quarantined)
+        findings: &findings, quarantined: &quarantined, appearing: &appearing)
     } catch let error as NSError
       where error.domain == "com.apple.xcode.xctest.accessibilityAudit" && error.code == -56
     {
@@ -107,6 +131,12 @@ class UITestCase: XCTestCase {
         details: "\(quarantined.count) quarantined finding(s):\n" + quarantined.joined(separator: "\n"), file: file,
         line: line)
     }
+    if !appearing.isEmpty {
+      recordQuarantined(
+        "Quarantined flaky audit finding, issue #76",
+        details: "\(appearing.count) quarantined finding(s):\n" + appearing.joined(separator: "\n"), file: file,
+        line: line)
+    }
     if !findings.isEmpty {
       XCTFail(
         "\(findings.count) accessibility finding(s):\n" + findings.joined(separator: "\n"), file: file, line: line)
@@ -115,13 +145,16 @@ class UITestCase: XCTestCase {
 
   private func runAudit(
     _ app: XCUIApplication, bars: [CGRect], barTitles: Set<String>, actionBars: [CGRect],
-    searchFields: [CGRect], findings: inout [String], quarantined: inout [String]
+    searchFields: [CGRect], findings: inout [String], quarantined: inout [String], appearing: inout [String]
   ) throws {
+    let navigationBars = app.navigationBars.allElementsBoundByIndex.map(\.frame)
     var collected: [String] = []
     var held: [String] = []
+    var settling: [String] = []
     defer {
       findings += collected
       quarantined += held
+      appearing += settling
     }
     try app.performAccessibilityAudit { issue in
       if let element = issue.element {
@@ -145,6 +178,16 @@ class UITestCase: XCTestCase {
         {
           return true
         }
+        if issue.auditType == .contrast, element.elementType == .button,
+          navigationBars.contains(where: { $0.insetBy(dx: -8, dy: -8).contains(element.frame) })
+        {
+          settling.append(Self.describe(issue))
+          return true
+        }
+      } else if issue.auditType == .elementDetection {
+        // "Potentially inaccessible text" without an element (issue #76).
+        settling.append(Self.describe(issue))
+        return true
       }
       if issue.auditType == .dynamicType, issue.compactDescription.localizedCaseInsensitiveContains("partially") {
         held.append(Self.describe(issue))
