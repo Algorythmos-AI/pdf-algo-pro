@@ -75,6 +75,8 @@ targets:
       - package: OCR
       - package: Search
       - package: Intelligence
+      - package: Intelligence
+        product: IntelligenceEvaluation
       - package: Telemetry
       - package: Onboarding
         product: OnboardingFeature
@@ -139,10 +141,14 @@ targets:
         SWIFT_UPCOMING_FEATURE_NONISOLATED_NONSENDING_BY_DEFAULT: YES
         GENERATE_INFOPLIST_FILE: NO
       configs:
+        # Internal tools (the live AI evaluation in Settings) are compiled into Debug and Staging only.
+        Debug:
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) INTERNAL_TOOLS
         Staging:
           PRODUCT_BUNDLE_IDENTIFIER: com.algorythmos.pdfalgopro.staging
           APP_DISPLAY_NAME: PDF Algo β
           APP_URL_SCHEME: pdfalgopro-staging
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) INTERNAL_TOOLS
   PDFAlgoProTests:
     type: bundle.unit-test
     platform: iOS
