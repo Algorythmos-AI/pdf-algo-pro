@@ -361,3 +361,44 @@ public actor RecordingTelemetry: TelemetryRecording {
     events.append(event)
   }
 }
+
+/// Signatures kept in memory, for tests and previews.
+public actor InMemorySignatureStore: SignatureStoring {
+  private var stored: [SavedSignature] = []
+  /// When set, the next call throws this error.
+  public var nextError: SignatureStoreError?
+
+  /// Creates an empty store.
+  public init() {}
+
+  /// Makes the next call throw an error.
+  public func failNext(with error: SignatureStoreError) {
+    nextError = error
+  }
+
+  private func check() throws {
+    if let error = nextError {
+      nextError = nil
+      throw error
+    }
+  }
+
+  /// Every saved signature, oldest first.
+  public func signatures() async throws -> [SavedSignature] {
+    try check()
+    return stored.sorted { $0.createdAt < $1.createdAt }
+  }
+
+  /// Saves a signature, replacing one with the same identity.
+  public func save(_ signature: SavedSignature) async throws {
+    try check()
+    stored.removeAll { $0.id == signature.id }
+    stored.append(signature)
+  }
+
+  /// Deletes a signature.
+  public func delete(_ id: UUID) async throws {
+    try check()
+    stored.removeAll { $0.id == id }
+  }
+}
