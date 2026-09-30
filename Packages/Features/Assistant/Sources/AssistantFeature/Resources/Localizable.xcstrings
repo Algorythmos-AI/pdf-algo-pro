@@ -41,6 +41,16 @@
         }
       }
     },
+    "Ask a follow-up question" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Poser une question de suivi"
+          }
+        }
+      }
+    },
     "Ask about this document" : {
       "localizations" : {
         "fr" : {
@@ -187,16 +197,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Introuvable dans ce document"
-          }
-        }
-      }
-    },
-    "p. %lld" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "p. %lld"
           }
         }
       }
@@ -377,6 +377,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Activez Apple Intelligence dans l’app Réglages pour l’utiliser ici. Tout le reste fonctionne sans."
+          }
+        }
+      }
+    },
+    "p. %lld" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "p. %lld"
           }
         }
       }

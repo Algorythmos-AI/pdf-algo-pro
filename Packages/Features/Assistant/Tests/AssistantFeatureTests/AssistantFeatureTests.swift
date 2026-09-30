@@ -200,6 +200,26 @@ struct AssistantModelTests {
     #expect(model.phase == .idle)
   }
 
+  @Test("Follow-up questions keep the grounded answers before them; a new task starts afresh (FR-AI-014)")
+  func followUps() async throws {
+    let intelligence = FakeIntelligence()
+    let (model, _) = makeModel(task: .ask, intelligence: intelligence)
+    await model.start()
+    model.question = "First?"
+    await model.ask()
+    #expect(model.earlier.isEmpty && model.question.isEmpty, "The field clears after sending")
+    model.question = "And the second?"
+    await model.ask()
+    #expect(model.answeredQuestion == "And the second?")
+    let grounded = model.earlier.map(\.question)
+    if case .answered(let answer) = model.phase, answer.isGrounded {
+      #expect(grounded == ["First?"])
+    }
+    model.task = .summarize
+    await model.start()
+    #expect(model.earlier.isEmpty)
+  }
+
   @Test("Copy exists for every task and field")
   func copy() {
     for task in AssistantTask.allCases { _ = AssistantView.title(for: task) }

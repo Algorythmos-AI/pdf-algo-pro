@@ -35,6 +35,9 @@ public final class AssistantModel {
   public private(set) var phase: Phase = .idle
   /// The question the current answer responds to.
   public private(set) var answeredQuestion: String?
+  /// Earlier questions and answers in this conversation, oldest first (FR-AI-014); a new task or a
+  /// fresh start begins a new conversation.
+  public private(set) var earlier: [Exchange] = []
 
   private let intelligence: any DocumentIntelligence
   private let pages: () async -> [PageText]
@@ -65,6 +68,7 @@ public final class AssistantModel {
   public func start() async {
     supersede()
     answeredQuestion = nil
+    earlier = []
     if case .unavailable(let reason) = await intelligence.availability() {
       phase = .unavailable(reason)
       return
@@ -80,7 +84,12 @@ public final class AssistantModel {
   public func ask() async {
     let trimmed = question.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !trimmed.isEmpty, !isWorking else { return }
+    // The answer on screen becomes the context for this follow-up.
+    if case .answered(let answer) = phase, answer.isGrounded, let previous = answeredQuestion {
+      earlier.append(Exchange(question: previous, answer: answer))
+    }
     answeredQuestion = trimmed
+    question = ""
     await run()
   }
 
@@ -105,6 +114,7 @@ public final class AssistantModel {
     phase = .working
     let task = task
     let question = answeredQuestion ?? ""
+    let earlier = earlier
     let request = Task {
       let outcome: Phase
       do {
@@ -112,7 +122,7 @@ public final class AssistantModel {
         try Task.checkCancellation()
         switch task {
         case .summarize: outcome = .answered(try await intelligence.summarize(pages))
-        case .ask: outcome = .answered(try await intelligence.answer(question, from: pages))
+        case .ask: outcome = .answered(try await intelligence.answer(question, from: pages, after: earlier))
         case .extract: outcome = .extracted(try await intelligence.extractFields(from: pages))
         case .explainContract: outcome = .answered(try await intelligence.explainContract(pages))
         }

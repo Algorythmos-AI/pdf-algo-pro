@@ -56,6 +56,19 @@ public enum PromptCatalog {
       exactly NOT_FOUND and nothing else. \(untrustedDocumentRule)
       """)
 
+  /// Answers a follow-up question, with the conversation so far as context (FR-AI-014).
+  ///
+  /// A separate template, so the evaluated `ask` prompt is unchanged for first questions.
+  public static let askFollowUp = PromptTemplate(
+    id: "ask.followUp", version: "1.0.0",
+    instructions: """
+      You answer follow-up questions about a document using only its text. Earlier questions and answers \
+      are between <conversation> and </conversation>; use them only to understand what the new question \
+      refers to, never as a source of facts. Answer in 1 to 4 sentences, in the language of the question. \
+      \(citationRule) If the document does not contain the answer, reply with exactly NOT_FOUND and \
+      nothing else. \(untrustedDocumentRule)
+      """)
+
   /// Extracts structured fields.
   public static let extract = PromptTemplate(
     id: "extract", version: "1.0.0",
@@ -75,7 +88,7 @@ public enum PromptCatalog {
       """)
 
   /// Every template, for review and evaluation tooling.
-  public static let all = [summarizeChunk, summarizeCombine, ask, extract, explainContract]
+  public static let all = [summarizeChunk, summarizeCombine, ask, askFollowUp, extract, explainContract]
 
   /// Formats pages as the fenced document block every prompt uses.
   static func documentBlock(_ pages: [PageText]) -> String {
@@ -83,10 +96,19 @@ public enum PromptCatalog {
     return "<document>\n\(body)\n</document>"
   }
 
+  /// Formats earlier exchanges as the fenced conversation block of a follow-up question.
+  static func conversationBlock(_ exchanges: [Exchange]) -> String {
+    let body = exchanges.map { "Q: \(sanitize($0.question))\nA: \(sanitize($0.answer.text))" }
+      .joined(separator: "\n\n")
+    return "<conversation>\n\(body)\n</conversation>"
+  }
+
   /// Removes anything that could close the fence early or fake a page marker.
   static func sanitize(_ text: String) -> String {
     text.replacingOccurrences(of: "</document>", with: "", options: .caseInsensitive)
       .replacingOccurrences(of: "<document>", with: "", options: .caseInsensitive)
+      .replacingOccurrences(of: "</conversation>", with: "", options: .caseInsensitive)
+      .replacingOccurrences(of: "<conversation>", with: "", options: .caseInsensitive)
       .replacingOccurrences(of: "=== Page", with: "Page", options: .caseInsensitive)
   }
 }
