@@ -199,8 +199,12 @@ English and French.
 - **Word error rate (WER)** is the same calculation over words
   ([word error rate](https://en.wikipedia.org/wiki/Word_error_rate)).
 - **Normalisation before scoring:** Unicode NFKC (so ligatures compare equal); all whitespace,
-  including no-break spaces, collapsed to one space; line breaks treated as spaces. Case and accents
-  are significant: `é` read as `e` is an error.
+  including no-break spaces, collapsed to one space; line breaks treated as spaces. Typographic
+  apostrophes and quotation marks compare equal to their ASCII forms: Vision returns `'` for `’`.
+  The space before `;`, `:`, `!`, `?` and `»`, and after `«`, is ignored: French typography puts a
+  narrow no-break space there, which recognition reports inconsistently, while the marks themselves
+  still count. Case and accents are significant: `é` read as `e` is an error, and so is `æ` read as
+  `a`.
 - **Searchability:** every ground-truth word is found by in-document search on the right page after
   the text layer is written.
 
@@ -219,6 +223,28 @@ points against the baseline recorded at the last release, even while it stays un
 (`Assumption:` tolerance; validated by measuring run-to-run variation on the pinned runtime). A
 change in accuracy caused by a new operating-system version is recorded in
 [working memory](working-memory.md) and the baseline is re-recorded in its own pull request.
+
+### What runs today
+
+`OCRAccuracyTests` generates the corpus at run time (`OCRCorpus`) and runs it through
+`VisionTextRecognizer`.
+
+- **Pages:** eight sentences each, in Helvetica or Times. The French pages carry accented capitals,
+  `œ`, `æ`, guillemets and narrow no-break spaces. Degraded pages are skewed by up to 1.5 degrees,
+  blurred, low in contrast and speckled.
+- **Every pull request** runs 3 clean and 2 degraded pages per language, and gates them.
+- **`FULL_SUITE=1`** runs 200 clean and 100 degraded pages per language.
+- **Report:** `reports/ocr-accuracy.md` when `REPORTS_DIR` is set, as the `ios` job does.
+- **Not yet covered:** photographed pages and layouts (columns, tables, small print).
+
+Baseline on the full corpus. Source: `FULL_SUITE=1 swift test --package-path Packages/OCR --filter accuracy`, run on macOS 26 on the owner's Mac on 30 September 2026. The simulator and device figures come from the release runs.
+
+| Language | Condition | Pages | CER | WER |
+|---|---|---|---|---|
+| English | Clean | 200 | 0.00% | 0.01% |
+| English | Degraded | 100 | 0.13% | 0.78% |
+| French | Clean | 200 | 0.28% | 1.56% |
+| French | Degraded | 100 | 0.51% | 2.63% |
 
 ### Decision: CER and WER on a synthetic corpus, gated per subset
 

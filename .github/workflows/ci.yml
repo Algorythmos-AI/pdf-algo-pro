@@ -194,8 +194,9 @@ jobs:
       - name: Tests (unit, UI, accessibility audit, snapshots)
         id: tests
         run: |
-          xcodebuild test-without-building -scheme "$SCHEME" -testPlan "$TEST_PLAN" \
-            -destination "id=$SIM" -enableCodeCoverage YES -resultBundlePath Tests.xcresult
+          # Suites write their reports (OCR accuracy, AI evaluation, performance) to reports/, kept below.
+          TEST_RUNNER_REPORTS_DIR="$GITHUB_WORKSPACE/reports" xcodebuild test-without-building -scheme "$SCHEME" \
+            -testPlan "$TEST_PLAN" -destination "id=$SIM" -enableCodeCoverage YES -resultBundlePath Tests.xcresult
       - name: Coverage gate (80% overall and per module)
         # Runs even when a test failed, so one run reports every problem. A test bundle that crashed
         # records no coverage, so its module can look low until the crash is fixed.
