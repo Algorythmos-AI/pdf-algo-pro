@@ -6,9 +6,25 @@ on:
   push:
     branches: [integration, main]
   merge_group:
+  # Nightly on the default branch (integration): the full suite in `ios` and the Performance plan in
+  # `performance` (P9). 16:30 UTC is early morning in Australia, before the day's pull requests.
+  schedule:
+    - cron: "30 16 * * *"
+  workflow_dispatch:
 
 permissions:
   contents: read
+
+env:
+  XCODEGEN_VERSION: "2.46.0"
+  XCODEGEN_SHA256: 4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806
+  # Interim toolchain until Xcode 27 is available (readiness blocker C2, decision PAP-029). Pinned
+  # exactly, so a runner-image update cannot change results (snapshot references depend on it).
+  # Raise both to 27 together with ADR-0001's floor.
+  XCODE_APP: Xcode_26.6.app
+  XCODE_BUILD: 17F113
+  SIMULATOR_NAME: iPhone 17
+  SIMULATOR_RUNTIME: com.apple.CoreSimulator.SimRuntime.iOS-26-5
 
 concurrency:
   # The event is part of the key, so a scheduled or manual run never cancels a push run on the same branch.
@@ -117,15 +133,6 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 60
     env:
-      XCODEGEN_VERSION: "2.46.0"
-      XCODEGEN_SHA256: 4d9e34b62172d645eed6457cac13fc222569974098ef4ee9c3368bedf0196806
-      # Interim toolchain until Xcode 27 is available (readiness blocker C2, decision PAP-029). Pinned
-      # exactly, so a runner-image update cannot change results (snapshot references depend on it).
-      # Raise both to 27 together with ADR-0001's floor.
-      XCODE_APP: Xcode_26.6.app
-      XCODE_BUILD: 17F113
-      SIMULATOR_NAME: iPhone 17
-      SIMULATOR_RUNTIME: com.apple.CoreSimulator.SimRuntime.iOS-26-5
       SCHEME: PDFAlgoPro
       TEST_PLAN: PDFAlgoPro
     steps:
@@ -173,13 +180,7 @@ jobs:
       - name: Build for testing (signed ad hoc, warnings as errors)
         run: |
           # Pinned device and runtime: snapshot references are recorded on exactly this simulator.
-          device="$(xcrun simctl list devices available -j | SIM_NAME="$SIMULATOR_NAME" SIM_RUNTIME="$SIMULATOR_RUNTIME" python3 -c 'import json,os,sys; d=json.load(sys.stdin)["devices"]; ids=[x["udid"] for k in d if k.startswith(os.environ["SIM_RUNTIME"]) for x in d[k] if x["name"] == os.environ["SIM_NAME"]]; print(ids[0] if ids else "")')"
-          if [ -z "$device" ]; then
-            runtime="$(xcrun simctl list runtimes available -j | SIM_RUNTIME="$SIMULATOR_RUNTIME" python3 -c 'import json,os,sys; r=[x["identifier"] for x in json.load(sys.stdin)["runtimes"] if x["identifier"].startswith(os.environ["SIM_RUNTIME"])]; print(sorted(r)[-1] if r else "")')"
-            if [ -z "$runtime" ]; then echo "::error::no simulator runtime $SIMULATOR_RUNTIME* on this runner"; exit 1; fi
-            device="$(xcrun simctl create "$SIMULATOR_NAME" "$SIMULATOR_NAME" "$runtime")"
-            echo "created $SIMULATOR_NAME on $runtime"
-          fi
+          device="$(scripts/ci/pinned_simulator.sh)"
           echo "SIM=$device" >> "$GITHUB_ENV"
           # Signed ad hoc ("Sign to Run Locally"), not unsigned: the app-hosted tests use the Keychain, which
           # refuses an unsigned app (errSecMissingEntitlement, -34018). No team or certificate is involved.
@@ -225,3 +226,69 @@ jobs:
           name: Tests.xcresult
           path: Tests.xcresult
           retention-days: 7
+
+  performance:
+    name: performance
+    # The Performance test plan (P9): nightly and on request, never on pull requests. It compares each
+    # measurement with docs/performance-budgets.md and reports it in the run summary and an artifact,
+    # without blocking anything: simulator timings show trends, and device runs give the timings.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      SCHEME: PDFAlgoPro
+      TEST_PLAN: Performance
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Select the pinned Xcode (fail if missing)
+        run: |
+          xcode="/Applications/$XCODE_APP"
+          if [ ! -d "$xcode" ]; then
+            echo "::error::$XCODE_APP is not installed on this runner image; update the pin (PAP-029)"
+            exit 1
+          fi
+          sudo xcode-select -s "$xcode/Contents/Developer"
+          if ! xcodebuild -version | grep -q "Build version $XCODE_BUILD"; then
+            echo "::error::$XCODE_APP is not build $XCODE_BUILD; update the pin (PAP-029)"
+            exit 1
+          fi
+      - name: Install pinned XcodeGen (checksum verified)
+        run: |
+          curl -sSL -o xcodegen.zip "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
+          echo "${XCODEGEN_SHA256}  xcodegen.zip" | shasum -a 256 -c -
+          unzip -q xcodegen.zip -d "$RUNNER_TEMP/xcodegen"
+          echo "$RUNNER_TEMP/xcodegen/xcodegen/bin" >> "$GITHUB_PATH"
+      - name: Generate project and test plans
+        run: |
+          xcodegen generate
+          python3 scripts/ci/write_testplan.py
+      - name: Build for testing (optimised, signed ad hoc)
+        run: |
+          device="$(scripts/ci/pinned_simulator.sh)"
+          echo "SIM=$device" >> "$GITHUB_ENV"
+          # Debug keeps the test-only launch arguments and fakes the tests rely on; -O times the code
+          # optimised, as it ships.
+          xcodebuild build-for-testing -scheme "$SCHEME" -testPlan "$TEST_PLAN" \
+            -destination "id=$device" CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= \
+            SWIFT_OPTIMIZATION_LEVEL=-O
+      - name: Performance tests
+        run: |
+          xcodebuild test-without-building -scheme "$SCHEME" -testPlan "$TEST_PLAN" \
+            -destination "id=$SIM" -resultBundlePath Performance.xcresult
+      - name: Compare with the budgets
+        if: ${{ !cancelled() && hashFiles('Performance.xcresult/Info.plist') != '' }}
+        run: |
+          xcrun xcresulttool get test-results metrics --path Performance.xcresult > reports-metrics.json
+          python3 scripts/ci/perf_gate.py reports-metrics.json
+          cat reports/performance.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Keep the performance report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: performance
+          path: |
+            reports/performance.md
+            reports/performance.json
+            reports-metrics.json
+          if-no-files-found: ignore
+          retention-days: 90

@@ -1,3 +1,4 @@
+import Core
 import Foundation
 import PDFKit
 
@@ -15,6 +16,8 @@ extension PDFDocumentController {
   ///   `PDFEngineError.insufficientSpace` when the device is too full to save safely;
   ///   `PDFEngineError.saveFailed` when writing fails, or when the earlier version can't be kept.
   public func save(to url: URL, keepingPreviousAt previous: URL? = nil) throws {
+    let interval = Signposts.begin("Document.Save")
+    defer { interval.end() }
     let options = try protectionOptions()
     let staging = FileManager.default.temporaryDirectory.appendingPathComponent("save-\(UUID().uuidString).pdf")
     defer { try? FileManager.default.removeItem(at: staging) }

@@ -117,6 +117,9 @@ public final class ReaderModel {
 
   /// Opens the file at the page asked for, or where the user left off (FR-READ-006).
   public func load() async {
+    // To the reader being ready on its first page; drawing it is PDFKit's work after this.
+    let interval = Signposts.begin("Document.FirstPage")
+    defer { interval.end() }
     canRestorePreviousVersion = await library.hasPreviousVersion(of: documentID)
     do {
       guard let document = try await library.document(withID: documentID) else {

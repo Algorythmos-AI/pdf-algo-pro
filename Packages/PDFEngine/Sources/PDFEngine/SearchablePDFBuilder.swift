@@ -37,6 +37,8 @@ public actor SearchablePDFBuilder {
   ) async throws
     -> RecognizedDocument
   {
+    let interval = Signposts.begin("Scan.Searchable")
+    defer { interval.end() }
     var recognized: [[RecognizedLine]] = []
     for (index, image) in images.enumerated() {
       try Task.checkCancellation()

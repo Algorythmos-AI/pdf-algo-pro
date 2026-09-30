@@ -81,6 +81,8 @@ public actor LocalSearchIndex: DocumentIndexing {
 
   /// Documents matching a query, best first.
   public func search(_ query: String, in documents: [Document]) async throws -> [SearchHit] {
+    let interval = Signposts.begin("Search.Query")
+    defer { interval.end() }
     let terms = SearchText.terms(query)
     guard !terms.isEmpty else { return [] }
     var scored: [(hit: SearchHit, score: Int, title: String)] = []
