@@ -446,6 +446,25 @@ struct ReaderModelTests {
     #expect(await context.pages().map(\.text) == ["stored"])
   }
 
+  @Test("A page chosen in Contents or Pages opens once the sheet has closed")
+  func pageAfterSheet() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.makeSample())
+    let reader = harness.reader(for: document)
+    await reader.load()
+    reader.showsPages = true
+    reader.openAfterClosingSheets(pageIndex: 2)
+    #expect(!reader.showsPages && reader.controller?.currentPageIndex == 0)
+    reader.pageSheetDismissed()
+    #expect(reader.controller?.currentPageIndex == 2)
+    reader.showsOutline = true
+    reader.openAfterClosingSheets(pageIndex: 1)
+    #expect(!reader.showsOutline)
+    reader.pageSheetDismissed()
+    reader.pageSheetDismissed()
+    #expect(reader.controller?.currentPageIndex == 1, "A second dismissal opens nothing")
+  }
+
   @Test("AI can be hidden (FR-AI-009)")
   func hiddenIntelligence() async throws {
     let harness = Harness()
