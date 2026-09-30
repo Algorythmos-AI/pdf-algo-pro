@@ -10,6 +10,8 @@ Store notes (see the changelog strategy).
 ## [Unreleased]
 
 ### Added
+- PDF from photos: hold Import in the library and choose photos; each becomes a page, upright, in a
+  new document. No access to your photo library is needed.
 - The native iOS foundation app: onboarding with AI-first options, a library in the Files-visible
   Documents folder with Recently Deleted, search across titles, tags and recognised text (and
   Spotlight), a PDFKit reader with markup, notes, read aloud and on-device text recognition, scanning

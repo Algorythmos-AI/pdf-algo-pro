@@ -1,5 +1,6 @@
 import Core
 import DesignSystem
+import PhotosUI
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -12,6 +13,8 @@ public struct LibraryView<Detail: View>: View {
   @State private var compactColumn = NavigationSplitViewColumn.content
   @Environment(\.horizontalSizeClass) private var sizeClass
   @State private var isPickingFiles = false
+  @State private var isPickingPhotos = false
+  @State private var photos: [PhotosPickerItem] = []
   /// The assistant task to start on a single imported file: set by the home screen's primary action.
   @State private var importTask: AssistantTask?
   @State private var renaming: Document?
@@ -58,6 +61,18 @@ public struct LibraryView<Detail: View>: View {
     .sheet(item: $tagging) { document in
       TagEditor(document: document, available: model.tags) { tags in
         Task { await model.setTags(tags, for: document.id) }
+      }
+    }
+    .photosPicker(isPresented: $isPickingPhotos, selection: $photos, matching: .images)
+    .onChange(of: photos) { _, items in
+      guard !items.isEmpty else { return }
+      photos = []
+      Task {
+        var data: [Data] = []
+        for item in items {
+          if let photo = try? await item.loadTransferable(type: Data.self) { data.append(photo) }
+        }
+        await model.addPhotos(data)
       }
     }
     .fileImporter(isPresented: $isPickingFiles, allowedContentTypes: [.pdf], allowsMultipleSelection: true) { result in
@@ -220,14 +235,34 @@ public struct LibraryView<Detail: View>: View {
           }
         }
         .accessibilityIdentifier("library.scan")
-        Button {
-          pick(task: nil)
+        // A tap chooses files, as before; holding it also offers a PDF from photos (FR-ORG-008).
+        Menu {
+          Button {
+            pick(task: nil)
+          } label: {
+            Label {
+              Text("Choose files", bundle: .module)
+            } icon: {
+              Image(systemName: "folder")
+            }
+          }
+          Button {
+            isPickingPhotos = true
+          } label: {
+            Label {
+              Text("PDF from photos", bundle: .module)
+            } icon: {
+              Image(systemName: "photo.on.rectangle")
+            }
+          }
         } label: {
           Label {
             Text("Import", bundle: .module)
           } icon: {
             Image(systemName: "plus")
           }
+        } primaryAction: {
+          pick(task: nil)
         }
         .accessibilityIdentifier("library.import")
       }

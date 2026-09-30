@@ -1,6 +1,7 @@
 import Core
 import CoreGraphics
 import Foundation
+import ImageIO
 import Observation
 import PDFEngine
 
@@ -238,6 +239,42 @@ public final class LibraryModel {
     } catch {
       errorMessage = Self.message(for: error)
     }
+  }
+
+  /// Makes a PDF from photos, one page each, adds it to the library and opens it (FR-ORG-008).
+  ///
+  /// Each photo is decoded with its orientation applied and its longest side at most 3,000 pixels,
+  /// so a batch of large photos can't exhaust memory. Photos that can't be read are left out and
+  /// counted.
+  public func addPhotos(_ photos: [Data]) async {
+    guard !photos.isEmpty else { return }
+    isImporting = true
+    defer { isImporting = false }
+    let images = await Task.detached(priority: .userInitiated) { photos.compactMap(Self.image) }.value
+    do {
+      guard !images.isEmpty else { throw LibraryError.notAPDF }
+      let title = String(
+        localized: "Photos \(Date().formatted(date: .abbreviated, time: .shortened))", bundle: .module)
+      let document = try await intake.add(data: ImagePDF.make(from: images), title: title)
+      await reload()
+      selection = DocumentSelection(id: document.id)
+      if images.count < photos.count {
+        errorMessage = String(
+          localized: "\(photos.count - images.count) photo(s) couldn't be read and were left out.", bundle: .module)
+      }
+    } catch {
+      errorMessage = String(localized: "Couldn't make a PDF from those photos. Nothing changed.", bundle: .module)
+    }
+  }
+
+  /// A photo as an upright image, its longest side at most 3,000 pixels; `nil` when it can't be read.
+  nonisolated static func image(from data: Data) -> CGImage? {
+    guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
+    let options: [CFString: Any] = [
+      kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceCreateThumbnailWithTransform: true,
+      kCGImageSourceThumbnailMaxPixelSize: 3_000,
+    ]
+    return CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
   }
 
   /// Opens a document, optionally with an assistant task; records the first document opened.
