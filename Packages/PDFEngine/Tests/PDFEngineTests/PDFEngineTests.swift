@@ -610,6 +610,48 @@ struct ToolkitTests {
     #expect(throws: PDFEngineError.saveFailed) { try ImagePDF.make(from: []) }
   }
 
+  /// A page-sized picture with photographic noise, which lossless compression can't shrink, as in a scan.
+  private func photoPDF() throws -> Data {
+    let width = 1200
+    let height = 1600
+    var pixels = [UInt8](repeating: 255, count: width * height * 4)
+    var seed: UInt32 = 42
+    for index in 0..<(width * height) {
+      seed = seed &* 1_664_525 &+ 1_013_904_223
+      let value = UInt8(truncatingIfNeeded: (index % width) / 6 + Int(seed >> 27))
+      pixels[index * 4] = value
+      pixels[index * 4 + 1] = value &+ 40
+      pixels[index * 4 + 2] = value &+ 80
+    }
+    let image = try #require(
+      pixels.withUnsafeMutableBytes { buffer in
+        CGContext(
+          data: buffer.baseAddress, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
+          space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)?
+          .makeImage()
+      })
+    return try ImagePDF.make(from: [image])
+  }
+
+  @Test("The email preset shrinks a scan and keeps its pages; nothing bigger is ever returned (FR-ORG-004)")
+  func compress() throws {
+    let original = try photoPDF()
+    let controller = try PDFDocumentController(data: original)
+    let email = try #require(try controller.compressed(.email, comparedTo: original.count))
+    #expect(email.count < original.count / 2)
+    #expect(try PDFDocumentController(data: email).pageCount == 1)
+    let balanced = try controller.compressed(.balanced, comparedTo: original.count)
+    #expect(balanced.map { $0.count < original.count } ?? true)
+    #expect(try controller.compressed(.email, comparedTo: 1) == nil, "Never bigger than the original")
+  }
+
+  @Test("Compressing keeps text searchable")
+  func compressKeepsText() throws {
+    let controller = try PDFDocumentController(data: SyntheticPDF.makeSample())
+    let data = try #require(try controller.compressed(.email, comparedTo: .max))
+    #expect(!(try PDFDocumentController(data: data)).find("INV-2026-0042").isEmpty)
+  }
+
   @Test("A password can be added, and removed with the owner password only (FR-EDIT-006)")
   func passwords() throws {
     let controller = try three()
