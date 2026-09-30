@@ -296,7 +296,10 @@ stays inert. None may crash or hang.
   - a wrong stream length;
   - a circular page tree;
   - deep nesting;
-  - 40 fuzzed copies of the sample, from a fixed seed so every run tests the same files.
+  - a metadata key that isn't UTF-8. Fuzzing found this: PDFKit ended the app when saving such a file.
+  - 40 fuzzed copies of a hand-written document, from a fixed seed, so every run on every platform
+    tests the same bytes. A document drawn by Core Graphics embeds the time and the system version,
+    so fuzzing one changed different bytes on each run.
 - **Not yet covered.** These need files from other producers, and are added when licence-clean
   samples or generators exist:
   - XFA and calculated forms, a flattened form;

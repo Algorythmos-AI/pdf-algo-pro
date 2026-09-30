@@ -88,9 +88,9 @@ public enum GoldenCorpus {
     public var description: String { name }
   }
 
-  /// Every malformed case, including 40 fuzzed copies of the sample made from a fixed seed.
+  /// Every malformed case, including 40 fuzzed copies of a fixed document made from a fixed seed.
   public static func malformed() -> [Malformed] {
-    let sample = (try? SyntheticPDF.makeSample()) ?? Data("%PDF-1.7\n".utf8)
+    let sample = fuzzBase()
     var cases: [(String, Data)] = [
       ("empty", Data()),
       ("header only", Data("%PDF-1.7\n".utf8)),
@@ -104,6 +104,7 @@ public enum GoldenCorpus {
       ("wrong stream length", rawPDF(content: "BT /F1 12 Tf 72 700 Td (Wrong length) Tj ET", declaredLength: 9_999)),
       ("circular page tree", circularPageTree()),
       ("deep nesting", rawPDF(content: String(repeating: "q ", count: 5_000) + String(repeating: "Q ", count: 5_000))),
+      ("metadata key that isn't UTF-8", TestPDFs.makeWithUnreadableInfoKey()),
     ]
     cases += fuzzed(sample, count: 40).enumerated().map { ("fuzzed \($0.offset)", $0.element) }
     return cases.map { Malformed(name: $0.0, data: $0.1) }
@@ -236,8 +237,32 @@ public enum GoldenCorpus {
     ])
   }
 
+  /// The document the truncated, corrupted and fuzzed cases start from: two pages of text, a font, a
+  /// note, an outline and metadata, written byte for byte.
+  ///
+  /// A document drawn by Core Graphics embeds the time and the operating system's version, so the same
+  /// seed would change different bytes on every run and platform.
+  private static func fuzzBase() -> Data {
+    func stream(_ content: String) -> String { "<< /Length \(content.utf8.count) >>\nstream\n\(content)\nendstream" }
+    let resources = "/Resources << /Font << /F1 7 0 R >> >>"
+    return assemble(
+      [
+        "<< /Type /Catalog /Pages 2 0 R /Outlines 8 0 R >>",
+        "<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>",
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 5 0 R \(resources) /Annots [10 0 R] >>",
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Rotate 90 /Contents 6 0 R \(resources) >>",
+        stream("BT /F1 18 Tf 72 700 Td (Fuzz base, page one) Tj ET"),
+        stream("BT /F1 18 Tf 72 700 Td (Invoice total: 42) Tj 0 -24 Td (Page two) Tj ET"),
+        "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
+        "<< /Type /Outlines /First 9 0 R /Last 9 0 R /Count 1 >>",
+        "<< /Title (Page two) /Parent 8 0 R /Dest [4 0 R /Fit] >>",
+        "<< /Type /Annot /Subtype /Text /Rect [72 600 96 624] /Contents (A note) >>",
+        "<< /Title (Fuzz base) /Author (Golden corpus) /Keywords (fuzz) /CreationDate (D:20260930120000Z) >>",
+      ], info: 11)
+  }
+
   /// A PDF file from object bodies, numbered from 1, with a correct cross-reference table.
-  private static func assemble(_ objects: [String]) -> Data {
+  private static func assemble(_ objects: [String], info: Int? = nil) -> Data {
     var output = "%PDF-1.7\n"
     var offsets: [Int] = []
     for (index, body) in objects.enumerated() {
@@ -247,7 +272,8 @@ public enum GoldenCorpus {
     let xref = output.utf8.count
     output += "xref\n0 \(objects.count + 1)\n0000000000 65535 f \n"
     for offset in offsets { output += String(format: "%010d 00000 n \n", offset) }
-    output += "trailer\n<< /Size \(objects.count + 1) /Root 1 0 R >>\nstartxref\n\(xref)\n%%EOF\n"
+    let infoEntry = info.map { " /Info \($0) 0 R" } ?? ""
+    output += "trailer\n<< /Size \(objects.count + 1) /Root 1 0 R\(infoEntry) >>\nstartxref\n\(xref)\n%%EOF\n"
     return Data(output.utf8)
   }
 
