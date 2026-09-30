@@ -20,6 +20,9 @@ Store notes (see the changelog strategy).
   kept, and where numbers use a decimal comma (as in French) the columns are separated by semicolons.
 - Siri and Shortcuts can summarise a document: "Summarise … with PDF Algo Pro" returns the summary with
   the pages it cites, made on this device, and needs the iPhone unlocked.
+- The app may ask for a rating, at most once per version: only after several things went well over at
+  least two days, never in the first session or after something went wrong, and only once a document
+  or sheet has been closed.
 - PDF from photos: hold Import in the library and choose photos; each becomes a page, upright, in a
   new document. No access to your photo library is needed.
 - Tools in the reader's More menu: reduce file size into a smaller copy (for email or for printing),
