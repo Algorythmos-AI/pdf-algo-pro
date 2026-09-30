@@ -125,8 +125,8 @@ ways.
    ([performAccessibilityAudit](https://developer.apple.com/documentation/xcuiautomation/xcuiapplication/performaccessibilityaudit(for:_:)),
    [audit types](https://developer.apple.com/documentation/xcuiautomation/xcuiaccessibilityaudittype)).
    Audits run at the default text size and at an accessibility size: `LargeTextUITests` starts the
-   app at AX3 and audits every screen and sheet. Each audit prints how long it took, so a timeout in
-   CI shows how close it came. An issue may be ignored only
+   app at AX3 and audits every screen and sheet. Each audit records how long it took as a named
+   activity in the log, so a timeout in CI shows how close it came. An issue may be ignored only
    through the audit's issue handler, for a documented reason (for example, contrast inside a PDF
    page, which is the author's content, not our interface), with an issue link.
 2. **Contrast tests of design tokens.** A unit test computes the contrast ratio of every foreground

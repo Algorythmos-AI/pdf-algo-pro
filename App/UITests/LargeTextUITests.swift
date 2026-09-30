@@ -48,6 +48,15 @@ final class LargeTextUITests: UITestCase {
     try audit(app)
   }
 
+  func testTheSignatureSheetAtALargeTextSize() throws {
+    let app = launchLarge(["-skip-onboarding", "-seed-library", "sample"])
+    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
+    app.buttons["reader.markup"].tap()
+    app.buttons["Signature"].tap()
+    XCTAssertTrue(app.textFields["signature.typedName"].waitForExistence(timeout: 5))
+    try audit(app)
+  }
+
   func testTheAssistantAtALargeTextSize() throws {
     let app = launchLarge(["-skip-onboarding", "-seed-library", "sample"])
     XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
