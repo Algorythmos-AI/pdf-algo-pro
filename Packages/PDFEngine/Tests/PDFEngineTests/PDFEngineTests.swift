@@ -232,6 +232,31 @@ struct ControllerTests {
     #expect(throws: PDFEngineError.saveFailed) { try controller.save(to: missingFolder) }
   }
 
+  @Test("Metadata with a key that isn't UTF-8 is read without that key")
+  func unreadableInfoKeyIsLeftOut() throws {
+    let document = try #require(PDFDocument(data: TestPDFs.makeWithUnreadableInfoKey()))
+    let attributes = document.readableAttributes
+    #expect(attributes[PDFDocumentAttribute.titleAttribute.rawValue] as? String == "Damaged metadata")
+    #expect(attributes[PDFDocumentAttribute.authorAttribute.rawValue] as? String == "Test author")
+    #expect(attributes[PDFDocumentAttribute.keywordsAttribute.rawValue] as? [String] == ["corpus metadata"])
+    #expect(attributes[PDFDocumentAttribute.creationDateAttribute.rawValue] is Date)
+    #expect(attributes.count == 4)
+  }
+
+  @Test("A document whose metadata has a key that isn't UTF-8 saves, keeping the rest of its metadata")
+  func unreadableInfoKeySaves() throws {
+    let controller = try PDFDocumentController(data: TestPDFs.makeWithUnreadableInfoKey())
+    controller.addNote("Checked", onPage: 0)
+    let url = temporaryURL()
+    try controller.save(to: url)
+    let saved = try #require(PDFDocument(url: url))
+    let attributes = saved.documentAttributes ?? [:]
+    #expect(attributes[PDFDocumentAttribute.titleAttribute] as? String == "Damaged metadata")
+    #expect(attributes[PDFDocumentAttribute.authorAttribute] as? String == "Test author")
+    #expect(saved.page(at: 0)?.annotations.contains { $0.contents == "Checked" } == true)
+    #expect(saved.string?.contains("Damaged metadata") == true)
+  }
+
   @Test("Citations reveal their passage when it is on the cited page")
   func revealCitation() throws {
     let controller = try PDFDocumentController(data: SyntheticPDF.makeSample())
@@ -370,6 +395,15 @@ struct SearchablePDFTests {
     let movedEntry = try #require(document.outlineRoot?.child(at: 0))
     #expect(movedEntry.label == "Totals" && movedEntry.destination?.page.map { document.index(for: $0) } == 1)
     #expect(document.documentAttributes?[PDFDocumentAttribute.titleAttribute] as? String == "Invoice")
+  }
+
+  @Test("Adding a text layer to a document whose metadata has a key that isn't UTF-8 keeps the rest")
+  func textLayerWithUnreadableInfoKey() async throws {
+    let url = try write(TestPDFs.makeWithUnreadableInfoKey())
+    let result = try await SearchablePDFBuilder(recognizer: FakeRecognizer(), renderPixelSize: 600).addTextLayer(
+      toPDFAt: url)
+    let document = try #require(PDFDocument(data: result.data))
+    #expect(document.documentAttributes?[PDFDocumentAttribute.titleAttribute] as? String == "Damaged metadata")
   }
 
   @Test func lockedAndUnreadablePDFsAreRejected() async throws {

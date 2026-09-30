@@ -12,6 +12,7 @@ extension PDFDocumentController {
     let options = try protectionOptions()
     let staging = FileManager.default.temporaryDirectory.appendingPathComponent("save-\(UUID().uuidString).pdf")
     defer { try? FileManager.default.removeItem(at: staging) }
+    document.repairAttributesIfNeeded()
     guard document.write(to: staging, withOptions: options), let data = try? Data(contentsOf: staging),
       PDFDocument(data: data) != nil
     else { throw PDFEngineError.saveFailed }

@@ -132,7 +132,7 @@ public actor SearchablePDFBuilder {
       }
     }
     if let root = original.outlineRoot { rebuilt.outlineRoot = copy(root) }
-    rebuilt.documentAttributes = original.documentAttributes
+    rebuilt.documentAttributes = original.readableAttributes
     guard let data = rebuilt.dataRepresentation() else { throw PDFEngineError.saveFailed }
     return data
   }
