@@ -322,6 +322,28 @@ struct LibraryIndexTests {
     #expect(try await index.all() == [document])
   }
 
+  @Test("A store that won't open is kept aside, never deleted, and only the last few are kept (H6)")
+  func unreadableStoresAreKept() throws {
+    let folder = FileManager.default.temporaryDirectory.appendingPathComponent("index-\(UUID())")
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    let url = folder.appendingPathComponent("library.store")
+    let kept = LibraryIndex.keptFolder(for: url)
+    for round in 0..<(LibraryIndex.keptLimit + 2) {
+      let bytes = Data("newer or damaged store \(round)".utf8)
+      try bytes.write(to: url)
+      try bytes.write(to: URL(fileURLWithPath: url.path + "-wal"))
+      #expect(LibraryIndex(storeURL: url).level == .recreated)
+      let folders = try FileManager.default.contentsOfDirectory(at: kept, includingPropertiesForKeys: nil)
+        .sorted { $0.lastPathComponent < $1.lastPathComponent }
+      let newest = try #require(folders.last)
+      #expect(try Data(contentsOf: newest.appendingPathComponent("library.store")) == bytes)
+      #expect(FileManager.default.fileExists(atPath: newest.appendingPathComponent("library.store-wal").path))
+      #expect(folders.count == min(round + 1, LibraryIndex.keptLimit))
+      // Opening the new store removes it, so the next round starts from a damaged file again.
+      for suffix in ["", "-shm", "-wal"] { try? FileManager.default.removeItem(atPath: url.path + suffix) }
+    }
+  }
+
   @Test func withoutAURLTheIndexLivesInMemory() async throws {
     let index = LibraryIndex(storeURL: nil)
     #expect(index.level == .inMemory)
