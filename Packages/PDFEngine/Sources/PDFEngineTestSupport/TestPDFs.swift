@@ -88,6 +88,39 @@ public enum TestPDFs {
     return Data(output)
   }
 
+  /// A one-page PDF with a signature field, as a signing app leaves it: signed (`/V` holds a signature
+  /// dictionary with `/ByteRange` and `/Contents`), unsigned (an empty field), or certified by its
+  /// author (`/Perms /DocMDP`). The signature bytes are placeholders; only the structure matters.
+  public static func makeSigned(_ kind: SignedKind) -> Data {
+    let content = "BT /F1 18 Tf 72 700 Td (Signed agreement) Tj ET"
+    let perms = kind == .certified ? " /Perms << /DocMDP 6 0 R >>" : ""
+    let value = kind == .unsigned ? "" : " /V 6 0 R"
+    let objects = [
+      "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [5 0 R] /SigFlags 3 >>\(perms) >>",
+      "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+      "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Annots [5 0 R] "
+        + "/Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >> >>",
+      "<< /Length \(content.utf8.count) >>\nstream\n\(content)\nendstream",
+      "<< /Type /Annot /Subtype /Widget /FT /Sig /T (Signature1) /Rect [72 600 272 650] /P 3 0 R /F 4\(value) >>",
+      "<< /Type /Sig /Filter /Adobe.PPKLite /SubFilter /adbe.pkcs7.detached /ByteRange [0 100 200 100] "
+        + "/Contents <3082> /M (D:20260930120000Z) >>",
+    ]
+    var output = Array("%PDF-1.7\n".utf8)
+    var offsets: [Int] = []
+    for (index, body) in objects.enumerated() {
+      offsets.append(output.count)
+      output += Array("\(index + 1) 0 obj\n\(body)\nendobj\n".utf8)
+    }
+    let xref = output.count
+    output += Array("xref\n0 \(objects.count + 1)\n0000000000 65535 f \n".utf8)
+    for offset in offsets { output += Array(String(format: "%010d 00000 n \n", offset).utf8) }
+    output += Array("trailer\n<< /Size \(objects.count + 1) /Root 1 0 R >>\nstartxref\n\(xref)\n%%EOF\n".utf8)
+    return Data(output)
+  }
+
+  /// The kinds of signed test PDF.
+  public enum SignedKind: Sendable { case signed, unsigned, certified }
+
   /// Draws one line of real (searchable) text.
   static func drawText(_ text: String, at point: CGPoint, in context: CGContext) {
     let line = CTLineCreateWithAttributedString(
