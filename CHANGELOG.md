@@ -16,6 +16,13 @@ Store notes (see the changelog strategy).
   opening it. Links to files, other apps or scripts are never opened; their address can be copied.
 - More › Annotations lists every highlight, note, drawing, shape and signature by page; choosing one
   opens its page, and the list can be shared as text.
+- Extracted fields can be shared as a CSV file that opens correctly in Excel and Numbers: accents are
+  kept, and where numbers use a decimal comma (as in French) the columns are separated by semicolons.
+- Siri and Shortcuts can summarise a document: "Summarise … with PDF Algo Pro" returns the summary with
+  the pages it cites, made on this device, and needs the iPhone unlocked.
+- The app may ask for a rating, at most once per version: only after several things went well over at
+  least two days, never in the first session or after something went wrong, and only once a document
+  or sheet has been closed.
 - PDF from photos: hold Import in the library and choose photos; each becomes a page, upright, in a
   new document. No access to your photo library is needed.
 - Tools in the reader's More menu: reduce file size into a smaller copy (for email or for printing),
@@ -36,6 +43,8 @@ Store notes (see the changelog strategy).
 - Stamps in Markup: today's date, a tick, a cross, or your own text such as initials or "Paid".
 - Bookmarks: bookmark the page on screen from More; bookmarks are listed in Contents and saved in the
   PDF, so other apps show them too.
+- Review a scan before it is saved: rotate, reorder or delete pages, and name it; the name is
+  suggested from the first page's headline, recognised on this device.
 - Recognising text you start carries on if you leave the app, with its progress shown by the system
   (on the Lock Screen and in the Dynamic Island); you can cancel it from there.
 - A digitally signed PDF keeps its valid signature: your changes are saved in a copy marked
@@ -78,6 +87,7 @@ Store notes (see the changelog strategy).
   appearances.
 - Read aloud goes on from page to page to the end of the document, turning the pages as it reads,
   and carries on from the page on screen when you start it again.
+- After a wrong password, the password field clears, so the next attempt starts fresh.
 - The assistant shows only the latest answer, and every sentence of an answer is checked against
   the page it cites; unsupported parts are left out (#60).
 - Deleting permanently asks first; onboarding marks the options coming in a later update; hiding

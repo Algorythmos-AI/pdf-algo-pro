@@ -24,7 +24,15 @@ struct OnboardingModelTests {
   func groups() {
     let (model, _, _, _) = makeModel()
     #expect(model.askAndUnderstand == [.chatWithPDF, .summarizeDocument, .extractData, .analyzeContract])
-    #expect(model.askAndUnderstand + model.workWithPDFs == OnboardingIntent.allCases)
+    #expect(model.askAndUnderstand + model.workWithPDFs == OnboardingIntent.offered)
+  }
+
+  @Test("Only options this build can do are offered, none marked as coming later (FR-ONB-007)")
+  func onlyShippedOptions() {
+    let (model, _, _, _) = makeModel()
+    #expect(!model.intents.contains(.editText) && !model.intents.contains(.convert))
+    #expect(model.intents.contains(.organize), "Organising pages and merging documents have shipped")
+    #expect(model.intents == OnboardingIntent.allCases.filter(\.isOffered))
   }
 
   @Test("Choices keep their order and can be undone; the first leads the home screen")

@@ -183,6 +183,23 @@ struct IntelligenceValueTests {
     #expect(extraction.fields[0].isVerified && !extraction.fields[1].isVerified)
   }
 
+  @Test("The CSV file has a byte order mark and the locale's separator (H2)")
+  func csvFile() throws {
+    let extraction = Extraction(
+      fields: [
+        ExtractedField(key: "total", value: "1 234,56 €", pageIndex: 0),
+        ExtractedField(key: "note", value: "=1+1", pageIndex: nil),
+      ],
+      tier: .onDevice)
+    let french = extraction.csvFile(locale: Locale(identifier: "fr_FR"))
+    #expect(french.prefix(3) == Data([0xEF, 0xBB, 0xBF]))
+    let frenchText = try #require(String(data: french.dropFirst(3), encoding: .utf8))
+    #expect(frenchText == "field;value;page\r\n\"total\";\"1 234,56 €\";1\r\n\"note\";\"'=1+1\";\r\n")
+    let english = try #require(
+      String(data: extraction.csvFile(locale: Locale(identifier: "en_AU")).dropFirst(3), encoding: .utf8))
+    #expect(english.hasPrefix("field,value,page\r\n\"total\",\"1 234,56 €\",1\r\n"))
+  }
+
   @Test(
     "Extracted values a spreadsheet would run as formulas are made inert (CSV injection, H2)",
     arguments: [
@@ -373,5 +390,36 @@ struct SignatureTests {
     #expect(try await store.signatures() == [newer])
     await store.failNext(with: .keychain(-25300))
     await #expect(throws: SignatureStoreError.keychain(-25300)) { try await store.signatures() }
+  }
+}
+
+@Suite("Rating requests")
+struct ReviewPolicyTests {
+  @Test("Asked only after three successes on two days, not in the first session, once per version (plan §6)")
+  func due() {
+    var policy = ReviewPolicy()
+    policy.startSession()
+    policy.recordSuccess(on: "2026-10-01")
+    policy.recordSuccess(on: "2026-10-01")
+    policy.recordSuccess(on: "2026-10-02")
+    #expect(!policy.isDue(version: "1.0", sessionHadError: false), "Not in the first session")
+    policy.startSession()
+    #expect(policy.isDue(version: "1.0", sessionHadError: false))
+    #expect(!policy.isDue(version: "1.0", sessionHadError: true), "Never after an error")
+    policy.asked(in: "1.0")
+    #expect(!policy.isDue(version: "1.0", sessionHadError: false), "Once per version")
+    #expect(policy.isDue(version: "1.1", sessionHadError: false))
+  }
+
+  @Test("Successes on a single day aren't enough")
+  func oneDay() {
+    var policy = ReviewPolicy()
+    policy.startSession()
+    policy.startSession()
+    for _ in 0..<5 { policy.recordSuccess(on: "2026-10-01") }
+    #expect(!policy.isDue(version: "1.0", sessionHadError: false))
+    #expect(policy.successDays == ["2026-10-01"])
+    #expect(
+      ReviewPolicy.day(of: Date(timeIntervalSince1970: 0), calendar: Calendar(identifier: .gregorian)).count == 10)
   }
 }

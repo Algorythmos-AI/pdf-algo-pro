@@ -33,6 +33,9 @@ struct AppTests {
     let none = LaunchEnvironment(arguments: ["-seed-library"])
     #expect(!none.isUITesting && !none.seedsSample && !none.skipsOnboarding)
     #expect(!LaunchEnvironment(arguments: ["-seed-library", "other"]).seedsSample)
+    let locked = LaunchEnvironment(arguments: ["-seed-library", "locked"])
+    #expect(locked.seedsLocked && !locked.seedsSample)
+    #expect(LaunchEnvironment(arguments: ["-seed-library", "damaged"]).seedsDamaged)
   }
 
   @Test("Background time is asked for and given back, and giving it back twice is harmless (P8)")
@@ -96,6 +99,16 @@ struct AppTests {
     _ = try await ScanDocumentIntent().perform()
     #expect(app.sheet == .scan)
     #expect(!PDFAlgoProShortcuts.appShortcuts.isEmpty)
+
+    // Summarise returns the summary, labelled as generated on this device, and needs the device unlocked.
+    #expect(SummarizeDocumentIntent.authenticationPolicy == .requiresAuthentication)
+    let summarize = SummarizeDocumentIntent()
+    summarize.target = entity
+    _ = try await summarize.perform()
+    let id = try #require(DocumentID(string: entity.id))
+    let summary = try await IntentRouter.shared.summary(of: id)
+    #expect(summary.contains("Generated on this device"))
+    await #expect(throws: IntentFailure.self) { try await IntentRouter.shared.summary(of: DocumentID()) }
   }
 
   @Test("A route that arrives before the app attaches is delivered on attach")
@@ -292,5 +305,33 @@ struct AppLockTests {
     enabled = false
     lock.settingChanged()
     #expect(!lock.isLocked && !lock.showsCover, "Turning it off unlocks")
+  }
+}
+
+@MainActor
+@Suite("Rating requests")
+struct ReviewPrompterTests {
+  @Test("The prompter counts successes across sessions and asks once, never after an error (plan §6)")
+  func prompter() throws {
+    let defaults = try #require(UserDefaults(suiteName: "reviews-\(UUID())"))
+    var day = Date(timeIntervalSince1970: 1_800_000_000)
+    let first = ReviewPrompter(defaults: defaults, version: "1.0", isEnabled: true, now: { day })
+    first.handle("task.core.completed")
+    first.handle("task.core.completed")
+    day += 86_400
+    first.handle("intelligence.answer.kept")
+    #expect(!first.shouldAskNow(), "Not in the first session")
+
+    let second = ReviewPrompter(defaults: defaults, version: "1.0", isEnabled: true, now: { day })
+    second.handle("quality.operation.failed")
+    #expect(!second.shouldAskNow(), "Not after an error")
+
+    let third = ReviewPrompter(defaults: defaults, version: "1.0", isEnabled: true, now: { day })
+    #expect(third.shouldAskNow())
+    #expect(!third.shouldAskNow(), "Once per version")
+    #expect(!ReviewPrompter(defaults: defaults, version: "1.0", isEnabled: true).shouldAskNow())
+
+    let tests = ReviewPrompter(defaults: defaults, version: "2.0", isEnabled: false)
+    #expect(!tests.shouldAskNow(), "UI tests never see it")
   }
 }

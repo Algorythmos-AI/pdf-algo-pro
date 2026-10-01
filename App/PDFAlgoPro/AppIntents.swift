@@ -11,12 +11,20 @@ final class IntentRouter {
   static let shared = IntentRouter()
 
   private(set) var library: (any DocumentLibrary)?
+  /// On-device intelligence and the documents' recognised text, for intents that return results.
+  private(set) var intelligence: (any DocumentIntelligence)?
+  private(set) var index: (any DocumentIndexing)?
   private var handler: ((Route) -> Void)?
   private var pending: Route?
 
   /// Connects the running app; a route that arrived first is delivered now.
-  func attach(library: any DocumentLibrary, handler: @escaping (Route) -> Void) {
+  func attach(
+    library: any DocumentLibrary, intelligence: (any DocumentIntelligence)? = nil,
+    index: (any DocumentIndexing)? = nil, handler: @escaping (Route) -> Void
+  ) {
     self.library = library
+    self.intelligence = intelligence
+    self.index = index
     self.handler = handler
     if let pending {
       self.pending = nil
@@ -31,6 +39,31 @@ final class IntentRouter {
     } else {
       pending = route
     }
+  }
+
+  /// A summary of a document, made on this device, for Siri and Shortcuts (FR-AI-018).
+  ///
+  /// The text says it was generated, and names the pages it cites. It throws a message to show when
+  /// the summary can't be made: AI hidden or unavailable, the document gone, or no text in it.
+  func summary(of id: DocumentID) async throws -> String {
+    guard let intelligence, let index, let library else { throw IntentFailure.notReady }
+    guard try await library.document(withID: id) != nil else { throw IntentFailure.documentMissing }
+    let answer: Answer
+    do {
+      answer = try await intelligence.summarize(try await index.pages(of: id))
+    } catch IntelligenceError.noText {
+      throw IntentFailure.noText
+    } catch IntelligenceError.unavailable {
+      throw IntentFailure.intelligenceUnavailable
+    } catch {
+      throw IntentFailure.failed
+    }
+    let pages = Array(Set(answer.citations.map { $0.pageIndex + 1 })).sorted()
+    var text = answer.text
+    if !pages.isEmpty {
+      text += "\n\n" + String(localized: "Pages cited: \(pages.map(String.init).joined(separator: ", "))")
+    }
+    return text + "\n\n" + String(localized: "Generated on this device. Check important details in the document.")
   }
 
   /// The documents intents can refer to: everything not in Recently Deleted.
@@ -103,6 +136,41 @@ nonisolated struct ScanDocumentIntent: AppIntent {
   }
 }
 
+/// Why an intent that returns a result couldn't, in words Siri can say.
+nonisolated enum IntentFailure: Error, CustomLocalizedStringResourceConvertible {
+  case notReady, documentMissing, noText, intelligenceUnavailable, failed
+
+  var localizedStringResource: LocalizedStringResource {
+    switch self {
+    case .notReady: "PDF Algo Pro is still starting. Try again in a moment."
+    case .documentMissing: "That document is no longer in your library."
+    case .noText: "That document has no text to summarise yet. Open it and recognise its text first."
+    case .intelligenceUnavailable: "Summaries need Apple Intelligence on this device, and AI features turned on."
+    case .failed: "The summary couldn't be made. Try again in the app."
+    }
+  }
+}
+
+/// Summarises a document on this device and returns the summary (FR-AI-018).
+///
+/// Nothing leaves the device. Because it returns what a document says, it needs the device unlocked (H3).
+struct SummarizeDocumentIntent: AppIntent {
+  static let title: LocalizedStringResource = "Summarise Document"
+  static let description = IntentDescription(
+    "Summarises a document from your library on this device, with the pages it draws on.")
+  static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
+
+  @Parameter(title: "Document")
+  var target: DocumentEntity
+
+  @MainActor
+  func perform() async throws -> some IntentResult & ReturnsValue<String> & ProvidesDialog {
+    guard let id = DocumentID(string: target.id) else { throw IntentFailure.documentMissing }
+    let summary = try await IntentRouter.shared.summary(of: id)
+    return .result(value: summary, dialog: IntentDialog(stringLiteral: summary))
+  }
+}
+
 /// Phrases for Siri and Spotlight.
 nonisolated struct PDFAlgoProShortcuts: AppShortcutsProvider {
   static var appShortcuts: [AppShortcut] {
@@ -113,5 +181,9 @@ nonisolated struct PDFAlgoProShortcuts: AppShortcutsProvider {
     AppShortcut(
       intent: OpenDocumentIntent(), phrases: ["Open \(\.$target) in \(.applicationName)"], shortTitle: "Open Document",
       systemImageName: "doc.text")
+    AppShortcut(
+      intent: SummarizeDocumentIntent(),
+      phrases: ["Summarise \(\.$target) with \(.applicationName)", "Summarize \(\.$target) with \(.applicationName)"],
+      shortTitle: "Summarise Document", systemImageName: "text.append")
   }
 }

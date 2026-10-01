@@ -3,8 +3,10 @@ import Core
 import CoreSpotlight
 import Foundation
 import LibraryFeature
+import OCR
 import Observation
 import OnboardingFeature
+import PDFEngine
 import ReaderFeature
 import ScanFeature
 import SettingsFeature
@@ -31,6 +33,8 @@ final class AppModel {
   let lock: AppLock
   /// How this device confirms its owner, read once at launch; `nil` without a passcode.
   let lockMethod: AppLockMethod?
+  /// Asks for a rating after real successes, at a calm moment (plan §6).
+  let reviews: ReviewPrompter
   @ObservationIgnored private var reader: (selection: DocumentSelection, model: ReaderModel)?
   @ObservationIgnored private(set) lazy var onboarding = OnboardingModel(
     settings: container.settings, intelligence: container.intelligence, telemetry: container.telemetry
@@ -42,17 +46,52 @@ final class AppModel {
     let store = container.settings
     lock = AppLock(authenticator: container.authenticator) { store.load().isAppLockEnabled }
     lockMethod = container.authenticator.method()
+    let reviews = ReviewPrompter(
+      defaults: container.environment.isUITesting
+        ? UserDefaults(suiteName: "ui-testing-reviews") ?? .standard : .standard,
+      version: container.version, isEnabled: !container.environment.isUITesting)
+    self.reviews = reviews
+    Task { [telemetry = container.telemetry] in
+      await telemetry.observe { event in Task { @MainActor in reviews.handle(event) } }
+    }
     library = LibraryModel(
       library: container.library, intake: container.intake, index: container.index, settings: container.settings,
       telemetry: container.telemetry, thumbnails: container.thumbnails)
-    IntentRouter.shared.attach(library: container.library) { [weak self] route in self?.navigate(to: route) }
+    IntentRouter.shared.attach(
+      library: container.library, intelligence: container.intelligence, index: container.index
+    ) { [weak self] route in self?.navigate(to: route) }
     if container.environment.seedsSample {
       Task { await library.addSample() }
+    }
+    if container.environment.seedsDamaged {
+      Task { [library, container] in
+        // The sample, with its file then overwritten by bytes that aren't a PDF, as a damaged file would be.
+        guard let data = try? SyntheticPDF.makeSample(),
+          let document = try? await container.intake.add(data: data, title: "Damaged sample"),
+          let url = try? await container.library.fileURL(for: document.id)
+        else { return }
+        try? Data("not a PDF any more".utf8).write(to: url)
+        await library.reload()
+        library.open(document.id)
+      }
+    }
+    if container.environment.seedsLocked {
+      Task { [library, container] in
+        // A synthetic document; its password is a fixture, known to the UI tests.
+        guard let data = try? SyntheticPDF.makeEncrypted(pages: ["Locked page"], password: Self.lockedSamplePassword),
+          let document = try? await container.intake.add(data: data, title: "Locked sample")
+        else { return }
+        await library.reload()
+        library.open(document.id)
+      }
     }
     Task { await container.migrateSpotlightIfNeeded() }
     // Text recognition the app was stopped in the middle of goes on from where it was (P8).
     Task { await container.recognition.resumePending() }
   }
+
+  /// The password of the `-seed-library locked` document (a test fixture).
+  static let lockedSamplePassword = "open-sesame"
 
   // MARK: - Routing
 
@@ -110,7 +149,10 @@ final class AppModel {
   }
 
   func makeScan() -> ScanModel {
-    ScanModel(intake: container.intake, builder: container.builder, telemetry: container.telemetry) {
+    ScanModel(
+      intake: container.intake, builder: container.builder, telemetry: container.telemetry,
+      recognizer: VisionTextRecognizer()
+    ) {
       [weak self] document in
       guard let self else { return }
       sheet = nil

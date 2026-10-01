@@ -161,6 +161,16 @@
         }
       }
     },
+    "Extracted fields" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Champs extraits"
+          }
+        }
+      }
+    },
     "From" : {
       "localizations" : {
         "fr" : {
@@ -237,6 +247,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Partager"
+          }
+        }
+      }
+    },
+    "Share as CSV file" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Partager en fichier CSV"
           }
         }
       }

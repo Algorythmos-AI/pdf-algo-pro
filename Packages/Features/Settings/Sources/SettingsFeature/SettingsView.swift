@@ -40,7 +40,7 @@ public struct SettingsView: View {
           .foregroundStyle(Color.ds.labelSecondary)
         }
         Section {
-          ForEach(OnboardingIntent.allCases) { intent in
+          ForEach(OnboardingIntent.offered) { intent in
             Toggle(isOn: Binding(get: { model.isChosen(intent) }, set: { _ in model.toggle(intent) })) {
               Self.intentTitle(intent)
             }

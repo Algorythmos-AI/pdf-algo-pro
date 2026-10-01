@@ -61,12 +61,12 @@
         }
       }
     },
-    "Change words in existing PDFs. Coming in a later update." : {
+    "Change words in existing PDFs." : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Modifier le texte de PDF existants. Arrive dans une prochaine mise à jour."
+            "value" : "Modifier le texte de PDF existants."
           }
         }
       }
@@ -91,12 +91,12 @@
         }
       }
     },
-    "Combine files and reorder pages. Coming in a later update." : {
+    "Combine files and reorder pages." : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Combiner des fichiers et réorganiser les pages. Arrive dans une prochaine mise à jour."
+            "value" : "Combiner des fichiers et réorganiser les pages."
           }
         }
       }
@@ -271,22 +271,22 @@
         }
       }
     },
+    "Turn PDFs into editable Office files." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Transformer des PDF en fichiers Office modifiables."
+          }
+        }
+      }
+    },
     "Turn paper into searchable PDFs." : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Transformer le papier en PDF avec recherche."
-          }
-        }
-      }
-    },
-    "Turn PDFs into editable Office files. Coming in a later update." : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Transformer des PDF en fichiers Office modifiables. Arrive dans une prochaine mise à jour."
           }
         }
       }

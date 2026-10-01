@@ -39,6 +39,26 @@
           }
         }
       }
+    },
+    "Summarise ${target} with ${applicationName}" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringSet" : {
+            "state" : "new",
+            "values" : [
+              "Summarise ${target} with ${applicationName}",
+              "Summarize ${target} with ${applicationName}"
+            ]
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Résumer ${target} avec ${applicationName}"
+          }
+        }
+      }
     }
   },
   "version" : "1.2"
