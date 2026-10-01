@@ -73,6 +73,8 @@ packages:
     exactVersion: 1.19.4
   RemoteConfig:
     path: Packages/RemoteConfig
+  Commerce:
+    path: Packages/Commerce
 targets:
   PDFAlgoPro:
     type: application
@@ -90,6 +92,7 @@ targets:
         product: IntelligenceEvaluation
       - package: Telemetry
       - package: RemoteConfig
+      - package: Commerce
       - package: Onboarding
         product: OnboardingFeature
       - package: Library
