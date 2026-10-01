@@ -160,5 +160,6 @@ Diagnostics and telemetry never include document content, personal data or busin
    or a separate container (depends on question 2).
 4. **Provider workspaces.** Whether Staging and Production use separate AI provider workspaces, so that
    each has its own spend cap.
-5. **Staging identity on the device.** Whether Staging uses a distinct display name and icon so
-   testers can tell the builds apart.
+5. ~~**Staging identity on the device.**~~ Resolved on 2026-10-01: Staging is named "PDF Algo β" and
+   uses the `AppIcon-Staging` icon set, the app icon with a beta badge
+   ([design system, App icon](../design-system.md#app-icon)).

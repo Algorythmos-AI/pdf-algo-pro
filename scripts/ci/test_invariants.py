@@ -34,8 +34,19 @@ def test_alpha_transparency_size_and_format_are_reported():
     assert invariants.png_problems(b"GIF89a", "icon") == ["icon: not a PNG"]
 
 
-def test_the_committed_icon_passes():
+def test_the_committed_icons_pass():
     assert invariants.icon_problems() == []
+
+
+def test_every_icon_set_needs_an_opaque_default_image(tmp_path):
+    app_store = tmp_path / "AppIcon.appiconset"
+    app_store.mkdir()
+    (app_store / "Contents.json").write_text(json.dumps({"images": [{"filename": "AppIcon.png"}]}), encoding="utf-8")
+    (app_store / "AppIcon.png").write_bytes(png(1024, 1024, 6))
+    problems = invariants.icon_problems(tmp_path)
+    assert len(problems) == 2
+    assert "alpha channel" in problems[0]
+    assert "AppIcon-Staging.appiconset: missing" in problems[1]
 
 
 def test_info_plist_localisations_never_carry_the_app_names(tmp_path):

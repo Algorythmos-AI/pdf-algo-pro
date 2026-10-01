@@ -166,6 +166,8 @@ targets:
           PRODUCT_BUNDLE_IDENTIFIER: com.algorythmos.pdfalgopro.staging
           APP_DISPLAY_NAME: PDF Algo β
           APP_URL_SCHEME: pdfalgopro-staging
+          # The same icon with a beta badge, so testers can tell the two apps apart.
+          ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon-Staging
           SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) INTERNAL_TOOLS
   PDFAlgoProTests:
     type: bundle.unit-test
