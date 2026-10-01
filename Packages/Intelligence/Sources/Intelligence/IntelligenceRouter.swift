@@ -9,15 +9,22 @@ import Foundation
 public struct IntelligenceRouter: DocumentIntelligence {
   private let models: [any LanguageModelDriving]
   private let isHidden: @Sendable () -> Bool
+  /// Counts each answered request by tier, for the privacy report (FR-SET-005).
+  private let activity: (any AIActivityRecording)?
 
   /// Creates a router over tiers in preference order.
   ///
   /// - Parameters:
   ///   - models: The tiers, most preferred first; the on-device tier leads.
   ///   - isHidden: Whether the user hid AI features (FR-AI-009); hidden means unavailable.
-  public init(models: [any LanguageModelDriving], isHidden: @escaping @Sendable () -> Bool = { false }) {
+  ///   - activity: Counts answered requests by tier for the privacy report (FR-SET-005).
+  public init(
+    models: [any LanguageModelDriving], isHidden: @escaping @Sendable () -> Bool = { false },
+    activity: (any AIActivityRecording)? = nil
+  ) {
     self.models = models
     self.isHidden = isHidden
+    self.activity = activity
   }
 
   // MARK: - Availability
@@ -79,6 +86,7 @@ public struct IntelligenceRouter: DocumentIntelligence {
     let response = try await run {
       try await model.respond(instructions: PromptCatalog.ask.instructions, prompt: prompt)
     }
+    await activity?.record(model.tier)
     return Grounding.answer(from: response, pages: chosen, tier: model.tier)
   }
 
@@ -124,6 +132,7 @@ public struct IntelligenceRouter: DocumentIntelligence {
     let response = try await run {
       try await model.respond(instructions: PromptCatalog.askFollowUp.instructions, prompt: prompt)
     }
+    await activity?.record(model.tier)
     return Grounding.answer(from: response, pages: chosen, tier: model.tier)
   }
 
@@ -141,6 +150,7 @@ public struct IntelligenceRouter: DocumentIntelligence {
       guard let value = field.value else { return nil }
       return ExtractedField(key: field.key, value: value, pageIndex: Grounding.page(containing: value, in: pages))
     }
+    await activity?.record(model.tier)
     return Extraction(fields: fields, tier: model.tier)
   }
 
@@ -162,6 +172,7 @@ public struct IntelligenceRouter: DocumentIntelligence {
       try Task.checkCancellation()
       combined = try await combine(combined, budget: budget, model: model)
     }
+    await activity?.record(model.tier)
     return Grounding.answer(from: combined.first ?? "", pages: pages, tier: model.tier)
   }
 

@@ -17,8 +17,12 @@ public final class SettingsModel {
   /// A message when deleting the version history failed.
   public var storageMessage: String?
 
+  /// AI requests over the last 30 days, once loaded (FR-SET-005).
+  public private(set) var activity: AIActivity?
+
   private let store: any SettingsStoring
   private let diagnostics: () async -> String
+  private let activityLog: (any AIActivityRecording)?
   private let onChange: (AppSettings) -> Void
   private let measureVersions: () async -> Int64
   private let removeVersions: () async throws -> Void
@@ -31,6 +35,7 @@ public final class SettingsModel {
   /// - Parameters:
   ///   - store: Where settings are kept.
   ///   - diagnostics: Builds the diagnostics summary (no document content) when the user asks.
+  ///   - activity: The counts behind the privacy report.
   ///   - onChange: Tells the app the settings changed.
   ///   - versionsSize: Measures the space earlier versions of documents take.
   ///   - deleteVersions: Deletes every earlier version; the documents themselves are untouched.
@@ -38,18 +43,24 @@ public final class SettingsModel {
   ///   - authenticate: Asks the owner to confirm, with the reason shown.
   public init(
     store: any SettingsStoring, diagnostics: @escaping () async -> String,
-    onChange: @escaping (AppSettings) -> Void, versionsSize: @escaping () async -> Int64 = { 0 },
-    deleteVersions: @escaping () async throws -> Void = {}, lockMethod: AppLockMethod? = nil,
-    authenticate: ((String) async -> Bool)? = nil
+    activity: (any AIActivityRecording)? = nil, onChange: @escaping (AppSettings) -> Void,
+    versionsSize: @escaping () async -> Int64 = { 0 }, deleteVersions: @escaping () async throws -> Void = {},
+    lockMethod: AppLockMethod? = nil, authenticate: ((String) async -> Bool)? = nil
   ) {
     self.store = store
     self.diagnostics = diagnostics
+    activityLog = activity
     self.onChange = onChange
     measureVersions = versionsSize
     removeVersions = deleteVersions
     self.lockMethod = lockMethod
     self.authenticate = authenticate
     settings = store.load()
+  }
+
+  /// Loads the privacy report's counts for the last 30 days (FR-SET-005).
+  public func loadActivity() async {
+    activity = await activityLog?.activity(days: 30) ?? AIActivity()
   }
 
   /// Hides or shows AI features everywhere.

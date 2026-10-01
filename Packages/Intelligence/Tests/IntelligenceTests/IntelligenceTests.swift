@@ -256,6 +256,19 @@ struct IntelligenceRouterTests {
     #expect(!block.contains("<document>") && !block.contains("=== Page 9"))
   }
 
+  @Test("Each answered request is counted by its tier for the privacy report (FR-SET-005)")
+  func activityIsCounted() async throws {
+    let activity = RecordedActivity()
+    let router = IntelligenceRouter(
+      models: [ScriptedModel(replies: ["The total due is 120.00 [p2].", "S [p1]", "The seller is Example [p2]."])],
+      activity: activity)
+    let first = try await router.answer("What is the total due?", from: invoicePages)
+    _ = try await router.summarize(invoicePages)
+    _ = try await router.answer(
+      "Who is it from?", from: invoicePages, after: [Exchange(question: "What is the total due?", answer: first)])
+    #expect(await activity.tiers == [.onDevice, .onDevice, .onDevice], "Follow-ups count too")
+  }
+
   @Test("A question the document does not answer says so (FR-AI-010)")
   func notFound() async throws {
     let router = IntelligenceRouter(models: [ScriptedModel(replies: ["NOT_FOUND"])])
@@ -377,4 +390,10 @@ struct OnDeviceModelTests {
     #expect(await model.tokenCount("Hello, world") >= 1)
     #expect(model.tier == .onDevice)
   }
+}
+
+private actor RecordedActivity: AIActivityRecording {
+  private(set) var tiers: [IntelligenceTier] = []
+  func record(_ tier: IntelligenceTier) async { tiers.append(tier) }
+  func activity(days: Int) async -> AIActivity { AIActivity() }
 }

@@ -221,6 +221,31 @@ extension DocumentIntelligence {
   }
 }
 
+/// AI requests over a period, for the privacy report (FR-SET-005).
+public struct AIActivity: Equatable, Sendable {
+  /// Requests answered by each tier.
+  public var requests: [IntelligenceTier: Int]
+  /// Requests that sent document text off the device (to Private Cloud Compute or Claude).
+  public var documentsSentToCloud: Int
+  /// How many days the counts cover.
+  public var days: Int
+
+  /// Creates a summary.
+  public init(requests: [IntelligenceTier: Int] = [:], documentsSentToCloud: Int = 0, days: Int = 30) {
+    self.requests = requests
+    self.documentsSentToCloud = documentsSentToCloud
+    self.days = days
+  }
+}
+
+/// Keeps the counts behind the privacy report: tier and day only, never content (FR-SET-005).
+public protocol AIActivityRecording: Sendable {
+  /// Counts one request answered by a tier.
+  func record(_ tier: IntelligenceTier) async
+  /// The counts for the last `days` days.
+  func activity(days: Int) async -> AIActivity
+}
+
 /// Errors from document intelligence.
 public enum IntelligenceError: Error, Equatable, Sendable {
   /// No tier can run; the reason says why.
