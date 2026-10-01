@@ -1,6 +1,52 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@ and %lld more" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%1$@ and %2$lld more"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%1$@ and %2$lld more"
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%1$@ et %2$lld autre"
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%1$@ et %2$lld autres"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%1$@ et %2$lld autres"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%@ will be removed from this device. This can't be undone." : {
       "localizations" : {
         "fr" : {
@@ -50,6 +96,52 @@
                 "stringUnit" : {
                   "state" : "translated",
                   "value" : "%lld fichiers n’ont pas pu être importés, car ce ne sont pas des PDF lisibles. Rien d’autre n’a changé."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld moved to Recently deleted" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld document moved to Recently deleted"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld documents moved to Recently deleted"
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld document placé dans Supprimés récemment"
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld documents placés dans Supprimés récemment"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld documents placés dans Supprimés récemment"
                 }
               }
             }
@@ -175,6 +267,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Un document doit avoir un nom. L’ancien nom a été conservé."
+          }
+        }
+      }
+    },
+    "A password-protected document can't be merged. Remove its password first. Nothing changed." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un document protégé par un mot de passe ne peut pas être fusionné. Retirez d’abord son mot de passe. Rien n’a changé."
           }
         }
       }
@@ -335,6 +437,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Impossible de créer un PDF à partir de ces photos. Rien n’a changé."
+          }
+        }
+      }
+    },
+    "Couldn't merge those documents. Nothing changed." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible de fusionner ces documents. Rien n’a changé."
           }
         }
       }
@@ -555,6 +667,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Créé avec"
+          }
+        }
+      }
+    },
+    "Merge" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fusionner"
           }
         }
       }
@@ -899,12 +1021,32 @@
         }
       }
     },
+    "Select" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sélectionner"
+          }
+        }
+      }
+    },
     "Settings" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Réglages"
+          }
+        }
+      }
+    },
+    "Share" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Partager"
           }
         }
       }
@@ -1035,6 +1177,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Comprendre un contrat"
+          }
+        }
+      }
+    },
+    "Undo" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annuler"
           }
         }
       }
