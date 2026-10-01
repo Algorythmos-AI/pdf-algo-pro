@@ -271,9 +271,9 @@ public struct ReaderView<Assistant: View>: View {
         Label {
           Text("That password didn't open the document.", bundle: .module)
         } icon: {
-          Image(systemName: "xmark.octagon")
+          // Only the icon is red: the error red is below 4.5:1 for text this small.
+          Image(systemName: "xmark.octagon").foregroundStyle(Color.ds.statusError)
         }
-        .foregroundStyle(Color.ds.statusError)
         .font(.footnote)
         .accessibilityIdentifier("reader.wrongPassword")
       }
