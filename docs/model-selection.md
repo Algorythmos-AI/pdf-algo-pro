@@ -36,6 +36,13 @@ Escalating from the device to a cloud tier is confirmed by the user unless they 
 automatically when needed" for that provider. Failover after an error only moves towards the device
 ([AI governance](ai-governance.md)).
 
+**Implementation status.** The eight steps are implemented, in this order, by `RoutingPolicy` in the
+`Intelligence` package: a pure function from the facts above to a route, a confirmation or a refusal
+with its reason. A table test over task, tier, consent state and "Keep on device" proves that every
+route to a cloud tier has a granted, current consent. `ConsentStore` keeps the consent records and
+`CircuitBreaker` the per-provider breaker. The cloud drivers are not built yet, so the
+`IntelligenceRouter` still serves the on-device tier only and does not call the policy.
+
 ## Document size bands
 
 Bands are set by the token count of the text a request needs (the whole document for a
