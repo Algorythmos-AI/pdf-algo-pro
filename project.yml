@@ -130,6 +130,7 @@ targets:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         NSCameraUsageDescription: PDF Algo Pro uses the camera only when you scan a document. Scans stay on this device.
+        NSFaceIDUsageDescription: With App Lock on, Face ID unlocks your documents. It is checked on this device only.
         CFBundleURLTypes:
           - CFBundleURLName: $(PRODUCT_BUNDLE_IDENTIFIER)
             CFBundleURLSchemes: [$(APP_URL_SCHEME)]
