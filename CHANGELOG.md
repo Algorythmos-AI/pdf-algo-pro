@@ -26,6 +26,9 @@ Store notes (see the changelog strategy).
   30 days, and how many documents were sent to cloud AI (none). Only the counts are kept.
 - Select several documents in the library to share, favourite, merge into one PDF, or delete them
   together, with Undo.
+- Annotations, shapes, drawings, text boxes and signatures can be moved by dragging, resized by
+  pinching or from Style, and given another colour; each change is one undo step. VoiceOver users
+  can move a selection with its Move actions.
 - Recognising text you start carries on if you leave the app, with its progress shown by the system
   (on the Lock Screen and in the Dynamic Island); you can cancel it from there.
 - A digitally signed PDF keeps its valid signature: your changes are saved in a copy marked

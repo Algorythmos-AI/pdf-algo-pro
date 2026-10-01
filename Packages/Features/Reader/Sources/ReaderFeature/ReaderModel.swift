@@ -150,6 +150,9 @@ public final class ReaderModel {
       knownVersion = try? FileVersion(url)
       watch(url)
       controller.displayMode = settings.load().readerDisplayMode
+      controller.onAnnotationTransformed = { [weak self] in
+        Task { await self?.annotationTransformed() }
+      }
       self.controller = controller
       if controller.isLocked {
         phase = .locked(wrongPassword: false)
@@ -355,6 +358,29 @@ public final class ReaderModel {
   /// Replaces the text of the selected note or text box and saves.
   public func setSelectionText(_ text: String) async {
     guard let controller, checkAnnotatingIsAllowed(controller), controller.setSelectionText(text) else { return }
+    updateUndoState()
+    await save()
+  }
+
+  /// Moves the selected annotation by an offset in page space and saves (FR-ANN-005).
+  public func moveSelection(by offset: CGSize) async {
+    guard let controller, checkAnnotatingIsAllowed(controller), controller.moveSelection(by: offset) else { return }
+    await annotationTransformed()
+  }
+
+  /// Scales the selected annotation and saves (FR-ANN-005).
+  public func resizeSelection(by factor: CGFloat) async {
+    guard let controller, checkAnnotatingIsAllowed(controller), controller.resizeSelection(by: factor) else { return }
+    await annotationTransformed()
+  }
+
+  /// Gives the selected annotation a new colour and saves (FR-ANN-005).
+  public func setSelectionColor(_ color: AnnotationColor) async {
+    guard let controller, checkAnnotatingIsAllowed(controller), controller.setSelectionColor(color) else { return }
+    await annotationTransformed()
+  }
+
+  private func annotationTransformed() async {
     updateUndoState()
     await save()
   }

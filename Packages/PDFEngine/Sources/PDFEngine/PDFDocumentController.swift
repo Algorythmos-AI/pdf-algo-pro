@@ -64,6 +64,8 @@ public final class PDFDocumentController {
   @ObservationIgnored weak var view: PDFReaderHostView?
   /// Called after each stroke is added while drawing, so the reader can save.
   @ObservationIgnored var onInk: (@MainActor () -> Void)?
+  /// Called when a drag or pinch has moved or resized the selected annotation, so the reader can save.
+  @ObservationIgnored public var onAnnotationTransformed: (@MainActor () -> Void)?
   @ObservationIgnored private var pendingPageIndex: Int?
   @ObservationIgnored var password: String?
   @ObservationIgnored var wasEncrypted: Bool

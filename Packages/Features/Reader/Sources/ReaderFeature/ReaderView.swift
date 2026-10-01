@@ -270,7 +270,10 @@ public struct ReaderView<Assistant: View>: View {
             isEditingSelection = true
           },
           onDelete: { Task { await model.deleteSelection() } },
-          onDone: { model.clearSelection() })
+          onDone: { model.clearSelection() },
+          onMove: { offset in Task { await model.moveSelection(by: offset) } },
+          onResize: { factor in Task { await model.resizeSelection(by: factor) } },
+          onColor: { color in Task { await model.setSelectionColor(color) } })
       }
       if let progress = model.recognitionProgress {
         HStack {

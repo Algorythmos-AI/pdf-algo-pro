@@ -33,6 +33,10 @@ final class PDFReaderHostView: PDFView {
     private var inkCapture: InkCaptureView?
     // PDFView is the delegate of its own recognizers, so the tap gets a delegate of its own.
     private let tapDelegate = SimultaneousGestureDelegate()
+    private lazy var transformDelegate = TransformGestureDelegate(host: self)
+    private var transformStart: AnnotationGeometry?
+    private var transformOffset = CGSize.zero
+    private var transformScale: CGFloat = 1
   #endif
 
   func configure(for controller: PDFDocumentController) {
@@ -59,6 +63,15 @@ final class PDFReaderHostView: PDFView {
       tap.cancelsTouchesInView = false
       tap.delegate = tapDelegate
       addGestureRecognizer(tap)
+      // Dragging or pinching the selected annotation moves or resizes it (FR-ANN-005); anywhere else,
+      // the page scrolls and zooms as usual, because these only begin on the selection.
+      let pan = UIPanGestureRecognizer(target: self, action: #selector(panned(_:)))
+      pan.maximumNumberOfTouches = 1
+      pan.delegate = transformDelegate
+      addGestureRecognizer(pan)
+      let pinch = UIPinchGestureRecognizer(target: self, action: #selector(pinched(_:)))
+      pinch.delegate = transformDelegate
+      addGestureRecognizer(pinch)
     #endif
     controller.attach(self)
   }
@@ -147,6 +160,88 @@ final class PDFReaderHostView: PDFView {
         return
       }
       controller.selectAnnotation(at: convert(point, to: page), onPage: document.index(for: page))
+    }
+
+    /// Whether a gesture starting at a point in this view is on the selected annotation.
+    fileprivate func isOnSelection(_ point: CGPoint) -> Bool {
+      guard let controller, !controller.isDrawing, let document, let page = page(for: point, nearest: false) else {
+        return false
+      }
+      return controller.isOnSelection(convert(point, to: page), pageIndex: document.index(for: page))
+    }
+
+    @objc fileprivate func panned(_ recognizer: UIPanGestureRecognizer) {
+      guard let page = controller?.selected?.page else { return }
+      // The drag in page space: the difference between where it is and where it started.
+      let origin = convert(CGPoint.zero, to: page)
+      let moved = convert(recognizer.translation(in: self), to: page)
+      transformOffset = CGSize(width: moved.x - origin.x, height: moved.y - origin.y)
+      transform(recognizer.state)
+    }
+
+    @objc fileprivate func pinched(_ recognizer: UIPinchGestureRecognizer) {
+      transformScale = recognizer.scale
+      transform(recognizer.state)
+    }
+
+    private func transform(_ state: UIGestureRecognizer.State) {
+      guard let controller else { return }
+      switch state {
+      case .began:
+        if transformStart == nil {
+          transformStart = controller.beginTransform()
+        }
+      case .changed:
+        if let transformStart {
+          controller.updateTransform(from: transformStart, offset: transformOffset, scale: transformScale)
+        }
+      default:
+        if let transformStart {
+          controller.endTransform(from: transformStart)
+        }
+        transformStart = nil
+        transformOffset = .zero
+        transformScale = 1
+      }
+    }
+  }
+
+  /// Lets the move and resize gestures begin only on the selected annotation, and ahead of scrolling there.
+  final class TransformGestureDelegate: NSObject, UIGestureRecognizerDelegate {
+    private weak var host: PDFReaderHostView?
+
+    init(host: PDFReaderHostView) {
+      self.host = host
+    }
+
+    func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+      MainActor.assumeIsolated {
+        guard let host else { return false }
+        return host.isOnSelection(gestureRecognizer.location(in: host))
+      }
+    }
+
+    func gestureRecognizer(
+      _ gestureRecognizer: UIGestureRecognizer,
+      shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+    ) -> Bool {
+      // A drag and a pinch on the selection work together; nothing else runs alongside them.
+      gestureRecognizer.delegate === otherGestureRecognizer.delegate
+    }
+
+    func gestureRecognizer(
+      _ gestureRecognizer: UIGestureRecognizer,
+      shouldBeRequiredToFailBy otherGestureRecognizer: UIGestureRecognizer
+    ) -> Bool {
+      // The page's scrolling and zooming wait: on the selection they give way, elsewhere these fail at once.
+      otherGestureRecognizer.view is UIScrollView
+    }
+
+    func gestureRecognizer(
+      _ gestureRecognizer: UIGestureRecognizer,
+      shouldRequireFailureOf otherGestureRecognizer: UIGestureRecognizer
+    ) -> Bool {
+      false
     }
   }
 
