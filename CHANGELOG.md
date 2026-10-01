@@ -56,6 +56,10 @@ Store notes (see the changelog strategy).
 ### Changed
 - A new app icon: a larger page with a bold "PDF" mark on a crimson-to-violet field. The Staging
   build carries the same icon with a beta badge.
+- Search looks through the whole library from any section, so a document is found wherever it is
+  filed; in Recently Deleted it searches only deleted documents.
+- The start-here card in the library goes once you have opened one of your own documents, instead of
+  staying until the third and still saying "Open your first PDF".
 - The assistant shows only the latest answer, and every sentence of an answer is checked against
   the page it cites; unsupported parts are left out (#60).
 - Deleting permanently asks first; onboarding marks the options coming in a later update; hiding
