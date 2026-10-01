@@ -8,6 +8,9 @@
 //   large icon (upload error 90717);
 // - the dark appearance: the glyph on a transparent background (the system draws the dark background);
 // - the tinted appearance: a greyscale glyph on a transparent background (the system applies the tint).
+// It also writes an Icon Composer document beside the catalog for each set (AppIcon.icon and
+// AppIcon-Staging.icon): the same artwork in layers, which iOS 26 renders with Liquid Glass. The build
+// uses the document; the PNGs are what the document is checked against and what older tools read.
 // The artwork is a large page carrying a "PDF" mark drawn as paths (no font) and the intelligence
 // sparkle, on a crimson-to-violet field. Coordinates have their origin at the bottom left, y up.
 import CoreGraphics
@@ -334,4 +337,84 @@ for (name, staging) in [("AppIcon", false), ("AppIcon-Staging", true)] {
     """
   try! contents.write(to: iconSet.appendingPathComponent("Contents.json"), atomically: true, encoding: .utf8)
   print("wrote \(name).appiconset/Contents.json")
+}
+
+// MARK: - Icon Composer documents (Liquid Glass)
+
+/// One layer of the Icon Composer document, drawn in the default appearance on a transparent canvas.
+func writeLayer(to url: URL, _ body: (CGContext) -> Void) {
+  let context = CGContext(
+    data: nil, width: size, height: size, bitsPerComponent: 8, bytesPerRow: 0,
+    space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+  body(context)
+  let destination = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil)!
+  CGImageDestinationAddImage(destination, context.makeImage()!, nil)
+  guard CGImageDestinationFinalize(destination) else { fatalError("could not write \(url.path)") }
+}
+
+func drawPageLayer(in context: CGContext) {
+  context.setFillColor(white)
+  context.addPath(pagePath())
+  context.fillPath()
+  context.setFillColor(foldTint.cgColor())
+  context.addPath(foldPath())
+  context.fillPath()
+  context.setStrokeColor(brandTint.cgColor())
+  context.setLineWidth(markStem)
+  context.addPath(pdfMark())
+  context.strokePath()
+  context.setFillColor(brandTint.cgColor(alpha: 0.35))
+  context.addPath(rule)
+  context.fillPath()
+}
+
+func drawSparkleLayer(in context: CGContext) {
+  let star = sparklePath()
+  context.setStrokeColor(white)
+  context.setLineWidth(56)
+  context.setLineJoin(.round)
+  context.addPath(star)
+  context.strokePath()
+  context.setFillColor(intelligenceDark.cgColor())
+  context.addPath(star)
+  context.fillPath()
+}
+
+/// Groups are listed front to back. The field is the document's fill; the system adds the glass.
+func iconDocument(staging: Bool) -> String {
+  func colour(_ c: RGBColor) -> String { String(format: "srgb:%.5f,%.5f,%.5f,1.00000", c.red, c.green, c.blue) }
+  func group(_ layer: String) -> String {
+    """
+        {
+          "layers" : [ { "glass" : true, "image-name" : "\(layer).png", "name" : "\(layer)" } ],
+          "shadow" : { "kind" : "neutral", "opacity" : 0.5 },
+          "translucency" : { "enabled" : false, "value" : 0.5 }
+        }
+    """
+  }
+  let groups = ((staging ? ["badge"] : []) + ["sparkle", "page"]).map(group).joined(separator: ",\n")
+  return """
+    {
+      "fill" : {
+        "linear-gradient" : [ "\(colour(gradientStart))", "\(colour(brandTint))" ]
+      },
+      "groups" : [
+    \(groups)
+      ],
+      "supported-platforms" : { "squares" : [ "iOS" ] }
+    }
+
+    """
+}
+
+for (name, staging) in [("AppIcon", false), ("AppIcon-Staging", true)] {
+  let document = root.appendingPathComponent("App/PDFAlgoPro/Resources/\(name).icon")
+  let assets = document.appendingPathComponent("Assets")
+  try! FileManager.default.createDirectory(at: assets, withIntermediateDirectories: true)
+  writeLayer(to: assets.appendingPathComponent("page.png"), drawPageLayer)
+  writeLayer(to: assets.appendingPathComponent("sparkle.png"), drawSparkleLayer)
+  if staging { writeLayer(to: assets.appendingPathComponent("badge.png")) { drawStagingBadge(.standard, in: $0) } }
+  try! iconDocument(staging: staging).write(
+    to: document.appendingPathComponent("icon.json"), atomically: true, encoding: .utf8)
+  print("wrote \(name).icon")
 }

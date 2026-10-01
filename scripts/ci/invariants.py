@@ -4,7 +4,8 @@
 Always active:
   * no PDF is committed outside Tests/Fixtures/Synthetic/ (real documents never enter git);
   * each app icon set (App Store and Staging) has a default image that is a 1024 x 1024 PNG without
-    an alpha channel or transparency, as App Store Connect requires (upload error 90717);
+    an alpha channel or transparency, as App Store Connect requires (upload error 90717), and an
+    Icon Composer document of the same name whose layer images all exist;
   * no Info.plist localisation carries an app name, and there is no InfoPlist.xcstrings (Xcode syncs
     the names into it): the names come from build settings per configuration (Staging is
     "PDF Algo β"), and a localised value would replace them (assumption A14).
@@ -105,6 +106,24 @@ def icon_problems(catalog: Path = ROOT / ICON_CATALOG) -> list[str]:
     return problems
 
 
+def icon_document_problems(resources: Path = (ROOT / ICON_CATALOG).parent) -> list[str]:
+    """Each icon set has an Icon Composer document of the same name whose layers all exist."""
+    if not resources.exists():
+        return []
+    problems: list[str] = []
+    for icon in APP_ICONS:
+        document = resources / f"{icon}.icon"
+        if not (document / "icon.json").exists():
+            problems.append(f"{icon}.icon: missing; run scripts/design/make_app_icon.swift")
+            continue
+        for group in json.loads((document / "icon.json").read_text(encoding="utf-8")).get("groups", []):
+            for layer in group.get("layers", []):
+                name = layer.get("image-name")
+                if name and not (document / "Assets" / name).exists():
+                    problems.append(f"{icon}.icon: layer image {name} is missing from Assets")
+    return problems
+
+
 APP_SOURCES = "App/PDFAlgoPro"
 APP_NAME_KEYS = ("CFBundleDisplayName", "CFBundleName")
 
@@ -144,6 +163,7 @@ def main() -> int:
             errors.append(f"{pdf}: PDFs may only live in Tests/Fixtures/Synthetic/ (no real documents in git)")
 
     errors.extend(icon_problems())
+    errors.extend(icon_document_problems())
     errors.extend(infoplist_name_problems())
 
     swift = [p for p in tracked("*.swift") if not p.startswith("scripts/")]

@@ -49,6 +49,19 @@ def test_every_icon_set_needs_an_opaque_default_image(tmp_path):
     assert "AppIcon-Staging.appiconset: missing" in problems[1]
 
 
+def test_every_icon_set_needs_an_icon_composer_document_with_its_layers(tmp_path):
+    assert invariants.icon_document_problems() == []
+    document = tmp_path / "AppIcon.icon"
+    document.mkdir()
+    layers = {"groups": [{"layers": [{"image-name": "page.png"}]}]}
+    (document / "icon.json").write_text(json.dumps(layers), encoding="utf-8")
+    problems = invariants.icon_document_problems(tmp_path)
+    assert problems == [
+        "AppIcon.icon: layer image page.png is missing from Assets",
+        "AppIcon-Staging.icon: missing; run scripts/design/make_app_icon.swift",
+    ]
+
+
 def test_info_plist_localisations_never_carry_the_app_names(tmp_path):
     assert invariants.infoplist_name_problems() == []
     app = tmp_path / "App" / "PDFAlgoPro"
