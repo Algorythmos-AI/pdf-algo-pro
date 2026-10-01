@@ -82,6 +82,51 @@ public struct IntelligenceRouter: DocumentIntelligence {
     return Grounding.answer(from: response, pages: chosen, tier: model.tier)
   }
 
+  /// The most earlier exchanges a follow-up carries, and their share of the prompt budget (`Assumption:`
+  /// 3 and 10%, plan §4.3), so the document keeps most of the room.
+  static let followUpExchanges = 3
+  static let conversationShare = 0.1
+
+  /// Answers a follow-up question (FR-AI-014).
+  ///
+  /// Retrieval searches with the new question and the one before it, and puts the pages the last
+  /// answer cited first. The earlier exchanges go into the prompt, fenced, as context only; the answer
+  /// is grounded against the document pages alone, like any other.
+  public func answer(_ question: String, from pages: [PageText], after earlier: [Exchange]) async throws -> Answer {
+    let grounded = earlier.filter(\.answer.isGrounded).suffix(Self.followUpExchanges)
+    guard let last = grounded.last else { return try await answer(question, from: pages) }
+    let question = question.trimmingCharacters(in: .whitespacesAndNewlines)
+    let pages = Self.withText(pages)
+    guard !pages.isEmpty else { throw IntelligenceError.noText }
+    guard !question.isEmpty else { return .notFound(tier: .onDevice) }
+    let model = try await activeModel()
+    let budget = await model.promptBudget()
+    var context = Array(grounded)
+    var conversation = PromptCatalog.conversationBlock(context)
+    while context.count > 1, await model.tokenCount(conversation) > Int(Double(budget) * Self.conversationShare) {
+      context.removeFirst()
+      conversation = PromptCatalog.conversationBlock(context)
+    }
+    let chosen: [PageText]
+    do {
+      let retrieval = Signposts.begin("AI.Retrieve")
+      defer { retrieval.end() }
+      let cited = Set(last.answer.citations.map(\.pageIndex))
+      let ranked = Grounding.rank(pages, for: "\(question) \(last.question)")
+      let first = pages.filter { cited.contains($0.pageIndex) }
+      let candidates =
+        first + ranked.filter { !first.contains($0) }
+        + pages.filter { page in !first.contains(page) && !ranked.contains(page) }
+      let used = await model.tokenCount(question) + model.tokenCount(conversation)
+      chosen = try await fit(candidates, into: budget - used, model: model).sorted { $0.pageIndex < $1.pageIndex }
+    }
+    let prompt = "\(conversation)\n\n\(PromptCatalog.documentBlock(chosen))\n\nQuestion: \(question)"
+    let response = try await run {
+      try await model.respond(instructions: PromptCatalog.askFollowUp.instructions, prompt: prompt)
+    }
+    return Grounding.answer(from: response, pages: chosen, tier: model.tier)
+  }
+
   /// Extracts structured fields and verifies each value against the text.
   public func extractFields(from pages: [PageText]) async throws -> Extraction {
     let pages = Self.withText(pages)

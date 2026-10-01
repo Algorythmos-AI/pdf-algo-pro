@@ -28,6 +28,8 @@ Store notes (see the changelog strategy).
   "(edited)", and the app says so.
 - If another app changes a document while it is open, the reader shows the new version; if you have
   unsaved changes, you choose to keep yours as a copy or use the other version, so nothing is lost.
+- Follow-up questions in the assistant: ask about the answer you just got, and the earlier questions
+  and answers stay on screen with their sources. Answers still come only from the document.
 - The native iOS foundation app: onboarding with AI-first options, a library in the Files-visible
   Documents folder with Recently Deleted, search across titles, tags and recognised text (and
   Spotlight), a PDFKit reader with markup, notes, read aloud and on-device text recognition, scanning

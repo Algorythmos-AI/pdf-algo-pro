@@ -269,7 +269,11 @@ framework's evaluation trait then.
 
 - **Seed sets.** `EvaluationSets` (target `IntelligenceEvaluation`) holds English and French questions
   over synthetic invoices and leases, answerable and unanswerable. The red-team set has at least one
-  item per injection category, in both languages. They are small, and grow as failures are found.
+  item per injection category, in both languages. The follow-up set (FR-AI-014, #90) asks questions
+  after an earlier exchange: a pronoun that needs the earlier question, in both languages, a follow-up
+  the document can't answer, and an instruction carried inside an earlier answer, which must never be
+  followed. The runner passes those earlier exchanges to the `ask.followUp` prompt. The sets are
+  small, and grow as failures are found.
 - **Evaluators** are code-based:
   - citation correctness (at least one gold page cited, and no page outside the gold set);
   - completeness (key points present);

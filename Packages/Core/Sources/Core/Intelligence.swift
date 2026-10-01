@@ -178,6 +178,23 @@ public struct Extraction: Hashable, Sendable {
   }
 }
 
+/// One question and its grounded answer, earlier in a conversation about a document (FR-AI-014).
+public struct Exchange: Hashable, Sendable, Identifiable {
+  /// The exchange's identity in lists.
+  public let id: UUID
+  /// The question as asked.
+  public let question: String
+  /// The answer given, with its citations.
+  public let answer: Answer
+
+  /// Creates an exchange.
+  public init(question: String, answer: Answer, id: UUID = UUID()) {
+    self.id = id
+    self.question = question
+    self.answer = answer
+  }
+}
+
 /// Document intelligence: summarise, answer, extract and explain, with page citations.
 ///
 /// Implementations route between tiers; features never talk to a model directly.
@@ -188,10 +205,20 @@ public protocol DocumentIntelligence: Sendable {
   func summarize(_ pages: [PageText]) async throws -> Answer
   /// Answers a question from the pages, or returns a not-found answer.
   func answer(_ question: String, from pages: [PageText]) async throws -> Answer
+  /// Answers a follow-up question, using earlier exchanges only to understand what it refers to; the
+  /// answer still comes from the pages alone (FR-AI-014).
+  func answer(_ question: String, from pages: [PageText], after earlier: [Exchange]) async throws -> Answer
   /// Extracts structured fields and verifies each value against the text.
   func extractFields(from pages: [PageText]) async throws -> Extraction
   /// Explains a contract's key terms in plain language. The UI adds the not-legal-advice disclosure.
   func explainContract(_ pages: [PageText]) async throws -> Answer
+}
+
+extension DocumentIntelligence {
+  /// Without conversation support, a follow-up is answered as a question on its own.
+  public func answer(_ question: String, from pages: [PageText], after earlier: [Exchange]) async throws -> Answer {
+    try await answer(question, from: pages)
+  }
 }
 
 /// Errors from document intelligence.

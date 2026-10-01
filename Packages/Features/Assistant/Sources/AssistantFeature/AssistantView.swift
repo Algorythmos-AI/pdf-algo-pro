@@ -31,8 +31,11 @@ public struct AssistantView: View {
             VStack(alignment: .leading, spacing: Spacing.s200) {
               taskPicker
               if model.task == .explainContract { ContractDisclosure() }
-              if model.task == .ask { questionField }
+              if model.task == .ask {
+                ForEach(model.earlier) { exchange in earlierCard(exchange) }
+              }
               content
+              if model.task == .ask { questionField }
             }
             .padding(Spacing.s200)
             .readableWidth()
@@ -89,20 +92,26 @@ public struct AssistantView: View {
       // Wraps and grows, so a long question stays readable at every text size. The software keyboard's
       // Return then inserts a line break instead of submitting: a break at the end sends the question,
       // any other becomes a space. A hardware keyboard's Return submits directly.
-      TextField(text: $model.question, axis: .vertical) { Text("Ask about this document", bundle: .module) }
-        .lineLimit(1...)
-        .textFieldStyle(.roundedBorder)
-        .frame(minHeight: Sizes.targetMinimum)
-        .submitLabel(.send)
-        .focused($isEditingQuestion)
-        .onChange(of: model.question) { _, question in
-          guard question.contains(where: \.isNewline) else { return }
-          let sends = question.last?.isNewline == true
-          model.question = question.split(whereSeparator: \.isNewline).joined(separator: " ")
-          if sends { ask() }
+      TextField(text: $model.question, axis: .vertical) {
+        if case .answered = model.phase {
+          Text("Ask a follow-up question", bundle: .module)
+        } else {
+          Text("Ask about this document", bundle: .module)
         }
-        .onSubmit { ask() }
-        .accessibilityIdentifier("assistant.question")
+      }
+      .lineLimit(1...)
+      .textFieldStyle(.roundedBorder)
+      .frame(minHeight: Sizes.targetMinimum)
+      .submitLabel(.send)
+      .focused($isEditingQuestion)
+      .onChange(of: model.question) { _, question in
+        guard question.contains(where: \.isNewline) else { return }
+        let sends = question.last?.isNewline == true
+        model.question = question.split(whereSeparator: \.isNewline).joined(separator: " ")
+        if sends { ask() }
+      }
+      .onSubmit { ask() }
+      .accessibilityIdentifier("assistant.question")
       Button {
         ask()
       } label: {
@@ -156,6 +165,29 @@ public struct AssistantView: View {
         }
       }
     }
+  }
+
+  /// An earlier question and its answer in this conversation, shown smaller above the current one
+  /// (FR-AI-014); its citations still open their pages.
+  private func earlierCard(_ exchange: Exchange) -> some View {
+    VStack(alignment: .leading, spacing: Spacing.s100) {
+      Text(exchange.question).font(.subheadline.weight(.semibold)).accessibilityAddTraits(.isHeader)
+      Text(exchange.answer.text).font(.callout).foregroundStyle(Color.ds.labelSecondary)
+        .fixedSize(horizontal: false, vertical: true)
+      ScrollView(.horizontal, showsIndicators: false) {
+        HStack(spacing: Spacing.s100) {
+          ForEach(exchange.answer.citations) { citation in
+            CitationChip(citation: citation) { model.reveal(citation) }
+          }
+        }
+      }
+      .accessibilityElement(children: .contain)
+      .accessibilityLabel(Text("Sources", bundle: .module))
+    }
+    .padding(Spacing.s150)
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .background(Color.ds.backgroundGroupedElevated.opacity(0.6), in: RoundedRectangle(cornerRadius: 12))
+    .accessibilityIdentifier("assistant.earlier")
   }
 
   private func answerCard(_ answer: Answer) -> some View {

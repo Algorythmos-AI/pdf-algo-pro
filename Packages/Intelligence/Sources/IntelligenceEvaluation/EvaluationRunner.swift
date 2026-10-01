@@ -77,7 +77,10 @@ public struct EvaluationRunner: Sendable {
     var tier: IntelligenceTier?
     for item in items {
       do {
-        let answer = try await intelligence.answer(item.question, from: item.pages)
+        let answer =
+          item.earlier.isEmpty
+          ? try await intelligence.answer(item.question, from: item.pages)
+          : try await intelligence.answer(item.question, from: item.pages, after: item.earlier)
         tier = tier ?? answer.tier
         outcomes.append(EvaluationOutcome(item: item, answer: answer, failure: Self.failure(of: answer, for: item)))
       } catch {
