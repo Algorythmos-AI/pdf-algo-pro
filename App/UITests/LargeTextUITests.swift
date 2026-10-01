@@ -33,21 +33,19 @@ final class LargeTextUITests: UITestCase {
     let app = launchLarge(["-skip-onboarding", "-seed-library", "sample"])
     XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
     try audit(app)
-    tapMenuItem(app.buttons["Contents"], in: app.buttons["reader.more"])
     let contents = app.navigationBars["Contents"]
-    XCTAssertTrue(contents.waitForExistence(timeout: 5))
+    tapMenuItem(app.buttons["Contents"], in: app.buttons["reader.more"], until: contents)
     try audit(app, onSheet: true)
     contents.buttons["Done"].tap()
-    tapMenuItem(app.buttons["Pages"], in: app.buttons["reader.more"])
-    XCTAssertTrue(app.buttons["Page 3"].waitForExistence(timeout: 5))
+    tapMenuItem(app.buttons["Pages"], in: app.buttons["reader.more"], until: app.buttons["Page 3"])
     try audit(app, onSheet: true)
   }
 
   func testTheSignatureSheetAtALargeTextSize() throws {
     let app = launchLarge(["-skip-onboarding", "-seed-library", "sample"])
     XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
-    tapMenuItem(app.buttons["Signature"], in: app.buttons["reader.markup"])
-    XCTAssertTrue(app.textFields["signature.typedName"].waitForExistence(timeout: 5))
+    tapMenuItem(
+      app.buttons["Signature"], in: app.buttons["reader.markup"], until: app.textFields["signature.typedName"])
     try audit(app, onSheet: true)
   }
 
