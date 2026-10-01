@@ -1,6 +1,30 @@
-Version interne de PDF Algo Pro (Staging). À essayer :
-- Importez un PDF depuis Fichiers, ouvrez-le, surlignez du texte et ajoutez une note, puis rouvrez-le : vos modifications doivent y être.
-- Numérisez une page (ou choisissez des images), puis cherchez dans la bibliothèque un mot de cette page.
-- Posez une question sur un document : la réponse doit citer une page, et toucher la citation l'ouvre.
-- Activez le mode Avion : tout ce qui précède fonctionne encore.
-Signalez un problème avec Réglages > Signaler un problème, ou avec une capture d'écran TestFlight.
+Version interne de PDF Algo Pro (Staging). Utilisez des documents de test, pas de vrais documents. À essayer :
+
+Votre fichier est en sécurité
+- Modifiez un document, enregistrez deux fois, puis Plus > Historique des versions : rétablissez la première.
+- Faites une modification et fermez aussitôt l’app. Rouvrez-la : le document s’ouvre, ancien ou nouveau, jamais endommagé.
+- Ouvrez un PDF signé et ajoutez une note : les modifications vont dans une copie, et un message explique pourquoi.
+
+Outils du quotidien
+- Plus : organiser les pages, réduire la taille, définir ou retirer un mot de passe, aplatir, enregistrer les pages en images.
+- Annotation : tamponnez une page, faites glisser une forme, pincez une signature pour la redimensionner. Chaque action s’annule en une fois.
+- Plus > Ajouter un signet à cette page, Plus > Annotations, et Lire à voix haute sur plusieurs pages.
+- Touchez un lien web dans un PDF : l’adresse complète s’affiche avant toute ouverture.
+
+Bibliothèque et numérisation
+- Depuis Favoris, cherchez un document qui n’est pas un favori : il est trouvé.
+- Sélectionnez plusieurs documents, puis fusionnez-les, partagez-les ou supprimez-les. Ouvrez les Infos de l’un d’eux.
+- Numérisez deux pages : faites-les pivoter, réordonnez-les et nommez-les avant d’enregistrer.
+
+Assistant
+- Posez une question, puis une question de suivi comme « Quelle est l’échéance ? ». Les deux réponses citent des pages.
+- Extrayez les champs et partagez-les en fichier CSV ; ouvrez-le dans Numbers.
+- Dites à Siri « Résume [document] avec PDF Algo Pro » sur un iPhone verrouillé : il demande le déverrouillage.
+
+Confidentialité
+- Réglages > Exiger Face ID : le sélecteur d’apps ne montre aucun document ; Face ID déverrouille.
+- Réglages > Rapport de confidentialité indique 0 document envoyé à une IA dans le cloud.
+- Réglages iOS > Confidentialité et sécurité > Rapport de confidentialité des apps : aucun domaine réseau pour cette app.
+- Mode Avion : tout ce qui précède fonctionne encore.
+
+Signalez les problèmes avec Réglages > Signaler un problème, ou avec une capture d’écran TestFlight.

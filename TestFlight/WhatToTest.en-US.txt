@@ -1,6 +1,30 @@
-Internal build of PDF Algo Pro (Staging). Please try:
-- Import a PDF from Files, open it, highlight text and add a note, then reopen it: your changes should be there.
-- Scan a page (or choose images), then search the library for a word on it.
-- Ask a question about a document: the answer must cite a page, and tapping the citation opens it.
-- Turn on airplane mode: everything above still works.
+Internal build of PDF Algo Pro (Staging). Use test documents, not real ones. Please try:
+
+Your file is safe
+- Edit a document, save twice, then More > Version history: restore the first version.
+- Make an edit and swipe the app away at once. Reopen: the document opens, old or new, never damaged.
+- Open a signed PDF and add a note: the changes go to a copy and a notice says why.
+
+Everyday tools
+- More: organise pages, reduce size, set or remove a password, flatten, save pages as images.
+- Markup: stamp a page, drag a shape to move it, pinch a signature to resize it. Each is one Undo.
+- More > Bookmark this page, More > Annotations, and Read aloud across several pages.
+- Tap a web link in a PDF: the full address shows before anything opens.
+
+Library and scanning
+- Search from Favourites for a document that isn't a favourite: it is found.
+- Select several documents, then merge, share or delete them. Open Info on one.
+- Scan two pages: rotate, reorder and name them before saving.
+
+Assistant
+- Ask a question, then a follow-up such as "When is it due?". Both answers cite pages.
+- Extract fields and share them as a CSV file; open it in Numbers.
+- Say "Summarise [document] with PDF Algo Pro" to Siri on a locked iPhone: it asks to unlock first.
+
+Privacy
+- Settings > Require Face ID: the app switcher shows no document; Face ID unlocks.
+- Settings > Privacy report shows 0 documents sent to cloud AI.
+- iOS Settings > Privacy & Security > App Privacy Report lists no network domains for this app.
+- Airplane mode: everything above still works.
+
 Report problems with Settings > Report a problem, or with a TestFlight screenshot.
