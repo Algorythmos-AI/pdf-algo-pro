@@ -12,6 +12,10 @@ Store notes (see the changelog strategy).
 ### Added
 - App Lock: Settings › Privacy can require Face ID, Touch ID, Optic ID or the passcode to open the app.
   While it is on, the app switcher shows no document and document text stays out of Spotlight.
+- Tapping a web, email or phone link in a document now shows its full address and asks before
+  opening it. Links to files, other apps or scripts are never opened; their address can be copied.
+- More › Annotations lists every highlight, note, drawing, shape and signature by page; choosing one
+  opens its page, and the list can be shared as text.
 - PDF from photos: hold Import in the library and choose photos; each becomes a page, upright, in a
   new document. No access to your photo library is needed.
 - Tools in the reader's More menu: reduce file size into a smaller copy (for email or for printing),
@@ -29,6 +33,9 @@ Store notes (see the changelog strategy).
 - Annotations, shapes, drawings, text boxes and signatures can be moved by dragging, resized by
   pinching or from Style, and given another colour; each change is one undo step. VoiceOver users
   can move a selection with its Move actions.
+- Stamps in Markup: today's date, a tick, a cross, or your own text such as initials or "Paid".
+- Bookmarks: bookmark the page on screen from More; bookmarks are listed in Contents and saved in the
+  PDF, so other apps show them too.
 - Recognising text you start carries on if you leave the app, with its progress shown by the system
   (on the Lock Screen and in the Dynamic Island); you can cancel it from there.
 - A digitally signed PDF keeps its valid signature: your changes are saved in a copy marked
@@ -69,6 +76,8 @@ Store notes (see the changelog strategy).
   staying until the third and still saying "Open your first PDF".
 - The app icon is layered, so iOS 26 draws it with Liquid Glass in the default, dark, tinted and clear
   appearances.
+- Read aloud goes on from page to page to the end of the document, turning the pages as it reads,
+  and carries on from the page on screen when you start it again.
 - The assistant shows only the latest answer, and every sentence of an answer is checked against
   the page it cites; unsupported parts are left out (#60).
 - Deleting permanently asks first; onboarding marks the options coming in a later update; hiding

@@ -362,6 +362,35 @@ struct ReaderModelTests {
     reader.stopWatching()
   }
 
+  @Test("Stamps are added to the page on screen and saved (FR-ANN-006)")
+  func stamps() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.makeSample())
+    let reader = harness.reader(for: document)
+    await reader.load()
+    await reader.addStamp(.tick)
+    await reader.addStamp(.text("SK"))
+    await reader.addStamp(.text("  "))
+    let url = try await harness.library.fileURL(for: document.id)
+    #expect(try PDFDocumentController(url: url).annotationCount(onPage: 0) == 2)
+    #expect(reader.canUndo)
+  }
+
+  @Test("The page on screen is bookmarked and unbookmarked, and the file keeps it (FR-READ-009)")
+  func bookmarks() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.makeSample(), lastPage: 1, opened: true)
+    let reader = harness.reader(for: document)
+    await reader.load()
+    #expect(!reader.isCurrentPageBookmarked)
+    await reader.toggleBookmark()
+    #expect(reader.isCurrentPageBookmarked && reader.bookmarkedPages == [1])
+    let url = try await harness.library.fileURL(for: document.id)
+    #expect(try PDFDocumentController(url: url).bookmarkedPages == [1])
+    await reader.toggleBookmark()
+    #expect(!reader.isCurrentPageBookmarked)
+  }
+
   @Test("Notes and markup save automatically and can be undone (FR-ANN-001, FR-EDIT-007)")
   func annotations() async throws {
     let harness = Harness()
@@ -666,6 +695,42 @@ struct ReaderModelTests {
     #expect(reader.controller?.hasUnsavedChanges == false, "Saved after each change")
   }
 
+  @Test(
+    "A tapped link's confirmation draws for links that open and links that don't (T-02)",
+    arguments: ["https://example.com/terms", "file:///etc/hosts"])
+  func linkConfirmationDraws(address: String) throws {
+    let controller = try PDFDocumentController(data: SyntheticPDF.makeSample())
+    controller.linkTapped(try #require(URL(string: address)))
+    let view = Text(verbatim: "Page").modifier(LinkConfirmation(controller: controller)).frame(width: 390, height: 700)
+    #expect(ImageRenderer(content: view).uiImage != nil)
+    controller.dismissLink()
+    #expect(controller.tappedLink == nil)
+  }
+
+  @Test("The annotation list opens a page and exports as text (FR-ANN-003)")
+  func annotationList() async throws {
+    let harness = Harness()
+    let reader = harness.reader(for: await harness.seed(try SyntheticPDF.makeSample()))
+    await reader.load()
+    #expect(reader.annotationSummaries.isEmpty)
+    func draws() -> Bool {
+      let sheet = AnnotationListSheet(model: reader).frame(width: 390, height: 700)
+        .environment(\.dynamicTypeSize, .accessibility3)
+      return ImageRenderer(content: sheet).uiImage != nil
+    }
+    #expect(draws(), "The empty list draws")
+    await reader.addTextBox("Check the total")
+    #expect(draws(), "The list with an annotation draws")
+    #expect(reader.annotationSummaries.map(\.kind) == [.textBox])
+    let text = reader.annotationsText()
+    #expect(text.contains("Page 1") && text.contains("Text box: Check the total"))
+    reader.showsAnnotations = true
+    reader.openAfterClosingSheets(pageIndex: 0)
+    #expect(!reader.showsAnnotations)
+    let signature = AnnotationSummary(id: 0, kind: .ink, pageIndex: 0, text: nil, isSignature: true)
+    #expect(ReaderModel.name(of: signature) == "Signature")
+  }
+
   @Test("The selection bar draws for every kind at a large text size", arguments: AnnotationSelection.Kind.allCases)
   func selectionBarDraws(kind: AnnotationSelection.Kind) {
     let view = SelectionBar(
@@ -834,11 +899,44 @@ struct ReaderModelTests {
     #expect(!speech.isSpeaking && engine.spoken.isEmpty, "Blank text is not spoken")
     speech.speak(" One ")
     #expect(speech.isSpeaking && engine.spoken == ["One"])
-    engine.onEnd?()
+    engine.onEnd?(true)
     #expect(!speech.isSpeaking)
     speech.speak("Two")
     speech.stop()
     #expect(!speech.isSpeaking && engine.stops == 1)
+  }
+
+  @Test("Reading goes on page by page, skips blank pages, turns the pages and stops at the end (FR-READ-008)")
+  func readsPageAfterPage() {
+    let engine = SilentSpeech()
+    let speech = SpeechReader(engine: engine)
+    let pages = ["One", "  ", "Three", "Four"]
+    var shown: [Int] = []
+    speech.read(from: 0, pageCount: pages.count, text: { pages[$0] }, onPage: { shown.append($0) })
+    #expect(engine.spoken == ["One"] && speech.isSpeaking)
+    engine.onEnd?(true)
+    #expect(engine.spoken == ["One", "Three"] && shown == [0, 2], "The blank page is skipped")
+    engine.onEnd?(true)
+    engine.onEnd?(true)
+    #expect(engine.spoken == ["One", "Three", "Four"] && !speech.isSpeaking, "Reading stops after the last page")
+  }
+
+  @Test("A cancel or a stop ends reading; it doesn't go on to the next page")
+  func readingStops() {
+    let engine = SilentSpeech()
+    let speech = SpeechReader(engine: engine)
+    speech.read(from: 1, pageCount: 3, text: { "Page \($0)" }, onPage: { _ in })
+    #expect(engine.spoken == ["Page 1"])
+    engine.onEnd?(false)
+    #expect(!speech.isSpeaking)
+    engine.onEnd?(true)
+    #expect(engine.spoken == ["Page 1"], "Nothing more after a cancel")
+    speech.read(from: 0, pageCount: 3, text: { "Page \($0)" }, onPage: { _ in })
+    speech.stop()
+    engine.onEnd?(true)
+    #expect(engine.spoken == ["Page 1", "Page 0"] && !speech.isSpeaking)
+    speech.read(from: 5, pageCount: 3, text: { "Page \($0)" }, onPage: { _ in })
+    #expect(!speech.isSpeaking, "Past the end there is nothing to read")
   }
 
   @Test("The system engine touches the voices only when asked to speak")
@@ -1083,7 +1181,7 @@ final class BackgroundLog {
 /// A speech engine that records what it was asked to say and never touches the system voices.
 @MainActor
 private final class SilentSpeech: SpeechEngine {
-  var onEnd: (() -> Void)?
+  var onEnd: ((_ finished: Bool) -> Void)?
   private(set) var spoken: [String] = []
   private(set) var stops = 0
 

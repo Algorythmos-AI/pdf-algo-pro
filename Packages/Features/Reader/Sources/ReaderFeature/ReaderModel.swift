@@ -75,6 +75,8 @@ public final class ReaderModel {
   public var showsOutline = false
   /// Whether the page grid is open.
   public var showsPages = false
+  /// Whether the list of annotations is open (FR-ANN-003).
+  public var showsAnnotations = false
   /// A page chosen in the outline or the page grid, opened once its sheet has finished closing.
   @ObservationIgnored private var pendingPageIndex: Int?
   /// Whether the signature sheet is open (F1c).
@@ -180,6 +182,7 @@ public final class ReaderModel {
 
   private func show(_ controller: PDFDocumentController) {
     phase = .ready
+    bookmarkedPages = controller.bookmarkedPages
     controller.goTo(pageIndex: startPage ?? document?.lastPageIndex ?? 0)
   }
 
@@ -219,14 +222,19 @@ public final class ReaderModel {
     try? await library.recordOpened(documentID, pageIndex: controller.currentPageIndex)
   }
 
-  /// Reads the current page aloud, or stops (FR-READ-004).
+  /// Reads aloud from the page on screen to the end of the document, or stops (FR-READ-004, FR-READ-008).
+  ///
+  /// The pages turn as it goes, so starting again carries on from the page on screen.
   public func toggleReadAloud() {
     guard let controller else { return }
     if speech.isSpeaking {
       speech.stop()
     } else {
-      // Only the page on screen is read, so a long document does not extract every page first.
-      speech.speak(controller.pageText(at: controller.currentPageIndex))
+      // Each page's text is taken when it is reached, so a long document is never extracted up front.
+      speech.read(
+        from: controller.currentPageIndex, pageCount: controller.pageCount,
+        text: { [weak controller] in controller?.pageText(at: $0) ?? "" },
+        onPage: { [weak controller] in controller?.goTo(pageIndex: $0) })
     }
   }
 
@@ -388,6 +396,36 @@ public final class ReaderModel {
   /// Clears the selection.
   public func clearSelection() {
     controller?.clearSelection()
+  }
+
+  /// Whether a stamp's text (initials, "Paid" and the like) is being asked for.
+  public var isAddingStampText = false
+
+  /// Puts a stamp on the page on screen and saves (FR-ANN-006).
+  public func addStamp(_ stamp: PDFDocumentController.Stamp) async {
+    guard let controller, checkAnnotatingIsAllowed(controller),
+      controller.addStamp(stamp, onPage: controller.currentPageIndex)
+    else { return }
+    updateUndoState()
+    await save()
+  }
+
+  /// The bookmarked pages, kept in the file's outline (FR-READ-009).
+  public private(set) var bookmarkedPages: [Int] = []
+
+  /// Whether the page on screen is bookmarked.
+  public var isCurrentPageBookmarked: Bool {
+    guard let controller else { return false }
+    return bookmarkedPages.contains(controller.currentPageIndex)
+  }
+
+  /// Bookmarks the page on screen, or removes its bookmark, and saves (FR-READ-009).
+  public func toggleBookmark() async {
+    guard let controller, checkAnnotatingIsAllowed(controller) else { return }
+    controller.toggleBookmark(onPage: controller.currentPageIndex)
+    bookmarkedPages = controller.bookmarkedPages
+    updateUndoState()
+    await save()
   }
 
   /// Adds a text box to the page on screen and saves (F2b).
@@ -886,6 +924,47 @@ public final class ReaderModel {
     pendingPageIndex = pageIndex
     showsOutline = false
     showsPages = false
+    showsAnnotations = false
+  }
+
+  // MARK: - Annotation list (FR-ANN-003)
+
+  /// Every annotation in the document, in reading order.
+  public var annotationSummaries: [AnnotationSummary] { controller?.annotationSummaries() ?? [] }
+
+  /// The annotations as plain text, to share or paste elsewhere: grouped by page, each with its kind and text.
+  public func annotationsText() -> String {
+    let summaries = annotationSummaries
+    var lines = [document?.title ?? ""]
+    var page: Int?
+    for summary in summaries {
+      if summary.pageIndex != page {
+        page = summary.pageIndex
+        lines.append("")
+        lines.append(String(localized: "Page \(summary.pageIndex + 1)", bundle: .module))
+      }
+      let name = Self.name(of: summary)
+      lines.append(summary.text.map { "• \(name): \($0)" } ?? "• \(name)")
+    }
+    return lines.joined(separator: "\n")
+  }
+
+  /// What an annotation is, in words.
+  static func name(of summary: AnnotationSummary) -> String {
+    if summary.isSignature { return String(localized: "Signature", bundle: .module) }
+    return switch summary.kind {
+    case .highlight: String(localized: "Highlight", bundle: .module)
+    case .underline: String(localized: "Underline", bundle: .module)
+    case .strikeThrough: String(localized: "Strike-through", bundle: .module)
+    case .note: String(localized: "Note", bundle: .module)
+    case .ink: String(localized: "Drawing", bundle: .module)
+    case .rectangle: String(localized: "Rectangle", bundle: .module)
+    case .oval: String(localized: "Oval", bundle: .module)
+    case .line: String(localized: "Line", bundle: .module)
+    case .textBox: String(localized: "Text box", bundle: .module)
+    case .stamp: String(localized: "Stamp", bundle: .module)
+    case .other: String(localized: "Annotation", bundle: .module)
+    }
   }
 
   /// Opens the page chosen in the outline or the page grid, now that its sheet has closed.

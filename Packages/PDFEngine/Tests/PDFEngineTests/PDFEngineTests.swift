@@ -142,6 +142,53 @@ struct ControllerTests {
     #expect(PDFDocumentController.hasRoom(toWrite: 1_000_000_000, available: nil))
   }
 
+  @Test("Stamps go on the page as framed text other apps can read, and survive a save (FR-ANN-006)")
+  func stamps() throws {
+    let controller = try PDFDocumentController(data: SyntheticPDF.makeSample())
+    let day = Date(timeIntervalSince1970: 1_800_000_000)
+    #expect(controller.addStamp(.date(day), onPage: 0))
+    #expect(controller.addStamp(.tick, onPage: 0))
+    #expect(controller.addStamp(.text("Paid"), onPage: 1))
+    #expect(!controller.addStamp(.text("   "), onPage: 0))
+    #expect(!controller.addStamp(.cross, onPage: 9))
+    #expect(!controller.addStamp(.text(String(repeating: "x", count: 61)), onPage: 0))
+    let url = temporaryURL()
+    try controller.save(to: url)
+    let page = try #require(PDFDocument(url: url)?.page(at: 0))
+    let texts = page.annotations.filter { $0.type == "FreeText" }.compactMap(\.contents)
+    #expect(texts.contains("✓") && texts.contains(PDFDocumentController.Stamp.date(day).text))
+    let box = page.bounds(for: .cropBox)
+    #expect(page.annotations.allSatisfy { box.contains($0.bounds) })
+    controller.undoManager.undo()
+  }
+
+  @Test("Bookmarks live in the file's outline, in page order, survive a save and can be undone (FR-READ-009)")
+  func bookmarks() throws {
+    let controller = try PDFDocumentController(data: SyntheticPDF.make(pages: ["One", "Two", "Three"]))
+    controller.undoManager.groupsByEvent = false
+    func step(_ change: () -> Void) {
+      controller.undoManager.beginUndoGrouping()
+      change()
+      controller.undoManager.endUndoGrouping()
+    }
+    step { #expect(controller.toggleBookmark(onPage: 2)) }
+    step { #expect(controller.toggleBookmark(onPage: 0)) }
+    #expect(controller.bookmarkedPages == [0, 2] && controller.hasUnsavedChanges)
+    #expect(controller.outline.map(\.title).first == PDFDocumentController.bookmarksLabel)
+    #expect(!controller.toggleBookmark(onPage: 7))
+
+    let url = temporaryURL()
+    try controller.save(to: url)
+    let reopened = try PDFDocumentController(url: url)
+    #expect(reopened.bookmarkedPages == [0, 2])
+    #expect(!reopened.toggleBookmark(onPage: 2))
+    #expect(!reopened.toggleBookmark(onPage: 0))
+    #expect(reopened.bookmarkedPages.isEmpty && reopened.outline.isEmpty, "The empty Bookmarks entry goes too")
+
+    controller.undoManager.undo()
+    #expect(controller.bookmarkedPages == [2])
+  }
+
   @Test("Form entries count as changes and are saved (defect D1)")
   func formEntriesAreSaved() throws {
     let controller = try PDFDocumentController(data: TestPDFs.makeForm())
@@ -404,6 +451,46 @@ struct ControllerTests {
     #expect(controller.setSelectionColor(.green))
     controller.clearSelection()
     #expect(!controller.setSelectionColor(.blue), "Nothing selected")
+  }
+
+  @Test(
+    "Only web, email and phone links can be opened from a document (T-02)",
+    arguments: [
+      ("https://example.com/terms", true), ("http://example.com", true), ("mailto:help@example.com", true),
+      ("tel:+61400000000", true), ("HTTPS://EXAMPLE.COM", true), ("file:///etc/hosts", false),
+      ("javascript:alert(1)", false), ("data:text/html,hi", false), ("shortcuts://run-shortcut?name=x", false),
+      ("https:///no-host", false), ("pdfalgopro://open", false),
+    ])
+  func linkPolicy(address: String, openable: Bool) throws {
+    let link = DocumentLink(url: try #require(URL(string: address)))
+    #expect(link.isOpenable == openable)
+    #expect(link.address == address)
+  }
+
+  @Test("A tapped link waits for the person instead of opening (T-02)")
+  func tappedLink() throws {
+    let controller = try PDFDocumentController(data: SyntheticPDF.make(pages: ["Page"]))
+    let url = try #require(URL(string: "https://example.com"))
+    controller.linkTapped(url)
+    #expect(controller.tappedLink == DocumentLink(url: url))
+    controller.dismissLink()
+    #expect(controller.tappedLink == nil)
+  }
+
+  @Test("The annotation list gives each annotation's page, kind and text, in reading order (FR-ANN-003)")
+  func annotationList() throws {
+    let controller = try PDFDocumentController(data: SyntheticPDF.make(pages: ["Highlight these words", "Second"]))
+    #expect(controller.annotationSummaries().isEmpty)
+    #expect(controller.markUp(text: "these", as: .highlight))
+    controller.addNote("  Check this  ", onPage: 1)
+    #expect(controller.addInk([[CGPoint(x: 100, y: 100), CGPoint(x: 140, y: 120)]], onPage: 1))
+    let summaries = controller.annotationSummaries()
+    #expect(summaries.map(\.pageIndex) == [0, 1, 1])
+    #expect(summaries.first?.kind == .highlight)
+    #expect(summaries.first?.text?.contains("these") == true)
+    #expect(summaries.contains { $0.kind == .note && $0.text == "Check this" })
+    #expect(summaries.contains { $0.kind == .ink && $0.text == nil && !$0.isSignature })
+    #expect(Set(summaries.map(\.id)).count == summaries.count)
   }
 
   @Test("Every annotation type gets a kind")

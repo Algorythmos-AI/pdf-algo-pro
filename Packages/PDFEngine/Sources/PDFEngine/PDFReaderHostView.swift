@@ -15,6 +15,16 @@ import PDFKit
   typealias PlatformFont = NSFont
 #endif
 
+/// Stops PDFKit opening links to outside the document by itself; the controller asks first (T-02).
+@MainActor
+final class LinkDelegate: NSObject, @MainActor PDFViewDelegate {
+  var onLink: ((URL) -> Void)?
+
+  func pdfViewWillClick(onLink sender: PDFView, with url: URL) {
+    onLink?(url)
+  }
+}
+
 /// Annotation colours: the user's content, drawn with system colours (design system, annotation colours).
 enum AnnotationPalette {
   static let yellow = PlatformColor.systemYellow.withAlphaComponent(0.45)
@@ -29,6 +39,7 @@ enum AnnotationPalette {
 final class PDFReaderHostView: PDFView {
   private var pageObserver: (any NSObjectProtocol)?
   private weak var controller: PDFDocumentController?
+  private let linkDelegate = LinkDelegate()
   #if canImport(UIKit)
     private var inkCapture: InkCaptureView?
     // PDFView is the delegate of its own recognizers, so the tap gets a delegate of its own.
@@ -56,6 +67,9 @@ final class PDFReaderHostView: PDFView {
       }
     }
     self.controller = controller
+    // A tapped web link waits for the person to confirm it instead of opening at once (T-02).
+    linkDelegate.onLink = { [weak controller] url in controller?.linkTapped(url) }
+    delegate = linkDelegate
     #if canImport(UIKit)
       // Selecting annotations (F3) works alongside PDFKit's own taps: links still open and text
       // selection still clears.

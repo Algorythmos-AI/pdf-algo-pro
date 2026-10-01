@@ -37,6 +37,10 @@ final class LargeTextUITests: UITestCase {
     tapMenuItem(app.buttons["Contents"], in: app.buttons["reader.more"], until: contents)
     try audit(app, onSheet: true)
     contents.buttons["Done"].tap()
+    let annotations = app.navigationBars["Annotations"]
+    tapMenuItem(app.buttons["reader.annotations"], in: app.buttons["reader.more"], until: annotations)
+    try audit(app, onSheet: true)
+    annotations.buttons["Done"].tap()
     tapMenuItem(app.buttons["Pages"], in: app.buttons["reader.more"], until: app.buttons["Page 3"])
     try audit(app, onSheet: true)
   }

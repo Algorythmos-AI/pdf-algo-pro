@@ -125,6 +125,34 @@ struct ReaderToolbar: ToolbarContent {
               Image(systemName: "note.text.badge.plus")
             }
           }
+          Menu {
+            Button {
+              Task { await model.addStamp(.date(Date())) }
+            } label: {
+              Text("Today's date", bundle: .module)
+            }
+            Button {
+              Task { await model.addStamp(.tick) }
+            } label: {
+              Text("Tick", bundle: .module)
+            }
+            Button {
+              Task { await model.addStamp(.cross) }
+            } label: {
+              Text("Cross", bundle: .module)
+            }
+            Button {
+              model.isAddingStampText = true
+            } label: {
+              Text("Text or initials…", bundle: .module)
+            }
+          } label: {
+            Label {
+              Text("Stamp", bundle: .module)
+            } icon: {
+              Image(systemName: "seal")
+            }
+          }
           Button {
             Task { await model.undo() }
           } label: {
@@ -217,6 +245,27 @@ struct ReaderToolbar: ToolbarContent {
               Image(systemName: "list.bullet.indent")
             }
           }
+          Button {
+            Task { await model.toggleBookmark() }
+          } label: {
+            Label {
+              model.isCurrentPageBookmarked
+                ? Text("Remove bookmark", bundle: .module) : Text("Bookmark this page", bundle: .module)
+            } icon: {
+              Image(systemName: model.isCurrentPageBookmarked ? "bookmark.slash" : "bookmark")
+            }
+          }
+          .accessibilityIdentifier("reader.bookmark")
+          Button {
+            model.showsAnnotations = true
+          } label: {
+            Label {
+              Text("Annotations", bundle: .module)
+            } icon: {
+              Image(systemName: "list.bullet.rectangle")
+            }
+          }
+          .accessibilityIdentifier("reader.annotations")
           Section {
             Menu {
               Button {

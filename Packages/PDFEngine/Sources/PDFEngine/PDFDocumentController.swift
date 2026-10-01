@@ -53,6 +53,8 @@ public final class PDFDocumentController {
   public internal(set) var drawingTool = DrawingTool.pen
   /// The annotation the person selected, if any (F3).
   public internal(set) var selection: AnnotationSelection?
+  /// A link to outside the document that the person tapped, waiting for them to confirm (T-02).
+  public var tappedLink: DocumentLink?
   /// The selected annotation itself; PDFKit objects stay out of `selection`.
   @ObservationIgnored var selected: (annotation: PDFAnnotation, page: PDFPage)?
   /// How pages are laid out.
@@ -138,8 +140,9 @@ public final class PDFDocumentController {
     func walk(_ node: PDFOutline, depth: Int) {
       for index in 0..<node.numberOfChildren {
         guard let child = node.child(at: index) else { continue }
-        if let page = child.destination?.page {
-          items.append(OutlineItem(title: child.label ?? "", pageIndex: document.index(for: page), depth: depth))
+        // An entry for a page no longer in the document (deleted since) is left out.
+        if let page = child.destination?.page, case let index = document.index(for: page), index != NSNotFound {
+          items.append(OutlineItem(title: child.label ?? "", pageIndex: index, depth: depth))
         }
         walk(child, depth: depth + 1)
       }
