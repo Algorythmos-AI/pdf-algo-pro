@@ -194,4 +194,21 @@ struct CloudKitRecordTests {
     #expect(CloudKitRecordSource.record(empty) == nil)
     _ = CloudKitRecordSource(containerIdentifier: "iCloud.example")
   }
+
+  @Test("Every page of a query is read, and a record that failed to load is skipped")
+  func paging() async throws {
+    func record(_ target: String) -> CKRecord {
+      let record = CKRecord(recordType: CloudKitRecordSource.recordType)
+      record["target"] = target
+      return record
+    }
+    struct Failed: Error {}
+    let id = CKRecord.ID(recordName: "x")
+    let records = try await CloudKitRecordSource.collect(
+      first: { ([(id, .success(record("feature.a"))), (id, .failure(Failed()))], 1) },
+      next: { (page: Int) in
+        page == 1 ? ([(id, .success(record("feature.b")))], 2) : ([(id, .success(record("feature.c")))], nil)
+      })
+    #expect(records.map(\.target) == ["feature.a", "feature.b", "feature.c"])
+  }
 }
