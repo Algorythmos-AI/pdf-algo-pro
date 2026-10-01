@@ -70,10 +70,22 @@ class UITestCase: XCTestCase {
     }
   }
 
-  /// Opens a menu and taps one of its items (see `tap(_:until:)`).
-  func tapMenuItem(_ item: XCUIElement, in menu: XCUIElement, file: StaticString = #filePath, line: UInt = #line) {
+  /// Opens a menu, taps one of its items and waits for what the item opens (see `tap(_:until:)`).
+  ///
+  /// On a slow CI runner the tap on the item can be swallowed, or what it opens can take longer than a
+  /// short wait allows: one run spent 30 seconds finding the item, then gave up on the sheet after 5.
+  /// So this waits 10 seconds for `result` and, when it hasn't appeared, taps the item once more,
+  /// opening the menu again if it has closed. The caller still asserts that `result` exists.
+  func tapMenuItem(
+    _ item: XCUIElement, in menu: XCUIElement, until result: XCUIElement, file: StaticString = #filePath,
+    line: UInt = #line
+  ) {
     tap(menu, until: item, file: file, line: line)
     item.tap()
+    if result.waitForExistence(timeout: 10) { return }
+    if !item.exists { tap(menu, until: item, file: file, line: line) }
+    item.tap()
+    XCTAssertTrue(result.waitForExistence(timeout: 10), "The menu item opens what it should", file: file, line: line)
   }
 
   /// The accessibility audit on the current screen.
