@@ -17,7 +17,33 @@ struct SelectionBar: View {
 
   var body: some View {
     HStack(spacing: Spacing.s150) {
-      Self.title(for: selection.kind).font(.subheadline.weight(.semibold))
+      // The title carries the Move actions, so it gets a full-size target like any control.
+      Self.title(for: selection.kind).font(.subheadline.weight(.semibold)).minimumTarget()
+        // Dragging moves a selection; these do the same without a drag, for VoiceOver and Switch Control.
+        .accessibilityActions {
+          if selection.isMovable {
+            Button {
+              onMove(CGSize(width: 0, height: Self.step))
+            } label: {
+              Text("Move up", bundle: .module)
+            }
+            Button {
+              onMove(CGSize(width: 0, height: -Self.step))
+            } label: {
+              Text("Move down", bundle: .module)
+            }
+            Button {
+              onMove(CGSize(width: -Self.step, height: 0))
+            } label: {
+              Text("Move left", bundle: .module)
+            }
+            Button {
+              onMove(CGSize(width: Self.step, height: 0))
+            } label: {
+              Text("Move right", bundle: .module)
+            }
+          }
+        }
       Spacer(minLength: Spacing.s100)
       if selection.isMovable || selection.isRecolorable {
         Menu {
@@ -72,31 +98,6 @@ struct SelectionBar: View {
     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     .accessibilityElement(children: .contain)
     .accessibilityIdentifier("reader.selection.actionBar")
-    // Dragging moves a selection; these do the same without a drag, for VoiceOver and Switch Control.
-    .accessibilityActions {
-      if selection.isMovable {
-        Button {
-          onMove(CGSize(width: 0, height: Self.step))
-        } label: {
-          Text("Move up", bundle: .module)
-        }
-        Button {
-          onMove(CGSize(width: 0, height: -Self.step))
-        } label: {
-          Text("Move down", bundle: .module)
-        }
-        Button {
-          onMove(CGSize(width: -Self.step, height: 0))
-        } label: {
-          Text("Move left", bundle: .module)
-        }
-        Button {
-          onMove(CGSize(width: Self.step, height: 0))
-        } label: {
-          Text("Move right", bundle: .module)
-        }
-      }
-    }
   }
 
   static func name(of color: AnnotationColor) -> Text {
