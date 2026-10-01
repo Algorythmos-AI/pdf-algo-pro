@@ -276,7 +276,13 @@ Version 2, approved by the owner on 2026-10-01. `scripts/design/make_app_icon.sw
 - **The "PDF" mark is drawn as paths**, not set in a font, so the icon depends on no font licence.
 - **Staging** (`AppIcon-Staging`) is the same artwork with the beta badge, selected by the Staging
   build configuration in `project.yml`.
-- `scripts/ci/invariants.py` checks that the default image of each set is an opaque 1024 × 1024 PNG.
+- **Liquid Glass.** The script also writes an Icon Composer document for each set (`AppIcon.icon`,
+  `AppIcon-Staging.icon`) with the page, the sparkle and the badge as separate glass layers over a
+  crimson-to-violet fill. The build uses the document, and iOS draws the dark, tinted and clear
+  appearances from it. An Icon Composer fill takes two colours and runs top to bottom, so there the
+  field goes from crimson straight to violet without the magenta stop.
+- `scripts/ci/invariants.py` checks that the default image of each set is an opaque 1024 × 1024 PNG
+  and that each Icon Composer document has all its layer images.
 
 ## Typography
 
