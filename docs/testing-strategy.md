@@ -364,7 +364,9 @@ version and SHA-256 (`scripts/ci/validate_pdfs.sh`). Warnings are reported; erro
 jobs are advisory for their first two weeks, then become required. The same job then renders every
 page of every file with PDFium (pypdfium2 5.13.0, BSD-3-Clause and Apache-2.0, pinned by the wheel's
 hash; `scripts/ci/pdfium_render.py`). A Core Graphics parse of each saved file runs in the corpus
-tests themselves.
+tests themselves. The export job also runs the controller, toolkit and save fault-injection suites under
+Thread Sanitizer (plan H4), because `PDFDocument` isn't thread-safe and saving is due to move off the
+main actor.
 
 ### True-redaction verification
 
