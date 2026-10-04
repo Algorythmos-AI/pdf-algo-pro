@@ -142,6 +142,11 @@ final class AppModel {
     return model
   }
 
+  /// Lets go of the reader once its document has closed, so opening it again starts afresh.
+  func closeReader() {
+    reader = nil
+  }
+
   func makeAssistant(for context: ReaderAssistantContext) -> AssistantModel {
     AssistantModel(
       task: context.task, intelligence: container.intelligence, pages: context.pages, telemetry: container.telemetry,

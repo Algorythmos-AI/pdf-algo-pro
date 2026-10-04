@@ -545,6 +545,36 @@
         }
       }
     },
+    "Drag across text to highlight it" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Faites glisser le doigt sur le texte pour le surligner"
+          }
+        }
+      }
+    },
+    "Drag across text to strike it through" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Faites glisser le doigt sur le texte pour le barrer"
+          }
+        }
+      }
+    },
+    "Drag across text to underline it" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Faites glisser le doigt sur le texte pour le souligner"
+          }
+        }
+      }
+    },
     "Draw" : {
       "localizations" : {
         "fr" : {
@@ -1292,36 +1322,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sélectionner"
-          }
-        }
-      }
-    },
-    "Select text to highlight it" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sélectionnez du texte pour le surligner"
-          }
-        }
-      }
-    },
-    "Select text to strike it through" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sélectionnez du texte pour le barrer"
-          }
-        }
-      }
-    },
-    "Select text to underline it" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sélectionnez du texte pour le souligner"
           }
         }
       }

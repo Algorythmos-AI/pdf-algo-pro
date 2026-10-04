@@ -16,6 +16,20 @@ final class LibraryUITests: UITestCase {
   }
 
   /// The back button on the document list once did nothing: the list bounced straight back.
+  func testADocumentOpensAgainAfterGoingBack() throws {
+    let app = launch(["-skip-onboarding", "-seed-library", "sample"])
+    let page = app.staticTexts["reader.pageIndicator"]
+    XCTAssertTrue(page.waitForExistence(timeout: 15))
+    for _ in 0..<2 {
+      app.navigationBars.buttons.firstMatch.tap()
+      let row = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "library.document.")).firstMatch
+      XCTAssertTrue(row.waitForExistence(timeout: Self.settleTimeout), "Back to the list")
+      XCTAssertTrue(page.waitForNonExistence(timeout: Self.settleTimeout))
+      row.tap()
+      XCTAssertTrue(page.waitForExistence(timeout: Self.settleTimeout), "The same document opens again")
+    }
+  }
+
   func testBackFromTheDocumentListShowsTheSectionsAndEachOpens() throws {
     let app = launch(["-skip-onboarding", "-seed-library", "sample"])
     XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))

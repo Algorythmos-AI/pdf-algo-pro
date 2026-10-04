@@ -114,6 +114,15 @@ extension PDFDocumentController {
     return true
   }
 
+  /// Selects an annotation just added to a page.
+  func select(_ annotation: PDFAnnotation, on page: PDFPage) {
+    let kind = Self.kind(of: annotation)
+    selected = (annotation, page)
+    selection = AnnotationSelection(
+      kind: kind, pageIndex: document.index(for: page), text: annotation.contents,
+      isSignature: kind == .ink && annotation.contents == Self.signatureContents)
+  }
+
   /// Clears the selection.
   public func clearSelection() {
     selected = nil

@@ -161,7 +161,7 @@ extension PDFDocumentController {
     if kind == .textBox {
       annotation.fontColor = color
     } else {
-      annotation.color = kind == .highlight ? color.withAlphaComponent(0.45) : color
+      annotation.color = kind == .highlight ? AnnotationPalette.highlighter(color) : color
       if kind == .line { annotation.interiorColor = color }
     }
     hasUnsavedChanges = true
