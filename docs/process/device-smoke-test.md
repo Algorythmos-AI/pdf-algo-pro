@@ -41,6 +41,7 @@ Owner: Quality · Reviewed: whenever a build adds a feature that only a device c
 | Links in PDFs (T-02) | Tap a web link: the full address shows before anything opens |
 | App Lock (FR-SET-002) | Turn it on; the app switcher shows no document; Face ID, and the passcode after a failure, unlock it |
 | Siri summary (FR-AI-018) | "Summarise [document] with PDF Algo Pro" on a locked iPhone asks to unlock first |
+| Editing existing text (FR-EDIT-001) | Run the five scenarios in the [text editing device test](text-editing-device-test.md); the full document table before the release flag is turned on |
 | Assistant follow-ups (FR-AI-014) | Ask "What is the total?" then "When is it due?": the answer uses the first question |
 
 ## Sign-off

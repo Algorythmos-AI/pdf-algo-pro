@@ -1,0 +1,85 @@
+# Text editing device test
+
+The check that editing existing text gets on a real iPhone before the `textEditing` release flag is
+turned on in a Release build ([ADR-0025](../adr/0025-native-text-editing-for-the-safe-subset.md)).
+CI proves the editor on synthetic documents on the simulator. This checks what only a device and
+real documents show: fonts from other apps, how the editor feels, how long an edit takes, and
+whether other apps read the result. It adds to the [device smoke test](device-smoke-test.md) and
+the [VoiceOver script](voiceover-script.md); how the editor works is in the
+[text editing architecture](../pdf-text-editing-architecture.md).
+
+Owner: Quality and PDF engine · Reviewed: whenever the editor's supported cases change, and before the release flag is removed
+
+## Before you start
+
+- Install the Staging build from TestFlight. Text editing is on in Staging and needs no purchase.
+- Use documents you made for the test, never a customer's or a real personal one
+  ([AGENTS.md](../../AGENTS.md), rule 6). Make each from the app named, with a few lines of text.
+- Have Adobe Acrobat Reader, Files (Quick Look) and one other reader installed, to open what you
+  export.
+- Note the build, device and iOS version in the sign-off table. Record every refusal: which
+  document, which text, and what the editor said.
+
+## The five scenarios
+
+| # | Do this | It passes when |
+|---|---|---|
+| 1 | Open an invoice. Tap Edit, tap "John Smith", type "David Smith", tap Done | Three taps before typing; under 10 seconds from Edit to saved; the name looks like the text around it; the exported file shows "David Smith" in Adobe Acrobat Reader, and searching it for "John" finds nothing |
+| 2 | Open a résumé. Change "2024 Data Analyst" to "2025 Senior Data Scientist" | With room on the line, the new title fits and looks like its neighbours. Without room, the editor says it is too long and that nothing changed, and what you typed is still in the field |
+| 3 | Open a contract. Fix a typo in the middle of a paragraph | The line keeps both edges; bookmarks open the same pages; More › Info shows the same title and author |
+| 4 | Open lecture notes. Highlight a line, add a note, fix a typo on the highlighted line, share | The highlight is still on its line and the note is still there, in this app and in the exported file; Undo steps back through all three in order |
+| 5 | Open a scan. Tap Edit | The reader says "This PDF contains images rather than editable text." and offers Recognise text; no text is outlined |
+
+## Every kind of document
+
+For each document: open, edit one line, close the reader, open it again, share the file, and open
+the shared copy in Adobe Acrobat Reader. A row passes when the edit is there every time, looks
+right, and nothing else on the page moved.
+
+| Document | Made with | Also check |
+|---|---|---|
+| Generated PDF | Print to PDF on a Mac | The typeface stays the same |
+| Word export | Microsoft Word | Whether the editor says the font was matched; whether the match is acceptable |
+| Pages export | Pages | The typeface stays the same |
+| Google Docs export | Google Docs | Whether the editor says the font was matched |
+| Browser PDF | Safari and Chrome, a web page saved as PDF | Text in narrow columns: too-long replacements are refused, not squeezed |
+| Invoice | Any | An amount in a right-aligned column keeps its right edge |
+| Résumé | Any | Bold headings stay bold |
+| Contract | Any, with bookmarks | Bookmarks and links still work |
+| Academic paper | LaTeX | Body text edits; formulas are refused or covered, never damaged |
+| Scanned PDF | The app's scanner, before and after Recognise text | Scenario 5, both times |
+| Encrypted PDF | Add a password in the app | It still asks for the password after the edit, in this app and in Acrobat |
+| Signed PDF | A digitally signed test document | The reader asks first; the edit goes into a copy; the original still validates |
+| Unusual fonts | A document set in a decorative or brand typeface | The edit is refused, covered or matched, and the editor says which |
+| Rotated pages | Rotate a page in the app, then edit it | The outline sits on the text; the edit lands in place |
+| Large PDF | 500 pages or more | Entering Edit and picking text feel the same as in a short document; note how long Done takes |
+
+## How it feels
+
+- The outlines appear without the page jumping, and follow the page while it scrolls and zooms.
+- The field sits over the text it edits. The keyboard does not cover it.
+- After Done, the page is where it was, at the same zoom.
+- With VoiceOver on, each piece of text is read once, and a double tap edits it
+  ([VoiceOver script](voiceover-script.md)).
+- At the largest text size, the bar's buttons and messages are fully readable.
+- In French, every message is in French.
+
+## Against other apps
+
+Run scenario 1 on the same invoice in Adobe Acrobat, PDF Expert, UPDF, Foxit PDF Editor and Xodo,
+and record what you see. The aim is to be simpler, faster and more trustworthy, not to match
+features. No result is assumed here; the table is filled in from the device.
+
+| App | Taps before typing | Seconds from open to saved | Did the result look right | Did it say what it did |
+|---|---|---|---|---|
+| PDF Algo Pro | | | | |
+| Adobe Acrobat | | | | |
+| PDF Expert | | | | |
+| UPDF | | | | |
+| Foxit PDF Editor | | | | |
+| Xodo | | | | |
+
+## Sign-off
+
+| Date | Build | Device | iOS | Scenarios passed | Documents passed | Refusals recorded | Issues filed |
+|---|---|---|---|---|---|---|---|

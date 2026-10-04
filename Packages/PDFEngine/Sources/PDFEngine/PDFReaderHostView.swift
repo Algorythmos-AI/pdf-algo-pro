@@ -51,9 +51,11 @@ final class PDFReaderHostView: PDFView {
   private var pageObserver: (any NSObjectProtocol)?
   private var selectionObserver: (any NSObjectProtocol)?
   private var selectionSettling: Task<Void, Never>?
-  private weak var controller: PDFDocumentController?
+  private(set) weak var controller: PDFDocumentController?
   private let linkDelegate = LinkDelegate()
   #if canImport(UIKit)
+    /// Marks editable text on each page and takes the taps that pick it (FR-EDIT-001).
+    let textOverlays = TextOverlayProvider()
     private var inkCapture: InkCaptureView?
     // PDFView is the delegate of its own recognizers, so the tap gets a delegate of its own.
     private let tapDelegate = SimultaneousGestureDelegate()
@@ -64,6 +66,11 @@ final class PDFReaderHostView: PDFView {
   #endif
 
   func configure(for controller: PDFDocumentController) {
+    #if canImport(UIKit)
+      // The provider is asked for a view as each page comes on screen, so it is in place first.
+      textOverlays.host = self
+      pageOverlayViewProvider = textOverlays
+    #endif
     document = controller.document
     autoScales = true
     displayDirection = .vertical
@@ -195,7 +202,8 @@ final class PDFReaderHostView: PDFView {
   extension PDFReaderHostView {
     /// Selects the annotation under a tap, or clears the selection (F3).
     @objc fileprivate func tapped(_ recognizer: UITapGestureRecognizer) {
-      guard let controller, !controller.isDrawing, let document else { return }
+      // While text is being edited, taps pick text (through the page overlays), not annotations.
+      guard let controller, !controller.isDrawing, !controller.isEditingText, let document else { return }
       let point = recognizer.location(in: self)
       guard let page = page(for: point, nearest: false) else {
         controller.clearSelection()

@@ -99,6 +99,7 @@ blocks implementation today?
 | [iOS architecture review](ios-architecture-review.md) | Architecture | each milestone, and whenever an ADR changes |
 | [Platform strategy](platform-strategy.md) | Product and Architecture | at each platform launch decision |
 | [Design system](design-system.md) | Design | each milestone, and whenever a token or component changes |
+| [PDF text editing architecture](pdf-text-editing-architecture.md) | Architecture and PDF engine | each milestone, and whenever the editor's supported cases change |
 | [Performance budgets](performance-budgets.md) | Architecture | each milestone, and after each MetricKit review |
 
 ### AI governance
@@ -149,6 +150,7 @@ blocks implementation today?
 | [Quality gates](process/quality-gates.md) | Quality | each milestone, and with any change to a workflow, ruleset or threshold |
 | [VoiceOver script](process/voiceover-script.md) | Quality and Design | each milestone, and whenever a screen or journey is added |
 | [Device smoke test](process/device-smoke-test.md) | Quality | whenever a build adds a feature only a device can show |
+| [Text editing device test](process/text-editing-device-test.md) | Quality and PDF engine | whenever the editor's supported cases change, and before the release flag is removed |
 | [Localisation](process/localization.md) | Product and Design | each milestone, and whenever a language is added |
 | [App Store submission](process/runbooks/app-store-submission.md) | Release | after each release |
 | [iOS hotfix](process/runbooks/ios-hotfix.md) | Release | after each hotfix |

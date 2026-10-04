@@ -53,6 +53,12 @@ public final class PDFDocumentController {
   public internal(set) var drawingTool = DrawingTool.pen
   /// The annotation the person selected, if any (F3).
   public internal(set) var selection: AnnotationSelection?
+  /// Whether taps on the page pick existing text to edit, instead of annotations (FR-EDIT-001).
+  public internal(set) var isEditingText = false
+  /// The existing text the person picked to edit, if any.
+  ///
+  /// Separate from `selection`, which is for annotations.
+  public internal(set) var selectedTextRegion: TextRegionSelection?
   /// A link to outside the document that the person tapped, waiting for them to confirm (T-02).
   public var tappedLink: DocumentLink?
   /// The selected annotation itself; PDFKit objects stay out of `selection`.
@@ -75,22 +81,43 @@ public final class PDFDocumentController {
   @ObservationIgnored var wasEncrypted: Bool
   /// A password change waiting for the next save (FR-EDIT-006).
   @ObservationIgnored var pendingProtection: ProtectionChange?
-  /// Whether the file was digitally signed when opened; saving it in place would break the signature
-  /// (plan item H9).
-  @ObservationIgnored public let digitalSignature: DigitalSignatureStatus
+  /// Whether the file was digitally signed when opened or unlocked; saving it in place would break
+  /// the signature (plan item H9).
+  @ObservationIgnored public private(set) var digitalSignature: DigitalSignatureStatus
   /// Form fields and their values when the document was opened, unlocked or last saved.
   @ObservationIgnored var formValues: [(widget: PDFAnnotation, value: FormValue)] = []
   /// Undo for every annotation change (FR-EDIT-007).
   @ObservationIgnored public let undoManager = UndoManager()
+  /// What finds and changes the existing text of a page (ADR-0025).
+  @ObservationIgnored let textEditor: any PDFTextEditing
+  /// The text found on pages, kept while the page object is unchanged.
+  @ObservationIgnored var textPages: [ObjectIdentifier: TextPage] = [:]
+  /// Counts changes to which pages the document has, so work that awaited can tell it is out of date.
+  @ObservationIgnored var structureGeneration = 0
+  /// Pages whose content was edited since the last save, checked again in the staged file.
+  @ObservationIgnored var contentEditedPages: [PDFPage] = []
+  /// Whether a text edit is being made; a second one waits its turn by being refused.
+  @ObservationIgnored var isCommittingText = false
+  /// Which links point at which page, found once so that swapping a page does not walk the document.
+  @ObservationIgnored var incomingLinks: [ObjectIdentifier: [PDFAnnotation]]?
+  /// Roughly how many bytes of replaced pages the undo history is holding on to.
+  @ObservationIgnored var textUndoBytes = 0
+  /// The work of finding `incomingLinks`, while it runs.
+  @ObservationIgnored var linkIndexing: Task<Void, Never>?
 
   // MARK: - Opening
 
   /// Opens the PDF at a URL.
   ///
+  /// - Parameters:
+  ///   - url: The file.
+  ///   - textEditor: What edits existing text; the native editor unless a test or another engine
+  ///     replaces it.
   /// - Throws: `PDFEngineError.unreadable` when the file is not a readable PDF.
-  public init(url: URL) throws {
+  public init(url: URL, textEditor: any PDFTextEditing = ContentStreamTextEditor()) throws {
     guard let document = PDFDocument(url: url) else { throw PDFEngineError.unreadable }
     self.document = document
+    self.textEditor = textEditor
     isLocked = document.isLocked
     wasEncrypted = document.isEncrypted
     digitalSignature = DigitalSignatureStatus.of(fileAt: url)
@@ -99,10 +126,15 @@ public final class PDFDocumentController {
 
   /// Opens a PDF from data (used by tests and previews).
   ///
+  /// - Parameters:
+  ///   - data: The PDF.
+  ///   - textEditor: What edits existing text; the native editor unless a test or another engine
+  ///     replaces it.
   /// - Throws: `PDFEngineError.unreadable` when the data is not a readable PDF.
-  public init(data: Data) throws {
+  public init(data: Data, textEditor: any PDFTextEditing = ContentStreamTextEditor()) throws {
     guard let document = PDFDocument(data: data) else { throw PDFEngineError.unreadable }
     self.document = document
+    self.textEditor = textEditor
     isLocked = document.isLocked
     wasEncrypted = document.isEncrypted
     digitalSignature = DigitalSignatureStatus.of(data: data)
@@ -115,6 +147,9 @@ public final class PDFDocumentController {
     guard document.unlock(withPassword: password) else { return false }
     self.password = password
     isLocked = false
+    // A locked file's signature fields cannot be read, so the status is worked out again now.
+    if let pdf = document.documentRef { digitalSignature = DigitalSignatureStatus.of(pdf) }
+    structureGeneration += 1
     recordFormValues()
     view?.reload()
     return true

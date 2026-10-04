@@ -10,6 +10,11 @@ Store notes (see the changelog strategy).
 ## [Unreleased]
 
 ### Added
+- Edit the text already in a PDF (internal builds for now): tap Edit, tap a line, type, tap Done.
+  The words change in the page itself, in the same font where the iPhone has it, and the change is
+  still there when the file is opened in another app. Each edit can be undone, and the version
+  before it is kept. When something can't be changed safely, the app says so and changes nothing.
+  Scanned pages say they are images and offer Recognise text; signed documents are edited in a copy.
 - App Lock: Settings › Privacy can require Face ID, Touch ID, Optic ID or the passcode to open the app.
   While it is on, the app switcher shows no document and document text stays out of Spotlight.
 - Tapping a web, email or phone link in a document now shows its full address and asks before

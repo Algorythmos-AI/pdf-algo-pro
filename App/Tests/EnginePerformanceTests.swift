@@ -78,6 +78,31 @@ nonisolated final class EnginePerformanceTests: XCTestCase {
     }
   }
 
+  /// Budget: edit a line of text in a 500-page PDF.
+  ///
+  /// Finding the page's text, making the edit and proving it, until the new page is in the document.
+  /// The save is measured by `testSaveAfterAnEditIn500Pages`.
+  @MainActor func testEditALineOfTextIn500Pages() throws {
+    let url = try write(pages: 500)
+    measure(metrics: [XCTClockMetric()], options: Self.manual) {
+      let controller = try? PDFDocumentController(url: url)
+      let edited = expectation(description: "edited")
+      Task { @MainActor in
+        defer { edited.fulfill() }
+        guard let controller, let region = await controller.pageText(onPage: 250).regions.first else {
+          XCTFail("no text to edit")
+          return
+        }
+        startMeasuring()
+        let outcomes = await controller.applyTextEdits(
+          [TextEdit(region: region, replacement: "Edited line")], onPage: 250)
+        stopMeasuring()
+        XCTAssertEqual(outcomes.first?.isEdited, true)
+      }
+      wait(for: [edited], timeout: 60)
+    }
+  }
+
   /// Budget: the page thumbnail grid (100 pages) populated.
   ///
   /// Measured as rendering all 100 thumbnails at the grid's size, more than a screen shows at once.

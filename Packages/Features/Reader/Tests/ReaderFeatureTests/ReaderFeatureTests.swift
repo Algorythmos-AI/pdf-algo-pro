@@ -34,13 +34,13 @@ private struct Harness {
 
   func reader(
     for document: Document, pageIndex: Int? = nil, task: AssistantTask? = nil,
-    recognizer: any TextRecognizing = FakeRecognizer()
+    recognizer: any TextRecognizing = FakeRecognizer(), textEditing: TextEditingAccess = .available
   ) -> ReaderModel {
     ReaderModel(
       selection: document.id, pageIndex: pageIndex, task: task, library: library,
       intake: intake, index: index, settings: settings, telemetry: telemetry,
       recognition: coordinator(recognizer: recognizer), signatures: signatures,
-      speech: SpeechReader(engine: SilentSpeech()))
+      speech: SpeechReader(engine: SilentSpeech()), textEditing: FixedTextEditingAccess(textEditing))
   }
 
   func seed(
@@ -965,6 +965,276 @@ struct ReaderModelTests {
   @Test("Every markup kind has a label", arguments: TextMarkup.allCases)
   func markupLabels(markup: TextMarkup) {
     _ = ReaderToolbar.label(for: markup)
+  }
+}
+
+@MainActor
+@Suite("Reader: editing existing text (FR-EDIT-001)")
+struct ReaderTextEditingTests {
+  private typealias Line = TextEditFixtures.Line
+
+  /// Opens a document, enters text editing and picks the region containing some text.
+  private func editing(
+    _ data: Data, in harness: Harness, title: String = "Doc", picking text: String? = nil, textLayer: Bool = true
+  ) async throws -> (reader: ReaderModel, document: Document) {
+    let document = await harness.seed(data, title: title, textLayer: textLayer)
+    let reader = harness.reader(for: document)
+    await reader.load()
+    await reader.beginTextEditing()
+    if let text { try await pick(text, in: reader) }
+    return (reader, document)
+  }
+
+  private func pick(_ text: String, in reader: ReaderModel, page: Int = 0) async throws {
+    let controller = try #require(reader.controller)
+    let regions = await controller.pageText(onPage: page).regions
+    controller.selectTextRegion(try #require(regions.first { $0.text.contains(text) }), onPage: page)
+    reader.textRegionPicked()
+  }
+
+  private func savedText(_ document: Document, in harness: Harness) async throws -> String {
+    let url = try await harness.library.fileURL(for: document.id)
+    return try PDFDocumentController(url: url).pageText(at: 0).filter { !$0.isWhitespace }
+  }
+
+  @Test("Edit is offered only when the build and the person have it")
+  func access() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try TextEditFixtures.invoice())
+
+    let hidden = harness.reader(for: document, textEditing: .hidden)
+    await hidden.load()
+    await hidden.beginTextEditing()
+    #expect(hidden.textEditingAccess == .hidden && !hidden.isEditingText && !hidden.showsTextEditingLocked)
+
+    let locked = harness.reader(for: document, textEditing: .locked)
+    await locked.load()
+    await locked.beginTextEditing()
+    #expect(locked.textEditingAccess == .locked && !locked.isEditingText && locked.showsTextEditingLocked)
+
+    let available = harness.reader(for: document)
+    await available.load()
+    await available.beginTextEditing()
+    #expect(available.textEditingAccess == .available && available.isEditingText)
+    #expect(available.textEditMessage == nil && available.errorMessage == nil)
+    await available.endTextEditing()
+    #expect(!available.isEditingText)
+    // Before the document is ready, or with none, nothing happens.
+    let unloaded = harness.reader(for: document)
+    await unloaded.beginTextEditing()
+    await unloaded.endTextEditing()
+    #expect(!unloaded.isEditingText)
+  }
+
+  @Test("Scenario 1: picking a name, typing a new one and pressing Done changes the saved file")
+  func commit() async throws {
+    let harness = Harness()
+    let (reader, document) = try await editing(try TextEditFixtures.invoice(), in: harness, picking: "John Smith")
+    #expect(reader.selectedTextRegion?.region.text == "Customer: John Smith" && reader.textEditMessage == nil)
+    #expect(reader.selection == nil, "Picked text is not a selected annotation")
+    #expect(await reader.commitTextEdit("Customer: David Smith"))
+    #expect(reader.selectedTextRegion == nil && reader.textEditMessage == nil && reader.errorMessage == nil)
+    #expect(reader.canUndo && reader.isEditingText && !reader.isCommittingTextEdit)
+    let saved = try await savedText(document, in: harness)
+    #expect(saved.contains("Customer:DavidSmith") && !saved.contains("John"))
+    #expect(await harness.library.hasPreviousVersion(of: document.id), "The version before the edit is kept")
+    #expect(await harness.telemetry.events.contains("task.core.completed"))
+  }
+
+  @Test("Cancelling, or pressing Done without changing anything, leaves the file as it was")
+  func cancel() async throws {
+    let harness = Harness()
+    let (reader, document) = try await editing(try TextEditFixtures.invoice(), in: harness, picking: "John Smith")
+    let url = try await harness.library.fileURL(for: document.id)
+    let original = try Data(contentsOf: url)
+    reader.cancelTextEdit()
+    #expect(reader.selectedTextRegion == nil && reader.isEditingText)
+    try await pick("John Smith", in: reader)
+    #expect(await !reader.commitTextEdit("  Customer: John Smith "))
+    #expect(reader.selectedTextRegion == nil && !reader.canUndo)
+    #expect(await !reader.commitTextEdit("Nothing picked"))
+    await reader.endTextEditing()
+    #expect(try Data(contentsOf: url) == original)
+    #expect(await harness.index.stored[document.id] == nil, "Nothing changed, so nothing was indexed again")
+  }
+
+  @Test("An edit is undone and redone, and the saved file follows; not while text is being typed")
+  func undo() async throws {
+    let harness = Harness()
+    let (reader, document) = try await editing(try TextEditFixtures.invoice(), in: harness, picking: "John Smith")
+    #expect(await reader.commitTextEdit("Customer: David Smith"))
+    try await pick("Materials", in: reader)
+    await reader.undo()
+    #expect(try await savedText(document, in: harness).contains("DavidSmith"), "Undo waits for the edit in hand")
+    reader.cancelTextEdit()
+    await reader.undo()
+    #expect(try await savedText(document, in: harness).contains("JohnSmith") && reader.canRedo)
+    await reader.redo()
+    #expect(try await savedText(document, in: harness).contains("DavidSmith"))
+  }
+
+  @Test("A replacement that does not fit or cannot be drawn is explained, and what was typed is kept")
+  func refusals() async throws {
+    let harness = Harness()
+    let (reader, document) = try await editing(
+      try TextEditFixtures.resume(hasRoom: false), in: harness, picking: "2024 Data Analyst")
+    let url = try await harness.library.fileURL(for: document.id)
+    let original = try Data(contentsOf: url)
+    #expect(await !reader.commitTextEdit("2025 Senior Data Scientist"))
+    #expect(reader.textEditMessage == .tooLong && reader.selectedTextRegion != nil, "The editor stays open")
+    #expect(await !reader.commitTextEdit("Analyst 👍"))
+    #expect(reader.textEditMessage == .unsupportedCharacters && reader.selectedTextRegion != nil)
+    #expect(try Data(contentsOf: url) == original && reader.errorMessage == nil && !reader.canUndo)
+    // A shorter title fits, and the message goes.
+    #expect(await reader.commitTextEdit("2025 Data Lead"))
+    #expect(reader.textEditMessage == nil)
+  }
+
+  @Test("Scenario 5: a scanned page says it has images, not text, and offers to recognise it")
+  func scanned() async throws {
+    let harness = Harness()
+    let (reader, _) = try await editing(
+      try SyntheticPDF.makeImageOnly(pages: ["A scanned letter"]), in: harness, textLayer: false)
+    #expect(reader.isEditingText && reader.textEditMessage == .pageIsImage && reader.canRecognizeText)
+    let hint = TextEditHint(model: reader).frame(width: 390).environment(\.dynamicTypeSize, .accessibility3)
+    #expect(ImageRenderer(content: hint).uiImage != nil)
+  }
+
+  @Test("What the reader says follows the page on screen")
+  func pageChanges() async throws {
+    let harness = Harness()
+    let text = try #require(PDFDocument(data: try TextEditFixtures.invoice()))
+    let image = try #require(PDFDocument(data: try SyntheticPDF.makeImageOnly(pages: ["Scan"])))
+    text.insert(try #require(image.page(at: 0)), at: 1)
+    let (reader, _) = try await editing(try #require(text.dataRepresentation()), in: harness)
+    #expect(reader.textEditMessage == nil)
+    reader.controller?.goTo(pageIndex: 1)
+    await reader.textEditingPageChanged()
+    #expect(reader.textEditMessage == .pageIsImage)
+    reader.controller?.goTo(pageIndex: 0)
+    await reader.textEditingPageChanged()
+    #expect(reader.textEditMessage == nil)
+  }
+
+  @Test("A document whose author does not allow changes cannot be edited, and says why")
+  func restricted() async throws {
+    let harness = Harness()
+    let (reader, _) = try await editing(
+      try TestPDFs.makeProtected(userPassword: nil, ownerPassword: "owner", permissions: [.allowsHighQualityPrinting]),
+      in: harness)
+    #expect(!reader.isEditingText && reader.errorMessage?.contains("doesn't allow") == true)
+  }
+
+  @Test("A signed document is edited only after the person agrees, and then in a copy")
+  func signed() async throws {
+    let harness = Harness()
+    let (reader, document) = try await editing(TestPDFs.makeSigned(.signed), in: harness, title: "Signed lease")
+    let url = try await harness.library.fileURL(for: document.id)
+    let original = try Data(contentsOf: url)
+    #expect(reader.confirmsEditingSigned && !reader.isEditingText)
+    reader.confirmsEditingSigned = false
+    await reader.confirmEditingSigned()
+    #expect(reader.isEditingText && !reader.confirmsEditingSigned)
+    try await pick("Signed agreement", in: reader)
+    #expect(await reader.commitTextEdit("Signed contract"))
+    #expect(try Data(contentsOf: url) == original, "The signed original is untouched")
+    #expect(reader.document?.title == "Signed lease (edited)" && reader.notice != nil)
+    let copy = try #require(reader.fileURL)
+    #expect(try PDFDocumentController(url: copy).pageText(at: 0).contains("Signed contract"))
+    // Entering again does not ask again.
+    await reader.endTextEditing()
+    await reader.beginTextEditing()
+    #expect(reader.isEditingText && !reader.confirmsEditingSigned)
+  }
+
+  @Test("Text that can only be covered says so before Done, and covering it is not an edit of the text")
+  func covering() async throws {
+    let harness = Harness()
+    let data = try TextEditFixtures.make(pages: [[]]) { context, _ in
+      context.setAlpha(0.4)
+      TextEditFixtures.draw(Line("Faded label", size: 24, at: CGPoint(x: 72, y: 500)), in: context)
+    }
+    let (reader, document) = try await editing(data, in: harness, picking: "Faded label")
+    #expect(reader.textEditMessage == .coversOriginal)
+    #expect(await reader.commitTextEdit("Clear label"))
+    let url = try await harness.library.fileURL(for: document.id)
+    let saved = try PDFDocumentController(url: url)
+    #expect(saved.annotationCount(onPage: 0) == 2 && saved.pageText(at: 0).contains("Faded label"))
+    await reader.endTextEditing()
+    #expect(await harness.index.stored[document.id] == nil, "The page's own text did not change")
+  }
+
+  @Test("Search finds the new words once editing ends, not after every edit")
+  func searchTextFollows() async throws {
+    let harness = Harness()
+    let (reader, document) = try await editing(try TextEditFixtures.invoice(), in: harness, picking: "John Smith")
+    #expect(await reader.commitTextEdit("Customer: David Smith"))
+    #expect(await harness.index.stored[document.id] == nil)
+    await reader.endTextEditing()
+    let indexed = try #require(await harness.index.stored[document.id]?.first?.text)
+    #expect(indexed.contains("David Smith") && !indexed.contains("John"))
+    // Closing the reader does the same for an edit made and left in editing mode.
+    await reader.beginTextEditing()
+    try await pick("Materials", in: reader)
+    #expect(await reader.commitTextEdit("Timber"))
+    await reader.saveBeforeClosing()
+    #expect(await harness.index.stored[document.id]?.first?.text.contains("Timber") == true)
+  }
+
+  @Test("Undoing a note does not send the whole document to be indexed again")
+  func annotationUndoDoesNotReindex() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try TextEditFixtures.invoice())
+    let reader = harness.reader(for: document)
+    await reader.load()
+    await reader.addNote("A note")
+    await reader.undo()
+    await reader.saveBeforeClosing()
+    #expect(await harness.index.stored[document.id] == nil)
+  }
+
+  @Test("Entering text editing puts down the markup tool, and drawing leaves text editing")
+  func modes() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try TextEditFixtures.invoice())
+    let reader = harness.reader(for: document)
+    await reader.load()
+    reader.startMarkupTool(.highlight)
+    await reader.beginTextEditing()
+    #expect(reader.isEditingText && reader.markupTool == nil)
+    reader.setDrawing(true)
+    #expect(reader.isDrawing && !reader.isEditingText)
+  }
+
+  @Test("The editor draws at a large text size, with and without the field in the bar")
+  func draws() async throws {
+    let harness = Harness()
+    let (reader, _) = try await editing(try TextEditFixtures.invoice(), in: harness, picking: "John Smith")
+    let draft = TextEditDraft()
+    draft.text = "Customer: David Smith"
+    for isInPlace in [nil, true, false] {
+      draft.isInPlace = isInPlace
+      let bar = TextEditBar(model: reader, draft: draft).frame(width: 390)
+        .environment(\.dynamicTypeSize, .accessibility3)
+      #expect(ImageRenderer(content: bar).uiImage != nil)
+    }
+    let selection = try #require(reader.selectedTextRegion)
+    let layer = TextEditLayer(model: reader, selection: selection, draft: draft).frame(width: 390, height: 700)
+    #expect(ImageRenderer(content: layer).uiImage != nil)
+    #expect(!TextEditLayer.fitsInPlace(selection, frame: nil))
+    #expect(TextEditLayer.fitsInPlace(selection, frame: CGRect(x: 40, y: 200, width: 200, height: 18)))
+    #expect(!TextEditLayer.fitsInPlace(selection, frame: CGRect(x: 40, y: 200, width: 200, height: 6)))
+    #expect(!TextEditLayer.isLight(selection.region))
+    #expect(TextEditLayer.font(for: selection.region, scale: 1.5).fontName == "Georgia")
+    #expect(TextEditLayer.color(for: selection.region).cgColor.components?.prefix(3).allSatisfy { $0 < 0.01 } == true)
+    for message in [
+      ReaderModel.TextEditMessage.pageIsImage, .pageNotEditable, .tooLong, .unsupportedCharacters, .cannotEdit,
+      .fontMatched, .coversOriginal,
+    ] {
+      #expect(ImageRenderer(content: TextEditMessageLabel(message: message).frame(width: 300)).uiImage != nil)
+    }
+    reader.cancelTextEdit()
+    #expect(ImageRenderer(content: TextEditHint(model: reader).frame(width: 390)).uiImage != nil)
   }
 }
 

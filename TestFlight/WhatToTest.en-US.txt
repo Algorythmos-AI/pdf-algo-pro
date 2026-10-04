@@ -1,5 +1,11 @@
 Internal build of PDF Algo Pro (Staging). Use test documents, not real ones. Please try:
 
+Edit text (new)
+- Open a document, tap Edit, tap a line of text, change it, tap Done. Close and reopen: it is still changed.
+- Share the document and open it in another PDF app: the new words are there and the old ones are gone.
+- Undo and Redo while editing. Try a much longer replacement: it fits, or the app says why not and changes nothing.
+- Open a scan and tap Edit: the app says the page is images and offers Recognise text.
+
 Your file is safe
 - Edit a document, save twice, then More > Version history: restore the first version.
 - Make an edit and swipe the app away at once. Reopen: the document opens, old or new, never damaged.

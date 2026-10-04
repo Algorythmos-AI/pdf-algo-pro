@@ -156,6 +156,8 @@ Owner: Security · Reviewed: each milestone, when a trust boundary changes, and 
 | `secrets` job and push protection | T-27, T-34 | [Quality gates](process/quality-gates.md) |
 | `dependency-review` and `codeql` | T-30, T-31, T-32 | [ADR-0013](adr/0013-ci-cd.md) |
 | Golden PDF corpus: malformed, fuzzed, JavaScript and active-content, bombs, very large | T-01, T-02, T-03 | [Testing strategy](testing-strategy.md) |
+| Text editing parser: malformed and fuzzed pages are refused without a crash; depth, operator, size and mapping limits (`TextEditingHostileInputTests`) | T-01, T-03 | [Text editing architecture](pdf-text-editing-architecture.md) |
+| Text editing never covers text silently: covering is a separate operation with its own outcome, and the editor says the original stays in the file (`coverAndReplace` tests) | T-06 | [Text editing architecture](pdf-text-editing-architecture.md) |
 | Independent validation of saved files: `pdf-validation` runs qpdf on every corpus file the engine saves (advisory for two weeks) | T-01 | [Testing strategy](testing-strategy.md) |
 | Redaction verification suite | T-06 | [Testing strategy](testing-strategy.md) |
 | AI evaluation: red-team, citation, grounding sets | T-04, T-05, T-23 | [AI evaluation framework](ai-evaluation-framework.md) |

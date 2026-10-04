@@ -325,6 +325,26 @@
         }
       }
     },
+    "Changing the text…" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modification du texte…"
+          }
+        }
+      }
+    },
+    "Changing the words already in a PDF is one of PDF Algo Pro’s paid features. Reading, searching, marking up, filling in and signing stay free." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modifier les mots déjà présents dans un PDF fait partie des fonctionnalités payantes de PDF Algo Pro. La lecture, la recherche, l’annotation, le remplissage et la signature restent gratuits."
+          }
+        }
+      }
+    },
     "Clear" : {
       "localizations" : {
         "fr" : {
@@ -585,12 +605,53 @@
         }
       }
     },
+    "Edit" : {
+      "comment" : "Toolbar button that starts editing the document's existing text",
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modifier"
+          }
+        }
+      }
+    },
+    "Edit a copy" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modifier une copie"
+          }
+        }
+      }
+    },
+    "Edit a copy of this signed document?" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modifier une copie de ce document signé ?"
+          }
+        }
+      }
+    },
     "Edit text" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Modifier le texte"
+          }
+        }
+      }
+    },
+    "Editing text needs Pro" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La modification du texte nécessite Pro"
           }
         }
       }
@@ -1365,6 +1426,16 @@
         }
       }
     },
+    "Some of those characters can’t be used here. Nothing was changed." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Certains de ces caractères ne peuvent pas être utilisés ici. Rien n’a été changé."
+          }
+        }
+      }
+    },
     "Something went wrong" : {
       "localizations" : {
         "fr" : {
@@ -1435,6 +1506,17 @@
         }
       }
     },
+    "Tap any text to change it" : {
+      "comment" : "Hint shown while editing text, before any text is picked",
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Touchez un texte pour le modifier"
+          }
+        }
+      }
+    },
     "Text" : {
       "localizations" : {
         "fr" : {
@@ -1451,6 +1533,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Zone de texte"
+          }
+        }
+      }
+    },
+    "Text changed" : {
+      "comment" : "VoiceOver announcement after existing text was edited",
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Texte modifié"
           }
         }
       }
@@ -1475,12 +1568,33 @@
         }
       }
     },
+    "Text to change" : {
+      "comment" : "VoiceOver label for the field that edits existing text",
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Texte à modifier"
+          }
+        }
+      }
+    },
     "That password didn't open the document." : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ce mot de passe n’a pas ouvert le document."
+          }
+        }
+      }
+    },
+    "That’s too long to fit here. Try fewer words; nothing was changed." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce texte est trop long pour cet emplacement. Essayez plus court ; rien n’a été changé."
           }
         }
       }
@@ -1521,6 +1635,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Le document demande désormais son mot de passe pour s’ouvrir."
+          }
+        }
+      }
+    },
+    "The font will be matched as closely as possible." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La police sera reproduite aussi fidèlement que possible."
           }
         }
       }
@@ -1621,6 +1745,16 @@
         }
       }
     },
+    "This document is digitally signed. Your edits are saved in a copy, and the original keeps its valid signature." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce document est signé numériquement. Vos modifications sont enregistrées dans une copie, et l’original conserve sa signature valide."
+          }
+        }
+      }
+    },
     "This document is no longer in the library." : {
       "localizations" : {
         "fr" : {
@@ -1687,6 +1821,36 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ce lien mène à un fichier ou à une autre app, il ne peut donc pas être ouvert depuis un document : %@"
+          }
+        }
+      }
+    },
+    "This page can’t be edited. Nothing was changed." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cette page ne peut pas être modifiée. Rien n’a été changé."
+          }
+        }
+      }
+    },
+    "This PDF contains images rather than editable text." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce PDF contient des images et non du texte modifiable."
+          }
+        }
+      }
+    },
+    "This text can’t be changed. Nothing was changed." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce texte ne peut pas être modifié. Rien n’a été changé."
           }
         }
       }
@@ -1777,6 +1941,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Votre nom"
+          }
+        }
+      }
+    },
+    "Your text will cover this text. The original stays in the file underneath." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre texte recouvrira celui-ci. Le texte d’origine reste dans le fichier, en dessous."
           }
         }
       }

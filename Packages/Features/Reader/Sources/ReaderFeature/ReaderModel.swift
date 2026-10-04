@@ -110,14 +110,20 @@ public final class ReaderModel {
   private let telemetry: any TelemetryRecording
   private let recognition: RecognitionCoordinator
   private let signatures: any SignatureStoring
+  private let textEditing: any TextEditingAccessProviding
 
   /// Creates a reader for a document.
+  ///
+  /// Editing existing text is hidden unless `textEditing` says otherwise: the app decides whether a
+  /// build and a person have it, and the reader only asks.
   public init(
     selection documentID: DocumentID, pageIndex: Int? = nil, task: AssistantTask? = nil, library: any DocumentLibrary,
     intake: DocumentIntake, index: any DocumentIndexing, settings: any SettingsStoring,
     telemetry: any TelemetryRecording,
-    recognition: RecognitionCoordinator, signatures: any SignatureStoring, speech: SpeechReader = SpeechReader()
+    recognition: RecognitionCoordinator, signatures: any SignatureStoring, speech: SpeechReader = SpeechReader(),
+    textEditing: any TextEditingAccessProviding = FixedTextEditingAccess(.hidden)
   ) {
+    self.textEditing = textEditing
     self.documentID = documentID
     startPage = pageIndex
     assistantTask = task
@@ -184,6 +190,7 @@ public final class ReaderModel {
     phase = .ready
     bookmarkedPages = controller.bookmarkedPages
     controller.goTo(pageIndex: startPage ?? document?.lastPageIndex ?? 0)
+    Task { textEditingAccess = await textEditing.textEditingAccess() }
   }
 
   // MARK: - Reading
@@ -291,19 +298,25 @@ public final class ReaderModel {
     await save()
   }
 
-  /// Undoes the last annotation change and saves.
+  /// Undoes the last change and saves.
+  ///
+  /// Not while a text edit is being made or typed: the edit in hand is finished or cancelled first.
   public func undo() async {
-    guard let controller, controller.undoManager.canUndo else { return }
+    guard let controller, controller.undoManager.canUndo, !isBusyEditingText else { return }
     controller.undoManager.undo()
     updateUndoState()
+    // Only undoing or redoing a text edit changes the words that search finds.
+    if controller.hasUnsavedTextEdits { textChangedSinceIndexing = true }
     await save()
   }
 
-  /// Redoes the last undone annotation change and saves.
+  /// Redoes the last undone change and saves.
   public func redo() async {
-    guard let controller, controller.undoManager.canRedo else { return }
+    guard let controller, controller.undoManager.canRedo, !isBusyEditingText else { return }
     controller.undoManager.redo()
     updateUndoState()
+    // Only undoing or redoing a text edit changes the words that search finds.
+    if controller.hasUnsavedTextEdits { textChangedSinceIndexing = true }
     await save()
   }
 
@@ -469,6 +482,178 @@ public final class ReaderModel {
   private func inkAdded() async {
     updateUndoState()
     await save()
+  }
+
+  // MARK: - Editing existing text (FR-EDIT-001)
+
+  /// What the reader says about the text in hand or the page on screen while editing text.
+  public enum TextEditMessage: Equatable, Sendable {
+    /// The page is an image, such as a scan: it has no text of its own to edit.
+    case pageIsImage
+    /// The page could not be read safely, so nothing on it is offered.
+    case pageNotEditable
+    /// The new text does not fit where the old text is.
+    case tooLong
+    /// The new text has characters that cannot be drawn there, or is empty.
+    case unsupportedCharacters
+    /// The text cannot be changed; nothing was changed.
+    case cannotEdit
+    /// The font will be matched as closely as possible.
+    case fontMatched
+    /// The text can only be covered; the original stays in the file underneath.
+    case coversOriginal
+  }
+
+  /// Whether editing existing text is offered in this build and to this person.
+  public private(set) var textEditingAccess = TextEditingAccess.hidden
+  /// Whether taps on the page pick existing text to edit.
+  public var isEditingText: Bool { controller?.isEditingText ?? false }
+  /// The existing text the person picked, if any.
+  ///
+  /// Separate from `selection`, which is an annotation.
+  public var selectedTextRegion: TextRegionSelection? { controller?.selectedTextRegion }
+  /// What to say about the page or the text in hand, if anything.
+  public private(set) var textEditMessage: TextEditMessage?
+  /// Whether an edit is being worked out and proven; the editor waits.
+  public private(set) var isCommittingTextEdit = false
+  /// Whether the person is being asked to confirm editing a digitally signed document.
+  public var confirmsEditingSigned = false
+  /// Whether the explanation that editing text needs a purchase is showing.
+  public var showsTextEditingLocked = false
+  /// Whether the person has agreed, in this reader, to edit a signed document in a copy.
+  private var hasConfirmedEditingSigned = false
+  /// Whether the document's words changed since the search text was last brought up to date.
+  private var textChangedSinceIndexing = false
+
+  /// Whether a text edit is being typed or made, so other changes wait.
+  private var isBusyEditingText: Bool { isCommittingTextEdit || selectedTextRegion != nil }
+
+  /// Enters text editing, or says why it cannot be entered.
+  ///
+  /// Access is asked for each time, because a purchase can come or go while the document is open.
+  public func beginTextEditing() async {
+    guard let controller, phase == .ready else { return }
+    textEditingAccess = await textEditing.textEditingAccess()
+    switch textEditingAccess {
+    case .hidden:
+      return
+    case .locked:
+      showsTextEditingLocked = true
+      return
+    case .available:
+      break
+    }
+    switch controller.textEditability {
+    case .restricted:
+      errorMessage = Self.restrictedMessage
+    case .signed where !hasConfirmedEditingSigned && !isEditingCopy:
+      confirmsEditingSigned = true
+    case .signed, .editable:
+      stopMarkupTool()
+      controller.setEditingText(true)
+      await textEditingPageChanged()
+    }
+  }
+
+  /// Carries on into text editing after the person agreed to edit a signed document in a copy.
+  public func confirmEditingSigned() async {
+    hasConfirmedEditingSigned = true
+    await beginTextEditing()
+  }
+
+  /// Leaves text editing.
+  ///
+  /// Anything typed and not committed is dropped; the document is unchanged by it.
+  public func endTextEditing() async {
+    guard let controller, controller.isEditingText else { return }
+    controller.setEditingText(false)
+    textEditMessage = nil
+    await refreshSearchTextIfNeeded()
+  }
+
+  /// Works out what to say about the page on screen: nothing when it has text to edit.
+  public func textEditingPageChanged() async {
+    guard let controller, controller.isEditingText, controller.selectedTextRegion == nil else { return }
+    let page = controller.currentPageIndex
+    let kind = await controller.pageText(onPage: page).kind
+    guard self.controller === controller, controller.isEditingText, controller.currentPageIndex == page,
+      controller.selectedTextRegion == nil
+    else { return }
+    switch kind {
+    case .text: textEditMessage = nil
+    case .image: textEditMessage = .pageIsImage
+    case .unreadable: textEditMessage = .pageNotEditable
+    }
+  }
+
+  /// What to tell the person about the text they just picked, before they type.
+  public func textRegionPicked() {
+    guard let region = selectedTextRegion?.region else { return }
+    switch region.capability {
+    case .direct: textEditMessage = nil
+    case .limited: textEditMessage = .fontMatched
+    case .visualReplacementOnly: textEditMessage = .coversOriginal
+    }
+  }
+
+  /// Makes the edit the person typed, proves it and saves.
+  ///
+  /// Returns whether the text was changed.
+  ///
+  /// When it was not, `textEditMessage` says why and the editor stays open with what was typed, so
+  /// nothing is lost. Text that can only be covered is covered, which the editor said before Done.
+  @discardableResult
+  public func commitTextEdit(_ replacement: String) async -> Bool {
+    guard let controller, let selection = controller.selectedTextRegion, !isCommittingTextEdit else { return false }
+    let typed = replacement.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard typed != selection.region.text else {
+      cancelTextEdit()
+      return false
+    }
+    isCommittingTextEdit = true
+    defer { isCommittingTextEdit = false }
+    let outcome: TextEditOutcome
+    if selection.region.capability.editsContent {
+      outcome = await controller.replaceSelectedText(with: typed)
+    } else {
+      outcome = controller.coverSelectedText(with: typed)
+    }
+    // The document may have been reloaded while the edit was worked out; that edit is gone with it.
+    guard self.controller === controller else { return false }
+    switch outcome {
+    case .edited(let mode):
+      textEditMessage = nil
+      updateUndoState()
+      // Covered text is still what the page reads as, so the search text is unchanged by it.
+      if mode != .visualReplacement { textChangedSinceIndexing = true }
+      await save()
+      await textEditingPageChanged()
+      return true
+    case .tooLong:
+      textEditMessage = .tooLong
+    case .refused(.unsupportedCharacters):
+      textEditMessage = .unsupportedCharacters
+    case .refused(.restricted):
+      controller.clearTextRegionSelection()
+      errorMessage = Self.restrictedMessage
+    case .refused:
+      textEditMessage = .cannotEdit
+    }
+    return false
+  }
+
+  /// Lets go of the picked text without changing it.
+  public func cancelTextEdit() {
+    controller?.clearTextRegionSelection()
+    textEditMessage = nil
+    Task { await textEditingPageChanged() }
+  }
+
+  /// Brings the search text and Spotlight up to date with edited words, once, not after every edit.
+  private func refreshSearchTextIfNeeded() async {
+    guard textChangedSinceIndexing, await save() else { return }
+    textChangedSinceIndexing = false
+    document = (try? await intake.refresh(documentID)) ?? document
   }
 
   // MARK: - Signing
@@ -657,6 +842,12 @@ public final class ReaderModel {
   /// Stops hearing about file changes, when the reader closes.
   public func stopWatching() {
     watcher?.stop()
+  }
+
+  /// Saves and brings the search text up to date as the reader closes.
+  public func saveBeforeClosing() async {
+    await save()
+    await refreshSearchTextIfNeeded()
   }
 
   /// Handles a change to the file made by another app: with no unsaved changes, the reader shows the

@@ -38,6 +38,7 @@ artifact. Pull requests run none of it, and nothing is blocked by it.
 | Open a 500-page PDF | `EnginePerformanceTests.testOpenA500PagePDFToTheFirstPage` | The same, for 500 pages |
 | Page thumbnail grid (100 pages) | `EnginePerformanceTests.testRenderThe100PageThumbnailGrid` | All 100 thumbnails at the grid's size, more than a screen shows |
 | Save after an edit (500-page PDF) | `EnginePerformanceTests.testSaveAfterAnEditIn500Pages` | The save only |
+| Edit a line of text (500-page PDF) | `EnginePerformanceTests.testEditALineOfTextIn500Pages` | Finding the page's text, making the edit and proving it, to the new page on screen; not the save |
 | Search across a 1,000-document library | `EnginePerformanceTests.testSearchA1000DocumentLibrary` | One query on a warm index |
 | Scan → searchable PDF, 10 pages | `EnginePerformanceTests.testScanTenPagesToASearchablePDF` | Vision recognition and writing the PDF |
 | Retrieval over a 500-page PDF | `RetrievalPerformanceTests.testRetrievalOver500Pages` | Ranking every page for a question |
@@ -90,6 +91,7 @@ The p95 values and the other rows are `Assumption:` targets.
 | Scrolling a 500-page PDF | no dropped frames at the display refresh rate in 95% of one-second windows | — | `XCTOSSignpostMetric` scroll deceleration; hitch rate | Release PR |
 | Page thumbnail grid (100 pages) populated | 500 ms | 1 s | signpost `Thumbnails.Ready` | Release PR |
 | Save after an edit (500-page PDF) | 300 ms | 800 ms | signpost `Document.Save` | Release PR |
+| Edit a line of text (500-page PDF) | 500 ms | 1 s | `XCTClockMetric` around `applyTextEdits`; not the save | Release PR |
 | Save after an edit (1,000-page mixed PDF), on the baseline device | 800 ms | 2 s | signpost `Document.Save` | Release PR |
 | Merge two 100-page PDFs | 1 s | 2 s | signpost `Organize.Merge` | Release PR |
 | Search across a 1,000-document library (index warm) | 100 ms | 250 ms | signpost `Search.Query` | Release PR |

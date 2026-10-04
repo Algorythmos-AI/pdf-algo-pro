@@ -165,6 +165,7 @@ extension PDFDocumentController {
 
   private func pagesChanged() {
     hasUnsavedChanges = true
+    structureGeneration += 1
     view?.reload()
   }
 }

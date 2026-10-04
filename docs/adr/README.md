@@ -34,6 +34,7 @@ Owner: Architecture · Reviewed: when a decision changes
 | [ADR-0022](0022-apple-first-capability-baseline.md) | Apple-first capability baseline | accepted |
 | [ADR-0023](0023-ios-26-floor-built-with-xcode-27.md) | iOS 26 floor, built with the Xcode 27 SDK (supersedes the floor in ADR-0001) | accepted |
 | [ADR-0024](0024-remote-configuration-package.md) | Remote configuration in its own package, read from the CloudKit public database | accepted |
+| [ADR-0025](0025-native-text-editing-for-the-safe-subset.md) | Native text editing for the documents where it is safe, behind our own boundary | proposed |
 
 ## Writing one
 

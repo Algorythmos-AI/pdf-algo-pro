@@ -1,5 +1,11 @@
 Version interne de PDF Algo Pro (Staging). Utilisez des documents de test, pas de vrais documents. À essayer :
 
+Modifier le texte (nouveau)
+- Ouvrez un document, touchez Modifier, touchez une ligne de texte, changez-la, touchez OK. Fermez puis rouvrez : le changement est toujours là.
+- Partagez le document et ouvrez-le dans une autre app PDF : les nouveaux mots y sont, les anciens n’y sont plus.
+- Annulez et rétablissez pendant la modification. Essayez un texte bien plus long : il tient, ou l’app explique pourquoi et ne change rien.
+- Ouvrez un document numérisé et touchez Modifier : l’app indique que la page est une image et propose de reconnaître le texte.
+
 Votre fichier est en sécurité
 - Modifiez un document, enregistrez deux fois, puis Plus > Historique des versions : rétablissez la première.
 - Faites une modification et fermez aussitôt l’app. Rouvrez-la : le document s’ouvre, ancien ou nouveau, jamais endommagé.
