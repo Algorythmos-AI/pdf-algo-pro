@@ -9,6 +9,9 @@ import UniformTypeIdentifiers
 
 @testable import ScanFeature
 
+// The iOS 27 SDK adds a SwiftUI type also called `Document`; here the name means ours.
+private typealias Document = Core.Document
+
 @MainActor
 @Suite("Scan model")
 struct ScanModelTests {

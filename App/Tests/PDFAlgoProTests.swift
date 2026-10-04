@@ -11,6 +11,9 @@ import Testing
 
 @testable import PDFAlgoPro
 
+// The iOS 27 SDK adds a SwiftUI type also called `Document`; here the name means ours.
+private typealias Document = Core.Document
+
 /// App-level composition tests.
 ///
 /// They cover launch arguments, the one router, Spotlight hand-off, App Intents and the scripted router

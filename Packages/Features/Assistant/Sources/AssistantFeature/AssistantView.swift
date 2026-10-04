@@ -163,7 +163,7 @@ public struct AssistantView: View {
     case .failed:
       EmptyState(Text("That didn't work", bundle: .module), systemImage: "exclamationmark.triangle") {
         if model.task == .ask, let question = model.answeredQuestion {
-          Text("“\(question)”", bundle: .module).font(.callout.weight(.medium))
+          Text(verbatim: "“\(question)”").font(.callout.weight(.medium))
         }
         Text("The request didn't finish. Your document hasn't changed. Try again.", bundle: .module)
       } actions: {

@@ -115,6 +115,25 @@ struct AssistantModelTests {
     _ = AssistantView.explanation(for: reason)
   }
 
+  @Test("Try again asks a failed question again, as it was typed")
+  func retryKeepsTheQuestion() async {
+    let intelligence = FakeIntelligence()
+    let (model, _) = makeModel(task: .ask, intelligence: intelligence)
+    await model.start()
+    await intelligence.configure(error: .generationFailed)
+    model.question = "What is the total due?"
+    await model.ask()
+    #expect(model.phase == .failed && model.answeredQuestion == "What is the total due?")
+    await intelligence.configure(error: nil)
+    await model.retry()
+    #expect(model.answeredQuestion == "What is the total due?")
+    if case .answered = model.phase {} else { Issue.record("The question is answered on retry") }
+    // Other tasks start again from the top.
+    let (summary, _) = makeModel(task: .summarize, intelligence: intelligence)
+    await summary.retry()
+    if case .answered = summary.phase {} else { Issue.record("A summary is made on retry") }
+  }
+
   @Test("Errors map to states the user can act on")
   func errors() async {
     let intelligence = FakeIntelligence()

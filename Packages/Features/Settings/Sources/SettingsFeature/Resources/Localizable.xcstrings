@@ -281,6 +281,16 @@
         }
       }
     },
+    "Home screen" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Écran d’accueil"
+          }
+        }
+      }
+    },
     "Include a diagnostics summary" : {
       "localizations" : {
         "fr" : {

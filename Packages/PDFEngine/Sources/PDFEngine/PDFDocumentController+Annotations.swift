@@ -249,7 +249,8 @@ extension PDFDocumentController {
     annotation.fontColor =
       stamp == .cross ? AnnotationPalette.red : (isMark ? AnnotationPalette.ink : AnnotationPalette.text)
     annotation.alignment = .center
-    annotation.color = .clear
+    // A framed stamp is opaque, so it stays readable over whatever the page has there.
+    annotation.color = isMark ? .clear : PlatformColor.white
     let border = PDFBorder()
     border.lineWidth = isMark ? 0 : 2
     annotation.border = border
