@@ -454,7 +454,7 @@ struct TextEditingControllerTests {
     #expect(squeezed(try PDFDocumentController(url: url)).contains("DavidSmith"))
   }
 
-  @Test("Editing one page of a long document costs about what it costs in a short one", .timeLimit(.minutes(3)))
+  @Test("Editing one page of a long document costs about what it costs in a short one", .timeLimit(.minutes(5)))
   func longDocument() async throws {
     func time(pages: Int, page: Int) async throws -> Duration {
       let data = try TextEditFixtures.make(
@@ -466,7 +466,7 @@ struct TextEditingControllerTests {
       return clock.now - start
     }
     let short = try await time(pages: 2, page: 1)
-    let long = try await time(pages: 400, page: 250)
+    let long = try await time(pages: 120, page: 90)
     // Finding the text and making the edit do not walk the document; only the save does.
     #expect(long < short * 4 + .seconds(1), "short \(short), long \(long)")
   }

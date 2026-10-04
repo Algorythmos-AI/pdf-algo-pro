@@ -67,7 +67,7 @@ Undo calls the same swap with the pages the other way round, so a text edit undo
 annotations and page changes.
 
 Only the page being edited is read. Finding text and making an edit cost the same in a one-page and
-a 400-page document (`TextEditingControllerTests.longDocument`). The save that follows is the
+a 120-page document (`TextEditingControllerTests.longDocument`; 500 pages in the performance plan). The save that follows is the
 app's existing full rewrite and grows with the document, as it does for an annotation.
 
 ## The proof
