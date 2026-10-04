@@ -77,6 +77,8 @@ Store notes (see the changelog strategy).
 - An interim app icon, and a Staging build named "PDF Algo β" for internal testing (#52, #54).
 
 ### Changed
+- Scan offers "Choose from Photos" as well as "Choose from Files", since photos of pages are usually
+  in the photo library.
 - Highlight, Underline and Strike through are tools you pick up: choose one, then select text and it
   is marked, until you tap Done. Choosing one with nothing selected no longer shows an error.
 - The reader's More menu is grouped, with the export and password tools under "Export and protect",

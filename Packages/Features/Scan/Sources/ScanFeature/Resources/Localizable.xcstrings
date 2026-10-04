@@ -57,12 +57,22 @@
         }
       }
     },
-    "Choose images" : {
+    "Choose from Files" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Choisir des images"
+            "value" : "Choisir dans Fichiers"
+          }
+        }
+      }
+    },
+    "Choose from Photos" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisir dans Photos"
           }
         }
       }
@@ -203,6 +213,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Arrêter"
+          }
+        }
+      }
+    },
+    "Tap a page to rotate, move or delete it." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Touchez une page pour la faire pivoter, la déplacer ou la supprimer."
           }
         }
       }

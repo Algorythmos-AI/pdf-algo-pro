@@ -191,6 +191,16 @@ public final class ScanModel {
     await review(images)
   }
 
+  /// Reviews photos chosen from the photo library, skipping anything that isn't an image.
+  public func process(photos: [Data]) async {
+    let images = ImageLoader.images(from: photos)
+    let skipped = photos.count - images.count
+    notice =
+      skipped > 0
+      ? String(localized: "\(skipped) of the chosen files weren't images, so they were skipped.", bundle: .module) : nil
+    await review(images)
+  }
+
   /// Cancels recognition; nothing is saved.
   public func cancel() {
     work?.cancel()

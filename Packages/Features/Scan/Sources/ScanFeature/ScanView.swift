@@ -1,5 +1,6 @@
 import Core
 import DesignSystem
+import PhotosUI
 import Scanning
 import SwiftUI
 import UniformTypeIdentifiers
@@ -10,6 +11,8 @@ public struct ScanView: View {
   @State private var model: ScanModel
   @State private var showsCamera = false
   @State private var isChoosingImages = false
+  @State private var isChoosingPhotos = false
+  @State private var photos: [PhotosPickerItem] = []
   @Environment(\.dismiss) private var dismiss
 
   /// Creates the sheet for a model.
@@ -42,6 +45,20 @@ public struct ScanView: View {
             showsCamera = false
           }
           .ignoresSafeArea()
+        }
+        // Photos of pages are usually in the photo library; the picker needs no permission, because
+        // only the chosen photos reach the app.
+        .photosPicker(isPresented: $isChoosingPhotos, selection: $photos, matching: .images)
+        .onChange(of: photos) { _, items in
+          guard !items.isEmpty else { return }
+          photos = []
+          Task {
+            var data: [Data] = []
+            for item in items {
+              if let photo = try? await item.loadTransferable(type: Data.self) { data.append(photo) }
+            }
+            await model.process(photos: data)
+          }
         }
         .fileImporter(isPresented: $isChoosingImages, allowedContentTypes: [.image], allowsMultipleSelection: true) {
           result in
@@ -96,9 +113,15 @@ public struct ScanView: View {
           .accessibilityIdentifier("scan.noCamera")
       }
       Button {
+        isChoosingPhotos = true
+      } label: {
+        Text("Choose from Photos", bundle: .module).minimumTarget()
+      }
+      .accessibilityIdentifier("scan.photos")
+      Button {
         isChoosingImages = true
       } label: {
-        Text("Choose images", bundle: .module).minimumTarget()
+        Text("Choose from Files", bundle: .module).minimumTarget()
       }
       .accessibilityIdentifier("scan.images")
       if let notice = model.notice {
@@ -122,6 +145,8 @@ public struct ScanView: View {
           .font(.headline)
           .accessibilityLabel(Text("Name", bundle: .module))
           .accessibilityIdentifier("scan.title")
+        Text("Tap a page to rotate, move or delete it.", bundle: .module)
+          .font(.footnote).foregroundStyle(Color.ds.labelSecondary)
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: Spacing.s200)], spacing: Spacing.s200) {
           ForEach(Array(model.pages.enumerated()), id: \.offset) { index, page in
             Menu {
