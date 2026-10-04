@@ -54,7 +54,12 @@ struct RootView: View {
     .background(LockWindowPresenter(lock: app.lock, method: app.lockMethod))
     .onChange(of: scenePhase, initial: true) { _, phase in Task { await app.lock.scenePhaseChanged(to: phase) } }
     // A calm moment to ask for a rating: a document or a sheet has just closed (plan §6).
-    .onChange(of: app.library.selection == nil) { _, closed in if closed { askForReviewIfDue() } }
+    .onChange(of: app.library.selection == nil) { _, closed in
+      guard closed else { return }
+      // The list follows what happened in the reader: a new lock, page count, title or thumbnail.
+      Task { await app.library.reload() }
+      askForReviewIfDue()
+    }
     .onChange(of: app.sheet == nil) { _, closed in if closed { askForReviewIfDue() } }
     .onOpenURL { app.handle($0) }
     .onContinueUserActivity(CSSearchableItemActionType) { app.handleSpotlight($0) }

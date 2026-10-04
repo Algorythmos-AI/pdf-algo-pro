@@ -103,6 +103,11 @@ Store notes (see the changelog strategy).
 - On iPad the app uses a single window for now (#54).
 
 ### Fixed
+- The back button on the document list opens the sections (All documents, Recents, Favourites,
+  Recently deleted). It did nothing on iPhone: the list bounced straight back.
+- The library list follows what you did in the reader as soon as you come back: a new password's
+  lock, page counts and thumbnails.
+- Drawing shows a hint, like the other markup tools.
 - Document and page thumbnails have an edge and a soft shadow, so a white page no longer disappears
   into a white list.
 - Stamps and text boxes use a standard PDF typeface, a framed stamp is opaque, and a new stamp no

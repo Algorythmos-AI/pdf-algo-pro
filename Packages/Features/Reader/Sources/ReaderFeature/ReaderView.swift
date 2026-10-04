@@ -306,6 +306,18 @@ public struct ReaderView<Assistant: View>: View {
           onResize: { factor in Task { await model.resizeSelection(by: factor) } },
           onColor: { color in Task { await model.setSelectionColor(color) } })
       }
+      if model.isDrawing {
+        Label {
+          Text("Draw on the page", bundle: .module)
+        } icon: {
+          Image(systemName: "pencil.tip")
+        }
+        .font(.subheadline.weight(.medium))
+        .padding(.horizontal, Spacing.s200)
+        .padding(.vertical, Spacing.s100)
+        .background(.regularMaterial, in: Capsule())
+        .accessibilityIdentifier("reader.drawingHint")
+      }
       if let tool = model.markupTool {
         Label {
           switch tool {
