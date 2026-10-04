@@ -139,11 +139,17 @@ public struct LibraryView<Detail: View>: View {
 
   private var sidebar: some View {
     List(
+      // On iPhone the back button clears this selection to show the sections. Only choosing a section
+      // goes to its documents: answering the clearing by going forward again made back do nothing.
       selection: Binding(
-        get: { model.section },
+        get: { compactColumn == .sidebar ? nil : model.section },
         set: { section in
-          if let section { model.section = section }
-          compactColumn = .content
+          if let section {
+            model.section = section
+            compactColumn = .content
+          } else {
+            compactColumn = .sidebar
+          }
         })
     ) {
       Section {
@@ -478,6 +484,27 @@ public struct LibraryView<Detail: View>: View {
       }
     }
     .contextMenu {
+      // In Recently deleted, the menu offers what the swipe does, so restoring is easy to find.
+      if document.isDeleted {
+        Button {
+          Task { await model.restore(document.id) }
+        } label: {
+          Label {
+            Text("Restore", bundle: .module)
+          } icon: {
+            Image(systemName: "arrow.uturn.backward")
+          }
+        }
+        Button(role: .destructive) {
+          confirmingPermanentDelete = document
+        } label: {
+          Label {
+            Text("Delete now", bundle: .module)
+          } icon: {
+            Image(systemName: "trash")
+          }
+        }
+      }
       if !document.isDeleted {
         Button {
           newTitle = document.title

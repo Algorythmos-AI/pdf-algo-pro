@@ -545,6 +545,16 @@
         }
       }
     },
+    "Draw on the page" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dessinez sur la page"
+          }
+        }
+      }
+    },
     "Draw your signature with a finger or Apple Pencil, or type your name below" : {
       "localizations" : {
         "fr" : {
