@@ -35,6 +35,9 @@ struct ScanningTests {
     #expect(images.count == 2)
     #expect(images[0].width == 300)
     #expect(max(images[1].width, images[1].height) == 3000)
+    // The same from data, as photos chosen from the library arrive.
+    let fromData = ImageLoader.images(from: [try Data(contentsOf: small), Data("no".utf8), try Data(contentsOf: large)])
+    #expect(fromData.count == 2 && fromData[0].width == 300 && max(fromData[1].width, fromData[1].height) == 3000)
   }
 
   // Simulators disagree: the iOS 26.5 simulator reports no document camera on CI runners but reports

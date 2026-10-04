@@ -74,6 +74,10 @@ struct ScanModelTests {
     #expect(try await library.documents(in: .all, sortedBy: .title).count == 1)
     await model.process(files: [image])
     #expect(model.notice == nil)
+    // Photos from the library arrive as data: images are reviewed, anything else is counted as skipped.
+    await model.process(photos: [try Data(contentsOf: image), Data("not an image".utf8)])
+    #expect(model.phase == .reviewing && model.pages.count == 1)
+    #expect(model.notice?.contains("1") == true)
   }
 
   @Test("Review rotates, reorders and deletes pages, and saves under the suggested or typed name (FR-SCAN-006)")
