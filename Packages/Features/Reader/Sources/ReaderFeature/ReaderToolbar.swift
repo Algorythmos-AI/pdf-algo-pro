@@ -189,43 +189,46 @@ struct ReaderToolbar: ToolbarContent {
         }
         .accessibilityIdentifier("reader.markup")
         Menu {
-          Button {
-            model.controller?.showFind()
-          } label: {
-            Label {
-              Text("Find", bundle: .module)
-            } icon: {
-              Image(systemName: "magnifyingglass")
-            }
-          }
-          .keyboardShortcut("f")
-          Button {
-            Task { await model.share() }
-          } label: {
-            Label {
-              Text("Share", bundle: .module)
-            } icon: {
-              Image(systemName: "square.and.arrow.up")
-            }
-          }
-          if model.allowsPrinting {
+          // Find, Share and Print share one row of icons, so the whole menu fits without scrolling:
+          // a menu scrolls silently after about eleven rows and hid Version history at the bottom.
+          ControlGroup {
             Button {
-              Task {
-                guard let url = await model.fileForSharing() else { return }
-                let printer = UIPrintInteractionController.shared
-                printer.printingItem = url
-                printer.present(animated: true)
-              }
+              model.controller?.showFind()
             } label: {
               Label {
-                Text("Print", bundle: .module)
+                Text("Find", bundle: .module)
               } icon: {
-                Image(systemName: "printer")
+                Image(systemName: "magnifyingglass")
               }
             }
-            .keyboardShortcut("p")
+            .keyboardShortcut("f")
+            Button {
+              Task { await model.share() }
+            } label: {
+              Label {
+                Text("Share", bundle: .module)
+              } icon: {
+                Image(systemName: "square.and.arrow.up")
+              }
+            }
+            if model.allowsPrinting {
+              Button {
+                Task {
+                  guard let url = await model.fileForSharing() else { return }
+                  let printer = UIPrintInteractionController.shared
+                  printer.printingItem = url
+                  printer.present(animated: true)
+                }
+              } label: {
+                Label {
+                  Text("Print", bundle: .module)
+                } icon: {
+                  Image(systemName: "printer")
+                }
+              }
+              .keyboardShortcut("p")
+            }
           }
-          Divider()
           Button {
             model.showsGoToPage = true
           } label: {
