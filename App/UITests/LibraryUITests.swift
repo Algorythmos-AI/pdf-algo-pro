@@ -23,7 +23,8 @@ final class LibraryUITests: UITestCase {
     back.tap()
     XCTAssertTrue(app.buttons["library.settings"].waitForExistence(timeout: Self.settleTimeout), "Back to the list")
     app.navigationBars.buttons.firstMatch.tap()
-    let deleted = app.descendants(matching: .any)["library.section.deleted"].firstMatch
+    // The row's label: the identifier also sits on the row's icon, which can't be tapped.
+    let deleted = app.staticTexts["Recently deleted"].firstMatch
     XCTAssertTrue(deleted.waitForExistence(timeout: Self.settleTimeout), "Back from the list shows the sections")
     try audit(app)
     deleted.tap()
