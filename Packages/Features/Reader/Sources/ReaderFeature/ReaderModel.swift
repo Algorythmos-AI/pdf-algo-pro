@@ -838,6 +838,8 @@ public final class ReaderModel {
       return
     }
     if await save() {
+      // The library's record follows the file: its lock, its page count and its search text.
+      _ = try? await intake.refresh(documentID)
       notice = String(localized: "The document now needs its password to open.", bundle: .module)
     }
   }
@@ -850,6 +852,8 @@ public final class ReaderModel {
       return
     }
     if await save() {
+      // The library's record follows the file: its lock, its page count and its search text.
+      _ = try? await intake.refresh(documentID)
       notice = String(localized: "The document no longer needs a password.", bundle: .module)
     }
   }

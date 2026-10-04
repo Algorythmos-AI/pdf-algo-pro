@@ -108,6 +108,9 @@ Store notes (see the changelog strategy).
 - Stamps and text boxes use a standard PDF typeface, a framed stamp is opaque, and a new stamp no
   longer lands on top of the last one.
 - The assistant keeps your question on screen while it works, and Try again asks it again.
+- Add a text box and Add note put the text on the page: the prompt cleared its text before it was
+  used, so nothing was added.
+- After a password is added or removed, the library shows the lock straight away.
 - A selected signature is called "Signature", not "Drawing".
 - The app builds with the iOS 27 SDK, which adds its own type called `Document`.
 - A library index that can't be opened, for example after installing an older build, is set aside

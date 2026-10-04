@@ -65,8 +65,10 @@ public struct ReaderView<Assistant: View>: View {
       .alert(Text("Add a text box", bundle: .module), isPresented: $isAddingTextBox) {
         TextField(text: $textBoxText) { Text("Text", bundle: .module) }
         Button {
-          Task { await model.addTextBox(textBoxText) }
+          // The text is taken before the field is cleared: the task runs after this closure returns.
+          let text = textBoxText
           textBoxText = ""
+          Task { await model.addTextBox(text) }
         } label: {
           Text("Add", bundle: .module)
         }
@@ -94,8 +96,9 @@ public struct ReaderView<Assistant: View>: View {
       .alert(Text("Add a note", bundle: .module), isPresented: $isAddingNote) {
         TextField(text: $noteText) { Text("Note", bundle: .module) }
         Button {
-          Task { await model.addNote(noteText) }
+          let text = noteText
           noteText = ""
+          Task { await model.addNote(text) }
         } label: {
           Text("Add", bundle: .module)
         }
