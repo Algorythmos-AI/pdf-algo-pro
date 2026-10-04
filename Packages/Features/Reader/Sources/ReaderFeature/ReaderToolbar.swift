@@ -25,7 +25,53 @@ struct ReaderToolbar: ToolbarContent {
           Text("Done", bundle: .module)
         }
         .accessibilityIdentifier("reader.doneMarkup")
+      } else if model.isEditingText {
+        // While text is being typed, Undo belongs to the typing, so these wait.
+        Button {
+          Task { await model.undo() }
+        } label: {
+          Label {
+            Text("Undo", bundle: .module)
+          } icon: {
+            Image(systemName: "arrow.uturn.backward")
+          }
+        }
+        .disabled(!model.canUndo || model.selectedTextRegion != nil)
+        .keyboardShortcut("z")
+        .accessibilityIdentifier("reader.textEdit.undo")
+        Button {
+          Task { await model.redo() }
+        } label: {
+          Label {
+            Text("Redo", bundle: .module)
+          } icon: {
+            Image(systemName: "arrow.uturn.forward")
+          }
+        }
+        .disabled(!model.canRedo || model.selectedTextRegion != nil)
+        .keyboardShortcut("z", modifiers: [.command, .shift])
+        .accessibilityIdentifier("reader.textEdit.redo")
+        Button {
+          Task { await model.endTextEditing() }
+        } label: {
+          Text("Done", bundle: .module).bold()
+        }
+        .disabled(model.selectedTextRegion != nil)
+        .accessibilityIdentifier("reader.doneEditingText")
       } else if model.phase == .ready {
+        if model.textEditingAccess != .hidden {
+          Button {
+            Task { await model.beginTextEditing() }
+          } label: {
+            Label {
+              Text("Edit", bundle: .module)
+            } icon: {
+              Image(systemName: "character.cursor.ibeam")
+            }
+          }
+          .keyboardShortcut("e")
+          .accessibilityIdentifier("reader.edit")
+        }
         if model.showsIntelligence {
           Menu {
             Button {

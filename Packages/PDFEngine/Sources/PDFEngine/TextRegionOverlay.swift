@@ -8,6 +8,10 @@
   /// PDFKit keeps the view exactly over its page as the page scrolls and zooms.
   ///
   /// It is a view, never an annotation, so nothing it shows can be saved into the document.
+  ///
+  /// It adds no accessibility elements of its own: PDFKit already exposes each line of a page's
+  /// text to VoiceOver, and does not expose an overlay's elements. Activating one of PDFKit's lines
+  /// sends a tap to its middle, which lands here and picks the text, so each line is read once.
   @MainActor
   final class TextRegionOverlayView: UIView {
     weak var host: PDFReaderHostView?
@@ -26,7 +30,6 @@
       outlines.lineWidth = 1
       layer.addSublayer(outlines)
       addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(tapped(_:))))
-      isAccessibilityElement = false
     }
 
     @available(*, unavailable)
@@ -52,21 +55,12 @@
     private func redraw() {
       laidOutSize = bounds.size
       let path = UIBezierPath()
-      var elements: [UIAccessibilityElement] = []
       for region in regions {
         guard let frame = frame(of: region), frame.width > 0, frame.height > 0 else { continue }
         path.append(UIBezierPath(roundedRect: frame, cornerRadius: 3))
-        let element = TextRegionAccessibilityElement(accessibilityContainer: self)
-        element.accessibilityLabel = region.text
-        element.accessibilityHint = String(localized: "Double tap to change this text.")
-        element.accessibilityTraits = .button
-        element.accessibilityFrameInContainerSpace = frame
-        element.activate = { [weak self] in self?.pick(region) }
-        elements.append(element)
       }
       outlines.path = path.cgPath
       outlines.strokeColor = tintColor.withAlphaComponent(0.45).cgColor
-      accessibilityElements = elements
     }
 
     @objc private func tapped(_ recognizer: UITapGestureRecognizer) {
@@ -79,24 +73,6 @@
       Task { @MainActor in
         await controller.selectTextRegion(at: point, onPage: pageIndex, reach: reach)
       }
-    }
-
-    private func pick(_ region: EditableTextRegion) {
-      guard let host, let page, let controller = host.controller, let document = host.document else { return }
-      let pageIndex = document.index(for: page)
-      guard pageIndex != NSNotFound else { return }
-      controller.selectTextRegion(region, onPage: pageIndex)
-    }
-  }
-
-  /// An editable region as VoiceOver sees it: its text, and a double tap to change it.
-  final class TextRegionAccessibilityElement: UIAccessibilityElement {
-    var activate: (@MainActor () -> Void)?
-
-    override func accessibilityActivate() -> Bool {
-      guard let activate else { return false }
-      MainActor.assumeIsolated { activate() }
-      return true
     }
   }
 

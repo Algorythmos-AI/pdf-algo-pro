@@ -19,6 +19,7 @@ public struct ReaderView<Assistant: View>: View {
   @State private var textBoxText = ""
   @State private var stampText = ""
   @State private var pageNumber = ""
+  @State private var textDraft = TextEditDraft()
   @Environment(\.scenePhase) private var scenePhase
   private let assistant: (ReaderAssistantContext) -> Assistant
 
@@ -180,9 +181,43 @@ public struct ReaderView<Assistant: View>: View {
       } message: {
         Text(model.errorMessage ?? "")
       }
+      .confirmationDialog(
+        Text("Edit a copy of this signed document?", bundle: .module), isPresented: $model.confirmsEditingSigned,
+        titleVisibility: .visible
+      ) {
+        Button {
+          Task { await model.confirmEditingSigned() }
+        } label: {
+          Text("Edit a copy", bundle: .module)
+        }
+      } message: {
+        Text(
+          "This document is digitally signed. Your edits are saved in a copy, and the original keeps its valid signature.",
+          bundle: .module)
+      }
+      .alert(Text("Editing text needs Pro", bundle: .module), isPresented: $model.showsTextEditingLocked) {
+        Button {
+        } label: {
+          Text("OK", bundle: .module)
+        }
+      } message: {
+        Text(
+          "Changing the words already in a PDF is one of PDF Algo Pro’s paid features. Reading, searching, marking up, filling in and signing stay free.",
+          bundle: .module)
+      }
       .modifier(LinkConfirmation(controller: model.controller))
       .task { await model.load() }
-      .onChange(of: model.controller?.currentPageIndex) { Task { await model.recordPosition() } }
+      .onChange(of: model.controller?.currentPageIndex) {
+        Task {
+          await model.recordPosition()
+          await model.textEditingPageChanged()
+        }
+      }
+      .onChange(of: model.selectedTextRegion) { _, selection in
+        // The editor starts from the text as it is; what to say about it is worked out once.
+        textDraft.text = selection?.region.text ?? ""
+        if selection != nil { model.textRegionPicked() }
+      }
       .onChange(of: scenePhase) { _, phase in
         switch phase {
         case .background:
@@ -218,7 +253,7 @@ public struct ReaderView<Assistant: View>: View {
         model.stopWatching()
         model.speech.stop()
         Task {
-          await model.save()
+          await model.saveBeforeClosing()
           await model.recordPosition()
         }
       }
@@ -246,11 +281,24 @@ public struct ReaderView<Assistant: View>: View {
       }
     case .ready:
       if let controller = model.controller {
-        PDFReaderView(controller: controller)
-          .ignoresSafeArea(edges: .bottom)
-          .accessibilityLabel(Text("Document pages", bundle: .module))
-          .accessibilityIdentifier("reader.pages")
-          .overlay(alignment: .bottom) { indicator }
+        ZStack(alignment: .bottom) {
+          PDFReaderView(controller: controller)
+            .ignoresSafeArea(edges: .bottom)
+            .accessibilityLabel(Text("Document pages", bundle: .module))
+            .accessibilityIdentifier("reader.pages")
+            .overlay(alignment: .bottom) { indicator }
+            .overlay {
+              if let selection = model.selectedTextRegion {
+                TextEditLayer(model: model, selection: selection, draft: textDraft)
+              }
+            }
+          // Outside the page view, which runs under the keyboard: this sits just above it.
+          if let selection = model.selectedTextRegion {
+            TextEditBar(
+              model: model, draft: textDraft,
+              showsField: !TextEditLayer.fitsInPlace(selection, frame: controller.selectedTextRegionFrame))
+          }
+        }
       }
     }
   }
@@ -293,6 +341,9 @@ public struct ReaderView<Assistant: View>: View {
 
   @ViewBuilder private var indicator: some View {
     VStack(spacing: Spacing.s100) {
+      if model.isEditingText, model.selectedTextRegion == nil {
+        TextEditHint(model: model)
+      }
       if let selection = model.selection {
         SelectionBar(
           selection: selection,

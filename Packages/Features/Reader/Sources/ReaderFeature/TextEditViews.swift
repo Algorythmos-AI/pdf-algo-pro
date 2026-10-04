@@ -1,0 +1,268 @@
+import Core
+import DesignSystem
+import PDFEngine
+import SwiftUI
+import UIKit
+
+/// What the person has typed for the text in hand, shared by the field and the bar.
+@MainActor
+@Observable
+final class TextEditDraft {
+  var text = ""
+}
+
+/// A plain text field for editing existing text: the document's own font and colour, and none of
+/// the keyboard's rewriting, so what is typed is what goes on the page.
+struct TextEditField: UIViewRepresentable {
+  @Bindable var draft: TextEditDraft
+  /// The font to show the text in, when the field sits over the text on the page.
+  var font: UIFont?
+  var color: UIColor?
+  var onSubmit: () -> Void
+
+  func makeUIView(context: Context) -> UITextField {
+    let field = UITextField()
+    field.delegate = context.coordinator
+    field.addTarget(context.coordinator, action: #selector(Coordinator.changed(_:)), for: .editingChanged)
+    // Smart quotes, dashes and corrections would change what the person typed after they typed it.
+    field.autocorrectionType = .no
+    field.autocapitalizationType = .none
+    field.smartQuotesType = .no
+    field.smartDashesType = .no
+    field.smartInsertDeleteType = .no
+    field.spellCheckingType = .no
+    field.returnKeyType = .done
+    field.adjustsFontForContentSizeCategory = font == nil
+    field.accessibilityIdentifier = "reader.textEdit.field"
+    field.accessibilityLabel = String(localized: "Text to change", bundle: .module)
+    field.setContentHuggingPriority(.defaultLow, for: .horizontal)
+    field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+    return field
+  }
+
+  func updateUIView(_ field: UITextField, context: Context) {
+    context.coordinator.parent = self
+    if field.text != draft.text { field.text = draft.text }
+    field.font = font ?? UIFont.preferredFont(forTextStyle: .body)
+    field.textColor = color ?? .label
+    if !context.coordinator.hasFocused {
+      context.coordinator.hasFocused = true
+      // After this update, so the field is in a window when it asks for the keyboard.
+      Task { @MainActor in field.becomeFirstResponder() }
+    }
+  }
+
+  func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+  @MainActor
+  final class Coordinator: NSObject, UITextFieldDelegate {
+    var parent: TextEditField
+    var hasFocused = false
+
+    init(_ parent: TextEditField) {
+      self.parent = parent
+    }
+
+    @objc func changed(_ field: UITextField) {
+      parent.draft.text = field.text ?? ""
+    }
+
+    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+      parent.onSubmit()
+      return false
+    }
+  }
+}
+
+/// The editor for a piece of existing text, laid over the page.
+///
+/// It takes every touch, so the page stays still while the text is being changed, and for upright
+/// text it puts the field exactly over the line, in the line's own font, so the text is edited
+/// where it is.
+struct TextEditLayer: View {
+  let model: ReaderModel
+  let selection: TextRegionSelection
+  let draft: TextEditDraft
+  @State private var frame: CGRect?
+
+  /// Whether the field can sit over the text: upright, and big enough on screen to read.
+  static func fitsInPlace(_ selection: TextRegionSelection, frame: CGRect?) -> Bool {
+    guard let frame, selection.region.isUpright else { return false }
+    return frame.height >= 12 && frame.minX >= 0 && frame.minY >= 0
+  }
+
+  var body: some View {
+    GeometryReader { geometry in
+      ZStack(alignment: .topLeading) {
+        // Nearly clear, so it is hit-tested: touches stop here while the editor is open.
+        Color.black.opacity(0.001)
+        if let frame, Self.fitsInPlace(selection, frame: frame) {
+          let scale = model.controller?.selectedTextRegionScale ?? 1
+          TextEditField(
+            draft: draft, font: Self.font(for: selection.region, scale: scale),
+            color: Self.color(for: selection.region),
+            onSubmit: { Task { await model.commitTextEdit(draft.text) } }
+          )
+          .padding(.horizontal, 2)
+          .frame(width: max(frame.width + 24, geometry.size.width - frame.minX - Spacing.s200), height: frame.height)
+          // The page is white under the text; the field covers the old words while new ones are typed.
+          .background(Color.white)
+          .overlay(alignment: .bottom) { Rectangle().fill(Color.ds.brandTint).frame(height: 1.5) }
+          .offset(x: frame.minX - 2, y: frame.minY)
+        }
+      }
+    }
+    .task(id: selection) {
+      // The page has just scrolled the text clear of the keyboard; read where it ended up.
+      try? await Task.sleep(for: .milliseconds(80))
+      frame = model.controller?.selectedTextRegionFrame
+    }
+    .accessibilityElement(children: .contain)
+  }
+
+  /// The region's own font at its size on screen, or the closest the system has.
+  static func font(for region: EditableTextRegion, scale: CGFloat) -> UIFont {
+    let size = max(8, region.style.pointSize * scale)
+    if let exact = UIFont(name: region.style.fontName, size: size) { return exact }
+    var traits: UIFontDescriptor.SymbolicTraits = []
+    if region.style.isBold { traits.insert(.traitBold) }
+    if region.style.isItalic { traits.insert(.traitItalic) }
+    let base =
+      UIFont(name: region.style.isMonospaced ? "Courier" : "Helvetica", size: size) ?? .systemFont(ofSize: size)
+    return base.fontDescriptor.withSymbolicTraits(traits).map { UIFont(descriptor: $0, size: size) } ?? base
+  }
+
+  /// The region's own colour.
+  ///
+  /// A colour read from the person's document, not a design colour.
+  static func color(for region: EditableTextRegion) -> UIColor {
+    let color = region.style.color
+    return UIColor(cgColor: CGColor(srgbRed: color.red, green: color.green, blue: color.blue, alpha: 1))
+  }
+}
+
+/// Cancel and Done for the text in hand, above the keyboard, with anything the person needs to know.
+///
+/// For text the field cannot sit over (rotated, or tiny on screen) the field is here instead.
+struct TextEditBar: View {
+  let model: ReaderModel
+  let draft: TextEditDraft
+  let showsField: Bool
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: Spacing.s100) {
+      if let message = model.textEditMessage {
+        TextEditMessageLabel(message: message)
+      }
+      HStack(spacing: Spacing.s150) {
+        Button(role: .cancel) {
+          model.cancelTextEdit()
+        } label: {
+          Text("Cancel", bundle: .module)
+        }
+        .keyboardShortcut(.cancelAction)
+        .accessibilityIdentifier("reader.textEdit.cancel")
+        if showsField {
+          TextEditField(draft: draft, onSubmit: commit)
+            .padding(.horizontal, Spacing.s100)
+            .frame(minHeight: Sizes.targetMinimum)
+            .background(Color.ds.backgroundSecondary, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        } else {
+          Spacer(minLength: 0)
+        }
+        if model.isCommittingTextEdit {
+          ProgressView().accessibilityLabel(Text("Changing the text…", bundle: .module))
+        } else {
+          Button(action: commit) {
+            Text("Done", bundle: .module).bold()
+          }
+          .keyboardShortcut(.defaultAction)
+          .accessibilityIdentifier("reader.textEdit.done")
+        }
+      }
+      .frame(minHeight: Sizes.targetMinimum)
+    }
+    .padding(.horizontal, Spacing.s200)
+    .padding(.vertical, Spacing.s100)
+    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    .padding(.horizontal, Spacing.s200)
+    .padding(.bottom, Spacing.s100)
+    .accessibilityElement(children: .contain)
+    .accessibilityIdentifier("reader.textEdit.actionBar")
+  }
+
+  private func commit() {
+    Task {
+      if await model.commitTextEdit(draft.text) {
+        UIAccessibility.post(notification: .announcement, argument: String(localized: "Text changed", bundle: .module))
+      }
+    }
+  }
+}
+
+/// One plain sentence about the page or the text in hand: what is so, that nothing was changed
+/// where that is true, and what to do next.
+struct TextEditMessageLabel: View {
+  let message: ReaderModel.TextEditMessage
+
+  var body: some View {
+    text.font(.footnote).fixedSize(horizontal: false, vertical: true)
+      .accessibilityIdentifier("reader.textEdit.message")
+  }
+
+  private var text: Text {
+    switch message {
+    case .pageIsImage: Text("This PDF contains images rather than editable text.", bundle: .module)
+    case .pageNotEditable: Text("This page can’t be edited. Nothing was changed.", bundle: .module)
+    case .tooLong: Text("That’s too long to fit here. Try fewer words; nothing was changed.", bundle: .module)
+    case .unsupportedCharacters:
+      Text("Some of those characters can’t be used here. Nothing was changed.", bundle: .module)
+    case .cannotEdit: Text("This text can’t be changed. Nothing was changed.", bundle: .module)
+    case .fontMatched: Text("The font will be matched as closely as possible.", bundle: .module)
+    case .coversOriginal:
+      Text("Your text will cover this text. The original stays in the file underneath.", bundle: .module)
+    }
+  }
+}
+
+/// What the reader says at the bottom of the page while text is being edited and nothing is picked:
+/// how to start, or why this page has nothing to edit and what to do instead.
+struct TextEditHint: View {
+  let model: ReaderModel
+
+  var body: some View {
+    Group {
+      if let message = model.textEditMessage {
+        VStack(spacing: Spacing.s100) {
+          TextEditMessageLabel(message: message)
+          if message == .pageIsImage, model.canRecognizeText {
+            Button {
+              Task {
+                await model.endTextEditing()
+                model.recognizeText()
+              }
+            } label: {
+              Text("Recognise text", bundle: .module)
+            }
+            .buttonStyle(.bordered)
+            .minimumTarget()
+            .accessibilityIdentifier("reader.textEdit.recognise")
+          }
+        }
+        .padding(Spacing.s150)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+      } else {
+        Label {
+          Text("Tap any text to change it", bundle: .module)
+        } icon: {
+          Image(systemName: "hand.tap")
+        }
+        .font(.subheadline.weight(.medium))
+        .padding(.horizontal, Spacing.s200)
+        .padding(.vertical, Spacing.s100)
+        .background(.regularMaterial, in: Capsule())
+      }
+    }
+    .accessibilityIdentifier("reader.textEdit.hint")
+  }
+}

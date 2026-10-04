@@ -1,3 +1,4 @@
+import Commerce
 import Core
 import DocumentStore
 import Foundation
@@ -27,6 +28,9 @@ struct LaunchEnvironment {
   let intelligenceUnavailable: Bool
   /// Turn off UIKit animations so UI tests do not wait on them.
   let disablesAnimations: Bool
+  /// Whether editing existing text is available, locked or hidden (`-text-editing locked`), so UI
+  /// tests can see each state; `nil` leaves it to the build.
+  let textEditing: TextEditingAccess?
 
   init(arguments: [String] = ProcessInfo.processInfo.arguments) {
     #if DEBUG
@@ -40,6 +44,16 @@ struct LaunchEnvironment {
       seedsDamaged = seed == "damaged"
       intelligenceUnavailable = arguments.contains("-intelligence-unavailable")
       disablesAnimations = arguments.contains("-disable-animations")
+      let editing = arguments.firstIndex(of: "-text-editing").flatMap {
+        arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil
+      }
+      textEditing =
+        switch editing {
+        case "available": .available
+        case "locked": .locked
+        case "hidden": .hidden
+        default: nil
+        }
     #else
       isUITesting = false
       skipsOnboarding = false
@@ -48,6 +62,7 @@ struct LaunchEnvironment {
       seedsDamaged = false
       intelligenceUnavailable = false
       disablesAnimations = false
+      textEditing = nil
     #endif
   }
 }
@@ -78,6 +93,8 @@ final class AppContainer {
   /// Face ID, Touch ID or the passcode, for App Lock (FR-SET-002).
   let authenticator: any DeviceAuthenticating = LocalAuthenticator()
   let thumbnails = ThumbnailCache()
+  /// Whether editing existing text is offered: the release flag and the Pro entitlement (FR-EDIT-001).
+  let textEditing: any TextEditingAccessProviding
   let indexLevel: LibraryIndex.StoreLevel
   let environment: LaunchEnvironment
 
@@ -131,6 +148,13 @@ final class AppContainer {
     metricKit?.start()
     signatures =
       environment.isUITesting ? KeychainSignatureStore(service: "ui-testing-\(UUID())") : KeychainSignatureStore()
+    if let fixed = environment.textEditing {
+      textEditing = FixedTextEditingAccess(fixed)
+    } else {
+      // The Pro products are named when the store is built; until then nobody is entitled, and
+      // only internal builds, which grant the feature, reach it.
+      textEditing = AppTextEditingAccess.forThisBuild(entitlements: StoreKitEntitlements(productIDs: []))
+    }
   }
 
   /// The diagnostics summary for "Report a problem": app, system and health only (FR-SET-003).
