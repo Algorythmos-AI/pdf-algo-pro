@@ -101,6 +101,14 @@ final class ReaderUITests: UITestCase {
     let undo = app.buttons["Undo"]
     XCTAssertTrue(undo.waitForExistence(timeout: 5))
     XCTAssertTrue(undo.isEnabled, "The rectangle and the text box were added")
+    // Undo alone doesn't prove the text box: the rectangle enables it too. The annotation list must
+    // show the typed text, which it didn't while the prompt cleared its field too early.
+    app.buttons["Highlight"].tap()
+    app.buttons["reader.doneMarkup"].tap()
+    let annotations = app.navigationBars["Annotations"]
+    tapMenuItem(app.buttons["reader.annotations"], in: app.buttons["reader.more"], until: annotations)
+    XCTAssertTrue(
+      app.staticTexts["Check with accounts"].waitForExistence(timeout: 5), "The text box carries what was typed")
   }
 
   func testATappedAnnotationCanBeResizedAndDeleted() throws {
