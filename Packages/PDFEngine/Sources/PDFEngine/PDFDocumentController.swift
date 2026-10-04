@@ -72,8 +72,10 @@ public final class PDFDocumentController {
   @ObservationIgnored weak var view: PDFReaderHostView?
   /// Called after each stroke is added while drawing, so the reader can save.
   @ObservationIgnored var onInk: (@MainActor () -> Void)?
-  /// Called when the person has finished selecting text on a page (the selection stopped changing).
-  @ObservationIgnored var onTextSelected: (@MainActor () -> Void)?
+  /// The markup a drag across text applies, while a markup tool is in hand.
+  public internal(set) var markupTool: TextMarkup?
+  /// Called after a drag has marked some text, so the reader can save.
+  @ObservationIgnored var onMarkup: (@MainActor () -> Void)?
   /// Called when a drag or pinch has moved or resized the selected annotation, so the reader can save.
   @ObservationIgnored public var onAnnotationTransformed: (@MainActor () -> Void)?
   @ObservationIgnored private var pendingPageIndex: Int?

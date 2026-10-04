@@ -142,6 +142,58 @@ struct ControllerTests {
     #expect(PDFDocumentController.hasRoom(toWrite: 1_000_000_000, available: nil))
   }
 
+  @Test("Marking text that is already marked never stacks; touching marks merge, and one Undo takes it back")
+  func markupMerges() throws {
+    let controller = try PDFDocumentController(data: SyntheticPDF.makeSample())
+    let page = try #require(controller.document.page(at: 1))
+    controller.undoManager.groupsByEvent = false
+    @discardableResult func mark(_ text: String, as markup: TextMarkup) -> Bool {
+      controller.undoManager.beginUndoGrouping()
+      defer { controller.undoManager.endUndoGrouping() }
+      return controller.markUp(text: text, as: markup)
+    }
+    func highlights() -> [PDFAnnotation] { page.annotations.filter { $0.type == "Highlight" } }
+    let others = page.annotations.count
+    #expect(mark("Invoice number", as: .highlight))
+    #expect(highlights().count == 1)
+    let before = try #require(highlights().first).bounds
+    // The same words again add nothing.
+    mark("Invoice number", as: .highlight)
+    mark("number", as: .highlight)
+    #expect(highlights().count == 1, "A mark inside an existing mark adds no second layer")
+    // Words that reach past the mark on the same line widen it instead of overlapping it.
+    #expect(mark("number: INV-2026-0042", as: .highlight))
+    let after = try #require(highlights().first).bounds
+    #expect(highlights().count == 1 && after.width > before.width && abs(after.minX - before.minX) < 0.5)
+    // An underline on the same words is its own kind of mark.
+    #expect(mark("Invoice number", as: .underline))
+    #expect(page.annotations.count == others + 2)
+    controller.undoManager.undo()
+    controller.undoManager.undo()
+    #expect(highlights().count == 1 && highlights().first?.bounds == before, "Undo brings back the narrower mark")
+  }
+
+  @Test("With a tool in hand, dragging from one point to another marks the text between them")
+  func markupByDragging() throws {
+    let controller = try PDFDocumentController(data: SyntheticPDF.makeSample())
+    let page = try #require(controller.document.page(at: 1))
+    let line = try #require(controller.document.findString("Invoice number", withOptions: []).first).bounds(for: page)
+    let start = CGPoint(x: line.minX + 1, y: line.midY)
+    let end = CGPoint(x: line.maxX - 1, y: line.midY)
+    #expect(!controller.markUpText(from: start, to: end, onPage: 1), "Nothing is marked without a tool")
+    var saves = 0
+    controller.setMarkupTool(.highlight) { saves += 1 }
+    #expect(controller.markupTool == .highlight)
+    #expect(controller.markUpText(from: start, to: end, onPage: 1))
+    #expect(saves == 1 && page.annotations.contains { $0.type == "Highlight" })
+    #expect(!controller.markUpText(from: CGPoint(x: 5, y: 5), to: CGPoint(x: 6, y: 6), onPage: 1), "No text there")
+    #expect(!controller.markUpText(from: start, to: end, onPage: 9))
+    controller.setMarkupTool(nil)
+    #expect(controller.markupTool == nil)
+    #expect(PDFDocumentController.isOnSameLine(line, line.offsetBy(dx: 40, dy: 1)))
+    #expect(!PDFDocumentController.isOnSameLine(line, line.offsetBy(dx: 0, dy: line.height * 2)))
+  }
+
   @Test("Stamps go on the page as framed text other apps can read, and survive a save (FR-ANN-006)")
   func stamps() throws {
     let controller = try PDFDocumentController(data: SyntheticPDF.makeSample())
@@ -152,9 +204,7 @@ struct ControllerTests {
     let stamped = try #require(controller.document.page(at: 0)).annotations.map(\.bounds)
     #expect(stamped.count == 2 && !stamped[0].intersects(stamped[1]) && stamped[1].maxY < stamped[0].minY)
     #expect(!controller.hasTextSelection)
-    controller.onTextSelected {}
     controller.clearTextSelection()
-    controller.onTextSelected(nil)
     #expect(controller.addStamp(.text("Paid"), onPage: 1))
     #expect(!controller.addStamp(.text("   "), onPage: 0))
     #expect(!controller.addStamp(.cross, onPage: 9))

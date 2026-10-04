@@ -49,11 +49,31 @@ extension PDFDocumentController {
     !(view?.currentSelection?.string ?? "").isEmpty
   }
 
-  /// Hears when the person finishes selecting text, or stops hearing with `nil`.
+  /// Takes a markup tool in hand, or puts it down with `nil`.
   ///
-  /// The reader uses this for its markup tools: choose Highlight, then select the text.
-  public func onTextSelected(_ action: (@MainActor () -> Void)?) {
-    onTextSelected = action
+  /// While a tool is in hand, dragging a finger across text marks it as it goes: the reader calls
+  /// `onMarked` after each drag so it can save.
+  public func setMarkupTool(_ markup: TextMarkup?, onMarked: (@MainActor () -> Void)? = nil) {
+    markupTool = markup
+    onMarkup = markup == nil ? nil : onMarked
+  }
+
+  /// The text between two points on a page, as a drag across it would select.
+  func textSelection(from start: CGPoint, to end: CGPoint, onPage pageIndex: Int) -> PDFSelection? {
+    guard let page = document.page(at: pageIndex), let selection = page.selection(from: start, to: end),
+      !(selection.string ?? "").isEmpty
+    else { return nil }
+    return selection
+  }
+
+  /// Marks the text between two points on a page with the tool in hand; returns whether any was marked.
+  @discardableResult
+  public func markUpText(from start: CGPoint, to end: CGPoint, onPage pageIndex: Int) -> Bool {
+    guard let markupTool, let selection = textSelection(from: start, to: end, onPage: pageIndex),
+      markUp(selection, as: markupTool)
+    else { return false }
+    onMarkup?()
+    return true
   }
 
   /// Clears the text selection.
@@ -187,17 +207,25 @@ extension PDFDocumentController {
     let longest = lines.map(\.count).max() ?? 0
     let width = min(CGFloat(longest) * 8.5 + 24, box.width * 0.8)
     let height = CGFloat(max(lines.count, 1)) * 20 + 12
-    let bounds = CGRect(
-      x: box.midX - width / 2, y: box.minY + box.height * 2 / 3 - height / 2, width: width, height: height)
+    // In the middle of what is on screen, so it appears where the person is looking; without a view,
+    // two thirds of the way up the page.
+    let fallback = CGPoint(x: box.midX, y: box.minY + box.height * 2 / 3)
+    let middle = view?.visibleCenter(on: page).flatMap { box.contains($0) ? $0 : nil } ?? fallback
+    var bounds = CGRect(x: middle.x - width / 2, y: middle.y - height / 2, width: width, height: height)
+    bounds.origin.x = min(max(bounds.minX, box.minX + 8), box.maxX - width - 8)
+    bounds.origin.y = min(max(bounds.minY, box.minY + 8), box.maxY - height - 8)
     let annotation = PDFAnnotation(bounds: bounds, forType: .freeText, withProperties: nil)
     annotation.contents = text
     annotation.font = AnnotationPalette.font(size: 15)
     annotation.fontColor = AnnotationPalette.text
-    annotation.color = .clear
+    // Opaque, so it stays readable over the page's own text until it is dragged into place.
+    annotation.color = PlatformColor.white
     let border = PDFBorder()
     border.lineWidth = 1
     annotation.border = border
     add([(annotation, page)])
+    // Selected straight away, so it can be dragged to where it belongs.
+    select(annotation, on: page)
     return true
   }
 
@@ -311,18 +339,47 @@ extension PDFDocumentController {
 
   private func markUp(_ selection: PDFSelection, as markup: TextMarkup) -> Bool {
     var added: [(PDFAnnotation, PDFPage)] = []
+    var replaced: [(PDFAnnotation, PDFPage)] = []
+    let type = markup.subtype.rawValue.replacingOccurrences(of: "/", with: "")
     for line in selection.selectionsByLine() {
       for page in line.pages {
-        let bounds = line.bounds(for: page)
+        var bounds = line.bounds(for: page)
         guard bounds.width > 0, bounds.height > 0 else { continue }
+        // Marking text that is already marked the same way never stacks a second layer: marks on the
+        // same line that touch the new one are merged into it.
+        let touching = page.annotations.filter { existing in
+          existing.type == type && Self.isOnSameLine(existing.bounds, bounds)
+            && existing.bounds.insetBy(dx: -1, dy: 0).intersects(bounds)
+        }
+        if touching.contains(where: { $0.bounds.insetBy(dx: -1, dy: -1).contains(bounds) }) { continue }
+        for existing in touching {
+          bounds = bounds.union(existing.bounds)
+          replaced.append((existing, page))
+        }
         let annotation = PDFAnnotation(bounds: bounds, forType: markup.subtype, withProperties: nil)
         annotation.color = markup == .highlight ? AnnotationPalette.yellow : AnnotationPalette.red
         added.append((annotation, page))
       }
     }
-    guard !added.isEmpty else { return false }
-    add(added)
+    guard !added.isEmpty else { return !replaced.isEmpty }
+    exchange(removing: replaced, adding: added)
     return true
+  }
+
+  /// Whether two marks sit on the same line of text: their heights overlap by more than half.
+  static func isOnSameLine(_ first: CGRect, _ second: CGRect) -> Bool {
+    let overlap = min(first.maxY, second.maxY) - max(first.minY, second.minY)
+    return overlap > min(first.height, second.height) / 2
+  }
+
+  /// Swaps annotations in one undo step.
+  func exchange(removing: [(PDFAnnotation, PDFPage)], adding: [(PDFAnnotation, PDFPage)]) {
+    for (annotation, page) in removing { page.removeAnnotation(annotation) }
+    for (annotation, page) in adding { page.addAnnotation(annotation) }
+    hasUnsavedChanges = true
+    undoManager.registerUndo(withTarget: self) { controller in
+      MainActor.assumeIsolated { controller.exchange(removing: adding, adding: removing) }
+    }
   }
 
   func add(_ annotations: [(PDFAnnotation, PDFPage)]) {

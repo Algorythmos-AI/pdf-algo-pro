@@ -371,12 +371,12 @@ public struct ReaderView<Assistant: View>: View {
       if let tool = model.markupTool {
         Label {
           switch tool {
-          case .highlight: Text("Select text to highlight it", bundle: .module)
-          case .underline: Text("Select text to underline it", bundle: .module)
-          case .strikeThrough: Text("Select text to strike it through", bundle: .module)
+          case .highlight: Text("Drag across text to highlight it", bundle: .module)
+          case .underline: Text("Drag across text to underline it", bundle: .module)
+          case .strikeThrough: Text("Drag across text to strike it through", bundle: .module)
           }
         } icon: {
-          Image(systemName: "hand.point.up.left")
+          Image(systemName: "hand.draw")
         }
         .font(.subheadline.weight(.medium))
         .padding(.horizontal, Spacing.s200)

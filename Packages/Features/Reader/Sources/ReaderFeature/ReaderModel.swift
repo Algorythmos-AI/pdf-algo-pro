@@ -267,26 +267,21 @@ public final class ReaderModel {
   /// The markup applied to text as it is selected, or `nil` when no markup tool is in hand.
   public private(set) var markupTool: TextMarkup?
 
-  /// Takes a markup tool in hand: text selected from now on is marked with it.
+  /// Takes a markup tool in hand: dragging across text marks it, until Done.
   public func startMarkupTool(_ markup: TextMarkup) {
     guard let controller, checkAnnotatingIsAllowed(controller) else { return }
+    controller.clearTextSelection()
     markupTool = markup
-    controller.onTextSelected { [weak self] in
-      Task { await self?.markUpSelectedText() }
+    controller.setMarkupTool(markup) { [weak self] in
+      self?.updateUndoState()
+      Task { await self?.save() }
     }
   }
 
   /// Puts the markup tool down.
   public func stopMarkupTool() {
     markupTool = nil
-    controller?.onTextSelected(nil)
-  }
-
-  private func markUpSelectedText() async {
-    guard let controller, let markupTool, controller.markUpSelection(markupTool) else { return }
-    controller.clearTextSelection()
-    updateUndoState()
-    await save()
+    controller?.setMarkupTool(nil)
   }
 
   /// Adds a note to the current page and saves.

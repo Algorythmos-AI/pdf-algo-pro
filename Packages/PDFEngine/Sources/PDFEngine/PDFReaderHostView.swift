@@ -49,8 +49,6 @@ enum AnnotationPalette {
 @MainActor
 final class PDFReaderHostView: PDFView {
   private var pageObserver: (any NSObjectProtocol)?
-  private var selectionObserver: (any NSObjectProtocol)?
-  private var selectionSettling: Task<Void, Never>?
   private(set) weak var controller: PDFDocumentController?
   private let linkDelegate = LinkDelegate()
   #if canImport(UIKit)
@@ -60,6 +58,9 @@ final class PDFReaderHostView: PDFView {
     // PDFView is the delegate of its own recognizers, so the tap gets a delegate of its own.
     private let tapDelegate = SimultaneousGestureDelegate()
     private lazy var transformDelegate = TransformGestureDelegate(host: self)
+    private lazy var markupDelegate = MarkupGestureDelegate(host: self)
+    /// Where a markup drag started: the page and the point on it.
+    private var markupStart: (page: PDFPage, point: CGPoint)?
     private var transformStart: AnnotationGeometry?
     private var transformOffset = CGSize.zero
     private var transformScale: CGFloat = 1
@@ -86,21 +87,6 @@ final class PDFReaderHostView: PDFView {
         controller?.pageChanged(to: page)
       }
     }
-    selectionObserver = NotificationCenter.default.addObserver(
-      forName: .PDFViewSelectionChanged, object: self, queue: .main
-    ) { [weak self, weak controller] _ in
-      MainActor.assumeIsolated {
-        // The selection changes continuously while its handles are dragged; it has settled once it
-        // has stayed the same for a moment.
-        self?.selectionSettling?.cancel()
-        guard let controller, controller.onTextSelected != nil, controller.hasTextSelection else { return }
-        self?.selectionSettling = Task { @MainActor [weak controller] in
-          try? await Task.sleep(for: .milliseconds(700))
-          guard !Task.isCancelled, let controller, controller.hasTextSelection else { return }
-          controller.onTextSelected?()
-        }
-      }
-    }
     self.controller = controller
     // A tapped web link waits for the person to confirm it instead of opening at once (T-02).
     linkDelegate.onLink = { [weak controller] url in controller?.linkTapped(url) }
@@ -118,6 +104,12 @@ final class PDFReaderHostView: PDFView {
       pan.maximumNumberOfTouches = 1
       pan.delegate = transformDelegate
       addGestureRecognizer(pan)
+      // With a markup tool in hand, a drag that starts on text marks it (plan B3); a drag that starts
+      // anywhere else scrolls as usual.
+      let mark = UIPanGestureRecognizer(target: self, action: #selector(marked(_:)))
+      mark.maximumNumberOfTouches = 1
+      mark.delegate = markupDelegate
+      addGestureRecognizer(mark)
       let pinch = UIPinchGestureRecognizer(target: self, action: #selector(pinched(_:)))
       pinch.delegate = transformDelegate
       addGestureRecognizer(pinch)
@@ -138,6 +130,13 @@ final class PDFReaderHostView: PDFView {
         usePageViewController(true, withViewOptions: nil)
       #endif
     }
+  }
+
+  /// The middle of what is on screen, in a page's space, when that page is the one in the middle.
+  func visibleCenter(on page: PDFPage) -> CGPoint? {
+    let center = CGPoint(x: bounds.midX, y: bounds.midY)
+    guard self.page(for: center, nearest: true) === page else { return nil }
+    return convert(center, to: page)
   }
 
   func show(_ page: PDFPage) {
@@ -229,6 +228,57 @@ final class PDFReaderHostView: PDFView {
       transform(recognizer.state)
     }
 
+    /// Whether a drag starting at a point in this view would mark text: a tool is in hand and there
+    /// is text under the finger.
+    fileprivate func canMark(at point: CGPoint) -> Bool {
+      guard let controller, controller.markupTool != nil, !controller.isDrawing,
+        let page = page(for: point, nearest: false)
+      else { return false }
+      return page.selectionForWord(at: convert(point, to: page)) != nil
+    }
+
+    /// Marks text under a drag: a live preview follows the finger, and lifting it applies the mark.
+    @objc fileprivate func marked(_ recognizer: UIPanGestureRecognizer) {
+      guard let controller, let tool = controller.markupTool, let document else { return }
+      let location = recognizer.location(in: self)
+      switch recognizer.state {
+      case .began:
+        // The drag began a few points after the touch; start from where the finger went down.
+        let translation = recognizer.translation(in: self)
+        let origin = CGPoint(x: location.x - translation.x, y: location.y - translation.y)
+        guard let page = page(for: origin, nearest: false) else { return }
+        markupStart = (page, convert(origin, to: page))
+        clearSelection()
+        UISelectionFeedbackGenerator().selectionChanged()
+        preview(to: location, tool: tool)
+      case .changed:
+        preview(to: location, tool: tool)
+      case .ended:
+        highlightedSelections = nil
+        if let start = markupStart {
+          let marked = controller.markUpText(
+            from: start.point, to: convert(location, to: start.page), onPage: document.index(for: start.page))
+          if marked { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
+        }
+        markupStart = nil
+      default:
+        highlightedSelections = nil
+        markupStart = nil
+      }
+    }
+
+    private func preview(to location: CGPoint, tool: TextMarkup) {
+      guard let start = markupStart, let controller, let document,
+        let selection = controller.textSelection(
+          from: start.point, to: convert(location, to: start.page), onPage: document.index(for: start.page))
+      else {
+        highlightedSelections = nil
+        return
+      }
+      selection.color = tool == .highlight ? AnnotationPalette.yellow : AnnotationPalette.red.withAlphaComponent(0.25)
+      highlightedSelections = [selection]
+    }
+
     @objc fileprivate func pinched(_ recognizer: UIPinchGestureRecognizer) {
       transformScale = recognizer.scale
       transform(recognizer.state)
@@ -292,6 +342,32 @@ final class PDFReaderHostView: PDFView {
       shouldRequireFailureOf otherGestureRecognizer: UIGestureRecognizer
     ) -> Bool {
       false
+    }
+  }
+
+  /// Lets the markup drag begin only on text while a tool is in hand, and ahead of scrolling there.
+  final class MarkupGestureDelegate: NSObject, UIGestureRecognizerDelegate {
+    private weak var host: PDFReaderHostView?
+
+    init(host: PDFReaderHostView) {
+      self.host = host
+    }
+
+    func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+      MainActor.assumeIsolated {
+        guard let host, let pan = gestureRecognizer as? UIPanGestureRecognizer else { return false }
+        let location = pan.location(in: host)
+        let translation = pan.translation(in: host)
+        return host.canMark(at: CGPoint(x: location.x - translation.x, y: location.y - translation.y))
+      }
+    }
+
+    func gestureRecognizer(
+      _ gestureRecognizer: UIGestureRecognizer,
+      shouldBeRequiredToFailBy otherGestureRecognizer: UIGestureRecognizer
+    ) -> Bool {
+      // Scrolling waits: on text it gives way to marking, elsewhere this fails at once and it scrolls.
+      otherGestureRecognizer.view is UIScrollView
     }
   }
 
