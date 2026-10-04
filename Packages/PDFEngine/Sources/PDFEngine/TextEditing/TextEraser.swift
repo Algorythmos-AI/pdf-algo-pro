@@ -16,6 +16,13 @@ enum TextEraser {
   /// - Throws: `PDFSyntaxError.unsupported` when an advance that must be kept cannot be written.
   static func erasing(_ regions: [TextRegion], in content: PageContent, bytes: [UInt8]) throws -> [UInt8] {
     let erased = Set(regions.flatMap(\.runs))
+    // Whether the pen must be where a run leaves it: the next run starts there and either survives
+    // or, being erased, has to keep its own advance for a run after it.
+    var needsPen = [Bool](repeating: false, count: content.runs.count)
+    for index in content.runs.indices.reversed() where index + 1 < content.runs.count {
+      let next = content.runs[index + 1]
+      needsPen[index] = next.continuesFromPen && (!erased.contains(index + 1) || needsPen[index + 1])
+    }
     var replacements: [(range: Range<Int>, text: String)] = []
     for index in erased.sorted() {
       let run = content.runs[index]
@@ -31,9 +38,7 @@ enum TextEraser {
       default:
         break
       }
-      // The run after this one starts at this one's end; unless it is erased too, the pen must
-      // still get there.
-      if run.hasDependents, !erased.contains(index + 1) {
+      if needsPen[index] {
         let unit = run.fontSize * run.horizontalScale
         guard let advance = run.advance, unit.isFinite, abs(unit) > 1e-9 else { throw PDFSyntaxError.unsupported }
         parts.append("[\(number(-advance * 1000 / unit))] TJ")

@@ -305,7 +305,8 @@ public final class ReaderModel {
     guard let controller, controller.undoManager.canUndo, !isBusyEditingText else { return }
     controller.undoManager.undo()
     updateUndoState()
-    textChangedSinceIndexing = true
+    // Only undoing or redoing a text edit changes the words that search finds.
+    if controller.hasUnsavedTextEdits { textChangedSinceIndexing = true }
     await save()
   }
 
@@ -314,7 +315,8 @@ public final class ReaderModel {
     guard let controller, controller.undoManager.canRedo, !isBusyEditingText else { return }
     controller.undoManager.redo()
     updateUndoState()
-    textChangedSinceIndexing = true
+    // Only undoing or redoing a text edit changes the words that search finds.
+    if controller.hasUnsavedTextEdits { textChangedSinceIndexing = true }
     await save()
   }
 

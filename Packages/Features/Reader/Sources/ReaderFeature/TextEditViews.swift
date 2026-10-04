@@ -9,6 +9,11 @@ import UIKit
 @Observable
 final class TextEditDraft {
   var text = ""
+  /// Whether the field sits over the text on the page.
+  ///
+  /// `nil` until the page has settled and the layer has measured where the text is. The layer
+  /// decides once, and the bar follows.
+  var isInPlace: Bool?
 }
 
 /// A plain text field for editing existing text: the document's own font and colour, and none of
@@ -96,7 +101,7 @@ struct TextEditLayer: View {
       ZStack(alignment: .topLeading) {
         // Nearly clear, so it is hit-tested: touches stop here while the editor is open.
         Color.black.opacity(0.001)
-        if let frame, Self.fitsInPlace(selection, frame: frame) {
+        if let frame, draft.isInPlace == true {
           let scale = model.controller?.selectedTextRegionScale ?? 1
           TextEditField(
             draft: draft, font: Self.font(for: selection.region, scale: scale),
@@ -105,8 +110,8 @@ struct TextEditLayer: View {
           )
           .padding(.horizontal, 2)
           .frame(width: max(frame.width + 24, geometry.size.width - frame.minX - Spacing.s200), height: frame.height)
-          // The page is white under the text; the field covers the old words while new ones are typed.
-          .background(Color.white)
+          // The field covers the old words while new ones are typed, in a colour the text shows on.
+          .background(Self.isLight(selection.region) ? Color.black : Color.white)
           .overlay(alignment: .bottom) { Rectangle().fill(Color.ds.brandTint).frame(height: 1.5) }
           .offset(x: frame.minX - 2, y: frame.minY)
         }
@@ -115,9 +120,17 @@ struct TextEditLayer: View {
     .task(id: selection) {
       // The page has just scrolled the text clear of the keyboard; read where it ended up.
       try? await Task.sleep(for: .milliseconds(80))
-      frame = model.controller?.selectedTextRegionFrame
+      let measured = model.controller?.selectedTextRegionFrame
+      frame = measured
+      draft.isInPlace = Self.fitsInPlace(selection, frame: measured)
     }
     .accessibilityElement(children: .contain)
+  }
+
+  /// Whether the region's text is light, so it needs a dark field to be seen while it is typed.
+  static func isLight(_ region: EditableTextRegion) -> Bool {
+    let color = region.style.color
+    return 0.2126 * color.red + 0.7152 * color.green + 0.0722 * color.blue > 0.6
   }
 
   /// The region's own font at its size on screen, or the closest the system has.
@@ -147,7 +160,9 @@ struct TextEditLayer: View {
 struct TextEditBar: View {
   let model: ReaderModel
   let draft: TextEditDraft
-  let showsField: Bool
+
+  /// The field is here when the layer found it cannot sit over the text.
+  private var showsField: Bool { draft.isInPlace == false }
 
   var body: some View {
     VStack(alignment: .leading, spacing: Spacing.s100) {

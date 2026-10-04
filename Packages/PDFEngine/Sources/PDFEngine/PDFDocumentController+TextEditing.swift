@@ -46,6 +46,9 @@ extension PDFDocumentController {
     return digitalSignature.isSigned ? .signed : .editable
   }
 
+  /// Whether the words of a page were changed since the last save, by an edit or by undoing one.
+  public var hasUnsavedTextEdits: Bool { !contentEditedPages.isEmpty }
+
   /// Turns text editing mode on or off.
   ///
   /// While it is on, taps on a page pick text instead of annotations, and drawing is off.

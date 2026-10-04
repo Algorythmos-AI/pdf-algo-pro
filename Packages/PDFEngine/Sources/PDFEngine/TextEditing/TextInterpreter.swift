@@ -103,6 +103,11 @@ struct TextInterpreter {
   private var previousRunInObject: Int?
 
   private var pathBox: CGRect?
+  /// The box of each segment of the path, for strokes: a stroked outline paints its edges, not
+  /// what it encloses.
+  private var pathSegments: [CGRect] = []
+  private var currentPoint: CGPoint?
+  private var subpathStart: CGPoint?
   private var pathRectangles = 0
   private var pathOtherSegments = 0
   private var pendingClip = false
@@ -114,10 +119,18 @@ struct TextInterpreter {
   private var painted: [PaintedArea] = []
   private var spans: [ReplacementSpan] = []
 
+  /// How many forms deep this interpreter is; the page itself is 0.
+  private let formDepth: Int
+
   init(file: PDFFile, page: PDFFile.Page) {
+    self.init(file: file, resources: page.resources, pageBox: page.mediaBox, formDepth: 0)
+  }
+
+  private init(file: PDFFile, resources: [String: PDFObject], pageBox: CGRect, formDepth: Int) {
     self.file = file
-    resources = page.resources
-    pageBox = page.mediaBox
+    self.resources = resources
+    self.pageBox = pageBox
+    self.formDepth = formDepth
   }
 
   /// Interprets a page's operations.
@@ -163,44 +176,57 @@ struct TextInterpreter {
       }
 
     // Paths and clipping
-    case "m", "l":
-      if numbers.count == 2 { addPathPoint(numbers[0], numbers[1]) }
+    case "m":
+      if numbers.count == 2 {
+        let point = pagePoint(numbers[0], numbers[1])
+        addPathPoints([point])
+        currentPoint = point
+        subpathStart = point
+      }
+      pathOtherSegments += 1
+    case "l":
+      if numbers.count == 2 { addSegment(to: pagePoint(numbers[0], numbers[1]), through: []) }
       pathOtherSegments += 1
     case "c":
       if numbers.count == 6 {
-        addPathPoint(numbers[0], numbers[1])
-        addPathPoint(numbers[2], numbers[3])
-        addPathPoint(numbers[4], numbers[5])
+        addSegment(
+          to: pagePoint(numbers[4], numbers[5]),
+          through: [pagePoint(numbers[0], numbers[1]), pagePoint(numbers[2], numbers[3])])
       }
       pathOtherSegments += 1
     case "v", "y":
       if numbers.count == 4 {
-        addPathPoint(numbers[0], numbers[1])
-        addPathPoint(numbers[2], numbers[3])
+        addSegment(to: pagePoint(numbers[2], numbers[3]), through: [pagePoint(numbers[0], numbers[1])])
       }
       pathOtherSegments += 1
     case "h":
-      break
+      if let subpathStart { addSegment(to: subpathStart, through: []) }
     case "re":
       if numbers.count == 4 {
-        addPathPoint(numbers[0], numbers[1])
-        addPathPoint(numbers[0] + numbers[2], numbers[1])
-        addPathPoint(numbers[0], numbers[1] + numbers[3])
-        addPathPoint(numbers[0] + numbers[2], numbers[1] + numbers[3])
+        let corners = [
+          pagePoint(numbers[0], numbers[1]), pagePoint(numbers[0] + numbers[2], numbers[1]),
+          pagePoint(numbers[0] + numbers[2], numbers[1] + numbers[3]), pagePoint(numbers[0], numbers[1] + numbers[3]),
+        ]
+        currentPoint = corners[0]
+        subpathStart = corners[0]
+        for corner in corners.dropFirst() + [corners[0]] { addSegment(to: corner, through: []) }
       }
       pathRectangles += 1
     case "W", "W*":
       pendingClip = true
     case "n":
-      endPath(painting: false, at: index)
-    case "S", "s", "f", "F", "f*", "B", "B*", "b", "b*":
-      endPath(painting: true, at: index)
+      endPath(.none, at: index)
+    case "S", "s":
+      if operation.name == "s", let subpathStart { addSegment(to: subpathStart, through: []) }
+      endPath(.stroke, at: index)
+    case "f", "F", "f*", "B", "B*", "b", "b*":
+      endPath(.fill, at: index)
     case "sh":
       painted.append(PaintedArea(operation: index, box: state.clip ?? pageBox))
     case "BI":
       painted.append(PaintedArea(operation: index, box: Self.unitSquare.applying(state.transform)))
     case "Do":
-      painted.append(PaintedArea(operation: index, box: try box(ofXObject: operands.first?.name)))
+      for box in try boxes(ofXObject: operands.first?.name) { painted.append(PaintedArea(operation: index, box: box)) }
 
     // Marked content
     case "BMC":
@@ -324,14 +350,45 @@ struct TextInterpreter {
 
   // MARK: - Paths
 
-  private mutating func addPathPoint(_ x: Double, _ y: Double) {
-    let point = CGPoint(x: x, y: y).applying(state.transform)
-    let box = CGRect(origin: point, size: .zero)
-    pathBox = pathBox.map { $0.union(box) } ?? box
+  private enum Paint { case none, stroke, fill }
+
+  private func pagePoint(_ x: Double, _ y: Double) -> CGPoint {
+    CGPoint(x: x, y: y).applying(state.transform)
   }
 
-  private mutating func endPath(painting: Bool, at index: Int) {
-    if painting, let pathBox { painted.append(PaintedArea(operation: index, box: pathBox.insetBy(dx: -1, dy: -1))) }
+  private mutating func addPathPoints(_ points: [CGPoint]) {
+    for point in points {
+      let box = CGRect(origin: point, size: .zero)
+      pathBox = pathBox.map { $0.union(box) } ?? box
+    }
+  }
+
+  /// Adds a segment from the current point, through any control points, to a point.
+  private mutating func addSegment(to end: CGPoint, through controls: [CGPoint]) {
+    let points = [currentPoint ?? end] + controls + [end]
+    addPathPoints(points)
+    var box = CGRect(origin: points[0], size: .zero)
+    for point in points.dropFirst() { box = box.union(CGRect(origin: point, size: .zero)) }
+    if pathSegments.count < 4096 { pathSegments.append(box) }
+    currentPoint = end
+  }
+
+  private mutating func endPath(_ paint: Paint, at index: Int) {
+    switch paint {
+    case .none:
+      break
+    case .fill:
+      if let pathBox { painted.append(PaintedArea(operation: index, box: pathBox.insetBy(dx: -1, dy: -1))) }
+    case .stroke:
+      // A stroked outline, such as a table's grid, paints its lines and leaves what is inside clear.
+      if pathSegments.count < 4096 {
+        for segment in pathSegments {
+          painted.append(PaintedArea(operation: index, box: segment.insetBy(dx: -1, dy: -1)))
+        }
+      } else if let pathBox {
+        painted.append(PaintedArea(operation: index, box: pathBox.insetBy(dx: -1, dy: -1)))
+      }
+    }
     if pendingClip {
       let transform = state.transform
       let isAxisAligned = (transform.b == 0 && transform.c == 0) || (transform.a == 0 && transform.d == 0)
@@ -343,19 +400,45 @@ struct TextInterpreter {
     }
     pendingClip = false
     pathBox = nil
+    pathSegments = []
+    currentPoint = nil
+    subpathStart = nil
     pathRectangles = 0
     pathOtherSegments = 0
   }
 
-  private func box(ofXObject name: String?) throws -> CGRect {
+  /// Where a reusable object paints.
+  ///
+  /// An image paints its unit square. A form is interpreted, a few levels deep, so that a form
+  /// whose declared box is the whole page but which paints only a footer counts as the footer.
+  private func boxes(ofXObject name: String?) throws -> [CGRect] {
+    let whole = state.clip ?? pageBox
     guard let name, let objects = try file.dictionary(resources["XObject"]),
-      let dictionary = try file.dictionary(objects[name])
-    else { return state.clip ?? pageBox }
-    if dictionary["Subtype"] == .name("Image") { return Self.unitSquare.applying(state.transform) }
-    guard let bounds = try file.rectangle(dictionary["BBox"]) else { return state.clip ?? pageBox }
+      case .reference(let number) = objects[name], let dictionary = try file.dictionary(objects[name])
+    else { return [whole] }
+    if dictionary["Subtype"] == .name("Image") { return [Self.unitSquare.applying(state.transform)] }
+    guard dictionary["Subtype"] == .name("Form"), let bounds = try file.rectangle(dictionary["BBox"]) else {
+      return [whole]
+    }
     let numbers = try file.resolve(dictionary["Matrix"]).array?.compactMap(\.number) ?? []
-    let matrix = Self.matrix(numbers) ?? .identity
-    return bounds.applying(matrix.concatenating(state.transform))
+    let transform = (Self.matrix(numbers) ?? .identity).concatenating(state.transform)
+    let declared = bounds.applying(transform)
+    guard formDepth < 4, let stream = try? file.stream(number),
+      let operations = try? ContentStream.parse(stream.data)
+    else { return [declared] }
+    var inner = TextInterpreter(
+      file: file, resources: try file.dictionary(dictionary["Resources"]) ?? resources, pageBox: pageBox,
+      formDepth: formDepth + 1)
+    inner.state.transform = transform
+    guard let content = try? inner.interpret(operations) else { return [declared] }
+    var boxes = content.painted.map(\.box)
+    // Text inside the form is not editable here, and it does occupy the page.
+    for run in content.runs where run.renderingMode != 3 {
+      let size = run.fontSize
+      let width = run.advance ?? size
+      boxes.append(CGRect(x: 0, y: -0.25 * size, width: width, height: 1.25 * size).applying(run.transform))
+    }
+    return boxes.map { $0.intersection(declared) }.filter { !$0.isNull && !$0.isEmpty }
   }
 
   // MARK: - Marked content

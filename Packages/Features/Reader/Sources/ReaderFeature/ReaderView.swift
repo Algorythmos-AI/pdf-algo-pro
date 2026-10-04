@@ -216,6 +216,7 @@ public struct ReaderView<Assistant: View>: View {
       .onChange(of: model.selectedTextRegion) { _, selection in
         // The editor starts from the text as it is; what to say about it is worked out once.
         textDraft.text = selection?.region.text ?? ""
+        textDraft.isInPlace = nil
         if selection != nil { model.textRegionPicked() }
       }
       .onChange(of: scenePhase) { _, phase in
@@ -293,10 +294,8 @@ public struct ReaderView<Assistant: View>: View {
               }
             }
           // Outside the page view, which runs under the keyboard: this sits just above it.
-          if let selection = model.selectedTextRegion {
-            TextEditBar(
-              model: model, draft: textDraft,
-              showsField: !TextEditLayer.fitsInPlace(selection, frame: controller.selectedTextRegionFrame))
+          if model.selectedTextRegion != nil {
+            TextEditBar(model: model, draft: textDraft)
           }
         }
       }

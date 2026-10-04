@@ -81,6 +81,8 @@
   @MainActor
   final class TextOverlayProvider: NSObject, @MainActor PDFPageOverlayViewProvider {
     weak var host: PDFReaderHostView?
+    /// Whether the page view was fitting pages to its width before text editing zoomed in.
+    var restoresAutoScaling = false
     private var overlays: [ObjectIdentifier: TextRegionOverlayView] = [:]
 
     func pdfView(_ view: PDFView, overlayViewFor page: PDFPage) -> UIView? {
@@ -136,6 +138,10 @@
         apply(isEditing ? .continuous : .singlePage)
         if let page { go(to: page) }
       }
+      if !isEditing, textOverlays.restoresAutoScaling {
+        textOverlays.restoresAutoScaling = false
+        autoScales = true
+      }
       textOverlays.refreshAll()
     }
 
@@ -161,7 +167,11 @@
       }
       let rect = selection.region.bounds
       let onScreen = selection.region.style.pointSize * scaleFactor
-      if onScreen < 13, onScreen > 0 { scaleFactor = min(maxScaleFactor, scaleFactor * 15 / onScreen) }
+      if onScreen < 13, onScreen > 0 {
+        // Setting the zoom turns PDFKit's fitting off; it is turned back on when editing ends.
+        if autoScales { textOverlays.restoresAutoScaling = true }
+        scaleFactor = min(maxScaleFactor, scaleFactor * 15 / onScreen)
+      }
       let box = page.bounds(for: displayBox)
       let visibleHeight = bounds.height / max(scaleFactor, 0.1)
       let top = min(box.maxY, rect.maxY + visibleHeight * 0.22)

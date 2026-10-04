@@ -1181,6 +1181,18 @@ struct ReaderTextEditingTests {
     #expect(await harness.index.stored[document.id]?.first?.text.contains("Timber") == true)
   }
 
+  @Test("Undoing a note does not send the whole document to be indexed again")
+  func annotationUndoDoesNotReindex() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try TextEditFixtures.invoice())
+    let reader = harness.reader(for: document)
+    await reader.load()
+    await reader.addNote("A note")
+    await reader.undo()
+    await reader.saveBeforeClosing()
+    #expect(await harness.index.stored[document.id] == nil)
+  }
+
   @Test("Entering text editing puts down the markup tool, and drawing leaves text editing")
   func modes() async throws {
     let harness = Harness()
@@ -1200,8 +1212,9 @@ struct ReaderTextEditingTests {
     let (reader, _) = try await editing(try TextEditFixtures.invoice(), in: harness, picking: "John Smith")
     let draft = TextEditDraft()
     draft.text = "Customer: David Smith"
-    for showsField in [true, false] {
-      let bar = TextEditBar(model: reader, draft: draft, showsField: showsField).frame(width: 390)
+    for isInPlace in [nil, true, false] {
+      draft.isInPlace = isInPlace
+      let bar = TextEditBar(model: reader, draft: draft).frame(width: 390)
         .environment(\.dynamicTypeSize, .accessibility3)
       #expect(ImageRenderer(content: bar).uiImage != nil)
     }
@@ -1211,6 +1224,7 @@ struct ReaderTextEditingTests {
     #expect(!TextEditLayer.fitsInPlace(selection, frame: nil))
     #expect(TextEditLayer.fitsInPlace(selection, frame: CGRect(x: 40, y: 200, width: 200, height: 18)))
     #expect(!TextEditLayer.fitsInPlace(selection, frame: CGRect(x: 40, y: 200, width: 200, height: 6)))
+    #expect(!TextEditLayer.isLight(selection.region))
     #expect(TextEditLayer.font(for: selection.region, scale: 1.5).fontName == "Georgia")
     #expect(TextEditLayer.color(for: selection.region).cgColor.components?.prefix(3).allSatisfy { $0 < 0.01 } == true)
     for message in [

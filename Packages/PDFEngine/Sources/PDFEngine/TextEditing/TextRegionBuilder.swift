@@ -218,9 +218,13 @@ enum TextRegionBuilder {
       let sharesStart = others.contains { abs($0.minX - box.minX) < 1 }
       let sharesEnd = others.contains { abs($0.maxX - box.maxX) < 1 }
       let sharesMiddle = others.contains { abs($0.midX - box.midX) < 1 && abs($0.width - box.width) > 2 }
-      if sharesStart && sharesEnd {
-        region.isJustified = region.text.split(separator: " ").count >= 3
-      } else if sharesEnd {
+      // Regions that share only their end with this one, as amounts in a column do, and only
+      // their start, as lines of a paragraph do.
+      let endOnly = others.contains { abs($0.maxX - box.maxX) < 1 && abs($0.minX - box.minX) >= 1 }
+      let startOnly = others.contains { abs($0.minX - box.minX) < 1 && abs($0.maxX - box.maxX) >= 1 }
+      if sharesStart && sharesEnd && region.text.split(separator: " ").count >= 3 {
+        region.isJustified = true
+      } else if sharesEnd && (!sharesStart || (endOnly && !startOnly)) {
         region.alignment = .trailing
       } else if sharesMiddle && !sharesStart {
         region.alignment = .centre

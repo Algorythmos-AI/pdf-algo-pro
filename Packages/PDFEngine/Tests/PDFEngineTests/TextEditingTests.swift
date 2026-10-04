@@ -157,7 +157,8 @@ struct TextEditingSyntaxTests {
     let font =
       "/F9 << /Type /Font /Subtype /TrueType /BaseFont /Helvetica /Encoding /WinAnsiEncoding /FirstChar 32 "
       + "/LastChar 122 /Widths [\(Array(repeating: "500", count: 91).joined(separator: " "))] >>"
-    let content = "BT /F9 10 Tf 72 700 Td (Hello ) Tj /F2 10 Tf (World) Tj ET BT /F9 10 Tf 72 680 Td (Alone) ' ET"
+    let content =
+      "BT /F9 10 Tf 72 700 Td (Hel) Tj (lo ) Tj /F2 10 Tf (World) Tj ET BT /F9 10 Tf 72 680 Td (Alone) ' ET"
     let data = TextEditFixtures.assemble([
       "<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
       "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << \(font) "
@@ -169,8 +170,9 @@ struct TextEditingSyntaxTests {
     #expect(analysis.content.runs[0].hasDependents && analysis.content.runs[1].continuesFromPen)
     let erased = try TextEraser.erasing(analysis.regions, in: analysis.content, bytes: analysis.bytes)
     let text = String(decoding: erased, as: UTF8.self)
-    // Six glyphs of 500 at size 10 are 30 units: an adjustment of -3000 thousandths.
-    #expect(text.contains("[-3000] TJ /F2 10 Tf (World) Tj"))
+    // Both erased runs keep their advance, because the text after them starts where they end:
+    // three glyphs of 500 at size 10 are 15 units each, an adjustment of -1500 thousandths.
+    #expect(text.contains("[-1500] TJ [-1500] TJ /F2 10 Tf (World) Tj"))
     #expect(text.contains("T* ET") && !text.contains("Alone") && !text.contains("Hello"))
   }
 }
@@ -452,6 +454,53 @@ struct TextEditorTests {
     #expect(try region(regions, containing: "In the clear").capability == .direct)
     let result = await editor.applying([TextEdit(region: under, replacement: "Under the seal")], toPage: page)
     #expect(result.outcomes == [.refused(.overlapsOtherContent)] && result.page == nil)
+  }
+
+  @Test("Text inside a table's grid, stroked after the text, is still edited in place")
+  func strokedGrid() async throws {
+    let data = try TextEditFixtures.make(
+      pages: [[Line("Cell one", at: CGPoint(x: 80, y: 700)), Line("Cell two", at: CGPoint(x: 300, y: 700))]],
+      finish: { context, _ in
+        context.setStrokeColor(CGColor(gray: 0, alpha: 1))
+        context.stroke(CGRect(x: 70, y: 690, width: 200, height: 30), width: 1)
+        context.stroke(CGRect(x: 270, y: 690, width: 200, height: 30), width: 1)
+        // And a frame round the whole page.
+        context.stroke(CGRect(x: 20, y: 20, width: 572, height: 752), width: 2)
+      })
+    let (page, regions) = try await prepared(data)
+    #expect(regions.map(\.capability) == [.direct, .direct])
+    let result = await editor.applying(
+      [TextEdit(region: try region(regions, containing: "Cell one"), replacement: "Cell 1")], toPage: page)
+    #expect(result.outcomes == [.edited(.contentStream)])
+  }
+
+  @Test("Amounts of the same width in a right-aligned column keep their right edge")
+  func equalWidthColumn() async throws {
+    let (page, regions) = try await prepared(TextEditFixtures.invoice())
+    let amount = try region(regions, containing: "$950.00")
+    let result = await editor.applying([TextEdit(region: amount, replacement: "$1,950.00")], toPage: page)
+    let edited = try #require(result.page, "\(result.outcomes)")
+    let changed = try region(await editor.text(ofPage: edited).regions, containing: "$1,950.00")
+    #expect(abs(changed.bounds.maxX - amount.bounds.maxX) < 1 && changed.bounds.minX < amount.bounds.minX)
+  }
+
+  @Test("A reusable object that declares the whole page but paints a footer blocks only the footer")
+  func formObject() throws {
+    let content = "BT /F9 12 Tf 72 700 Td (Body text) Tj ET /Fm1 Do"
+    let form = "0 0 0 rg 72 40 200 10 re f"
+    let font =
+      "/F9 << /Type /Font /Subtype /TrueType /BaseFont /Helvetica /Encoding /WinAnsiEncoding /FirstChar 32 "
+      + "/LastChar 122 /Widths [\(Array(repeating: "500", count: 91).joined(separator: " "))] >>"
+    let data = TextEditFixtures.assemble([
+      "<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+      "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << \(font) >> "
+        + "/XObject << /Fm1 5 0 R >> >> >>",
+      "<< /Length \(content.utf8.count) >>\nstream\n\(content)\nendstream",
+      "<< /Type /XObject /Subtype /Form /BBox [0 0 612 792] /Length \(form.utf8.count) >>\nstream\n\(form)\nendstream",
+    ])
+    let analysis = try PageAnalysis(data)
+    #expect(analysis.regions.first?.text == "Body text" && analysis.regions.first?.refusal == nil)
+    #expect(analysis.content.painted.count == 1 && (analysis.content.painted.first?.box.maxY ?? 999) < 60)
   }
 
   @Test("Text in a right-to-left script is left alone")
