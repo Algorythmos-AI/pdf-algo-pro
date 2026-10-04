@@ -241,8 +241,8 @@ private struct PageThumbnail: View {
       )
       .shadow(color: .black.opacity(0.12), radius: 3, y: 1)
       .frame(height: 128)
-      Text("\(pageIndex + 1)").font(.caption.monospacedDigit())
-        .foregroundStyle(isCurrent ? Color.ds.brandTint : Color.ds.labelSecondary)
+      // The current page's number is bold, not tinted: the tint is below 4.5:1 for text this small.
+      Text("\(pageIndex + 1)").font(.caption.monospacedDigit().weight(isCurrent ? .bold : .regular))
     }
     // Keyed by the file's version too, so pages redraw after they are rotated, moved or deleted.
     .task(id: "\(url?.path ?? "")|\(version.timeIntervalSince1970)") {
