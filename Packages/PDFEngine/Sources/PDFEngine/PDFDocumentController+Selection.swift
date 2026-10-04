@@ -34,6 +34,8 @@ public struct AnnotationSelection: Equatable, Sendable {
   public let pageIndex: Int
   /// Its text, for notes and text boxes.
   public let text: String?
+  /// Whether it is a drawn signature, so the reader can call it that.
+  public var isSignature = false
 
   /// Whether its text can be edited: notes and text boxes.
   public var isTextEditable: Bool { kind == .note || kind == .textBox }
@@ -105,8 +107,10 @@ extension PDFDocumentController {
       return false
     }
     selected = (annotation, page)
+    let kind = Self.kind(of: annotation)
     selection = AnnotationSelection(
-      kind: Self.kind(of: annotation), pageIndex: pageIndex, text: annotation.contents)
+      kind: kind, pageIndex: pageIndex, text: annotation.contents,
+      isSignature: kind == .ink && annotation.contents == Self.signatureContents)
     return true
   }
 

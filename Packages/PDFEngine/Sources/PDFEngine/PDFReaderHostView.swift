@@ -30,6 +30,15 @@ enum AnnotationPalette {
   static let yellow = PlatformColor.systemYellow.withAlphaComponent(0.45)
   static let red = PlatformColor.systemRed
   static let ink = PlatformColor.systemBlue
+  /// Typed text on a page: black, like the frame PDFKit draws around it.
+  static let text = PlatformColor.black
+
+  /// The typeface for typed text. Helvetica is one of the standard PDF fonts, so every reader draws it;
+  /// PDFKit replaces the system font, which a PDF can't name, with a serif face.
+  static func font(size: CGFloat, bold: Bool = false) -> PlatformFont {
+    PlatformFont(name: bold ? "Helvetica-Bold" : "Helvetica", size: size)
+      ?? (bold ? PlatformFont.boldSystemFont(ofSize: size) : PlatformFont.systemFont(ofSize: size))
+  }
 }
 
 /// The PDFKit page view, configured for reading.

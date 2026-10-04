@@ -18,7 +18,8 @@ struct SelectionBar: View {
   var body: some View {
     HStack(spacing: Spacing.s150) {
       // The title carries the Move actions, so it gets a full-size target like any control.
-      Self.title(for: selection.kind).font(.subheadline.weight(.semibold)).minimumTarget()
+      (selection.isSignature ? Text("Signature", bundle: .module) : Self.title(for: selection.kind))
+        .font(.subheadline.weight(.semibold)).minimumTarget()
         // Dragging moves a selection; these do the same without a drag, for VoiceOver and Switch Control.
         .accessibilityActions {
           if selection.isMovable {
