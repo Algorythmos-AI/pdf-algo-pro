@@ -233,9 +233,16 @@ private struct PageThumbnail: View {
           Color.ds.backgroundSecondary
         }
       }
+      .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+      // Every page has an edge and a soft shadow, so a white page reads as a page on a white sheet.
+      .overlay(
+        RoundedRectangle(cornerRadius: 4, style: .continuous)
+          .strokeBorder(isCurrent ? Color.ds.brandTint : Color.ds.separator, lineWidth: isCurrent ? 2 : 1)
+      )
+      .shadow(color: .black.opacity(0.12), radius: 3, y: 1)
       .frame(height: 128)
-      .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(isCurrent ? Color.ds.brandTint : .clear, lineWidth: 2))
-      Text("\(pageIndex + 1)").font(.caption.monospacedDigit())
+      // The current page's number is bold, not tinted: the tint is below 4.5:1 for text this small.
+      Text("\(pageIndex + 1)").font(.caption.monospacedDigit().weight(isCurrent ? .bold : .regular))
     }
     // Keyed by the file's version too, so pages redraw after they are rotated, moved or deleted.
     .task(id: "\(url?.path ?? "")|\(version.timeIntervalSince1970)") {

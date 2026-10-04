@@ -65,8 +65,10 @@ public struct ReaderView<Assistant: View>: View {
       .alert(Text("Add a text box", bundle: .module), isPresented: $isAddingTextBox) {
         TextField(text: $textBoxText) { Text("Text", bundle: .module) }
         Button {
-          Task { await model.addTextBox(textBoxText) }
+          // The text is taken before the field is cleared: the task runs after this closure returns.
+          let text = textBoxText
           textBoxText = ""
+          Task { await model.addTextBox(text) }
         } label: {
           Text("Add", bundle: .module)
         }
@@ -94,8 +96,9 @@ public struct ReaderView<Assistant: View>: View {
       .alert(Text("Add a note", bundle: .module), isPresented: $isAddingNote) {
         TextField(text: $noteText) { Text("Note", bundle: .module) }
         Button {
-          Task { await model.addNote(noteText) }
+          let text = noteText
           noteText = ""
+          Task { await model.addNote(text) }
         } label: {
           Text("Add", bundle: .module)
         }
@@ -302,6 +305,22 @@ public struct ReaderView<Assistant: View>: View {
           onMove: { offset in Task { await model.moveSelection(by: offset) } },
           onResize: { factor in Task { await model.resizeSelection(by: factor) } },
           onColor: { color in Task { await model.setSelectionColor(color) } })
+      }
+      if let tool = model.markupTool {
+        Label {
+          switch tool {
+          case .highlight: Text("Select text to highlight it", bundle: .module)
+          case .underline: Text("Select text to underline it", bundle: .module)
+          case .strikeThrough: Text("Select text to strike it through", bundle: .module)
+          }
+        } icon: {
+          Image(systemName: "hand.point.up.left")
+        }
+        .font(.subheadline.weight(.medium))
+        .padding(.horizontal, Spacing.s200)
+        .padding(.vertical, Spacing.s100)
+        .background(.regularMaterial, in: Capsule())
+        .accessibilityIdentifier("reader.markupHint")
       }
       if let progress = model.recognitionProgress {
         HStack {

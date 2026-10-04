@@ -393,6 +393,8 @@ public struct LibraryView<Detail: View>: View {
           row(document, snippet: nil, pageIndex: nil)
         }
       }
+      // No line above the first row: the title already separates the list from the bar.
+      .listSectionSeparator(.hidden, edges: .top)
     }
     .environment(\.editMode, .constant(isSelecting ? .active : .inactive))
     .listStyle(.plain)

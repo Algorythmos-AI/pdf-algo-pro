@@ -77,6 +77,12 @@ Store notes (see the changelog strategy).
 - An interim app icon, and a Staging build named "PDF Algo β" for internal testing (#52, #54).
 
 ### Changed
+- Highlight, Underline and Strike through are tools you pick up: choose one, then select text and it
+  is marked, until you tap Done. Choosing one with nothing selected no longer shows an error.
+- The reader's More menu is grouped, with the export and password tools under "Export and protect",
+  so it fits on the screen.
+- Settings opens on what people look for: the ten "What you do most" switches moved to their own
+  screen.
 - A new app icon: a larger page with a bold "PDF" mark on a crimson-to-violet field. The Staging
   build carries the same icon with a beta badge.
 - Search looks through the whole library from any section, so a document is found wherever it is
@@ -97,6 +103,16 @@ Store notes (see the changelog strategy).
 - On iPad the app uses a single window for now (#54).
 
 ### Fixed
+- Document and page thumbnails have an edge and a soft shadow, so a white page no longer disappears
+  into a white list.
+- Stamps and text boxes use a standard PDF typeface, a framed stamp is opaque, and a new stamp no
+  longer lands on top of the last one.
+- The assistant keeps your question on screen while it works, and Try again asks it again.
+- Add a text box and Add note put the text on the page: the prompt cleared its text before it was
+  used, so nothing was added.
+- After a password is added or removed, the library shows the lock straight away.
+- A selected signature is called "Signature", not "Drawing".
+- The app builds with the iOS 27 SDK, which adds its own type called `Document`.
 - A library index that can't be opened, for example after installing an older build, is set aside
   instead of deleted, so tags, favourites and Recently Deleted dates can be recovered.
 - Copying extracted fields as CSV makes any value a spreadsheet would run as a formula (for example

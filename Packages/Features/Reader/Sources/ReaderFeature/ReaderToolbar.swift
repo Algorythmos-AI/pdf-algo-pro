@@ -18,6 +18,13 @@ struct ReaderToolbar: ToolbarContent {
           Text("Done", bundle: .module)
         }
         .accessibilityIdentifier("reader.doneDrawing")
+      } else if model.markupTool != nil {
+        Button {
+          model.stopMarkupTool()
+        } label: {
+          Text("Done", bundle: .module)
+        }
+        .accessibilityIdentifier("reader.doneMarkup")
       } else if model.phase == .ready {
         if model.showsIntelligence {
           Menu {
@@ -182,41 +189,45 @@ struct ReaderToolbar: ToolbarContent {
         }
         .accessibilityIdentifier("reader.markup")
         Menu {
-          Button {
-            model.controller?.showFind()
-          } label: {
-            Label {
-              Text("Find", bundle: .module)
-            } icon: {
-              Image(systemName: "magnifyingglass")
-            }
-          }
-          .keyboardShortcut("f")
-          Button {
-            Task { await model.share() }
-          } label: {
-            Label {
-              Text("Share", bundle: .module)
-            } icon: {
-              Image(systemName: "square.and.arrow.up")
-            }
-          }
-          if model.allowsPrinting {
+          // Find, Share and Print share one row of icons, so the whole menu fits without scrolling:
+          // a menu scrolls silently after about eleven rows and hid Version history at the bottom.
+          ControlGroup {
             Button {
-              Task {
-                guard let url = await model.fileForSharing() else { return }
-                let printer = UIPrintInteractionController.shared
-                printer.printingItem = url
-                printer.present(animated: true)
-              }
+              model.controller?.showFind()
             } label: {
               Label {
-                Text("Print", bundle: .module)
+                Text("Find", bundle: .module)
               } icon: {
-                Image(systemName: "printer")
+                Image(systemName: "magnifyingglass")
               }
             }
-            .keyboardShortcut("p")
+            .keyboardShortcut("f")
+            Button {
+              Task { await model.share() }
+            } label: {
+              Label {
+                Text("Share", bundle: .module)
+              } icon: {
+                Image(systemName: "square.and.arrow.up")
+              }
+            }
+            if model.allowsPrinting {
+              Button {
+                Task {
+                  guard let url = await model.fileForSharing() else { return }
+                  let printer = UIPrintInteractionController.shared
+                  printer.printingItem = url
+                  printer.present(animated: true)
+                }
+              } label: {
+                Label {
+                  Text("Print", bundle: .module)
+                } icon: {
+                  Image(systemName: "printer")
+                }
+              }
+              .keyboardShortcut("p")
+            }
           }
           Button {
             model.showsGoToPage = true
@@ -266,7 +277,9 @@ struct ReaderToolbar: ToolbarContent {
             }
           }
           .accessibilityIdentifier("reader.annotations")
-          Section {
+          Divider()
+          // The export and protection tools sit one level down, so the menu fits on the screen.
+          Menu {
             Menu {
               Button {
                 Task { await model.reduceSize(.email) }
@@ -326,6 +339,12 @@ struct ReaderToolbar: ToolbarContent {
                 Image(systemName: "photo")
               }
             }
+          } label: {
+            Label {
+              Text("Export and protect", bundle: .module)
+            } icon: {
+              Image(systemName: "lock.doc")
+            }
           }
           Picker(
             selection: Binding(get: { model.controller?.displayMode ?? .continuous }, set: { model.setDisplayMode($0) })
@@ -333,8 +352,13 @@ struct ReaderToolbar: ToolbarContent {
             Text("Continuous", bundle: .module).tag(ReaderDisplayMode.continuous)
             Text("Single page", bundle: .module).tag(ReaderDisplayMode.singlePage)
           } label: {
-            Text("Layout", bundle: .module)
+            Label {
+              Text("Layout", bundle: .module)
+            } icon: {
+              Image(systemName: "rectangle.split.1x2")
+            }
           }
+          .pickerStyle(.menu)
           Button {
             model.toggleReadAloud()
           } label: {

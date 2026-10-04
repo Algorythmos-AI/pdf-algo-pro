@@ -148,6 +148,13 @@ struct ControllerTests {
     let day = Date(timeIntervalSince1970: 1_800_000_000)
     #expect(controller.addStamp(.date(day), onPage: 0))
     #expect(controller.addStamp(.tick, onPage: 0))
+    // A second stamp steps down instead of landing on the first.
+    let stamped = try #require(controller.document.page(at: 0)).annotations.map(\.bounds)
+    #expect(stamped.count == 2 && !stamped[0].intersects(stamped[1]) && stamped[1].maxY < stamped[0].minY)
+    #expect(!controller.hasTextSelection)
+    controller.onTextSelected {}
+    controller.clearTextSelection()
+    controller.onTextSelected(nil)
     #expect(controller.addStamp(.text("Paid"), onPage: 1))
     #expect(!controller.addStamp(.text("   "), onPage: 0))
     #expect(!controller.addStamp(.cross, onPage: 9))

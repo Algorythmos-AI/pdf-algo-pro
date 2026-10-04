@@ -605,6 +605,16 @@
         }
       }
     },
+    "Export and protect" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exporter et protéger"
+          }
+        }
+      }
+    },
     "Extract data" : {
       "localizations" : {
         "fr" : {
@@ -1215,12 +1225,32 @@
         }
       }
     },
-    "Select some text first, then choose how to mark it." : {
+    "Select text to highlight it" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sélectionnez d’abord du texte, puis choisissez comment l’annoter."
+            "value" : "Sélectionnez du texte pour le surligner"
+          }
+        }
+      }
+    },
+    "Select text to strike it through" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sélectionnez du texte pour le barrer"
+          }
+        }
+      }
+    },
+    "Select text to underline it" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sélectionnez du texte pour le souligner"
           }
         }
       }

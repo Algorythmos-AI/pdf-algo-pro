@@ -30,6 +30,17 @@ enum AnnotationPalette {
   static let yellow = PlatformColor.systemYellow.withAlphaComponent(0.45)
   static let red = PlatformColor.systemRed
   static let ink = PlatformColor.systemBlue
+  /// Typed text on a page: black, like the frame PDFKit draws around it.
+  static let text = PlatformColor.black
+
+  /// The typeface for typed text.
+  ///
+  /// Helvetica is one of the standard PDF fonts, so every reader draws it; PDFKit replaces the system
+  /// font, which a PDF can't name, with a serif face.
+  static func font(size: CGFloat, bold: Bool = false) -> PlatformFont {
+    PlatformFont(name: bold ? "Helvetica-Bold" : "Helvetica", size: size)
+      ?? (bold ? PlatformFont.boldSystemFont(ofSize: size) : PlatformFont.systemFont(ofSize: size))
+  }
 }
 
 /// The PDFKit page view, configured for reading.
@@ -38,6 +49,8 @@ enum AnnotationPalette {
 @MainActor
 final class PDFReaderHostView: PDFView {
   private var pageObserver: (any NSObjectProtocol)?
+  private var selectionObserver: (any NSObjectProtocol)?
+  private var selectionSettling: Task<Void, Never>?
   private weak var controller: PDFDocumentController?
   private let linkDelegate = LinkDelegate()
   #if canImport(UIKit)
@@ -64,6 +77,21 @@ final class PDFReaderHostView: PDFView {
       MainActor.assumeIsolated {
         guard let page = self?.currentPage else { return }
         controller?.pageChanged(to: page)
+      }
+    }
+    selectionObserver = NotificationCenter.default.addObserver(
+      forName: .PDFViewSelectionChanged, object: self, queue: .main
+    ) { [weak self, weak controller] _ in
+      MainActor.assumeIsolated {
+        // The selection changes continuously while its handles are dragged; it has settled once it
+        // has stayed the same for a moment.
+        self?.selectionSettling?.cancel()
+        guard let controller, controller.onTextSelected != nil, controller.hasTextSelection else { return }
+        self?.selectionSettling = Task { @MainActor [weak controller] in
+          try? await Task.sleep(for: .milliseconds(700))
+          guard !Task.isCancelled, let controller, controller.hasTextSelection else { return }
+          controller.onTextSelected?()
+        }
       }
     }
     self.controller = controller

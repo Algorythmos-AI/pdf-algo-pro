@@ -9,7 +9,7 @@ struct DocumentRow: View {
   let snippet: String?
   let thumbnail: () async -> CGImage?
   @State private var image: CGImage?
-  @ScaledMetric(relativeTo: .body) private var thumbnailHeight: CGFloat = 56
+  @ScaledMetric(relativeTo: .body) private var thumbnailHeight: CGFloat = 64
 
   var body: some View {
     HStack(spacing: Spacing.s150) {
@@ -24,6 +24,10 @@ struct DocumentRow: View {
       }
       .frame(width: thumbnailHeight * 0.78, height: thumbnailHeight)
       .background(Color.ds.backgroundSecondary, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+      .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+      // An edge and a soft shadow, so a white first page reads as a page on a white list.
+      .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Color.ds.separator, lineWidth: 1))
+      .shadow(color: .black.opacity(0.10), radius: 2, y: 1)
       .accessibilityHidden(true)
       VStack(alignment: .leading, spacing: Spacing.s050) {
         HStack(spacing: Spacing.s050) {

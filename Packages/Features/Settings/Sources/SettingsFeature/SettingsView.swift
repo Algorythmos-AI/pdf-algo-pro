@@ -40,15 +40,29 @@ public struct SettingsView: View {
           .foregroundStyle(Color.ds.labelSecondary)
         }
         Section {
-          ForEach(OnboardingIntent.offered) { intent in
-            Toggle(isOn: Binding(get: { model.isChosen(intent) }, set: { _ in model.toggle(intent) })) {
-              Self.intentTitle(intent)
+          // One row, not ten switches: the choices open on their own screen, so the settings people
+          // look for (privacy, App Lock, storage) are on the first screen.
+          NavigationLink {
+            List {
+              Section {
+                ForEach(OnboardingIntent.offered) { intent in
+                  Toggle(isOn: Binding(get: { model.isChosen(intent) }, set: { _ in model.toggle(intent) })) {
+                    Self.intentTitle(intent)
+                  }
+                }
+              } footer: {
+                Text("The first choice leads the home screen.", bundle: .module)
+                  .foregroundStyle(Color.ds.labelSecondary)
+              }
             }
+            .navigationTitle(Text("What you do most", bundle: .module))
+            .navigationBarTitleDisplayMode(.inline)
+          } label: {
+            Text("What you do most", bundle: .module)
           }
+          .accessibilityIdentifier("settings.intents")
         } header: {
-          Text("What you do most", bundle: .module).foregroundStyle(Color.ds.labelSecondary)
-        } footer: {
-          Text("The first choice leads the home screen.", bundle: .module).foregroundStyle(Color.ds.labelSecondary)
+          Text("Home screen", bundle: .module).foregroundStyle(Color.ds.labelSecondary)
         }
         Section {
           Picker(selection: $model.readerDisplayMode) {

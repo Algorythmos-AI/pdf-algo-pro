@@ -44,6 +44,23 @@ extension PDFDocumentController {
     return markUp(selection, as: markup)
   }
 
+  /// Whether text is selected on a page.
+  public var hasTextSelection: Bool {
+    !(view?.currentSelection?.string ?? "").isEmpty
+  }
+
+  /// Hears when the person finishes selecting text, or stops hearing with `nil`.
+  ///
+  /// The reader uses this for its markup tools: choose Highlight, then select the text.
+  public func onTextSelected(_ action: (@MainActor () -> Void)?) {
+    onTextSelected = action
+  }
+
+  /// Clears the text selection.
+  public func clearTextSelection() {
+    view?.clearSelection()
+  }
+
   /// Marks up the first occurrence of some text (used by tests and by citations).
   @discardableResult
   public func markUp(text: String, as markup: TextMarkup) -> Bool {
@@ -172,8 +189,8 @@ extension PDFDocumentController {
       x: box.midX - width / 2, y: box.minY + box.height * 2 / 3 - height / 2, width: width, height: height)
     let annotation = PDFAnnotation(bounds: bounds, forType: .freeText, withProperties: nil)
     annotation.contents = text
-    annotation.font = PlatformFont.systemFont(ofSize: 15)
-    annotation.fontColor = AnnotationPalette.ink
+    annotation.font = AnnotationPalette.font(size: 15)
+    annotation.fontColor = AnnotationPalette.text
     annotation.color = .clear
     let border = PDFBorder()
     border.lineWidth = 1
@@ -218,13 +235,22 @@ extension PDFDocumentController {
     let width = min(isMark ? 44 : CGFloat(text.count) * 10 + 28, box.width * 0.6)
     let height = isMark ? 44 : 30.0
     let margin = min(box.width, box.height) * 0.06
-    let bounds = CGRect(x: box.maxX - margin - width, y: box.maxY - margin - height, width: width, height: height)
+    var bounds = CGRect(x: box.maxX - margin - width, y: box.maxY - margin - height, width: width, height: height)
+    // A stamp never lands on another annotation: it steps down the right edge until it has room.
+    while bounds.minY > box.minY + margin,
+      page.annotations.contains(where: { $0.bounds.insetBy(dx: -2, dy: -2).intersects(bounds) })
+    {
+      bounds.origin.y -= height + 6
+    }
     let annotation = PDFAnnotation(bounds: bounds, forType: .freeText, withProperties: nil)
     annotation.contents = text
-    annotation.font = PlatformFont.boldSystemFont(ofSize: fontSize)
-    annotation.fontColor = stamp == .cross ? AnnotationPalette.red : AnnotationPalette.ink
+    annotation.font = AnnotationPalette.font(size: fontSize, bold: true)
+    // Text and frame share one colour; PDFKit draws a free-text frame in black.
+    annotation.fontColor =
+      stamp == .cross ? AnnotationPalette.red : (isMark ? AnnotationPalette.ink : AnnotationPalette.text)
     annotation.alignment = .center
-    annotation.color = .clear
+    // A framed stamp is opaque, so it stays readable over whatever the page has there.
+    annotation.color = isMark ? .clear : PlatformColor.white
     let border = PDFBorder()
     border.lineWidth = isMark ? 0 : 2
     annotation.border = border

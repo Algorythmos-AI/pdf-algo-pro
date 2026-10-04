@@ -52,9 +52,9 @@ public final class LibraryModel {
   /// The search text.
   public var query = ""
   /// The documents in the section.
-  public private(set) var documents: [Document] = []
+  public private(set) var documents: [Core.Document] = []
   /// The documents the last search looked through.
-  private var searched: [Document] = []
+  private var searched: [Core.Document] = []
   /// Search results for the current query, in rank order; `nil` when not searching.
   public private(set) var results: [SearchHit]?
   /// Tags in use, for sidebar sections.
@@ -186,7 +186,7 @@ public final class LibraryModel {
   }
 
   /// The document for a search hit, which may be outside the section showing.
-  public func document(for hit: SearchHit) -> Document? {
+  public func document(for hit: SearchHit) -> Core.Document? {
     searched.first { $0.id == hit.documentID } ?? documents.first { $0.id == hit.documentID }
   }
 
@@ -201,7 +201,7 @@ public final class LibraryModel {
   }
 
   /// What a document's file says about itself, for the info sheet (FR-LIB-008); `nil` when it can't be read.
-  public func details(for document: Document) async -> DocumentDetails? {
+  public func details(for document: Core.Document) async -> DocumentDetails? {
     guard let url = try? await library.fileURL(for: document.id) else { return nil }
     return await Task.detached(priority: .userInitiated) { DocumentDetails.of(fileAt: url) }.value
   }
@@ -234,7 +234,7 @@ public final class LibraryModel {
     isImporting = true
     defer { isImporting = false }
     var failures = 0
-    var last: Document?
+    var last: Core.Document?
     for url in urls {
       do {
         last = try await intake.importFile(at: url)
@@ -313,7 +313,7 @@ public final class LibraryModel {
   }
 
   /// Marks or unmarks a favourite.
-  public func toggleFavorite(_ document: Document) async {
+  public func toggleFavorite(_ document: Core.Document) async {
     await perform { try await self.library.setFavorite(!document.isFavorite, for: document.id) }
   }
 
@@ -412,7 +412,7 @@ public final class LibraryModel {
   // MARK: - Thumbnails
 
   /// The first-page thumbnail of a document, rendered off the main actor and cached.
-  public func thumbnail(for document: Document) async -> CGImage? {
+  public func thumbnail(for document: Core.Document) async -> CGImage? {
     guard let url = try? await library.fileURL(for: document.id) else { return nil }
     return await thumbnails.thumbnail(for: url, version: document.modifiedAt)
   }

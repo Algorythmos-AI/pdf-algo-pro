@@ -9,6 +9,9 @@ import Testing
 @testable import PDFEngine
 @testable import ReaderFeature
 
+// The iOS 27 SDK adds a SwiftUI type also called `Document`; here the name means ours.
+private typealias Document = Core.Document
+
 @MainActor
 private struct Harness {
   let library = FakeDocumentLibrary()
@@ -401,8 +404,11 @@ struct ReaderModelTests {
     await reader.addNote("   ")
     let url = try await harness.library.fileURL(for: document.id)
     #expect(try PDFDocumentController(url: url).annotationCount(onPage: 0) == 1)
+    // With nothing selected, Highlight becomes the tool in hand instead of an error.
     #expect(await !reader.markUpSelection(.highlight))
-    #expect(reader.errorMessage != nil)
+    #expect(reader.errorMessage == nil && reader.markupTool == .highlight)
+    reader.stopMarkupTool()
+    #expect(reader.markupTool == nil)
     await reader.undo()
     #expect(try PDFDocumentController(url: url).annotationCount(onPage: 0) == 0)
     #expect(await harness.telemetry.events.contains("task.core.completed"))
