@@ -240,17 +240,46 @@ public final class ReaderModel {
 
   // MARK: - Annotating
 
-  /// Marks up the selected text and saves; returns whether anything was selected.
+  /// Marks up the selected text and saves; returns whether anything was marked.
+  ///
+  /// With nothing selected, the markup becomes the tool in hand (`markupTool`): each piece of text
+  /// the person selects next is marked, until they tap Done.
   @discardableResult
   public func markUpSelection(_ markup: TextMarkup) async -> Bool {
     guard let controller, checkAnnotatingIsAllowed(controller) else { return false }
     guard controller.markUpSelection(markup) else {
-      errorMessage = String(localized: "Select some text first, then choose how to mark it.", bundle: .module)
+      startMarkupTool(markup)
       return false
     }
+    controller.clearTextSelection()
     updateUndoState()
     await save()
     return true
+  }
+
+  /// The markup applied to text as it is selected, or `nil` when no markup tool is in hand.
+  public private(set) var markupTool: TextMarkup?
+
+  /// Takes a markup tool in hand: text selected from now on is marked with it.
+  public func startMarkupTool(_ markup: TextMarkup) {
+    guard let controller, checkAnnotatingIsAllowed(controller) else { return }
+    markupTool = markup
+    controller.onTextSelected { [weak self] in
+      Task { await self?.markUpSelectedText() }
+    }
+  }
+
+  /// Puts the markup tool down.
+  public func stopMarkupTool() {
+    markupTool = nil
+    controller?.onTextSelected(nil)
+  }
+
+  private func markUpSelectedText() async {
+    guard let controller, let markupTool, controller.markUpSelection(markupTool) else { return }
+    controller.clearTextSelection()
+    updateUndoState()
+    await save()
   }
 
   /// Adds a note to the current page and saves.

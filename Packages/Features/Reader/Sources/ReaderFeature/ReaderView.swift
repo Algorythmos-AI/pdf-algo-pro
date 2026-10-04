@@ -303,6 +303,22 @@ public struct ReaderView<Assistant: View>: View {
           onResize: { factor in Task { await model.resizeSelection(by: factor) } },
           onColor: { color in Task { await model.setSelectionColor(color) } })
       }
+      if let tool = model.markupTool {
+        Label {
+          switch tool {
+          case .highlight: Text("Select text to highlight it", bundle: .module)
+          case .underline: Text("Select text to underline it", bundle: .module)
+          case .strikeThrough: Text("Select text to strike it through", bundle: .module)
+          }
+        } icon: {
+          Image(systemName: "hand.point.up.left")
+        }
+        .font(.subheadline.weight(.medium))
+        .padding(.horizontal, Spacing.s200)
+        .padding(.vertical, Spacing.s100)
+        .background(.regularMaterial, in: Capsule())
+        .accessibilityIdentifier("reader.markupHint")
+      }
       if let progress = model.recognitionProgress {
         HStack {
           ProgressView(value: progress) { Text("Recognising text on this device…", bundle: .module) }

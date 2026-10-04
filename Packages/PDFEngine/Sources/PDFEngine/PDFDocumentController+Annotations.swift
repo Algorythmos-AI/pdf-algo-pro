@@ -44,6 +44,23 @@ extension PDFDocumentController {
     return markUp(selection, as: markup)
   }
 
+  /// Whether text is selected on a page.
+  public var hasTextSelection: Bool {
+    !(view?.currentSelection?.string ?? "").isEmpty
+  }
+
+  /// Hears when the person finishes selecting text, or stops hearing with `nil`.
+  ///
+  /// The reader uses this for its markup tools: choose Highlight, then select the text.
+  public func onTextSelected(_ action: (@MainActor () -> Void)?) {
+    onTextSelected = action
+  }
+
+  /// Clears the text selection.
+  public func clearTextSelection() {
+    view?.clearSelection()
+  }
+
   /// Marks up the first occurrence of some text (used by tests and by citations).
   @discardableResult
   public func markUp(text: String, as markup: TextMarkup) -> Bool {

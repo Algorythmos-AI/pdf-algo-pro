@@ -81,6 +81,15 @@ public final class AssistantModel {
   }
 
   /// Asks the current question; ignored while a request is running.
+  /// Tries the failed request again; a question is asked again as it was, not thrown away.
+  public func retry() async {
+    guard task == .ask, answeredQuestion != nil else {
+      await start()
+      return
+    }
+    await run()
+  }
+
   public func ask() async {
     let trimmed = question.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !trimmed.isEmpty, !isWorking else { return }

@@ -135,11 +135,17 @@ public struct AssistantView: View {
       Text("Answers come only from this document and cite their pages.", bundle: .module)
         .font(.callout).foregroundStyle(Color.ds.labelSecondary)
     case .working:
-      HStack(spacing: Spacing.s100) {
-        ProgressView()
-        Text("Reading the document on this device…", bundle: .module).foregroundStyle(Color.ds.labelSecondary)
+      VStack(alignment: .leading, spacing: Spacing.s150) {
+        // The question stays on screen while it is being answered.
+        if model.task == .ask, let question = model.answeredQuestion {
+          Text(question).font(.headline).accessibilityAddTraits(.isHeader)
+        }
+        HStack(spacing: Spacing.s100) {
+          ProgressView()
+          Text("Reading the document on this device…", bundle: .module).foregroundStyle(Color.ds.labelSecondary)
+        }
+        .accessibilityElement(children: .combine)
       }
-      .accessibilityElement(children: .combine)
     case .answered(let answer):
       answerCard(answer)
     case .extracted(let extraction):
@@ -156,10 +162,13 @@ public struct AssistantView: View {
       }
     case .failed:
       EmptyState(Text("That didn't work", bundle: .module), systemImage: "exclamationmark.triangle") {
+        if model.task == .ask, let question = model.answeredQuestion {
+          Text("“\(question)”", bundle: .module).font(.callout.weight(.medium))
+        }
         Text("The request didn't finish. Your document hasn't changed. Try again.", bundle: .module)
       } actions: {
         Button {
-          Task { await model.start() }
+          Task { await model.retry() }
         } label: {
           Text("Try again", bundle: .module).minimumTarget()
         }

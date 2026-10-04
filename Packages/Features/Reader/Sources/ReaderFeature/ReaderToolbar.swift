@@ -18,6 +18,13 @@ struct ReaderToolbar: ToolbarContent {
           Text("Done", bundle: .module)
         }
         .accessibilityIdentifier("reader.doneDrawing")
+      } else if model.markupTool != nil {
+        Button {
+          model.stopMarkupTool()
+        } label: {
+          Text("Done", bundle: .module)
+        }
+        .accessibilityIdentifier("reader.doneMarkup")
       } else if model.phase == .ready {
         if model.showsIntelligence {
           Menu {
@@ -218,6 +225,7 @@ struct ReaderToolbar: ToolbarContent {
             }
             .keyboardShortcut("p")
           }
+          Divider()
           Button {
             model.showsGoToPage = true
           } label: {
@@ -266,7 +274,9 @@ struct ReaderToolbar: ToolbarContent {
             }
           }
           .accessibilityIdentifier("reader.annotations")
-          Section {
+          Divider()
+          // The export and protection tools sit one level down, so the menu fits on the screen.
+          Menu {
             Menu {
               Button {
                 Task { await model.reduceSize(.email) }
@@ -326,6 +336,12 @@ struct ReaderToolbar: ToolbarContent {
                 Image(systemName: "photo")
               }
             }
+          } label: {
+            Label {
+              Text("Export and protect", bundle: .module)
+            } icon: {
+              Image(systemName: "lock.doc")
+            }
           }
           Picker(
             selection: Binding(get: { model.controller?.displayMode ?? .continuous }, set: { model.setDisplayMode($0) })
@@ -333,8 +349,13 @@ struct ReaderToolbar: ToolbarContent {
             Text("Continuous", bundle: .module).tag(ReaderDisplayMode.continuous)
             Text("Single page", bundle: .module).tag(ReaderDisplayMode.singlePage)
           } label: {
-            Text("Layout", bundle: .module)
+            Label {
+              Text("Layout", bundle: .module)
+            } icon: {
+              Image(systemName: "rectangle.split.1x2")
+            }
           }
+          .pickerStyle(.menu)
           Button {
             model.toggleReadAloud()
           } label: {
