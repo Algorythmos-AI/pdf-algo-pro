@@ -103,6 +103,8 @@ Store notes (see the changelog strategy).
 - On iPad the app uses a single window for now (#54).
 
 ### Fixed
+- In Recently deleted, touching and holding a document offers Restore and Delete now; before, only
+  a swipe did.
 - The back button on the document list opens the sections (All documents, Recents, Favourites,
   Recently deleted). It did nothing on iPhone: the list bounced straight back.
 - The library list follows what you did in the reader as soon as you come back: a new password's

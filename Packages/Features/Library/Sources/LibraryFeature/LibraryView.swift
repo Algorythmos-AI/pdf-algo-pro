@@ -484,6 +484,27 @@ public struct LibraryView<Detail: View>: View {
       }
     }
     .contextMenu {
+      // In Recently deleted, the menu offers what the swipe does, so restoring is easy to find.
+      if document.isDeleted {
+        Button {
+          Task { await model.restore(document.id) }
+        } label: {
+          Label {
+            Text("Restore", bundle: .module)
+          } icon: {
+            Image(systemName: "arrow.uturn.backward")
+          }
+        }
+        Button(role: .destructive) {
+          confirmingPermanentDelete = document
+        } label: {
+          Label {
+            Text("Delete now", bundle: .module)
+          } icon: {
+            Image(systemName: "trash")
+          }
+        }
+      }
       if !document.isDeleted {
         Button {
           newTitle = document.title
