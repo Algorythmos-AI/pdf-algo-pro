@@ -6,24 +6,25 @@ final class OnboardingUITests: UITestCase {
   func testOnboardingOffersAIFirstOptionsAndCanBeSkipped() throws {
     let app = launch([])
     let first = app.buttons["onboarding.intent.chatWithPDF"]
-    XCTAssertTrue(first.waitForExistence(timeout: 10))
+    XCTAssertTrue(first.waitForExistence(timeout: Self.settleTimeout))
     let order = ["chatWithPDF", "summarizeDocument", "extractData", "analyzeContract"]
     let positions = order.map { app.buttons["onboarding.intent.\($0)"].frame.minY }
     XCTAssertEqual(positions, positions.sorted(), "AI-first options lead, in order (FR-ONB-001)")
     try audit(app)
     app.buttons["onboarding.skip"].tap()
     XCTAssertTrue(
-      app.buttons["library.empty.sample"].waitForExistence(timeout: 10), "Skipping leads to the library (FR-ONB-002)")
+      app.buttons["library.empty.sample"].waitForExistence(timeout: Self.settleTimeout),
+      "Skipping leads to the library (FR-ONB-002)")
   }
 
   func testChoosingAnIntentPersonalisesTheHomeScreen() throws {
     let app = launch([])
     let scan = app.buttons["onboarding.intent.scan"]
-    XCTAssertTrue(scan.waitForExistence(timeout: 10))
+    XCTAssertTrue(scan.waitForExistence(timeout: Self.settleTimeout))
     scan.tap()
     app.buttons["onboarding.continue"].tap()
     XCTAssertTrue(
-      app.buttons["library.empty.primary.scan"].waitForExistence(timeout: 10),
+      app.buttons["library.empty.primary.scan"].waitForExistence(timeout: Self.settleTimeout),
       "The chosen intent leads the home screen (FR-ONB-003)")
   }
 }

@@ -6,9 +6,9 @@ final class ScanUITests: UITestCase {
   func testScannerOffersImagesWithoutACamera() throws {
     let app = launch(["-skip-onboarding"])
     let scan = app.buttons["library.scan"]
-    XCTAssertTrue(scan.waitForExistence(timeout: 10))
+    XCTAssertTrue(scan.waitForExistence(timeout: Self.settleTimeout))
     scan.tap()
-    XCTAssertTrue(app.buttons["scan.images"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.buttons["scan.images"].waitForExistence(timeout: Self.settleTimeout))
     try audit(app, onSheet: true)
   }
 }

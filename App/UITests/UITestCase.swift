@@ -13,6 +13,12 @@ class UITestCase: XCTestCase {
   /// accessibility query over a page's text can take seconds; an answer arrived after a 10-second wait
   /// (issue #81). A real regression still fails, only later.
   static let answerTimeout: TimeInterval = 30
+  /// How long to wait for a screen to appear after a tap.
+  ///
+  /// A hosted runner can take a minute over a test that takes seconds locally, and waits of 5 or 10
+  /// seconds failed there (issue #132). A wait returns as soon as it is met, so a long limit costs
+  /// nothing when things work.
+  static let settleTimeout: TimeInterval = 30
 
   func launch(_ arguments: [String]) -> XCUIApplication {
     continueAfterFailure = false
@@ -62,11 +68,12 @@ class UITestCase: XCTestCase {
   func tap(
     _ control: XCUIElement, until target: XCUIElement, file: StaticString = #filePath, line: UInt = #line
   ) {
-    XCTAssertTrue(control.waitForExistence(timeout: 10), "The control exists", file: file, line: line)
+    XCTAssertTrue(control.waitForExistence(timeout: Self.settleTimeout), "The control exists", file: file, line: line)
     control.tap()
     if !target.waitForExistence(timeout: 3) {
       control.tap()
-      XCTAssertTrue(target.waitForExistence(timeout: 5), "The tap opens what it should", file: file, line: line)
+      XCTAssertTrue(
+        target.waitForExistence(timeout: Self.settleTimeout), "The tap opens what it should", file: file, line: line)
     }
   }
 
@@ -82,10 +89,12 @@ class UITestCase: XCTestCase {
   ) {
     tap(menu, until: item, file: file, line: line)
     item.tap()
-    if result.waitForExistence(timeout: 10) { return }
+    if result.waitForExistence(timeout: Self.settleTimeout) { return }
     if !item.exists { tap(menu, until: item, file: file, line: line) }
     item.tap()
-    XCTAssertTrue(result.waitForExistence(timeout: 10), "The menu item opens what it should", file: file, line: line)
+    XCTAssertTrue(
+      result.waitForExistence(timeout: Self.settleTimeout), "The menu item opens what it should", file: file, line: line
+    )
   }
 
   /// The accessibility audit on the current screen.
