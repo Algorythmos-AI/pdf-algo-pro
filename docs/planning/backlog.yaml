@@ -351,6 +351,20 @@ items:
     acceptance:
       - Every mitigation in the threat model names the test that proves it, and that test runs in CI or the release gate
 
+  - id: V-010
+    title: Edit existing text natively for the documents where an edit can be proven
+    type: task
+    milestone: V1
+    priority: p0
+    size: l
+    pillars: [PIL-2, PIL-5]
+    labels: [pdf]
+    refs: [FR-EDIT-001, FR-EDIT-007, FR-EDIT-008, ADR-0025, V-001]
+    acceptance:
+      - A word edited in a corpus PDF is in the text extracted from the saved file, the old word is not, and the rest of the page is unchanged
+      - Every edit is proven before it reaches the document, or refused with the document untouched
+      - The text editing device test is signed off before the release flag is turned on in a Release build
+
   # ---------------- V1.1 ----------------
   - id: P-001
     title: Translate documents on device

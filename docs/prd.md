@@ -399,6 +399,8 @@ or the release checklist in [release management](release-management.md).
 - iOS and iPadOS 26 minimum, built with the Xcode 27 SDK; iOS 27 APIs only behind availability
   checks ([ADR-0023](adr/0023-ios-26-floor-built-with-xcode-27.md)); Swift 6 with complete strict
   concurrency ([ADR-0001](adr/0001-platform-floor-and-swift-6.md)).
+- Existing text is edited natively behind the `PDFTextEditing` boundary for the documents where an
+  edit can be proven ([ADR-0025](adr/0025-native-text-editing-for-the-safe-subset.md), proposed).
 - Commercial PDF SDK behind the `PDFEngine` boundary; vendor chosen by a scored spike
   ([ADR-0007](adr/0007-pdf-sdk-boundary-and-vendor-selection.md), Proposed).
 - On-device model context of 4,096 tokens per session and device eligibility for Apple Intelligence

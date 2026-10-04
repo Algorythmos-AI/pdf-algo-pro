@@ -32,6 +32,7 @@ TESTS = {
     "EnginePerformanceTests/testOpenA500PagePDFToTheFirstPage()": "Open a 500-page PDF to first page visible",
     "EnginePerformanceTests/testRenderThe100PageThumbnailGrid()": "Page thumbnail grid (100 pages) populated",
     "EnginePerformanceTests/testSaveAfterAnEditIn500Pages()": "Save after an edit (500-page PDF)",
+    "EnginePerformanceTests/testEditALineOfTextIn500Pages()": "Edit a line of text (500-page PDF)",
     "EnginePerformanceTests/testSearchA1000DocumentLibrary()": "Search across a 1,000-document library (index warm)",
     "EnginePerformanceTests/testScanTenPagesToASearchablePDF()": "Scan → searchable PDF, 10 pages",
     "RetrievalPerformanceTests/testRetrievalOver500Pages()": "Retrieval over a 500-page PDF (chunks for an answer)",
