@@ -47,6 +47,30 @@ final class TextEditingUITests: UITestCase {
     XCTAssertTrue(app.buttons["reader.edit"].waitForExistence(timeout: 5), "Done leaves text editing")
   }
 
+  func testEditingWorksInTheSinglePageLayout() throws {
+    let app = launch(["-skip-onboarding", "-seed-library", "sample", "-text-editing", "available"])
+    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
+    app.buttons["reader.more"].tap()
+    let layout = app.buttons["Layout"]
+    XCTAssertTrue(layout.waitForExistence(timeout: 5))
+    layout.tap()
+    let single = app.buttons["Single page"]
+    XCTAssertTrue(single.waitForExistence(timeout: 5))
+    single.tap()
+
+    tap(app.buttons["reader.edit"], until: app.buttons["reader.doneEditingText"])
+    let heading = line(containing: "Try these", in: app)
+    XCTAssertTrue(heading.waitForExistence(timeout: 15))
+    let field = app.textFields["reader.textEdit.field"]
+    tap(heading, until: field)
+    field.typeText(" now")
+    app.buttons["reader.textEdit.done"].tap()
+    // The paged layout holds on to the page it was showing; the new page must take its place.
+    XCTAssertTrue(line(containing: "Try these: now", in: app).waitForExistence(timeout: 20), "The page shows the edit")
+    let indicator = app.staticTexts["reader.pageIndicator"]
+    XCTAssertTrue(indicator.label.contains("1 of 3"), "Still on the page that was edited")
+  }
+
   func testEditingIsLockedWithoutProAndAbsentWhenTheBuildDoesNotHaveIt() throws {
     let locked = launch(["-skip-onboarding", "-seed-library", "sample", "-text-editing", "locked"])
     XCTAssertTrue(locked.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))

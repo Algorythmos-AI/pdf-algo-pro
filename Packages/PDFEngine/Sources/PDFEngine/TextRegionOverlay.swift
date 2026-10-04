@@ -128,6 +128,14 @@
       // Markup mode stops PDFKit starting its own text selection under the overlays.
       isInMarkupMode = isEditing
       if isEditing { clearSelection() }
+      // PDFKit asks for page overlays only in its scrolling layout, not in the paged one, so text
+      // is edited in the scrolling layout, on the same page, and the person's layout comes back
+      // when they leave.
+      if let controller, controller.displayMode == .singlePage {
+        let page = currentPage
+        apply(isEditing ? .continuous : .singlePage)
+        if let page { go(to: page) }
+      }
       textOverlays.refreshAll()
     }
 
@@ -138,8 +146,9 @@
 
     /// Shows a page that has just replaced another, where the other was.
     func pageSwapped(to page: PDFPage) {
-      // The continuous layout picks the new page up by itself (spike S8). The paged layout holds
-      // on to the page it was showing, so it is told.
+      // The scrolling layout, which text editing always uses, picks the new page up by itself and
+      // keeps its zoom and position (spike S8). Undo can also swap a page while the paged layout
+      // is showing, and that layout holds on to the page it had, so it is told.
       if displayMode == .singlePage { go(to: page) }
       textOverlays.refreshAll()
     }

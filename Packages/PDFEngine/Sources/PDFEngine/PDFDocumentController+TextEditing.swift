@@ -229,7 +229,27 @@ extension PDFDocumentController {
     }
     view?.endEditing()
     swap(page, for: replacement, keeping: source, links: links)
+    limitUndoMemory(adding: found.snapshot.count + data.count)
     return result.outcomes
+  }
+
+  /// The most bytes of replaced pages the undo history may hold.
+  ///
+  /// Assumption: 64 MB is far more than a session of edits to ordinary pages needs and small
+  /// beside the memory an app is allowed; validated on the oldest supported iPhone in the device
+  /// test plan.
+  static let undoMemoryLimit = 64_000_000
+
+  /// Keeps the undo history's memory bounded: each text edit keeps the page it replaced.
+  ///
+  /// The undo manager cannot drop one entry, so when the estimate passes the limit the history is
+  /// shortened to its newest half, oldest steps first, and stays at that length.
+  func limitUndoMemory(adding bytes: Int) {
+    textUndoBytes += bytes
+    guard textUndoBytes > Self.undoMemoryLimit else { return }
+    let current = undoManager.levelsOfUndo == 0 ? 64 : undoManager.levelsOfUndo
+    undoManager.levelsOfUndo = max(4, current / 2)
+    textUndoBytes /= 2
   }
 
   // MARK: - Swapping a page

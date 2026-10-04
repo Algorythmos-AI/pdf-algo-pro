@@ -500,3 +500,20 @@ extension GoldenCorpusTests {
     }
   }
 }
+
+@MainActor
+@Suite("Text editing: undo memory")
+struct TextEditingUndoMemoryTests {
+  @Test("The undo history is shortened once the pages it keeps pass the limit")
+  func bounded() throws {
+    let controller = try PDFDocumentController(data: TextEditFixtures.invoice())
+    #expect(controller.undoManager.levelsOfUndo == 0, "Unlimited until there is a reason")
+    controller.limitUndoMemory(adding: 1_000_000)
+    #expect(controller.undoManager.levelsOfUndo == 0 && controller.textUndoBytes == 1_000_000)
+    controller.limitUndoMemory(adding: PDFDocumentController.undoMemoryLimit)
+    #expect(controller.undoManager.levelsOfUndo == 32)
+    #expect(controller.textUndoBytes <= PDFDocumentController.undoMemoryLimit)
+    for _ in 0..<10 { controller.limitUndoMemory(adding: PDFDocumentController.undoMemoryLimit) }
+    #expect(controller.undoManager.levelsOfUndo == 4, "Never shorter than a few steps")
+  }
+}

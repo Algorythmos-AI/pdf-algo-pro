@@ -2,7 +2,8 @@
 
     python3 scripts/ci/pdfium_render.py <folder>
 
-A file with a `<name>.password` beside it is opened with that password. Exits 1 when a file can't be
+A file with a `<name>.password` beside it is opened with that password, and one with a
+`<name>.expected` beside it must contain each line of that file in its extracted text. Exits 1 when a file can't be
 opened, a page can't be rendered, or the page count differs from what PDFium reports for the file, and
 when the folder holds no PDF (the export did not run). Needs pypdfium2 (BSD-3-Clause and Apache-2.0),
 which bundles PDFium (BSD-3-Clause).
@@ -11,6 +12,11 @@ from __future__ import annotations
 
 import pathlib
 import sys
+
+
+def squeezed(text: str) -> str:
+    """Text without whitespace, so line breaks and spacing differences between engines do not matter."""
+    return "".join(text.split())
 
 
 def main(folder: str) -> int:
@@ -33,6 +39,13 @@ def main(folder: str) -> int:
                 if bitmap.width == 0 or bitmap.height == 0:
                     raise RuntimeError(f"page {index + 1} rendered empty")
                 page.close()
+            expected_file = path.with_suffix(".expected")
+            if expected_file.exists():
+                # Text the app wrote must be readable by another engine, not only drawn (FR-EDIT-001).
+                found = squeezed("".join(document[index].get_textpage().get_text_range() for index in range(pages)))
+                missing = [line for line in expected_file.read_text().splitlines() if squeezed(line) not in found]
+                if missing:
+                    raise RuntimeError(f"text not found: {missing}")
             document.close()
             print(f"ok       {path.name} ({pages} pages)")
         except Exception as error:  # every failure is reported, then the job fails

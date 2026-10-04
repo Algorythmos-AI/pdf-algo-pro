@@ -153,6 +153,8 @@ of page content and fonts through the editor. The threat is recorded in the
   dropped untouched.
 - Nothing is written until Done. Text being typed when the app is suspended or closed is lost; the
   document is intact.
+- Text is edited in the scrolling layout. PDFKit provides page overlays only there, so a reader in
+  the single-page layout switches while text editing is on and switches back afterwards.
 - Text editing and drawing are exclusive. While text is picked, taps on the page, Undo and Redo
   wait.
 - The search text is brought up to date once, on leaving text editing or closing the reader.
@@ -219,8 +221,9 @@ text they must contain. What only a device shows is in the
   closest standard font unless the page already holds every letter typed.
 - **Lines, not paragraphs.** A long replacement on a full line is declined.
 - **Paint order.** New text is painted last. Text that had something drawn over it is not edited.
-- **Page text.** After an edit, `PDFPage.string` can omit the line break after the edited line;
-  find, selection and other readers are unaffected.
+- **Undo history.** Each text edit keeps the page it replaced. Past 64 MB of kept pages
+  (`Assumption:` checked on the oldest supported iPhone in the device test plan) the history is
+  shortened to its newest half.
 - **Accessibility tags.** PDFKit does not carry a tagged PDF's structure through any save, with or
   without an edit.
 - **File size.** Each edited page gains a font subset (about 9 kB in the spike's invoice); further

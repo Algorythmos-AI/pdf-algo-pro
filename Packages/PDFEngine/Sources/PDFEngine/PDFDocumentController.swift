@@ -100,6 +100,8 @@ public final class PDFDocumentController {
   @ObservationIgnored var isCommittingText = false
   /// Which links point at which page, found once so that swapping a page does not walk the document.
   @ObservationIgnored var incomingLinks: [ObjectIdentifier: [PDFAnnotation]]?
+  /// Roughly how many bytes of replaced pages the undo history is holding on to.
+  @ObservationIgnored var textUndoBytes = 0
   /// The work of finding `incomingLinks`, while it runs.
   @ObservationIgnored var linkIndexing: Task<Void, Never>?
 
