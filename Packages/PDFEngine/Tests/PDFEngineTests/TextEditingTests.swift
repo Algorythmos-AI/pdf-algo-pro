@@ -701,6 +701,19 @@ struct TextEditingHostileInputTests {
       String(repeating: "q ", count: 5000) + "BT /F1 12 Tf 72 700 Td (Deep) Tj ET "
       + String(repeating: "Q ", count: 5000)
     #expect(throws: Never.self) { _ = try? PageAnalysis(TextEditFixtures.raw(content: nested)) }
+    // A page that places a reusable object thousands of times is read without reading it each time.
+    let placed = String(repeating: "/Fm1 Do ", count: 20_000)
+    let form = String(repeating: "0 0 10 10 re f ", count: 2_000)
+    let repeated = TextEditFixtures.assemble([
+      "<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+      "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R "
+        + "/Resources << /XObject << /Fm1 5 0 R >> >> >>",
+      "<< /Length \(placed.utf8.count) >>\nstream\n\(placed)\nendstream",
+      "<< /Type /XObject /Subtype /Form /BBox [0 0 612 792] /Length \(form.utf8.count) >>\nstream\n\(form)\nendstream",
+    ])
+    let clock = ContinuousClock()
+    let elapsed = try clock.measure { _ = try PageAnalysis(repeated) }
+    #expect(elapsed < .seconds(20))
     // A stream that claims more bytes than the file has.
     let lying = TextEditFixtures.assemble([
       "<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",

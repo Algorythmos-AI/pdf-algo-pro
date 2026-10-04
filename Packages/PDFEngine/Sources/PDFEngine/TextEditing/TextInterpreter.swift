@@ -121,6 +121,8 @@ struct TextInterpreter {
 
   /// How many forms deep this interpreter is; the page itself is 0.
   private let formDepth: Int
+  /// How many forms this interpreter has read the content of.
+  private var formsRead = 0
 
   init(file: PDFFile, page: PDFFile.Page) {
     self.init(file: file, resources: page.resources, pageBox: page.mediaBox, formDepth: 0)
@@ -409,9 +411,9 @@ struct TextInterpreter {
 
   /// Where a reusable object paints.
   ///
-  /// An image paints its unit square. A form is interpreted, a few levels deep, so that a form
+  /// An image paints its unit square. A form is interpreted, two levels deep and a few times a page, so that a form
   /// whose declared box is the whole page but which paints only a footer counts as the footer.
-  private func boxes(ofXObject name: String?) throws -> [CGRect] {
+  private mutating func boxes(ofXObject name: String?) throws -> [CGRect] {
     let whole = state.clip ?? pageBox
     guard let name, let objects = try file.dictionary(resources["XObject"]),
       case .reference(let number) = objects[name], let dictionary = try file.dictionary(objects[name])
@@ -423,9 +425,11 @@ struct TextInterpreter {
     let numbers = try file.resolve(dictionary["Matrix"]).array?.compactMap(\.number) ?? []
     let transform = (Self.matrix(numbers) ?? .identity).concatenating(state.transform)
     let declared = bounds.applying(transform)
-    guard formDepth < 4, let stream = try? file.stream(number),
+    // A page could place a large form many thousands of times; only the first few are read.
+    guard formDepth < 2, formsRead < 32, let stream = try? file.stream(number),
       let operations = try? ContentStream.parse(stream.data)
     else { return [declared] }
+    formsRead += 1
     var inner = TextInterpreter(
       file: file, resources: try file.dictionary(dictionary["Resources"]) ?? resources, pageBox: pageBox,
       formDepth: formDepth + 1)
