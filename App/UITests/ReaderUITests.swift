@@ -112,6 +112,26 @@ final class ReaderUITests: UITestCase {
       "The text box carries what was typed")
   }
 
+  func testDraggingAcrossTextWithTheHighlighterMarksItOnce() throws {
+    let app = launch(["-skip-onboarding", "-seed-library", "sample"])
+    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
+    tapMenuItem(app.buttons["Highlight"], in: app.buttons["reader.markup"], until: app.buttons["reader.doneMarkup"])
+    XCTAssertTrue(app.descendants(matching: .any)["reader.markupHint"].firstMatch.exists)
+    let pages = app.descendants(matching: .any)["reader.pages"].firstMatch
+    // Sideways across the top of the page, where its text is; twice, to show the marks don't stack.
+    for _ in 0..<2 {
+      point(0.1, 0.3, in: pages, of: app).press(forDuration: 0.1, thenDragTo: point(0.9, 0.42, in: pages, of: app))
+    }
+    XCTAssertTrue(app.buttons["reader.doneMarkup"].exists, "A sideways drag marks text; it doesn't leave the document")
+    app.buttons["reader.doneMarkup"].tap()
+    let annotations = app.navigationBars["Annotations"]
+    tapMenuItem(app.buttons["reader.annotations"], in: app.buttons["reader.more"], until: annotations)
+    let highlights = app.staticTexts.matching(NSPredicate(format: "label == %@", "Highlight"))
+    XCTAssertTrue(highlights.firstMatch.waitForExistence(timeout: Self.settleTimeout), "The drag highlighted text")
+    let count = highlights.count
+    XCTAssertLessThanOrEqual(count, 12, "One mark a line, however often it is dragged over")
+  }
+
   func testATappedAnnotationCanBeResizedAndDeleted() throws {
     let app = launch(["-skip-onboarding", "-seed-library", "sample"])
     XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))

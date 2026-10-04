@@ -132,6 +132,16 @@ public struct LibraryView<Detail: View>: View {
       Text("\(document.title) will be removed from this device. This can't be undone.", bundle: .module)
     }
     .onChange(of: model.selection) { compactColumn = model.selection == nil ? .content : .detail }
+    // On iPhone the back button leaves the document without telling the model. Closing it there lets
+    // the same document open again, and lets the list pick up what changed in the reader. It waits
+    // for the document to slide away so the empty detail never shows in its place.
+    .onChange(of: compactColumn) {
+      guard compactColumn != .detail, model.selection != nil else { return }
+      Task {
+        try? await Task.sleep(for: .milliseconds(400))
+        if compactColumn != .detail { model.selection = nil }
+      }
+    }
     .task { await model.load() }
   }
 
@@ -430,6 +440,7 @@ public struct LibraryView<Detail: View>: View {
   private func row(_ document: Document, snippet: String?, pageIndex: Int?) -> some View {
     Button {
       model.open(document.id, pageIndex: pageIndex)
+      compactColumn = .detail
     } label: {
       DocumentRow(document: document, snippet: snippet, thumbnail: { await model.thumbnail(for: document) })
     }

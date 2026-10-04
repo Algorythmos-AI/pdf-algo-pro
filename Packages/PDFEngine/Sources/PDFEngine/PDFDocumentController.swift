@@ -62,7 +62,9 @@ public final class PDFDocumentController {
   /// A link to outside the document that the person tapped, waiting for them to confirm (T-02).
   public var tappedLink: DocumentLink?
   /// The selected annotation itself; PDFKit objects stay out of `selection`.
-  @ObservationIgnored var selected: (annotation: PDFAnnotation, page: PDFPage)?
+  @ObservationIgnored var selected: (annotation: PDFAnnotation, page: PDFPage)? {
+    didSet { view?.selectionChanged() }
+  }
   /// How pages are laid out.
   public var displayMode: ReaderDisplayMode = .continuous {
     didSet { view?.apply(displayMode) }

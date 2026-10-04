@@ -110,6 +110,16 @@ Store notes (see the changelog strategy).
 - On iPad the app uses a single window for now (#54).
 
 ### Fixed
+- Highlight, Underline and Strike through now work by dragging a finger across the words: the mark
+  follows the finger and is made when it lifts. Going over words that are already marked no longer
+  darkens them, and marks that touch on a line join into one.
+- A highlight keeps the same soft colour after the document is saved and opened again.
+- With a markup tool in hand, a sideways drag on a page no longer swipes back to the library.
+- A document can be opened again straight after going back from it, and the list then shows what
+  changed in it.
+- A new text box appears in the middle of the screen with a white background, already selected so it
+  can be dragged into place. The selected annotation now has a frame around it, and tapping then
+  dragging it at once moves it instead of bringing up the Copy menu.
 - In Recently deleted, touching and holding a document offers Restore and Delete now; before, only
   a swipe did.
 - The back button on the document list opens the sections (All documents, Recents, Favourites,

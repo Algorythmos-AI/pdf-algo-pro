@@ -27,7 +27,27 @@ final class LinkDelegate: NSObject, @MainActor PDFViewDelegate {
 
 /// Annotation colours: the user's content, drawn with system colours (design system, annotation colours).
 enum AnnotationPalette {
-  static let yellow = PlatformColor.systemYellow.withAlphaComponent(0.45)
+  static let yellow = highlighter(.systemYellow)
+
+  /// A highlighter's tint of a colour: the colour thinned with white, and opaque.
+  ///
+  /// A PDF stores a mark's colour without its transparency, so a see-through highlight comes back
+  /// from a save darker than it was drawn. An opaque tint looks the same before and after, and the
+  /// words still show through because highlights are multiplied onto the page.
+  static func highlighter(_ color: PlatformColor) -> PlatformColor {
+    guard let space = CGColorSpace(name: CGColorSpace.sRGB),
+      let parts = color.cgColor.converted(to: space, intent: .defaultIntent, options: nil)?.components,
+      parts.count >= 3
+    else { return color }
+    func thin(_ part: CGFloat) -> CGFloat { 1 - (1 - part) * 0.45 }
+    guard let tint = CGColor(colorSpace: space, components: [thin(parts[0]), thin(parts[1]), thin(parts[2]), 1])
+    else { return color }
+    #if canImport(UIKit)
+      return PlatformColor(cgColor: tint)
+    #else
+      return PlatformColor(cgColor: tint) ?? color
+    #endif
+  }
   static let red = PlatformColor.systemRed
   static let ink = PlatformColor.systemBlue
   /// Typed text on a page: black, like the frame PDFKit draws around it.
@@ -55,12 +75,19 @@ final class PDFReaderHostView: PDFView {
     /// Marks editable text on each page and takes the taps that pick it (FR-EDIT-001).
     let textOverlays = TextOverlayProvider()
     private var inkCapture: InkCaptureView?
+    /// A frame around the selected annotation, so it is plain what Style, Delete or a drag will act on.
+    private let selectionOutline = CAShapeLayer()
+    private var outlineLink: CADisplayLink?
+    /// PDFKit's gesture recognizers that are switched off while an annotation is selected.
+    private var silencedGestures: [UIGestureRecognizer] = []
     // PDFView is the delegate of its own recognizers, so the tap gets a delegate of its own.
     private let tapDelegate = SimultaneousGestureDelegate()
     private lazy var transformDelegate = TransformGestureDelegate(host: self)
     private lazy var markupDelegate = MarkupGestureDelegate(host: self)
     /// Where a markup drag started: the page and the point on it.
     private var markupStart: (page: PDFPage, point: CGPoint)?
+    /// Where the finger first touched: a drag is only recognised some points later.
+    fileprivate var markupTouchDown: CGPoint?
     private var transformStart: AnnotationGeometry?
     private var transformOffset = CGSize.zero
     private var transformScale: CGFloat = 1
@@ -148,6 +175,25 @@ final class PDFReaderHostView: PDFView {
     go(to: selection)
   }
 
+  /// Frames the selected annotation, and keeps the frame on it while the page scrolls, zooms or the
+  /// annotation moves.
+  func selectionChanged() {
+    #if canImport(UIKit)
+      if controller?.selected == nil {
+        outlineLink?.invalidate()
+        outlineLink = nil
+      } else if outlineLink == nil {
+        let link = CADisplayLink(target: OutlineTicker(host: self), selector: #selector(OutlineTicker.tick))
+        link.add(to: .main, forMode: .common)
+        outlineLink = link
+      }
+      // While an annotation is selected, touches are for it. PDFKit's own text gestures sit out, or a
+      // tap followed at once by a drag selects text and shows the Copy menu instead of moving anything.
+      setTextGestures(enabled: controller?.selected == nil)
+      updateSelectionOutline()
+    #endif
+  }
+
   /// Shows the system find bar (FR-READ-003).
   func presentFind() {
     #if canImport(UIKit)
@@ -199,6 +245,74 @@ final class PDFReaderHostView: PDFView {
 
 #if canImport(UIKit)
   extension PDFReaderHostView {
+    /// Switches PDFKit's own gestures, other than scrolling and zooming, off or back on.
+    fileprivate func setTextGestures(enabled: Bool) {
+      if enabled {
+        for recognizer in silencedGestures { recognizer.isEnabled = true }
+        silencedGestures = []
+        return
+      }
+      guard silencedGestures.isEmpty else { return }
+      var views: [UIView] = [self]
+      while let view = views.popLast() {
+        views.append(contentsOf: view.subviews)
+        for recognizer in view.gestureRecognizers ?? [] where recognizer.isEnabled {
+          let isOurs =
+            recognizer.delegate === tapDelegate || recognizer.delegate === transformDelegate
+            || recognizer.delegate === markupDelegate
+          let scrolls =
+            (view as? UIScrollView).map {
+              $0.panGestureRecognizer === recognizer || $0.pinchGestureRecognizer === recognizer
+            }
+            ?? false
+          if !isOurs && !scrolls {
+            recognizer.isEnabled = false
+            silencedGestures.append(recognizer)
+          }
+        }
+      }
+    }
+
+    fileprivate func updateSelectionOutline() {
+      CATransaction.begin()
+      CATransaction.setDisableActions(true)
+      defer { CATransaction.commit() }
+      guard let selected = controller?.selected, selected.page.document != nil else {
+        selectionOutline.removeFromSuperlayer()
+        return
+      }
+      if selectionOutline.superlayer == nil {
+        selectionOutline.fillColor = nil
+        selectionOutline.lineWidth = 1.5
+        selectionOutline.zPosition = 1
+        layer.addSublayer(selectionOutline)
+      }
+      selectionOutline.strokeColor = tintColor.cgColor
+      selectionOutline.frame = bounds
+      let frame = convert(selected.annotation.bounds, from: selected.page).insetBy(dx: -4, dy: -4)
+      selectionOutline.path = UIBezierPath(roundedRect: frame, cornerRadius: 5).cgPath
+    }
+  }
+
+  /// Redraws the selection's frame on each screen refresh without keeping the view alive.
+  @MainActor
+  private final class OutlineTicker: NSObject {
+    private weak var host: PDFReaderHostView?
+
+    init(host: PDFReaderHostView) {
+      self.host = host
+    }
+
+    @objc func tick(_ link: CADisplayLink) {
+      guard let host else {
+        link.invalidate()
+        return
+      }
+      host.updateSelectionOutline()
+    }
+  }
+
+  extension PDFReaderHostView {
     /// Selects the annotation under a tap, or clears the selection (F3).
     @objc fileprivate func tapped(_ recognizer: UITapGestureRecognizer) {
       // While text is being edited, taps pick text (through the page overlays), not annotations.
@@ -228,13 +342,16 @@ final class PDFReaderHostView: PDFView {
       transform(recognizer.state)
     }
 
-    /// Whether a drag starting at a point in this view would mark text: a tool is in hand and there
-    /// is text under the finger.
-    fileprivate func canMark(at point: CGPoint) -> Bool {
+    /// Whether a drag starting at a point in this view marks text: a tool is in hand and the drag
+    /// starts on text, or runs sideways across a page.
+    ///
+    /// Sideways drags are taken even off the text, so that one starting beside a word still marks the
+    /// line and never turns into the system's swipe back; up and down still scrolls.
+    fileprivate func canMark(at point: CGPoint, sideways: Bool) -> Bool {
       guard let controller, controller.markupTool != nil, !controller.isDrawing,
-        let page = page(for: point, nearest: false)
+        !isOnSelection(point), let page = page(for: point, nearest: false)
       else { return false }
-      return page.selectionForWord(at: convert(point, to: page)) != nil
+      return sideways || page.selectionForWord(at: convert(point, to: page)) != nil
     }
 
     /// Marks text under a drag: a live preview follows the finger, and lifting it applies the mark.
@@ -244,11 +361,12 @@ final class PDFReaderHostView: PDFView {
       switch recognizer.state {
       case .began:
         // The drag began a few points after the touch; start from where the finger went down.
-        let translation = recognizer.translation(in: self)
-        let origin = CGPoint(x: location.x - translation.x, y: location.y - translation.y)
+        let origin = markupTouchDown ?? location
         guard let page = page(for: origin, nearest: false) else { return }
         markupStart = (page, convert(origin, to: page))
         clearSelection()
+        // A drag marks text; it never picks up the mark it started on.
+        controller.clearSelection()
         UISelectionFeedbackGenerator().selectionChanged()
         preview(to: location, tool: tool)
       case .changed:
@@ -260,6 +378,7 @@ final class PDFReaderHostView: PDFView {
             from: start.point, to: convert(location, to: start.page), onPage: document.index(for: start.page))
           if marked { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
         }
+        controller.clearSelection()
         markupStart = nil
       default:
         highlightedSelections = nil
@@ -275,7 +394,9 @@ final class PDFReaderHostView: PDFView {
         highlightedSelections = nil
         return
       }
-      selection.color = tool == .highlight ? AnnotationPalette.yellow : AnnotationPalette.red.withAlphaComponent(0.25)
+      selection.color =
+        tool == .highlight
+        ? PlatformColor.systemYellow.withAlphaComponent(0.45) : AnnotationPalette.red.withAlphaComponent(0.25)
       highlightedSelections = [selection]
     }
 
@@ -356,9 +477,16 @@ final class PDFReaderHostView: PDFView {
     func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
       MainActor.assumeIsolated {
         guard let host, let pan = gestureRecognizer as? UIPanGestureRecognizer else { return false }
-        let location = pan.location(in: host)
-        let translation = pan.translation(in: host)
-        return host.canMark(at: CGPoint(x: location.x - translation.x, y: location.y - translation.y))
+        let velocity = pan.velocity(in: host)
+        return host.canMark(
+          at: host.markupTouchDown ?? pan.location(in: host), sideways: abs(velocity.x) > abs(velocity.y))
+      }
+    }
+
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+      MainActor.assumeIsolated {
+        host?.markupTouchDown = touch.location(in: host)
+        return true
       }
     }
 
@@ -366,8 +494,10 @@ final class PDFReaderHostView: PDFView {
       _ gestureRecognizer: UIGestureRecognizer,
       shouldBeRequiredToFailBy otherGestureRecognizer: UIGestureRecognizer
     ) -> Bool {
-      // Scrolling waits: on text it gives way to marking, elsewhere this fails at once and it scrolls.
-      otherGestureRecognizer.view is UIScrollView
+      // Scrolling and the swipe back wait: they give way to marking, and when this fails they go on.
+      // Moving the selected annotation is this view's own gesture and keeps its turn.
+      otherGestureRecognizer is UIPanGestureRecognizer && otherGestureRecognizer.delegate !== self
+        && !(otherGestureRecognizer.delegate is TransformGestureDelegate)
     }
   }
 

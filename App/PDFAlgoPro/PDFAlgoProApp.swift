@@ -56,6 +56,7 @@ struct RootView: View {
     // A calm moment to ask for a rating: a document or a sheet has just closed (plan §6).
     .onChange(of: app.library.selection == nil) { _, closed in
       guard closed else { return }
+      app.closeReader()
       // The list follows what happened in the reader: a new lock, page count, title or thumbnail.
       Task { await app.library.reload() }
       askForReviewIfDue()

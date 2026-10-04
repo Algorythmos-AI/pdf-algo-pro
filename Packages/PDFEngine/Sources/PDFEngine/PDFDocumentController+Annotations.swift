@@ -96,7 +96,7 @@ extension PDFDocumentController {
       bounds: CGRect(x: bounds.minX + 24, y: bounds.maxY - 48, width: 24, height: 24), forType: .text,
       withProperties: nil)
     note.contents = contents
-    note.color = AnnotationPalette.yellow
+    note.color = .systemYellow
     add([(note, page)])
   }
 
@@ -376,14 +376,25 @@ extension PDFDocumentController {
   func exchange(removing: [(PDFAnnotation, PDFPage)], adding: [(PDFAnnotation, PDFPage)]) {
     for (annotation, page) in removing { page.removeAnnotation(annotation) }
     for (annotation, page) in adding { page.addAnnotation(annotation) }
+    redraw(removing + adding)
     hasUnsavedChanges = true
     undoManager.registerUndo(withTarget: self) { controller in
       MainActor.assumeIsolated { controller.exchange(removing: adding, adding: removing) }
     }
   }
 
+  /// Has the view draw the pages whose annotations just changed.
+  private func redraw(_ annotations: [(PDFAnnotation, PDFPage)]) {
+    var seen: [PDFPage] = []
+    for (_, page) in annotations where !seen.contains(where: { $0 === page }) {
+      seen.append(page)
+      view?.annotationsChanged(on: page)
+    }
+  }
+
   func add(_ annotations: [(PDFAnnotation, PDFPage)]) {
     for (annotation, page) in annotations { page.addAnnotation(annotation) }
+    redraw(annotations)
     hasUnsavedChanges = true
     undoManager.registerUndo(withTarget: self) { controller in
       MainActor.assumeIsolated { controller.remove(annotations) }
@@ -392,6 +403,9 @@ extension PDFDocumentController {
 
   func remove(_ annotations: [(PDFAnnotation, PDFPage)]) {
     for (annotation, page) in annotations { page.removeAnnotation(annotation) }
+    // A removed annotation is no longer the selection: nothing is left to frame or to act on.
+    if let selected, annotations.contains(where: { $0.0 === selected.annotation }) { clearSelection() }
+    redraw(annotations)
     hasUnsavedChanges = true
     undoManager.registerUndo(withTarget: self) { controller in
       MainActor.assumeIsolated { controller.add(annotations) }

@@ -144,6 +144,8 @@ public final class ReaderModel {
     // To the reader being ready on its first page; drawing it is PDFKit's work after this.
     let interval = Signposts.begin("Document.FirstPage")
     defer { interval.end() }
+    // A document that is shown again starts with no tool in hand: the page it had is gone.
+    markupTool = nil
     watchRecognition()
     canRestorePreviousVersion = await library.hasPreviousVersion(of: documentID)
     do {
