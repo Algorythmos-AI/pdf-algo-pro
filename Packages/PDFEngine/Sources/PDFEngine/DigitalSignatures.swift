@@ -34,7 +34,8 @@ public enum DigitalSignatureStatus: Equatable, Sendable {
   static let maximumDepth = 32
   static let maximumFields = 10_000
 
-  private static func of(_ pdf: CGPDFDocument) -> DigitalSignatureStatus {
+  /// The status of an open Core Graphics document; `.none` while it is locked.
+  static func of(_ pdf: CGPDFDocument) -> DigitalSignatureStatus {
     withExtendedLifetime(pdf) {
       guard !pdf.isEncrypted || pdf.isUnlocked, let catalog = pdf.catalog else { return .none }
       var permissions: CGPDFDictionaryRef?

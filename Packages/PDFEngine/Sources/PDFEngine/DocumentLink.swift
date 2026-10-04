@@ -37,6 +37,8 @@ public struct DocumentLink: Equatable, Sendable, Identifiable {
 extension PDFDocumentController {
   /// Holds a tapped link until the person opens it or dismisses it.
   func linkTapped(_ url: URL) {
+    // A tap on linked text while editing picks the text; it does not follow the link.
+    guard !isEditingText else { return }
     tappedLink = DocumentLink(url: url)
   }
 

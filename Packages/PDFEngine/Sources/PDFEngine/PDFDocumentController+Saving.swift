@@ -46,6 +46,13 @@ extension PDFDocumentController {
     guard let check = PDFDocument(url: staging), check.isLocked || check.pageCount == source.pageCount else {
       throw PDFEngineError.saveFailed
     }
+    // Pages whose text was edited must read in the written file as they do here (FR-EDIT-001).
+    if !contentEditedPages.isEmpty {
+      if check.isLocked, let key = options[.userPasswordOption] as? String ?? password {
+        check.unlock(withPassword: key)
+      }
+      guard check.isLocked || contentEdits(areIntactIn: check) else { throw PDFEngineError.saveFailed }
+    }
     do { try fault?(.validated) } catch { throw PDFEngineError.saveFailed }
     try? fileManager.setAttributes(
       [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication], ofItemAtPath: staging.path)
@@ -86,6 +93,7 @@ extension PDFDocumentController {
     }
     pendingProtection = nil
     hasUnsavedChanges = false
+    contentEditedPages = []
     recordFormValues()
   }
 

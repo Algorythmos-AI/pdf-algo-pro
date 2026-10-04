@@ -87,6 +87,8 @@ extension PDFDocumentController {
   public func setDrawing(
     _ isDrawing: Bool, tool: DrawingTool = .pen, onStroke: @escaping @MainActor () -> Void = {}
   ) {
+    // Drawing and editing text are separate modes; turning one on turns the other off.
+    if isDrawing, isEditingText { setEditingText(false) }
     self.isDrawing = isDrawing
     drawingTool = tool
     onInk = isDrawing ? onStroke : nil

@@ -1186,8 +1186,8 @@ struct GoldenCorpusTests {
   /// Copies a saved file for the independent checks in CI (plan §3 B2).
   ///
   /// qpdf then reads every file this suite saves. Only when `PDF_VALIDATION_OUT` names a folder; a
-  /// password goes beside it.
-  private static func exportForValidation(_ url: URL, name: String, password: String?) throws {
+  /// password goes beside it, and so do lines of text that another reader must find in the file.
+  static func exportForValidation(_ url: URL, name: String, password: String?, expecting: [String] = []) throws {
     guard let folder = ProcessInfo.processInfo.environment["PDF_VALIDATION_OUT"], !folder.isEmpty else { return }
     let directory = URL(fileURLWithPath: folder, isDirectory: true)
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -1197,6 +1197,10 @@ struct GoldenCorpusTests {
     try FileManager.default.copyItem(at: url, to: target)
     if let password {
       try Data(password.utf8).write(to: target.deletingPathExtension().appendingPathExtension("password"))
+    }
+    if !expecting.isEmpty {
+      try Data(expecting.joined(separator: "\n").utf8)
+        .write(to: target.deletingPathExtension().appendingPathExtension("expected"))
     }
   }
 
