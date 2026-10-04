@@ -13,16 +13,16 @@ final class LargeTextUITests: UITestCase {
 
   func testOnboardingAtALargeTextSize() throws {
     let app = launchLarge([])
-    XCTAssertTrue(app.buttons["onboarding.intent.chatWithPDF"].waitForExistence(timeout: 10))
+    XCTAssertTrue(app.buttons["onboarding.intent.chatWithPDF"].waitForExistence(timeout: Self.settleTimeout))
     try audit(app)
   }
 
   func testTheLibraryScanningAndSettingsAtALargeTextSize() throws {
     let app = launchLarge(["-skip-onboarding"])
-    XCTAssertTrue(app.buttons["library.empty.sample"].waitForExistence(timeout: 10))
+    XCTAssertTrue(app.buttons["library.empty.sample"].waitForExistence(timeout: Self.settleTimeout))
     try audit(app)
     app.buttons["library.scan"].tap()
-    XCTAssertTrue(app.buttons["scan.images"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.buttons["scan.images"].waitForExistence(timeout: Self.settleTimeout))
     try audit(app, onSheet: true)
     app.buttons["Cancel"].firstMatch.tap()
     tap(app.buttons["library.settings"], until: app.descendants(matching: .any)["settings.hideAI"].firstMatch)
@@ -59,7 +59,7 @@ final class LargeTextUITests: UITestCase {
     app.buttons["reader.ask"].tap()
     app.buttons["Ask a question"].tap()
     let question = app.descendants(matching: .any)["assistant.question"].firstMatch
-    XCTAssertTrue(question.waitForExistence(timeout: 10))
+    XCTAssertTrue(question.waitForExistence(timeout: Self.settleTimeout))
     question.tap()
     question.typeText("What is the total due?\n")
     XCTAssertTrue(app.staticTexts["assistant.answer"].waitForExistence(timeout: Self.answerTimeout))

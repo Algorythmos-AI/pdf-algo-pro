@@ -19,7 +19,7 @@ final class SettingsUITests: UITestCase {
     for _ in 0..<6 where !open.isHittable { app.swipeUp() }
     open.tap()
     let run = app.buttons["evaluation.run"]
-    XCTAssertTrue(run.waitForExistence(timeout: 5))
+    XCTAssertTrue(run.waitForExistence(timeout: Self.settleTimeout))
     try audit(app, onSheet: true)
     run.tap()
     XCTAssertTrue(

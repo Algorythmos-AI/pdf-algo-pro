@@ -9,7 +9,7 @@ final class AssistantUITests: UITestCase {
     app.buttons["reader.ask"].tap()
     app.buttons["Ask a question"].tap()
     let question = app.descendants(matching: .any)["assistant.question"].firstMatch
-    XCTAssertTrue(question.waitForExistence(timeout: 10))
+    XCTAssertTrue(question.waitForExistence(timeout: Self.settleTimeout))
     question.tap()
     question.typeText("What is the total due?\n")
     XCTAssertTrue(
@@ -20,9 +20,9 @@ final class AssistantUITests: UITestCase {
     XCTAssertTrue(citation.exists, "The answer cites page 2")
     citation.tap()
     let indicator = app.staticTexts["reader.pageIndicator"]
-    XCTAssertTrue(indicator.waitForExistence(timeout: 10))
+    XCTAssertTrue(indicator.waitForExistence(timeout: Self.settleTimeout))
     expectation(for: NSPredicate(format: "label CONTAINS %@", "2 of 3"), evaluatedWith: indicator)
-    waitForExpectations(timeout: 10)
+    waitForExpectations(timeout: Self.settleTimeout)
   }
 
   func testQuestionsTheDocumentCannotAnswerSaySo() throws {
@@ -31,7 +31,7 @@ final class AssistantUITests: UITestCase {
     app.buttons["reader.ask"].tap()
     app.buttons["Ask a question"].tap()
     let question = app.descendants(matching: .any)["assistant.question"].firstMatch
-    XCTAssertTrue(question.waitForExistence(timeout: 10))
+    XCTAssertTrue(question.waitForExistence(timeout: Self.settleTimeout))
     question.tap()
     question.typeText("Who won the match?\n")
     XCTAssertTrue(
