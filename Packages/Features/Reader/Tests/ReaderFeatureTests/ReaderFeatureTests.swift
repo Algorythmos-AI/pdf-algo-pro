@@ -1347,6 +1347,73 @@ struct ReaderTextEditingTests {
     #expect(said.allSatisfy { vocabulary.contains($0) || reasons.contains($0) || Int($0) != nil }, "\(said)")
     #expect(!summary.contains("Smith") && !summary.contains("David") && !summary.contains("Helvetica"))
   }
+
+  @Test("The tip that points at Edit is offered only where a tap on Edit lets the person start at once")
+  func editTip() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try TextEditFixtures.invoice())
+
+    let reader = harness.reader(for: document)
+    #expect(!reader.offersEditTip, "Not before the document is open")
+    await reader.load()
+    #expect(reader.offersEditTip)
+    #expect(await reader.currentPageHasEditableText())
+
+    // Never for a feature that is locked or absent.
+    for access in [TextEditingAccess.locked, .hidden] {
+      let other = harness.reader(for: document, textEditing: access)
+      await other.load()
+      #expect(!other.offersEditTip, "\(access)")
+    }
+
+    // Never over something else, or while the reader is doing something else.
+    reader.assistantTask = .summarize
+    #expect(!reader.offersEditTip)
+    reader.assistantTask = nil
+    reader.showsPages = true
+    #expect(!reader.offersEditTip)
+    reader.showsPages = false
+    reader.setDrawing(true)
+    #expect(!reader.offersEditTip)
+    reader.setDrawing(false)
+    #expect(reader.offersEditTip)
+    await reader.beginTextEditing()
+    #expect(reader.isEditingText && !reader.offersEditTip)
+    await reader.endTextEditing()
+
+    // Not where Edit would answer with a refusal, a question or "this page is an image".
+    let restricted = harness.reader(
+      for: await harness.seed(
+        try TestPDFs.makeProtected(
+          userPassword: nil, ownerPassword: "owner-\(UUID())", permissions: [.allowsLowQualityPrinting]),
+        title: "Restricted"))
+    await restricted.load()
+    #expect(!restricted.offersEditTip)
+    let signed = harness.reader(for: await harness.seed(TestPDFs.makeSigned(.signed), title: "Signed"))
+    await signed.load()
+    #expect(!signed.offersEditTip)
+    let scanned = harness.reader(
+      for: await harness.seed(try SyntheticPDF.makeImageOnly(pages: ["A scanned letter"]), textLayer: false))
+    await scanned.load()
+    #expect(await scanned.currentPageHasEditableText() == false)
+  }
+
+  @Test("The Edit button and its tip draw at every text size, in both appearances")
+  func editButtonDraws() async throws {
+    let harness = Harness()
+    let reader = harness.reader(for: await harness.seed(try TextEditFixtures.invoice()))
+    await reader.load()
+    for scheme in [ColorScheme.light, .dark] {
+      for size in [DynamicTypeSize.large, .accessibility5] {
+        let button = EditTextButton(model: reader).environment(\.colorScheme, scheme)
+          .environment(\.dynamicTypeSize, size)
+        #expect(ImageRenderer(content: button).uiImage != nil)
+        let tip = EditTipCardBody(title: Text(verbatim: "Edit this PDF"), message: Text(verbatim: "Tap Edit.")) {}
+          .frame(width: 390).environment(\.colorScheme, scheme).environment(\.dynamicTypeSize, size)
+        #expect(ImageRenderer(content: tip).uiImage != nil)
+      }
+    }
+  }
 }
 
 private enum Failure: Error { case unexpected }

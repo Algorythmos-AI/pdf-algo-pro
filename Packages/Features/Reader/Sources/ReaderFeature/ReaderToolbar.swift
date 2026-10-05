@@ -1,15 +1,31 @@
 import Core
+import DesignSystem
 import PDFEngine
 import SwiftUI
 import UIKit
 
-/// The reader's tools: Ask (when intelligence is shown), Markup and More.
+/// The reader's tools: Edit (when editing text is offered), Ask (when intelligence is shown),
+/// Markup and More.
 struct ReaderToolbar: ToolbarContent {
   let model: ReaderModel
   @Binding var isAddingNote: Bool
   @Binding var isAddingTextBox: Bool
+  /// Whether the bar is in its ordinary state and this build offers editing text.
+  private var showsEdit: Bool {
+    model.phase == .ready && !model.isDrawing && model.markupTool == nil && !model.isEditingText
+      && model.textEditingAccess != .hidden
+  }
 
   var body: some ToolbarContent {
+    // Edit is the reader's one filled action, in a group of its own, apart from the icons.
+    if showsEdit {
+      // The capsule is the button's whole background; the bar adds no glass of its own behind it.
+      // In a stack, so that the bar takes the item as a view of its own size, not as a bar button
+      // in a square slot, which a longer word ("Modifier") would spill out of.
+      ToolbarItem(placement: .primaryAction) { HStack(spacing: 0) { EditTextButton(model: model) } }
+        .sharedBackgroundVisibility(.hidden)
+      ToolbarSpacer(.fixed, placement: .primaryAction)
+    }
     ToolbarItemGroup(placement: .primaryAction) {
       if model.isDrawing {
         Button {
@@ -59,19 +75,6 @@ struct ReaderToolbar: ToolbarContent {
         .disabled(model.selectedTextRegion != nil)
         .accessibilityIdentifier("reader.doneEditingText")
       } else if model.phase == .ready {
-        if model.textEditingAccess != .hidden {
-          Button {
-            Task { await model.beginTextEditing() }
-          } label: {
-            Label {
-              Text("Edit", bundle: .module)
-            } icon: {
-              Image(systemName: "character.cursor.ibeam")
-            }
-          }
-          .keyboardShortcut("e")
-          .accessibilityIdentifier("reader.edit")
-        }
         if model.showsIntelligence {
           Menu {
             Button {
@@ -498,6 +501,45 @@ struct ReaderToolbar: ToolbarContent {
       } icon: {
         Image(systemName: "strikethrough")
       }
+    }
+  }
+}
+
+/// The way into editing the text of the document: the reader's primary action, so it is the one
+/// button in the bar that is filled and says what it does (design system, buttons and toolbars).
+struct EditTextButton: View {
+  let model: ReaderModel
+  @Environment(\.horizontalSizeClass) private var sizeClass
+
+  var body: some View {
+    Button {
+      Task { await model.beginTextEditing() }
+    } label: {
+      Label {
+        Text("Edit", bundle: .module)
+      } icon: {
+        Image(systemName: "character.cursor.ibeam")
+      }
+      .modifier(EditLabelStyle(showsIcon: sizeClass == .regular))
+    }
+    // The design system's capsule, which sets the label's colour itself: the system's prominent
+    // glass picks a label colour that is too faint on the dark fill (colour rule 3).
+    .buttonStyle(.primaryBar)
+    .keyboardShortcut("e")
+    .accessibilityHint(Text("Changes the text in this PDF", bundle: .module))
+    .accessibilityIdentifier("reader.edit")
+  }
+}
+
+/// The word alone where the bar is narrow; the symbol beside it where there is room.
+private struct EditLabelStyle: ViewModifier {
+  let showsIcon: Bool
+
+  func body(content: Content) -> some View {
+    if showsIcon {
+      content.labelStyle(.titleAndIcon)
+    } else {
+      content.labelStyle(.titleOnly)
     }
   }
 }

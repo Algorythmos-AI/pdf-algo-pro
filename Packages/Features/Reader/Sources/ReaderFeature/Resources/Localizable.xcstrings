@@ -325,6 +325,17 @@
         }
       }
     },
+    "Changes the text in this PDF" : {
+      "comment" : "Accessibility hint of the Edit button in the reader",
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modifie le texte de ce PDF"
+          }
+        }
+      }
+    },
     "Changing the text…" : {
       "localizations" : {
         "fr" : {
@@ -351,6 +362,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Effacer"
+          }
+        }
+      }
+    },
+    "Close" : {
+      "comment" : "Accessibility label of the button that closes the Edit tip",
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fermer"
           }
         }
       }
@@ -672,6 +694,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Modifier le texte"
+          }
+        }
+      }
+    },
+    "Edit this PDF" : {
+      "comment" : "Title of the one-time tip on Edit",
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modifier ce PDF"
           }
         }
       }
@@ -1535,6 +1568,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Touchez un texte pour le modifier"
+          }
+        }
+      }
+    },
+    "Tap Edit, then tap any text to change it." : {
+      "comment" : "Message of the one-time tip that points at the Edit button",
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Touchez Modifier, puis touchez un texte pour le changer."
           }
         }
       }

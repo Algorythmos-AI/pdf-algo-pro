@@ -27,6 +27,16 @@ struct DesignTokenTests {
     #expect(abs(values[0].red - 0.4275) < 1 / 255)
   }
 
+  @Test("A prominent button's label meets 4.5:1 on its fill in every appearance (colour rule 3)")
+  func prominentButtonContrast() {
+    let fill = UIColor(Color.ds.brandFill)
+    let label = UIColor(Color.ds.brandOnFill)
+    for appearance in DynamicColor.Appearance.allCases {
+      let ratio = RGB.contrast(rgb(label, in: appearance), rgb(fill, in: appearance))
+      #expect(ratio >= 4.5, "\(appearance): \(ratio)")
+    }
+  }
+
   @Test("Brand tint meets 4.5:1 on system backgrounds in every appearance (WCAG 2.2 AA)")
   func brandTintContrast() {
     let tint = DynamicColor.uiColor(
