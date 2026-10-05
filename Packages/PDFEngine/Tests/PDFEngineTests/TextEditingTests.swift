@@ -115,6 +115,64 @@ struct TextEditingSyntaxTests {
     #expect(TextFont.withoutSubsetTag("My+Font") == "My+Font")
   }
 
+  /// A one-page file read as it is, without PDFKit rewriting it first.
+  private func analysis(content: String, fonts: String, objects: [String] = []) throws -> PageAnalysis {
+    try PageAnalysis(
+      TextEditFixtures.assemble(
+        [
+          "<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+          "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << \(fonts) >> >> >>",
+          "<< /Length \(content.utf8.count) >>\nstream\n\(content)\nendstream",
+        ] + objects))
+  }
+
+  @Test("Two-byte codes with their own character map, as browsers write them, are read glyph by glyph")
+  func compositeFont() throws {
+    let map = "2 beginbfchar <0001> <0048> <0002> <0069> endbfchar"
+    let page = try analysis(
+      content: "BT /C1 12 Tf 72 700 Td <00010002> Tj 300 0 Td <0001> Tj <0002> Tj ET",
+      fonts: "/C1 << /Type /Font /Subtype /Type0 /BaseFont /AAAAAB+Roboto-Regular /Encoding /Identity-H "
+        + "/DescendantFonts [5 0 R] /ToUnicode 6 0 R >>",
+      objects: [
+        "<< /Type /Font /Subtype /CIDFontType2 /BaseFont /AAAAAB+Roboto-Regular /DW 500 /W [1 [700 250]] >>",
+        "<< /Length \(map.utf8.count) >>\nstream\n\(map)\nendstream",
+      ])
+    #expect(page.regions.map(\.text) == ["Hi", "Hi"])
+    let first = try #require(page.regions.first)
+    #expect(first.font.postScriptName == "Roboto-Regular" && first.font.isComposite)
+    // 700 and 250 thousandths at 12 points.
+    #expect(abs(first.widthDrawn - 11.4) < 0.01)
+    // A composite font without its own map cannot be read, so it offers nothing to edit.
+    let unmapped = try analysis(
+      content: "BT /C1 12 Tf 72 700 Td <00010002> Tj ET",
+      fonts: "/C1 << /Type /Font /Subtype /Type0 /BaseFont /Mincho /Encoding /Identity-H /DescendantFonts [5 0 R] >>",
+      objects: ["<< /Type /Font /Subtype /CIDFontType0 /BaseFont /Mincho /DW 1000 >>"])
+    #expect(unmapped.regions.isEmpty && unmapped.content.runs.first?.text == nil)
+  }
+
+  @Test("A font with no space glyph, as TeX writes, reads its gaps as spaces")
+  func gapsAsSpaces() throws {
+    let widths = Array(repeating: "500", count: 91).joined(separator: " ")
+    let page = try analysis(
+      content: "BT /F9 10 Tf 72 700 Td [(The) -333 (quick) -333 (fox) -20 (es)] TJ ET",
+      fonts: "/F9 << /Type /Font /Subtype /Type1 /BaseFont /CMR10 /FirstChar 32 /LastChar 122 /Widths [\(widths)] "
+        + "/Encoding << /Type /Encoding /Differences [84 /T 101 /e /f 104 /h /i 107 /k 111 /o 113 /q 115 /s 117 /u 120 /x 99 /c] >> >>"
+    )
+    // Wide gaps are spaces; a kerning nudge is not.
+    #expect(page.regions.map(\.text) == ["The quick foxes"])
+    #expect(page.regions.first?.editable.capability == .limited(.fontSubstituted))
+  }
+
+  @Test("A Type 3 font, whose glyphs are drawings, offers nothing to edit in place")
+  func type3Font() throws {
+    let page = try analysis(
+      content: "BT /T3 12 Tf 72 700 Td (AB) Tj ET",
+      fonts: "/T3 << /Type /Font /Subtype /Type3 /FontBBox [0 0 1000 1000] /FontMatrix [0.001 0 0 0.001 0 0] "
+        + "/CharProcs << >> /Encoding << /Type /Encoding /Differences [65 /A /B] >> /FirstChar 65 /LastChar 66 "
+        + "/Widths [600 600] >>")
+    #expect(page.regions.isEmpty)
+  }
+
   @Test("Numbers are written as plain decimals")
   func numbers() {
     #expect(TextEraser.number(12) == "12")

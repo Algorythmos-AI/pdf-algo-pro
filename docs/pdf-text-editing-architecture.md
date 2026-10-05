@@ -229,6 +229,25 @@ text they must contain. What only a device shows is in the
 - **File size.** Each edited page gains a font subset (about 9 kB in the spike's invoice); further
   edits to the same page add a few hundred bytes.
 
+## Where the build differs from the approved plan
+
+The plan was written before the spike. These are the places the code deliberately differs, so
+nobody looks for something that is not there.
+
+| Plan | Built | Why |
+|---|---|---|
+| New text encoded in the document's font and redrawn beside the original operators | New text drawn with Core Text onto the erased page | Every PDFKit save leaves fonts holding only the letters already used (spike) |
+| The character map confirmed by a second source before a document font is used | Not needed | Core Text draws from the typed characters; no document character map is trusted for writing |
+| Dirty flags split by kind, each checked against its own permission | One rule: editing needs permission both to change the document and to add to it | Core Graphics grants those two together, so they never arrive apart (`permissions` test) |
+| The staged file's edited pages compared by text and by render | Compared by text | The render is already proven on the page before the swap; a second full render per save was not worth its cost |
+| The overlay's regions as VoiceOver elements | PDFKit's own line elements; activating one picks the line | PDFKit does not expose an overlay's elements, and each line is then read once |
+| The onboarding option following the flag | The option stays off until the flag is removed | Simpler, and it cannot show while the feature is hidden (FR-ONB-007) |
+| The edit mode recorded as a telemetry event | Returned in the outcome only | The event catalogue is fixed by the analytics strategy; adding an event is its own decision |
+| A sourced comparison with other apps | A table to fill in on a device | Claims about other apps need hands-on evidence |
+| Reader snapshots | Render tests at a large text size and an audited UI journey | The editor's views are internal to the reader, and a snapshot of a live page view is not stable |
+| Real-producer fixture files | Hand-built structures as browsers, TeX and Word write them; real files in the device test | No openly licensed producer output was available to commit |
+| Speed measured at 10, 100 and 500 pages | 500 pages in the performance plan; a 120-page comparison in the unit tests | The work is per page by construction, so one large size shows it |
+
 ## Migration risk
 
 - The save path gains one check and one state reset; an unedited document saves exactly as before.
