@@ -1,6 +1,6 @@
 # ADR-0025: Native text editing for the documents where it is safe, behind our own boundary
 
-**Status:** proposed (2026-10-04)
+**Status:** accepted (2026-10-05)
 
 **Context.** Editing existing text (FR-EDIT-001) is a Must for V1 and the main paid capability ([PRD](../prd.md)). [ADR-0007](0007-pdf-sdk-boundary-and-vendor-selection.md), still proposed, assigns it to a commercial SDK and calls an in-house editor "years of work"; readiness blocker C1 (the vendor spike, licence and telemetry audit) is open, so no SDK can be added yet ([readiness review](../readiness-review.md)). The owner asked for the strongest editing the platform's own frameworks allow now, with a boundary that lets a fuller engine replace it later, and without labelling an overlay as editing.
 
@@ -28,7 +28,7 @@ A spike on macOS 26.6 and the iOS 26.5 simulator (2026-10-04, recorded in the [t
 - Fewer documents can be edited than with an SDK: text is edited a line at a time, and a typeface that is neither on the device nor complete in the document is replaced by the closest standard font. These limits are stated in the architecture document and in the device test plan.
 - The proof refuses edits on unusual pages by design. Refusals are measured in the [device test plan](../process/text-editing-device-test.md); their rate is the main evidence for or against licensing an SDK.
 - The feature is behind the `textEditing` release flag, off in Release builds until the device test plan is signed off, and behind the Pro entitlement through an injected access value ([ADR-0011](0011-storekit-2-monetisation.md)).
-- This record is proposed, not accepted: it reverses part of PAP-003, which only the owner can do.
+- It narrows PAP-003 for text editing only. The owner accepted it on 2026-10-05 (PAP-036), before the device test: the release flag still stays off in Release builds until that test is signed off.
 
 **Pillars served.** PIL-2, PIL-5, PIL-7
 

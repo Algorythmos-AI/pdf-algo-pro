@@ -308,7 +308,7 @@ years of work. Wrapping the SDK keeps the product free to switch vendors.
 | PDFKit only | Native and free; no true text editing, no Office export, limited redaction |
 | Open-source engines (PDFium, MuPDF) | PDFium is BSD-licensed but a large C++ integration without an editing layer; MuPDF is AGPL unless a commercial licence is bought |
 | Build our own editor | Not a responsible use of years of engineering |
-| Native text editing for the safe subset | Proposed in [ADR-0025](adr/0025-native-text-editing-for-the-safe-subset.md): erase and redraw one page's text with Core Graphics and Core Text, proving each edit; narrower than an SDK, with no third-party code |
+| Native text editing for the safe subset | Accepted in [ADR-0025](adr/0025-native-text-editing-for-the-safe-subset.md): erase and redraw one page's text with Core Graphics and Core Text, proving each edit; narrower than an SDK, with no third-party code |
 
 **Trade-offs.** Licence cost, binary size and a dependency at the heart of the product, accepted
 for true editing and conversion from launch.
