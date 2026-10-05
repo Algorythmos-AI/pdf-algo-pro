@@ -76,6 +76,13 @@ right, and nothing else on the page moved.
 
 ## How it feels
 
+- Hand the phone to someone who has not seen the app and ask them to change a word in a PDF.
+  They find Edit without help.
+- The first time a document with text is open, a tip under the bar says "Edit this PDF". After
+  Edit is used, or the tip is closed, it does not come back: not on the next document and not
+  after the app is closed and opened again.
+- The tip does not show on a scan, on a signed or restricted document, or over a sheet.
+- In dark mode the word on the Edit button is as easy to read as in light mode.
 - The outlines appear without the page jumping, and follow the page while it scrolls and zooms.
 - The field sits over the text it edits. The keyboard does not cover it.
 - After Done, the page is where it was, at the same zoom.
