@@ -1407,6 +1407,35 @@ struct RecognitionCoordinatorTests {
     #expect(!handle.progress.isEmpty && handle.progress.allSatisfy { (0...1).contains($0) })
   }
 
+  @Test("Continued work registers a handler under the task's own identifier before submitting it")
+  func continuedWorkRegistersBeforeSubmitting() {
+    let scheduler = SchedulerLog()
+    let work = ContinuedProcessing(family: "com.example.app.recognition", scheduler: scheduler)
+    #expect(work.begin(title: "Recognising", subtitle: "Lease") {} != nil)
+    #expect(scheduler.calls.count == 2)
+    let registered = scheduler.calls.first ?? ""
+    // The family pattern is not an identifier: submitting one with no handler ends the app.
+    #expect(registered.hasPrefix("register com.example.app.recognition.") && !registered.hasSuffix("*"))
+    #expect(scheduler.calls.last == registered.replacingOccurrences(of: "register ", with: "submit "))
+    // A second piece of work gets its own identifier and its own handler.
+    _ = work.begin(title: "Recognising", subtitle: "Letter") {}
+    #expect(Set(scheduler.calls).count == 4)
+
+    // If the system refuses the handler, nothing is submitted and the work runs as it always has.
+    let refusing = SchedulerLog()
+    refusing.registers = false
+    #expect(
+      ContinuedProcessing(family: "com.example.app.recognition", scheduler: refusing).begin(title: "", subtitle: "") {}
+        == nil)
+    #expect(refusing.calls.count == 1 && refusing.calls.allSatisfy { $0.hasPrefix("register ") })
+    // If it can't run the task now, there is no handle either.
+    let busy = SchedulerLog()
+    busy.submits = false
+    #expect(
+      ContinuedProcessing(family: "com.example.app.recognition", scheduler: busy).begin(title: "", subtitle: "") {}
+        == nil)
+  }
+
   @Test("Resuming at launch, or a system that says no, runs recognition as before")
   func noContinuedWork() async throws {
     let harness = Harness()
@@ -1513,6 +1542,24 @@ private actor SecondPageGate: TextRecognizing {
       await withCheckedContinuation { gate = $0 }
     }
     return FakeRecognizer().lines
+  }
+}
+
+/// A task scheduler that records the order of the calls made to it.
+@MainActor
+final class SchedulerLog: ContinuedTaskScheduling {
+  var calls: [String] = []
+  var registers = true
+  var submits = true
+
+  func register(identifier: String, handle: ContinuedProcessing.Handle) -> Bool {
+    calls.append("register \(identifier)")
+    return registers
+  }
+
+  func submit(identifier: String, title: String, subtitle: String) -> Bool {
+    calls.append("submit \(identifier)")
+    return submits
   }
 }
 

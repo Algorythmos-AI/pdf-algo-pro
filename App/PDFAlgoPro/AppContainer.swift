@@ -141,7 +141,6 @@ final class AppContainer {
     // family is declared in Info.plist (BGTaskSchedulerPermittedIdentifiers).
     let continued = ContinuedProcessing(
       family: "\(Bundle.main.bundleIdentifier ?? "com.algorythmos.pdfalgopro").recognition")
-    continued.register()
     recognition = RecognitionCoordinator(
       library: library, intake: intake, builder: builder, telemetry: telemetry, folder: folders.recognition,
       continued: continued)

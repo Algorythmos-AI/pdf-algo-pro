@@ -116,6 +116,8 @@ Store notes (see the changelog strategy).
   background.
 - Editing text never sits silent: the reader says when it is still looking for text, when a page
   has nothing that can be edited, and when the work took too long, in which case nothing is changed.
+- The app no longer closes when text recognition is started on a scanned document ("Make
+  searchable"). Recognition now carries on with its progress shown by the system if you leave the app.
 - A stamp or a signature is selected as soon as it is placed, so it can be dragged straight to where
   it belongs. A selected stamp is now called a stamp, not a text box.
 - Highlight, Underline and Strike through now work by dragging a finger across the words: the mark
