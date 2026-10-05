@@ -155,6 +155,8 @@ extension PDFDocumentController {
       annotation.add(PlatformBezierPath(cgPath: path))
     }
     add([(annotation, page)])
+    // A placed signature is selected, so it can be dragged onto its line; a drawn stroke is not.
+    if contents == Self.signatureContents { select(annotation, on: page) }
     return true
   }
 
@@ -229,6 +231,10 @@ extension PDFDocumentController {
     return true
   }
 
+  /// The annotation entry that names what an annotation is (`/Subj`), and what a stamp's says.
+  static let subjectKey = PDFAnnotationKey(rawValue: "/Subj")
+  static let stampSubject = "Stamp"
+
   /// A stamp to put on a page (FR-ANN-006).
   public enum Stamp: Equatable, Sendable {
     /// A date, written in the reader's locale.
@@ -284,7 +290,11 @@ extension PDFDocumentController {
     let border = PDFBorder()
     border.lineWidth = isMark ? 0 : 2
     annotation.border = border
+    // The standard "subject" entry says what the annotation is, so a stamp is not taken for a text box.
+    annotation.setValue(Self.stampSubject, forAnnotationKey: Self.subjectKey)
     add([(annotation, page)])
+    // Selected straight away, so it can be dragged to where it belongs.
+    select(annotation, on: page)
     return true
   }
 
@@ -331,6 +341,7 @@ extension PDFDocumentController {
     border.lineWidth = 0
     annotation.border = border
     add([(annotation, page)])
+    select(annotation, on: page)
     return true
   }
 
