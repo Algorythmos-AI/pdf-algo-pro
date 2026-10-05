@@ -175,7 +175,8 @@ extension PDFDocumentController {
     case "square": .rectangle
     case "circle": .oval
     case "line": .line
-    case "freetext": .textBox
+    case "freetext":
+      annotation.value(forAnnotationKey: subjectKey) as? String == stampSubject ? .stamp : .textBox
     case "stamp": .stamp
     default: .other
     }

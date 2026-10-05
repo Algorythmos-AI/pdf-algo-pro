@@ -216,6 +216,10 @@ struct ControllerTests {
     #expect(texts.contains("✓") && texts.contains(PDFDocumentController.Stamp.date(day).text))
     let box = page.bounds(for: .cropBox)
     #expect(page.annotations.allSatisfy { box.contains($0.bounds) })
+    // A stamp is selected as it lands, and is still known as a stamp after a save; a text box is not one.
+    #expect(controller.selection?.kind == .stamp)
+    #expect(page.annotations.allSatisfy { PDFDocumentController.kind(of: $0) == .stamp })
+    #expect(controller.addTextBox("Note", onPage: 0) && controller.selection?.kind == .textBox)
     controller.undoManager.undo()
   }
 

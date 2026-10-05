@@ -110,6 +110,8 @@ Store notes (see the changelog strategy).
 - On iPad the app uses a single window for now (#54).
 
 ### Fixed
+- A stamp or a signature is selected as soon as it is placed, so it can be dragged straight to where
+  it belongs. A selected stamp is now called a stamp, not a text box.
 - Highlight, Underline and Strike through now work by dragging a finger across the words: the mark
   follows the finger and is made when it lifts. Going over words that are already marked no longer
   darkens them, and marks that touch on a line join into one.
