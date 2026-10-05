@@ -539,25 +539,50 @@ struct TextEditingUndoMemoryTests {
   }
 }
 
-/// An editor that takes a set time and answers even after it was given up on, as work that cannot
-/// be interrupted does.
-private struct SlowEditor: PDFTextEditing {
-  let find: Duration
-  let edit: Duration
+/// A door the test opens: work waits at it for as long as the test likes, whatever the machine's
+/// speed, and does not stop waiting when the caller gives up.
+private actor Gate {
+  private var isOpen = false
+  private var waiting: [CheckedContinuation<Void, Never>] = []
+  /// How many pieces of work have gone through and answered.
+  private(set) var answered = 0
 
-  private func wait(_ duration: Duration) async {
-    guard duration > .zero else { return }
-    await Task.detached { try? await Task.sleep(for: duration) }.value
+  func pass() async {
+    if !isOpen { await withCheckedContinuation { waiting.append($0) } }
   }
 
+  func open() {
+    isOpen = true
+    for waiter in waiting { waiter.resume() }
+    waiting = []
+  }
+
+  func noteAnswer() { answered += 1 }
+
+  /// Waits until work that was let through has answered.
+  func answers(_ count: Int) async {
+    while answered < count { await Task.yield() }
+  }
+}
+
+/// An editor that waits at a gate and answers even after it was given up on, as work that cannot
+/// be interrupted does.
+private struct HeldEditor: PDFTextEditing {
+  var find: Gate?
+  var edit: Gate?
+
   func text(ofPage page: Data) async -> EditablePageText {
-    await wait(find)
-    return await ContentStreamTextEditor().text(ofPage: page)
+    await find?.pass()
+    let text = await ContentStreamTextEditor().text(ofPage: page)
+    await find?.noteAnswer()
+    return text
   }
 
   func applying(_ edits: [TextEdit], toPage page: Data) async -> TextEditResult {
-    await wait(edit)
-    return await ContentStreamTextEditor().applying(edits, toPage: page)
+    await edit?.pass()
+    let result = await ContentStreamTextEditor().applying(edits, toPage: page)
+    await edit?.noteAnswer()
+    return result
   }
 }
 
@@ -566,17 +591,19 @@ private struct SlowEditor: PDFTextEditing {
 struct TextEditingDependabilityTests {
   @Test("Finding text that passes its time limit is reported, kept out of the cache, and tried again")
   func findLimit() async throws {
-    let (controller, _) = try open(
-      TextEditFixtures.invoice(), editor: SlowEditor(find: .milliseconds(600), edit: .zero))
-    controller.textFindLimit = .milliseconds(80)
+    let gate = Gate()
+    let (controller, _) = try open(TextEditFixtures.invoice(), editor: HeldEditor(find: gate))
+    controller.textFindLimit = .milliseconds(50)
     controller.setEditingText(true)
     let late = await controller.pageText(onPage: 0)
     #expect(late.kind == .tookTooLong && late.regions.isEmpty)
     #expect(controller.textPages.isEmpty && controller.textEditingDiagnostics.pageKind == .timedOut)
     // The answer that was given up on arrives; it is not taken for an answer to anything.
-    try await Task.sleep(for: .milliseconds(900))
+    await gate.open()
+    await gate.answers(1)
+    try await Task.sleep(for: .milliseconds(100))
     #expect(controller.textPages.isEmpty)
-    controller.textFindLimit = .seconds(30)
+    controller.textFindLimit = .seconds(600)
     let found = await controller.pageText(onPage: 0)
     #expect(found.kind == .text && found.regions.contains { $0.text.contains("John Smith") })
     #expect(controller.textEditingDiagnostics.pageKind == .text && controller.textEditingDiagnostics.direct > 0)
@@ -584,18 +611,21 @@ struct TextEditingDependabilityTests {
 
   @Test("An edit that passes its time limit is refused, and its late answer never reaches the document")
   func editLimit() async throws {
-    let (controller, url) = try open(
-      TextEditFixtures.invoice(), editor: SlowEditor(find: .zero, edit: .milliseconds(600)))
-    controller.textEditLimit = .milliseconds(80)
+    let gate = Gate()
+    let (controller, url) = try open(TextEditFixtures.invoice(), editor: HeldEditor(edit: gate))
+    controller.textFindLimit = .seconds(600)
+    controller.textEditLimit = .milliseconds(50)
     #expect(try await edit(controller, containing: "John Smith", to: "Customer: David Smith") == .refused(.timedOut))
     #expect(controller.selectedTextRegion != nil, "What was typed is not lost: the text stays picked")
     #expect(controller.textEditingDiagnostics.lastEdit == .refused("timedOut"))
-    try await Task.sleep(for: .milliseconds(1000))
+    await gate.open()
+    await gate.answers(1)
+    try await Task.sleep(for: .milliseconds(100))
     #expect(squeezed(controller).contains("JohnSmith") && !squeezed(controller).contains("David"))
     #expect(controller.contentEditedPages.isEmpty && !controller.hasUnsavedChanges && !controller.undoManager.canUndo)
     // With time enough, the same edit goes through.
     controller.clearTextRegionSelection()
-    controller.textEditLimit = .seconds(60)
+    controller.textEditLimit = .seconds(600)
     #expect(try await edit(controller, containing: "John Smith", to: "Customer: David Smith").isEdited)
     try controller.save(to: url)
     #expect(EditProof.squeezed(try PDFDocumentController(url: url).pageText(at: 0)).contains("DavidSmith"))
@@ -603,12 +633,14 @@ struct TextEditingDependabilityTests {
 
   @Test("The time limit hands back whichever comes first and drops the other")
   func within() async {
-    #expect(await PDFDocumentController.within(.seconds(30)) { 7 } == 7)
-    let slow = await PDFDocumentController.within(.milliseconds(50)) {
-      await Task.detached { try? await Task.sleep(for: .milliseconds(400)) }.value
+    #expect(await PDFDocumentController.within(.seconds(600)) { 7 } == 7)
+    let gate = Gate()
+    let held = await PDFDocumentController.within(.milliseconds(50)) {
+      await gate.pass()
       return 7
     }
-    #expect(slow == nil)
+    #expect(held == nil)
+    await gate.open()
   }
 
   @Test("The native editor stops when the work is given up on")

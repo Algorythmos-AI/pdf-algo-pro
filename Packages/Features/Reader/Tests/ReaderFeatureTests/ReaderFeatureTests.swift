@@ -1263,7 +1263,7 @@ struct ReaderTextEditingTests {
     // The page is said to have text, but nothing on it is offered, and PDFKit reads no line of it
     // that could be covered either.
     let blank = await harness.seed(TextEditFixtures.raw(content: ""), title: "Blank")
-    let reader = harness.reader(for: blank, editor: StubEditor(find: .zero, edit: .zero, regions: false))
+    let reader = harness.reader(for: blank, editor: StubEditor(regions: false))
     await reader.load()
     await reader.beginTextEditing()
     #expect(reader.isEditingText && reader.textEditMessage == .noEditableText)
@@ -1273,36 +1273,48 @@ struct ReaderTextEditingTests {
   func slowPage() async throws {
     let harness = Harness()
     let document = await harness.seed(try TextEditFixtures.invoice())
-    let reader = harness.reader(for: document, editor: StubEditor(find: .milliseconds(1500), edit: .zero))
+    let gate = Gate()
+    let reader = harness.reader(for: document, editor: StubEditor(find: gate))
     await reader.load()
+    try #require(reader.controller).textFindLimit = .seconds(600)
     let entering = Task { await reader.beginTextEditing() }
-    try await Task.sleep(for: .milliseconds(1000))
+    // The text is held back for as long as it takes the reader to say that it is looking.
+    for _ in 0..<3000 where reader.textEditMessage != .lookingForText {
+      try await Task.sleep(for: .milliseconds(10))
+    }
     #expect(reader.textEditMessage == .lookingForText)
+    await gate.open()
     await entering.value
     #expect(reader.textEditMessage == nil, "Found in time: nothing to say")
 
-    let slow = harness.reader(for: document, editor: StubEditor(find: .milliseconds(1500), edit: .zero))
+    let held = Gate()
+    let slow = harness.reader(for: document, editor: StubEditor(find: held))
     await slow.load()
-    try #require(slow.controller).textFindLimit = .milliseconds(100)
+    try #require(slow.controller).textFindLimit = .milliseconds(50)
     await slow.beginTextEditing()
     #expect(slow.textEditMessage == .tookTooLong)
+    await held.open()
   }
 
   @Test("An edit that takes too long is refused, says so, and changes nothing")
   func slowEdit() async throws {
     let harness = Harness()
     let document = await harness.seed(try TextEditFixtures.invoice())
-    let reader = harness.reader(for: document, editor: StubEditor(find: .zero, edit: .milliseconds(800)))
+    let gate = Gate()
+    let reader = harness.reader(for: document, editor: StubEditor(edit: gate))
     await reader.load()
     let controller = try #require(reader.controller)
-    controller.textEditLimit = .milliseconds(100)
+    controller.textFindLimit = .seconds(600)
+    controller.textEditLimit = .milliseconds(50)
     await reader.beginTextEditing()
     try await pick("John Smith", in: reader)
     #expect(await reader.commitTextEdit("Customer: David Smith") == false)
     #expect(reader.textEditMessage == .tookTooLong)
     #expect(reader.selectedTextRegion != nil, "The editor stays open with what was typed")
     // The editor's answer arrives after the limit; it must not reach the document.
-    try await Task.sleep(for: .milliseconds(1200))
+    await gate.open()
+    await gate.answers(1)
+    try await Task.sleep(for: .milliseconds(100))
     #expect(controller.pageText(at: 0).contains("John Smith") && !controller.hasUnsavedTextEdits)
     #expect(try await savedText(document, in: harness).contains("JohnSmith"))
   }
@@ -1617,27 +1629,50 @@ private final class Heard {
   var count = 0
 }
 
-/// An editor that takes a set time, as a very large page or a slow device would, and answers even
-/// after it was given up on.
-private struct StubEditor: PDFTextEditing {
-  let find: Duration
-  let edit: Duration
-  var regions = true
+/// A door the test opens: work waits at it for as long as the test likes, whatever the machine's
+/// speed, and does not stop waiting when the caller gives up.
+private actor Gate {
+  private var isOpen = false
+  private var waiting: [CheckedContinuation<Void, Never>] = []
+  /// How many pieces of work have gone through and answered.
+  private(set) var answered = 0
 
-  /// Waits without ending early when the caller gives up, as work that cannot be interrupted does.
-  private func wait(_ duration: Duration) async {
-    guard duration > .zero else { return }
-    await Task.detached { try? await Task.sleep(for: duration) }.value
+  func pass() async {
+    if !isOpen { await withCheckedContinuation { waiting.append($0) } }
   }
 
+  func open() {
+    isOpen = true
+    for waiter in waiting { waiter.resume() }
+    waiting = []
+  }
+
+  func noteAnswer() { answered += 1 }
+
+  /// Waits until work that was let through has answered.
+  func answers(_ count: Int) async {
+    while answered < count { await Task.yield() }
+  }
+}
+
+/// An editor that waits at a gate, as a very large page or a slow device would make it, and
+/// answers even after it was given up on.
+private struct StubEditor: PDFTextEditing {
+  var find: Gate?
+  var edit: Gate?
+  var regions = true
+
   func text(ofPage page: Data) async -> EditablePageText {
-    await wait(find)
+    await find?.pass()
     let text = await ContentStreamTextEditor().text(ofPage: page)
+    await find?.noteAnswer()
     return regions ? text : EditablePageText(regions: [], kind: .text)
   }
 
   func applying(_ edits: [TextEdit], toPage page: Data) async -> TextEditResult {
-    await wait(edit)
-    return await ContentStreamTextEditor().applying(edits, toPage: page)
+    await edit?.pass()
+    let result = await ContentStreamTextEditor().applying(edits, toPage: page)
+    await edit?.noteAnswer()
+    return result
   }
 }
