@@ -93,6 +93,7 @@ before sharing:
 | Feature flag and kill-switch states; which cloud AI tiers have consent (yes or no) | Email addresses, Apple Account details, purchase receipts |
 | The last 50 error codes (domain, code, time to the hour) | Log messages with dynamic text |
 | MetricKit summary for the last seven days (launch bands, hang and crash counts) | Call stacks from other apps |
+| Text editing, for the last page looked at: kind of page, counts of regions by what can be done with them, milliseconds taken, taps and picks, how the last edit ended ([architecture](pdf-text-editing-architecture.md#diagnostics)) | The page's words, font names, page numbers, positions, the text typed |
 
 The user shares it through the share sheet or attaches it to a support email; nothing is sent
 automatically.

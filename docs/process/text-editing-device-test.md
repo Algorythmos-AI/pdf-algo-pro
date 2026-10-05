@@ -30,6 +30,26 @@ Owner: Quality and PDF engine · Reviewed: whenever the editor's supported cases
 | 4 | Open lecture notes. Highlight a line, add a note, fix a typo on the highlighted line, share | The highlight is still on its line and the note is still there, in this app and in the exported file; Undo steps back through all three in order |
 | 5 | Open a scan. Tap Edit | The reader says "This PDF contains images rather than editable text." and offers Recognise text; no text is outlined |
 
+## Staying dependable
+
+Each of these is done on one document of several pages, without closing the app in between. A row
+passes when the lines are outlined and one tap on a line opens its editor.
+
+| # | Do this, then tap Edit and tap a line | Why |
+|---|---|---|
+| D1 | Open the document, go back to the library, open it again | The defect of 2026-10-05: Edit was on, nothing was outlined, taps did nothing |
+| D2 | Scroll to the last page and back to the first | PDFKit puts page overlays away and brings them back |
+| D3 | Scroll to the second page and edit there | Not only the first page |
+| D4 | Edit a line, tap Done, then edit another line, then the first line again | An edit replaces the page; the new page must be editable |
+| D5 | Leave Edit with Done, then tap Edit again | |
+| D6 | In Edit, go to the Home Screen, wait a minute, come back | |
+| D7 | Pinch to zoom in and out, rotate the phone and back | Outlines stay on their lines |
+| D8 | On a form, tap a form field while in Edit | The line under the finger is picked; no form keyboard stays up |
+| D9 | On a very large or complex page, tap Edit | Within a few seconds the reader shows outlines or says what it found; it never sits silent |
+
+If any row fails: Settings › Report a problem, and send the summary. It now has lines that begin
+"Text editing". They are counts only. Never send the document.
+
 ## Every kind of document
 
 For each document: open, edit one line, close the reader, open it again, share the file, and open
