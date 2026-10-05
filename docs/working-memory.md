@@ -7,7 +7,7 @@ lives in the linked documents.
 
 Owner: Maintainer · Reviewed: every pull request that changes state; at least monthly
 
-Last updated: 2026-10-04
+Last updated: 2026-10-05
 
 ## Current phase
 
@@ -23,7 +23,7 @@ building it are PAP-031 and PAP-032. The readiness gate is still **NOT READY** f
 
 | Item | State | Next step |
 |---|---|---|
-| Editing existing text (FR-EDIT-001, [ADR-0025](adr/0025-native-text-editing-for-the-safe-subset.md)) | Native editor on `feat/true-pdf-text-editing`, behind the `textEditing` release flag (on in Debug and Staging) and the Pro access value; no purchase flow yet | Owner reviews ADR-0025 and the pull request; run the [text editing device test](process/text-editing-device-test.md) on an iPhone before the flag goes on in Release |
+| Editing existing text (FR-EDIT-001, [ADR-0025](adr/0025-native-text-editing-for-the-safe-subset.md)) | On `integration` since 2026-10-04 and in the Staging build of 2026-10-05, behind the `textEditing` release flag (on in Debug and Staging, off in Release) and the Pro access value; no purchase flow yet | Owner runs the [text editing device test](process/text-editing-device-test.md) on an iPhone and decides ADR-0025; the flag goes on in Release only after both |
 | TestFlight readiness ([#47](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/47)) | On `integration`: version history, signed PDFs saved as a copy, one writer per document, App Lock, follow-up questions, the privacy report, whole-library search, document info, multi-select and merge, moving and resizing annotations, read aloud across pages, link confirmation, stamps, bookmarks, the annotation list, scan review, CSV file, the Siri summary, the rating request, app icon v2 with Liquid Glass. Foundations not yet used by a screen: the kill-switch package, the AI routing policy with consent, and the Commerce package | The owner gives the go for the Staging build; device checks in the [device smoke test](process/device-smoke-test.md) |
 | Independent PDF validation (plan B2) | qpdf and PDFium in CI, and Core Graphics in the corpus tests; the save suites run under Thread Sanitizer. All advisory | Make the jobs required after two weeks; [#96](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/96) is a quirk of the synthetic input |
 | Flaky large-text audits and Markup menu tap ([#76](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/76)) | Stricter still-screen wait; bar-button contrast quarantined | Remove the quarantine if possible, by 2026-10-07 |

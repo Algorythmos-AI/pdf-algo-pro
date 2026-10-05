@@ -261,6 +261,27 @@ struct TextEditingControllerTests {
     #expect(!controller.needsSaving, "Nothing to save")
   }
 
+  @Test(
+    "Only a document whose author allows both changing it and adding to it can be edited",
+    arguments: [
+      (CGPDFAccessPermissions.allowsDocumentChanges.rawValue, true),
+      (CGPDFAccessPermissions.allowsCommenting.rawValue, true),
+      (CGPDFAccessPermissions([.allowsDocumentChanges, .allowsCommenting]).rawValue, true),
+      (CGPDFAccessPermissions.allowsFormFieldEntry.rawValue, false),
+      (CGPDFAccessPermissions.allowsDocumentAssembly.rawValue, false),
+      (CGPDFAccessPermissions([.allowsHighQualityPrinting, .allowsContentCopying]).rawValue, false),
+      (UInt32(0), false),
+    ])
+  func permissions(granted: UInt32, editable: Bool) throws {
+    // Opened without the owner password, so the author's restrictions apply. Core Graphics grants
+    // changing the document and commenting together, so either one arrives as both.
+    let controller = try open(
+      TestPDFs.makeProtected(
+        userPassword: nil, ownerPassword: "owner", permissions: CGPDFAccessPermissions(rawValue: granted))
+    ).controller
+    #expect(controller.textEditability == (editable ? .editable : .restricted))
+  }
+
   @Test("A signed document says so, also when its signature could only be read after unlocking")
   func signed() throws {
     #expect(try open(TestPDFs.makeSigned(.signed)).controller.textEditability == .signed)
