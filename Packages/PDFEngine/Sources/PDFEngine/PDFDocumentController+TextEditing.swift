@@ -1,3 +1,4 @@
+import Core
 import CoreGraphics
 import Foundation
 import PDFKit
@@ -75,16 +76,63 @@ extension PDFDocumentController {
     guard !isLocked, let page = document.page(at: pageIndex) else {
       return EditablePageText(regions: [], kind: .unreadable)
     }
-    return await textPage(for: page)?.text ?? EditablePageText(regions: [], kind: .unreadable)
+    switch await findText(of: page) {
+    case .found(let found): return found.text
+    case .unreadable: return EditablePageText(regions: [], kind: .unreadable)
+    case .tookTooLong: return EditablePageText(regions: [], kind: .tookTooLong)
+    }
+  }
+
+  /// What looking for a page's text came to.
+  enum TextSearch {
+    case found(TextPage)
+    case unreadable
+    case tookTooLong
   }
 
   func textPage(for page: PDFPage) async -> TextPage? {
+    if case .found(let found) = await findText(of: page) { found } else { nil }
+  }
+
+  /// Finds a page's text, once however many ask at the same time.
+  ///
+  /// The outlines, a tap and the reader's message can all ask about the same page within a moment
+  /// of each other; they share one search.
+  func findText(of page: PDFPage) async -> TextSearch {
     let key = ObjectIdentifier(page)
-    if let cached = textPages[key], cached.page === page { return cached }
-    guard let snapshot = Self.snapshot(of: page) else { return nil }
-    var text = await textEditor.text(ofPage: snapshot)
+    if let cached = textPages[key], cached.page === page { return .found(cached) }
+    let work: Task<Bool, Never>
+    if let running = textSearches[key], running.page === page {
+      work = running.work
+    } else {
+      // The task says only whether time ran out: what was found is kept in `textPages`, because a
+      // page object cannot be handed between tasks.
+      work = Task {
+        if case .tookTooLong = await searchText(of: page) { true } else { false }
+      }
+      textSearches[key] = (page, work)
+    }
+    let tookTooLong = await work.value
+    if textSearches[key]?.work == work { textSearches[key] = nil }
+    if let cached = textPages[key], cached.page === page { return .found(cached) }
+    return tookTooLong ? .tookTooLong : .unreadable
+  }
+
+  private func searchText(of page: PDFPage) async -> TextSearch {
+    let key = ObjectIdentifier(page)
+    let started = ContinuousClock.now
+    guard let snapshot = Self.snapshot(of: page) else {
+      noteSearch(.unreadable, regions: [], since: started)
+      return .unreadable
+    }
+    let editor = textEditor
+    guard var text = await Self.within(textFindLimit, { await editor.text(ofPage: snapshot) }) else {
+      // Nothing is kept, so the next look at this page tries again.
+      noteSearch(.timedOut, regions: [], since: started)
+      return .tookTooLong
+    }
     // The page may have been replaced or removed while its text was being found.
-    guard document.index(for: page) != NSNotFound else { return nil }
+    guard document.index(for: page) != NSNotFound else { return .unreadable }
     let original = Dictionary(text.regions.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
     // PDFKit writes a page with its box moved to the origin, so the snapshot's space is the live
     // page's space shifted by the box's origin (usually zero).
@@ -99,7 +147,93 @@ extension PDFDocumentController {
     if textPages.count >= 16 { textPages.removeAll() }
     let found = TextPage(page: page, snapshot: snapshot, text: text, found: original)
     textPages[key] = found
-    return found
+    let kind: TextEditingDiagnostics.PageKind =
+      switch text.kind {
+      case .text: .text
+      case .image: .image
+      case .unreadable: .unreadable
+      case .tookTooLong: .timedOut
+      }
+    noteSearch(kind, regions: regions, since: started)
+    return .found(found)
+  }
+
+  // MARK: - Time limits
+
+  /// Runs work, giving up on it after a limit.
+  ///
+  /// Swift cannot stop work that is running, so the work is cancelled, which the native editor
+  /// checks for as it goes, and whatever it returns afterwards is thrown away: only the first of
+  /// "finished" and "time is up" is ever seen by the caller.
+  ///
+  /// - Returns: What the work returned, or `nil` when the limit passed first.
+  static func within<Value: Sendable>(
+    _ limit: Duration, _ work: @escaping @Sendable () async -> Value
+  ) async -> Value? {
+    let (results, first) = AsyncStream<Value?>.makeStream(bufferingPolicy: .bufferingOldest(1))
+    let job = Task { first.yield(await work()) }
+    let timer = Task {
+      try? await Task.sleep(for: limit)
+      if !Task.isCancelled { first.yield(nil) }
+    }
+    var winner: Value?
+    for await result in results {
+      winner = result
+      break
+    }
+    job.cancel()
+    timer.cancel()
+    first.finish()
+    return winner
+  }
+
+  // MARK: - Diagnostics
+
+  private static func milliseconds(since start: ContinuousClock.Instant) -> Int {
+    let elapsed = ContinuousClock.now - start
+    return Int(elapsed.components.seconds) * 1000 + Int(elapsed.components.attoseconds / 1_000_000_000_000_000)
+  }
+
+  private func noteSearch(
+    _ kind: TextEditingDiagnostics.PageKind, regions: [EditableTextRegion], since start: ContinuousClock.Instant
+  ) {
+    var record = TextEditingDiagnostics(pageKind: kind)
+    for region in regions {
+      switch region.capability {
+      case .direct: record.direct += 1
+      case .limited: record.limited += 1
+      case .visualReplacementOnly(let reason): record.coverOnly[reason.rawValue, default: 0] += 1
+      }
+    }
+    record.findMilliseconds = Self.milliseconds(since: start)
+    // A page is looked at again straight after an edit; what is known about the edit and the taps
+    // stays.
+    record.taps = textEditingDiagnostics.taps
+    record.picks = textEditingDiagnostics.picks
+    record.lastEdit = textEditingDiagnostics.lastEdit
+    record.editMilliseconds = textEditingDiagnostics.editMilliseconds
+    textEditingDiagnostics = record
+    publishDiagnostics()
+  }
+
+  private func noteEdit(_ outcome: TextEditOutcome?, since start: ContinuousClock.Instant) {
+    switch outcome {
+    case .edited: textEditingDiagnostics.lastEdit = .edited
+    case .tooLong: textEditingDiagnostics.lastEdit = .tooLong
+    case .refused(let reason): textEditingDiagnostics.lastEdit = .refused(reason.rawValue)
+    case nil: return
+    }
+    textEditingDiagnostics.editMilliseconds = Self.milliseconds(since: start)
+    publishDiagnostics()
+  }
+
+  /// Fills in what only the page view knows, and hands the record on.
+  func publishDiagnostics() {
+    textEditingDiagnostics.viewIsBound = view != nil
+    #if canImport(UIKit)
+      textEditingDiagnostics.outlinedPages = view?.textOverlays.shownCount ?? 0
+    #endif
+    onTextEditingDiagnostics?(textEditingDiagnostics)
   }
 
   /// A page on its own as a one-page PDF, without its annotations: what the editor works on.
@@ -153,6 +287,8 @@ extension PDFDocumentController {
     guard isEditingText, selectedTextRegion == nil, !isCommittingText else { return false }
     let regions = await pageText(onPage: pageIndex).regions
     guard isEditingText, selectedTextRegion == nil else { return false }
+    textEditingDiagnostics.taps += 1
+    defer { publishDiagnostics() }
     func distance(to rect: CGRect) -> CGFloat {
       hypot(max(rect.minX - point.x, 0, point.x - rect.maxX), max(rect.minY - point.y, 0, point.y - rect.maxY))
     }
@@ -161,6 +297,7 @@ extension PDFDocumentController {
         < (distance(to: $1.bounds), $1.bounds.width * $1.bounds.height)
     }
     guard let nearest else { return false }
+    textEditingDiagnostics.picks += 1
     selectedTextRegion = TextRegionSelection(pageIndex: pageIndex, region: nearest)
     #if canImport(UIKit)
       view?.bringTextRegionIntoView()
@@ -208,6 +345,13 @@ extension PDFDocumentController {
   ///   - pageIndex: The zero-based page.
   /// - Returns: What happened to each edit. Unless every edit was made, nothing changed.
   public func applyTextEdits(_ edits: [TextEdit], onPage pageIndex: Int) async -> [TextEditOutcome] {
+    let started = ContinuousClock.now
+    let outcomes = await makeTextEdits(edits, onPage: pageIndex)
+    noteEdit(outcomes.first { !$0.isEdited } ?? outcomes.first, since: started)
+    return outcomes
+  }
+
+  private func makeTextEdits(_ edits: [TextEdit], onPage pageIndex: Int) async -> [TextEditOutcome] {
     func all(_ refusal: TextEditRefusal) -> [TextEditOutcome] { edits.map { _ in .refused(refusal) } }
     guard !edits.isEmpty else { return [] }
     guard textEditability != .restricted else { return all(.restricted) }
@@ -215,14 +359,24 @@ extension PDFDocumentController {
     isCommittingText = true
     defer { isCommittingText = false }
 
-    guard let found = await textPage(for: page) else { return all(.pageNotEditable) }
+    let found: TextPage
+    switch await findText(of: page) {
+    case .found(let text): found = text
+    case .unreadable: return all(.pageNotEditable)
+    case .tookTooLong: return all(.timedOut)
+    }
     let generation = structureGeneration
     // The editor is given the regions as it returned them: in the snapshot's own space.
     let translated = edits.map { edit in
       found.found[edit.regionID].map { TextEdit(region: $0, original: edit.original, replacement: edit.replacement) }
         ?? edit
     }
-    let result = await textEditor.applying(translated, toPage: found.snapshot)
+    let editor = textEditor
+    let snapshot = found.snapshot
+    // The page is swapped only below, on the path where the editor answered in time. An answer
+    // that comes after the limit is never seen here, so it can never reach the document.
+    guard let result = await Self.within(textEditLimit, { await editor.applying(translated, toPage: snapshot) })
+    else { return all(.timedOut) }
     let links = await incomingLinkIndex()
     // Everything above awaited. If the document changed meanwhile, the edit is dropped untouched.
     guard generation == structureGeneration, document.index(for: page) != NSNotFound else { return all(.stale) }

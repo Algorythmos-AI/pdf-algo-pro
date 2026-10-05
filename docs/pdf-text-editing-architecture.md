@@ -155,6 +155,29 @@ of page content and fonts through the editor. The threat is recorded in the
   document is intact.
 - Text is edited in the scrolling layout. PDFKit provides page overlays only there, so a reader in
   the single-page layout switches while text editing is on and switches back afterwards.
+- **One way to pick text.** The page view's own tap recognizer picks
+  (`PDFReaderHostView.pickText(at:)`). It sees every tap on every page, so picking does not depend
+  on PDFKit having given a page an overlay. The overlay (`TextRegionOverlayView`) draws the
+  outlines and shields the page's form fields and links from the touch; it never picks.
+- **Outlines that cannot go stale.** The provider keeps every overlay PDFKit holds, weakly, and
+  never forgets one that PDFKit stops showing: PDFKit shows the same view again later. An overlay
+  is refreshed when it is made, when PDFKit is about to show it, when it joins a window, and when
+  the visible pages or the zoom change.
+- **The page view follows its controller.** A reader that is shown again loads its document again
+  and makes a new controller. `PDFReaderView.updateUIView` hands that controller to the view on
+  screen, and `PDFReaderHostView.configure(for:)` rebinds: document, observers, mode. The old
+  controller lets go of the view. Before this, opening a document a second time left Edit turned
+  on with nothing outlined and every tap ignored (the defect found on a phone on 2026-10-05).
+- **Time limits.** Finding a page's text and making an edit each race a limit in
+  `PDFDocumentController` (`Assumption:` 5 seconds and 15 seconds; checked in the device test
+  plan). Past it the reader is told (`PageTextKind.tookTooLong`, `TextEditRefusal.timedOut`) and
+  says so. Swift cannot stop running work, so the work is cancelled, which the native parser
+  checks for every 512 operators, and an answer that arrives late is discarded: the page swap is
+  only on the path that answered in time. The limit sits around the editor, not in it, so it holds
+  for any `PDFTextEditing`.
+- **Never silent.** While text editing is on and nothing is picked, the reader says one of: tap
+  any text; looking for text (after 0.4 seconds); this page is an image; this page cannot be
+  edited; no text on this page can be edited; this is taking too long.
 - Text editing and drawing are exclusive. While text is picked, taps on the page, Undo and Redo
   wait.
 - The search text is brought up to date once, on leaving text editing or closing the reader.
@@ -208,14 +231,41 @@ until the flag is removed, so it can never show while the feature is hidden (FR-
 | `EditProofTests` | The proof refuses each kind of wrong result |
 | `TextEditingHostileInputTests` | Malformed and fuzzed input, limits |
 | `TextEditingControllerTests` | Save and reopen, undo and redo interleaved with annotations and page changes, forms, outline, metadata, links, encryption, permissions, signatures, covering, save faults, long documents |
-| `ReaderTextEditingTests` | The reader model and views: access, commit, cancel, undo, refusals, scanned pages, signed copies, search text |
+| `TextEditingDependabilityTests` | Time limits and discarded late answers, cancellation, picking with no page view, the page view following a new controller, outlines after PDFKit puts them away, repeated edit-save-reopen, the diagnostics record |
+| `ReaderTextEditingTests` | The reader model and views: access, commit, cancel, undo, refusals, scanned pages, signed copies, search text, a reloaded document, the "looking", "nothing to edit" and "too long" messages, the diagnostics summary's vocabulary |
+| `TextEditingDiagnosticsTests` | The summary lines; reasons reduced to letters |
+| `TextEditingUITests` | Journeys on the simulator: edit, undo, cancel; single-page layout; locked and hidden; a document opened a second time; a second line after an edit, after leaving Edit, and after the app was away |
 | `TextEditingAccessTests`, `ReleaseFlagTests` | The flag, the entitlement and their composition, including a Release build |
 
 Edited documents are also exported to the independent readers in CI (qpdf and PDFium), with the
 text they must contain. What only a device shows is in the
 [device test plan](process/text-editing-device-test.md).
 
+## Diagnostics
+
+`TextEditingDiagnostics` (Core) is what the controller records each time it looks for a page's text,
+takes a tap, or makes an edit. It goes into Settings › Report a problem
+([operations](operations.md)), which the person reads before sending. It holds counts only:
+
+| Recorded | Never recorded |
+|---|---|
+| Kind of page (text, image, unreadable, timed out) | Any word of the document |
+| How many regions are direct, matched-font, or cover-only, and the engine's fixed name for each cover-only reason | Font names, file names, page numbers, positions |
+| Milliseconds to find the text and to make the last edit | The text typed |
+| Whether the page view is bound to the document, and how many pages show outlines | |
+| Taps while editing, and how many picked text; how the last edit ended | |
+
+Reasons are reduced to at most 24 ASCII letters before they are written, so a field filled wrongly
+cannot carry a document's words. `ReaderTextEditingTests.diagnostics` asserts every word of the
+summary is one the app chose. The record is kept in memory only and replaced each time.
+
 ## Known limits
+
+- **A time limit is not speed.** It turns a wait without end into a refusal that says so. The
+  snapshot of the page, which PDFKit makes on the main thread, is outside the limit.
+- **Form fields under a missing outline.** Where PDFKit has given a page no overlay, a tap that
+  picks text may also reach a form field under it; the page view ends form entry before picking.
+  There is no seeded form document for a UI journey of this yet.
 
 - **Typefaces.** Fonts that do not ship with iOS (many Word documents use them) fall back to the
   closest standard font unless the page already holds every letter typed.

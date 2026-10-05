@@ -71,6 +71,75 @@ final class TextEditingUITests: UITestCase {
     XCTAssertTrue(indicator.label.contains("1 of 3"), "Still on the page that was edited")
   }
 
+  /// Opening a document a second time used to leave the page view bound to the first load, so
+  /// Edit turned on with nothing outlined and every tap ignored.
+  func testEditingWorksAfterTheDocumentIsOpenedAgain() throws {
+    let app = launch(["-skip-onboarding", "-seed-library", "sample", "-text-editing", "available"])
+    let indicator = app.staticTexts["reader.pageIndicator"]
+    XCTAssertTrue(indicator.waitForExistence(timeout: 15))
+    // Leave on another page, so the document is opened again where it was left.
+    tapMenuItem(app.buttons["Go to page"], in: app.buttons["reader.more"], until: app.alerts.firstMatch)
+    let number = app.alerts.firstMatch.textFields.firstMatch
+    number.tap()
+    number.typeText("3")
+    app.alerts.buttons["Go"].tap()
+    XCTAssertTrue(line(containing: "Your documents stay", in: app).waitForExistence(timeout: 15))
+
+    app.navigationBars.buttons.firstMatch.tap()
+    XCTAssertTrue(indicator.waitForNonExistence(timeout: 10), "Back in the library")
+    let document = app.staticTexts["Welcome to PDF Algo Pro"].firstMatch
+    XCTAssertTrue(document.waitForExistence(timeout: 10))
+    document.tap()
+    XCTAssertTrue(indicator.waitForExistence(timeout: 15))
+
+    app.buttons["reader.edit"].tap()
+    XCTAssertTrue(app.buttons["reader.doneEditingText"].waitForExistence(timeout: 10))
+    let target = line(containing: "Your documents stay", in: app)
+    XCTAssertTrue(target.waitForExistence(timeout: 15))
+    // One tap, and no second try: a tap that is ignored is exactly the defect.
+    target.tap()
+    XCTAssertTrue(
+      app.textFields["reader.textEdit.field"].waitForExistence(timeout: 10), "A tap on a line opens its editor")
+  }
+
+  func testEditingGoesOnAfterAnEditAfterLeavingAndAfterTheAppWasAway() throws {
+    let app = launch(["-skip-onboarding", "-seed-library", "sample", "-text-editing", "available"])
+    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
+    let done = app.buttons["reader.doneEditingText"]
+    let field = app.textFields["reader.textEdit.field"]
+    tap(app.buttons["reader.edit"], until: done)
+
+    // One edit, then another line straight after it.
+    tap(line(containing: "Try these", in: app), until: field)
+    field.typeText(" now")
+    app.buttons["reader.textEdit.done"].tap()
+    XCTAssertTrue(line(containing: "Try these: now", in: app).waitForExistence(timeout: 20))
+    let paragraph = line(containing: "This sample shows", in: app)
+    XCTAssertTrue(paragraph.waitForExistence(timeout: 15))
+    paragraph.tap()
+    XCTAssertTrue(field.waitForExistence(timeout: 10), "A second line can be picked after an edit")
+    app.buttons["reader.textEdit.cancel"].tap()
+
+    // The line that was edited can be edited again.
+    tap(line(containing: "Try these: now", in: app), until: field)
+    XCTAssertEqual(field.value as? String, "Try these: now")
+    app.buttons["reader.textEdit.cancel"].tap()
+
+    // Leaving text editing and coming back.
+    done.tap()
+    tap(app.buttons["reader.edit"], until: done)
+    line(containing: "Try these: now", in: app).tap()
+    XCTAssertTrue(field.waitForExistence(timeout: 10), "Text can be picked after leaving and coming back")
+    app.buttons["reader.textEdit.cancel"].tap()
+
+    // The app going away and coming back, still in text editing.
+    XCUIDevice.shared.press(.home)
+    app.activate()
+    XCTAssertTrue(done.waitForExistence(timeout: 15), "Text editing is still on")
+    line(containing: "Try these: now", in: app).tap()
+    XCTAssertTrue(field.waitForExistence(timeout: 10), "Text can be picked after the app was away")
+  }
+
   func testEditingIsLockedWithoutProAndAbsentWhenTheBuildDoesNotHaveIt() throws {
     let locked = launch(["-skip-onboarding", "-seed-library", "sample", "-text-editing", "locked"])
     XCTAssertTrue(locked.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))

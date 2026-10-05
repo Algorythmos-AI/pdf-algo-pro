@@ -42,6 +42,8 @@ enum ContentStream {
         operands = []
       }
       guard operations.count < TextEditingLimits.operators else { throw PDFSyntaxError.tooLarge }
+      // Work that was given up on (the time limit in `PDFDocumentController`) stops here.
+      if operations.count.isMultiple(of: 512) { try Task.checkCancellation() }
       operations.append(ContentOperation(name: name, operands: operands, range: (start ?? range.lowerBound)..<end))
       operands = []
       start = nil

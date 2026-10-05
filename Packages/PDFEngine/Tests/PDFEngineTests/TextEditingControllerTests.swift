@@ -538,3 +538,235 @@ struct TextEditingUndoMemoryTests {
     #expect(controller.undoManager.levelsOfUndo == 4, "Never shorter than a few steps")
   }
 }
+
+/// A door the test opens: work waits at it for as long as the test likes, whatever the machine's
+/// speed, and does not stop waiting when the caller gives up.
+private actor Gate {
+  private var isOpen = false
+  private var waiting: [CheckedContinuation<Void, Never>] = []
+  /// How many pieces of work have gone through and answered.
+  private(set) var answered = 0
+
+  func pass() async {
+    if !isOpen { await withCheckedContinuation { waiting.append($0) } }
+  }
+
+  func open() {
+    isOpen = true
+    for waiter in waiting { waiter.resume() }
+    waiting = []
+  }
+
+  func noteAnswer() { answered += 1 }
+
+  /// Waits until work that was let through has answered.
+  func answers(_ count: Int) async {
+    while answered < count { await Task.yield() }
+  }
+}
+
+/// An editor that waits at a gate and answers even after it was given up on, as work that cannot
+/// be interrupted does.
+private struct HeldEditor: PDFTextEditing {
+  var find: Gate?
+  var edit: Gate?
+
+  func text(ofPage page: Data) async -> EditablePageText {
+    await find?.pass()
+    let text = await ContentStreamTextEditor().text(ofPage: page)
+    await find?.noteAnswer()
+    return text
+  }
+
+  func applying(_ edits: [TextEdit], toPage page: Data) async -> TextEditResult {
+    await edit?.pass()
+    let result = await ContentStreamTextEditor().applying(edits, toPage: page)
+    await edit?.noteAnswer()
+    return result
+  }
+}
+
+@MainActor
+@Suite("Text editing: staying dependable")
+struct TextEditingDependabilityTests {
+  @Test("Finding text that passes its time limit is reported, kept out of the cache, and tried again")
+  func findLimit() async throws {
+    let gate = Gate()
+    let (controller, _) = try open(TextEditFixtures.invoice(), editor: HeldEditor(find: gate))
+    controller.textFindLimit = .milliseconds(50)
+    controller.setEditingText(true)
+    let late = await controller.pageText(onPage: 0)
+    #expect(late.kind == .tookTooLong && late.regions.isEmpty)
+    #expect(controller.textPages.isEmpty && controller.textEditingDiagnostics.pageKind == .timedOut)
+    // The answer that was given up on arrives; it is not taken for an answer to anything.
+    await gate.open()
+    await gate.answers(1)
+    try await Task.sleep(for: .milliseconds(100))
+    #expect(controller.textPages.isEmpty)
+    controller.textFindLimit = .seconds(600)
+    let found = await controller.pageText(onPage: 0)
+    #expect(found.kind == .text && found.regions.contains { $0.text.contains("John Smith") })
+    #expect(controller.textEditingDiagnostics.pageKind == .text && controller.textEditingDiagnostics.direct > 0)
+  }
+
+  @Test("An edit that passes its time limit is refused, and its late answer never reaches the document")
+  func editLimit() async throws {
+    let gate = Gate()
+    let (controller, url) = try open(TextEditFixtures.invoice(), editor: HeldEditor(edit: gate))
+    controller.textFindLimit = .seconds(600)
+    controller.textEditLimit = .milliseconds(50)
+    #expect(try await edit(controller, containing: "John Smith", to: "Customer: David Smith") == .refused(.timedOut))
+    #expect(controller.selectedTextRegion != nil, "What was typed is not lost: the text stays picked")
+    #expect(controller.textEditingDiagnostics.lastEdit == .refused("timedOut"))
+    await gate.open()
+    await gate.answers(1)
+    try await Task.sleep(for: .milliseconds(100))
+    #expect(squeezed(controller).contains("JohnSmith") && !squeezed(controller).contains("David"))
+    #expect(controller.contentEditedPages.isEmpty && !controller.hasUnsavedChanges && !controller.undoManager.canUndo)
+    // With time enough, the same edit goes through.
+    controller.clearTextRegionSelection()
+    controller.textEditLimit = .seconds(600)
+    #expect(try await edit(controller, containing: "John Smith", to: "Customer: David Smith").isEdited)
+    try controller.save(to: url)
+    #expect(EditProof.squeezed(try PDFDocumentController(url: url).pageText(at: 0)).contains("DavidSmith"))
+  }
+
+  @Test("The time limit hands back whichever comes first and drops the other")
+  func within() async {
+    #expect(await PDFDocumentController.within(.seconds(600)) { 7 } == 7)
+    let gate = Gate()
+    let held = await PDFDocumentController.within(.milliseconds(50)) {
+      await gate.pass()
+      return 7
+    }
+    #expect(held == nil)
+    await gate.open()
+  }
+
+  @Test("The native editor stops when the work is given up on")
+  func cancellation() async throws {
+    let page = try TextEditFixtures.singlePage(TextEditFixtures.invoice())
+    let work = Task { await ContentStreamTextEditor().text(ofPage: page) }
+    work.cancel()
+    let text = await work.value
+    #expect(text.regions.isEmpty && text.kind == .unreadable, "Cancelled work offers nothing rather than half a page")
+    #expect(await ContentStreamTextEditor().text(ofPage: page).kind == .text)
+  }
+
+  @Test("Text is picked by a tap at a point with no page view at all, and misses are counted")
+  func pickingNeedsNoView() async throws {
+    let (controller, _) = try open(TextEditFixtures.invoice())
+    #expect(controller.view == nil)
+    controller.setEditingText(true)
+    let regions = await controller.pageText(onPage: 0).regions
+    let target = try #require(regions.first { $0.text.contains("John Smith") })
+    let middle = CGPoint(x: target.bounds.midX, y: target.bounds.midY)
+    #expect(await controller.selectTextRegion(at: CGPoint(x: -500, y: -500), onPage: 0, reach: 10) == false)
+    #expect(await controller.selectTextRegion(at: middle, onPage: 0, reach: 10))
+    #expect(controller.selectedTextRegion?.region == target)
+    let record = controller.textEditingDiagnostics
+    #expect(record.taps == 2 && record.picks == 1 && !record.viewIsBound && record.outlinedPages == 0)
+  }
+
+  @Test("Edit, save and open again, three times over, and every edit is still there")
+  func editSaveReopenRepeatedly() async throws {
+    var (controller, url) = try open(TextEditFixtures.invoice())
+    let names = ["David Smith", "Maria Jones", "Peter Brown"]
+    var current = "John Smith"
+    for name in names {
+      #expect(try await edit(controller, containing: current, to: "Customer: \(name)").isEdited, "\(name)")
+      try controller.save(to: url)
+      controller = try PDFDocumentController(url: url)
+      #expect(squeezed(controller).contains(name.filter { !$0.isWhitespace }), "\(name) was saved")
+      #expect(!squeezed(controller).contains(current.filter { !$0.isWhitespace }), "\(current) is gone")
+      current = name
+    }
+    #expect(squeezed(controller).contains("Materials"), "The rest of the page is as it was")
+  }
+
+  @Test("The record for a problem report counts the page's text and how the edit ended")
+  func diagnostics() async throws {
+    let (controller, _) = try open(TextEditFixtures.invoice())
+    var handed: [TextEditingDiagnostics] = []
+    controller.onTextEditingDiagnostics = { handed.append($0) }
+    #expect(try await edit(controller, containing: "John Smith", to: "Customer: David Smith").isEdited)
+    let record = controller.textEditingDiagnostics
+    #expect(record.pageKind == .text && record.direct + record.limited + record.coverOnly.values.reduce(0, +) > 0)
+    #expect(record.lastEdit == .edited && handed.last == record)
+    // Looking at the page again, as the reader does after an edit, keeps how the edit ended.
+    _ = await controller.pageText(onPage: 0)
+    #expect(controller.textEditingDiagnostics.lastEdit == .edited)
+    let text = record.lines.joined(separator: " ")
+    #expect(!text.contains("Smith") && !text.contains("Customer") && !text.contains("Helvetica"))
+  }
+
+  #if canImport(UIKit)
+    @Test("A page view given another controller follows it, and lets go of the one it had")
+    func viewFollowsItsController() async throws {
+      let (first, _) = try open(TextEditFixtures.invoice())
+      let (second, _) = try open(TextEditFixtures.invoice())
+      let host = PDFReaderHostView(frame: CGRect(x: 0, y: 0, width: 390, height: 800))
+      host.configure(for: first)
+      let gestures = host.gestureRecognizers?.count ?? 0
+      #expect(first.view === host && host.document === first.document)
+      first.setEditingText(true)
+      #expect(host.isInMarkupMode)
+
+      // The reader loaded its document again: the view on screen is handed the new controller.
+      host.configure(for: second)
+      #expect(second.view === host && first.view == nil && host.document === second.document)
+      #expect(!host.isInMarkupMode, "The mode shown is the new controller's")
+      #expect(host.gestureRecognizers?.count == gestures, "Binding again adds no second set of gestures")
+      host.configure(for: second)
+      #expect(host.gestureRecognizers?.count == gestures)
+
+      // What the new controller asks of the view now reaches it; the old one's requests do not.
+      second.setEditingText(true)
+      #expect(host.isInMarkupMode)
+      first.setEditingText(false)
+      #expect(host.isInMarkupMode)
+      second.setEditingText(false)
+      #expect(!host.isInMarkupMode)
+    }
+
+    @Test("An outline that was hidden and put away by PDFKit shows again once text is being edited")
+    func outlinesCannotGoStale() async throws {
+      let (controller, _) = try open(TextEditFixtures.invoice())
+      let host = PDFReaderHostView(frame: CGRect(x: 0, y: 0, width: 390, height: 800))
+      host.configure(for: controller)
+      let page = try #require(controller.document.page(at: 0))
+      let overlay = try #require(host.textOverlays.pdfView(host, overlayViewFor: page) as? TextRegionOverlayView)
+      #expect(
+        overlay.isHidden && overlay.gestureRecognizers?.isEmpty != false, "It draws and shields; it does not pick")
+      // PDFKit stops showing the page's overlay, and keeps the view to show again later.
+      host.textOverlays.pdfView(host, willEndDisplayingOverlayView: overlay, for: page)
+      controller.setEditingText(true)
+      #expect(!overlay.isHidden, "Shown at once from the mode; the regions follow")
+      for _ in 0..<200 where overlay.regions.isEmpty { try await Task.sleep(for: .milliseconds(20)) }
+      #expect(overlay.regions.contains { $0.text.contains("John Smith") })
+      controller.setEditingText(false)
+      #expect(overlay.isHidden && overlay.regions.isEmpty)
+      // Shown again by PDFKit while editing: it is refreshed as it comes back.
+      controller.setEditingText(true)
+      overlay.isHidden = true
+      host.textOverlays.pdfView(host, willDisplayOverlayView: overlay, for: page)
+      #expect(!overlay.isHidden)
+    }
+
+    @Test("A tap on the page view picks the text under it, with no outline on screen")
+    func tapPicksWithoutAnOutline() async throws {
+      let (controller, _) = try open(TextEditFixtures.invoice())
+      let host = PDFReaderHostView(frame: CGRect(x: 0, y: 0, width: 390, height: 800))
+      host.configure(for: controller)
+      host.layoutIfNeeded()
+      controller.setEditingText(true)
+      let page = try #require(controller.document.page(at: 0))
+      let regions = await controller.pageText(onPage: 0).regions
+      let target = try #require(regions.first { $0.text.contains("John Smith") })
+      #expect(host.textOverlays.shownCount == 0)
+      host.pickText(at: host.convert(CGPoint(x: target.bounds.midX, y: target.bounds.midY), from: page))
+      for _ in 0..<200 where controller.selectedTextRegion == nil { try await Task.sleep(for: .milliseconds(20)) }
+      #expect(controller.selectedTextRegion?.region == target)
+    }
+  #endif
+}

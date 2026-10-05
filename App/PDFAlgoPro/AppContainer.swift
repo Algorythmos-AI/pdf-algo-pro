@@ -95,6 +95,8 @@ final class AppContainer {
   let thumbnails = ThumbnailCache()
   /// Whether editing existing text is offered: the release flag and the Pro entitlement (FR-EDIT-001).
   let textEditing: any TextEditingAccessProviding
+  /// Counts about the last look at a page's text, for "Report a problem"; in memory only.
+  let textEditingDiagnostics = TextEditingDiagnosticsLog()
   let indexLevel: LibraryIndex.StoreLevel
   let environment: LaunchEnvironment
 
@@ -164,7 +166,8 @@ final class AppContainer {
       appVersion: info["CFBundleShortVersionString"] as? String ?? "?",
       build: info["CFBundleVersion"] as? String ?? "?",
       system: ProcessInfo.processInfo.operatingSystemVersionString, libraryIndex: "\(indexLevel)", documentCount: count,
-      events: await telemetry.todaysCounts(), problems: await diagnosticsLog.summary()
+      events: await telemetry.todaysCounts(), problems: await diagnosticsLog.summary(),
+      textEditing: textEditingDiagnostics.summary()
     ).text
   }
 

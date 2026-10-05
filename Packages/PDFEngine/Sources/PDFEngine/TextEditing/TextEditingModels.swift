@@ -73,6 +73,8 @@ public enum TextEditRefusal: String, Hashable, Sendable, CaseIterable {
   case unsupportedCharacters
   /// The text changed underneath the edit (another edit, an undo, a reload); nothing was changed.
   case stale
+  /// The work took longer than it is allowed; nothing was changed.
+  case timedOut
 }
 
 /// Why an edit may look slightly different from the surrounding text.
@@ -117,6 +119,8 @@ public enum PageTextKind: Hashable, Sendable {
   case image
   /// The page could not be read safely, so nothing on it is offered for editing.
   case unreadable
+  /// Finding the page's text took longer than it is allowed. Asking again tries again.
+  case tookTooLong
 }
 
 /// The existing text of one page.

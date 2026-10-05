@@ -106,6 +106,22 @@ public final class PDFDocumentController {
   @ObservationIgnored var incomingLinks: [ObjectIdentifier: [PDFAnnotation]]?
   /// Roughly how many bytes of replaced pages the undo history is holding on to.
   @ObservationIgnored var textUndoBytes = 0
+  /// Searches for pages' text that are running now, so that a second ask joins the first.
+  @ObservationIgnored var textSearches: [ObjectIdentifier: (page: PDFPage, work: Task<Bool, Never>)] = [:]
+  /// How long finding one page's text may take before the page is reported as taking too long.
+  ///
+  /// Assumption: 5 seconds is many times what an ordinary page needs on the oldest supported
+  /// iPhone; validated in the device test plan.
+  @ObservationIgnored var textFindLimit = Duration.seconds(5)
+  /// How long making and proving one edit may take before it is refused.
+  ///
+  /// Assumption: 15 seconds, on the same grounds as `textFindLimit`; proving an edit draws the
+  /// page twice, so it is allowed longer.
+  @ObservationIgnored var textEditLimit = Duration.seconds(15)
+  /// What happened the last time text was looked for or edited, as counts only.
+  @ObservationIgnored public internal(set) var textEditingDiagnostics = TextEditingDiagnostics(pageKind: .unreadable)
+  /// Called whenever `textEditingDiagnostics` changes, so the app can keep it for a problem report.
+  @ObservationIgnored public var onTextEditingDiagnostics: (@MainActor (TextEditingDiagnostics) -> Void)?
   /// The work of finding `incomingLinks`, while it runs.
   @ObservationIgnored var linkIndexing: Task<Void, Never>?
 
@@ -245,6 +261,11 @@ public final class PDFDocumentController {
       view.show(page)
       self.pendingPageIndex = nil
     }
+  }
+
+  /// Lets go of a view that now shows another controller's document.
+  func detach(_ view: PDFReaderHostView) {
+    if self.view === view { self.view = nil }
   }
 
   func pageChanged(to page: PDFPage) {
