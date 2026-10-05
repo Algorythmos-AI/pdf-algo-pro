@@ -34,13 +34,15 @@ private struct Harness {
 
   func reader(
     for document: Document, pageIndex: Int? = nil, task: AssistantTask? = nil,
-    recognizer: any TextRecognizing = FakeRecognizer(), textEditing: TextEditingAccess = .available
+    recognizer: any TextRecognizing = FakeRecognizer(), textEditing: TextEditingAccess = .available,
+    diagnostics: TextEditingDiagnosticsLog? = nil, editor: any PDFTextEditing = ContentStreamTextEditor()
   ) -> ReaderModel {
     ReaderModel(
       selection: document.id, pageIndex: pageIndex, task: task, library: library,
       intake: intake, index: index, settings: settings, telemetry: telemetry,
       recognition: coordinator(recognizer: recognizer), signatures: signatures,
-      speech: SpeechReader(engine: SilentSpeech()), textEditing: FixedTextEditingAccess(textEditing))
+      speech: SpeechReader(engine: SilentSpeech()), textEditing: FixedTextEditingAccess(textEditing),
+      textEditingDiagnostics: diagnostics, textEditor: editor)
   }
 
   func seed(
@@ -1236,6 +1238,103 @@ struct ReaderTextEditingTests {
     reader.cancelTextEdit()
     #expect(ImageRenderer(content: TextEditHint(model: reader).frame(width: 390)).uiImage != nil)
   }
+
+  @Test("A document that is loaded again is edited through its new controller")
+  func reload() async throws {
+    let harness = Harness()
+    let (reader, document) = try await editing(try TextEditFixtures.invoice(), in: harness)
+    let first = try #require(reader.controller)
+    await reader.endTextEditing()
+    // Showing the reader again loads the document again, as going back to the library and
+    // opening the same document does.
+    await reader.load()
+    let second = try #require(reader.controller)
+    #expect(second !== first)
+    await reader.beginTextEditing()
+    #expect(reader.isEditingText && second.isEditingText && !first.isEditingText)
+    try await pick("John Smith", in: reader)
+    #expect(await reader.commitTextEdit("Customer: David Smith"))
+    #expect(try await savedText(document, in: harness).contains("DavidSmith"))
+  }
+
+  @Test("A page whose text cannot be offered says so instead of inviting taps")
+  func nothingToEdit() async throws {
+    let harness = Harness()
+    // The page is said to have text, but nothing on it is offered, and PDFKit reads no line of it
+    // that could be covered either.
+    let blank = await harness.seed(TextEditFixtures.raw(content: ""), title: "Blank")
+    let reader = harness.reader(for: blank, editor: StubEditor(find: .zero, edit: .zero, regions: false))
+    await reader.load()
+    await reader.beginTextEditing()
+    #expect(reader.isEditingText && reader.textEditMessage == .noEditableText)
+  }
+
+  @Test("Finding text that takes a while says it is looking, and past the limit says it took too long")
+  func slowPage() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try TextEditFixtures.invoice())
+    let reader = harness.reader(for: document, editor: StubEditor(find: .milliseconds(1500), edit: .zero))
+    await reader.load()
+    let entering = Task { await reader.beginTextEditing() }
+    try await Task.sleep(for: .milliseconds(1000))
+    #expect(reader.textEditMessage == .lookingForText)
+    await entering.value
+    #expect(reader.textEditMessage == nil, "Found in time: nothing to say")
+
+    let slow = harness.reader(for: document, editor: StubEditor(find: .milliseconds(1500), edit: .zero))
+    await slow.load()
+    try #require(slow.controller).textFindLimit = .milliseconds(100)
+    await slow.beginTextEditing()
+    #expect(slow.textEditMessage == .tookTooLong)
+  }
+
+  @Test("An edit that takes too long is refused, says so, and changes nothing")
+  func slowEdit() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try TextEditFixtures.invoice())
+    let reader = harness.reader(for: document, editor: StubEditor(find: .zero, edit: .milliseconds(800)))
+    await reader.load()
+    let controller = try #require(reader.controller)
+    controller.textEditLimit = .milliseconds(100)
+    await reader.beginTextEditing()
+    try await pick("John Smith", in: reader)
+    #expect(await reader.commitTextEdit("Customer: David Smith") == false)
+    #expect(reader.textEditMessage == .tookTooLong)
+    #expect(reader.selectedTextRegion != nil, "The editor stays open with what was typed")
+    // The editor's answer arrives after the limit; it must not reach the document.
+    try await Task.sleep(for: .milliseconds(1200))
+    #expect(controller.pageText(at: 0).contains("John Smith") && !controller.hasUnsavedTextEdits)
+    #expect(try await savedText(document, in: harness).contains("JohnSmith"))
+  }
+
+  @Test("The editing summary for a problem report holds counts and none of the document's words")
+  func diagnostics() async throws {
+    let harness = Harness()
+    let log = TextEditingDiagnosticsLog()
+    let document = await harness.seed(try TextEditFixtures.invoice())
+    let reader = harness.reader(for: document, diagnostics: log)
+    await reader.load()
+    #expect(log.summary().isEmpty, "Nothing is said before text is edited")
+    await reader.beginTextEditing()
+    let controller = try #require(reader.controller)
+    let regions = await controller.pageText(onPage: 0).regions
+    let target = try #require(regions.first { $0.text.contains("John Smith") })
+    let middle = CGPoint(x: target.bounds.midX, y: target.bounds.midY)
+    #expect(await controller.selectTextRegion(at: middle, onPage: 0, reach: 4))
+    #expect(await reader.commitTextEdit("Customer: David Smith"))
+    let summary = log.summary().joined(separator: "\n")
+    #expect(summary.contains("Text editing page: text") && summary.contains("taps: 1, picked 1"))
+    #expect(summary.contains("last edit: made"))
+    // Every word of the summary is one the app chose; none can have come from the document.
+    let vocabulary: Set<String> = [
+      "text", "editing", "page", "regions", "direct", "matched", "font", "cover", "only", "find", "ms", "view",
+      "bound", "not", "outlined", "pages", "taps", "picked", "last", "edit", "made", "too", "long", "refused",
+    ]
+    let reasons = Set(TextEditRefusal.allCases.map { $0.rawValue.lowercased() })
+    let said = summary.split { !$0.isLetter && !$0.isNumber }.map { $0.lowercased() }
+    #expect(said.allSatisfy { vocabulary.contains($0) || reasons.contains($0) || Int($0) != nil }, "\(said)")
+    #expect(!summary.contains("Smith") && !summary.contains("David") && !summary.contains("Helvetica"))
+  }
 }
 
 private enum Failure: Error { case unexpected }
@@ -1469,4 +1568,29 @@ private final class SilentSpeech: SpeechEngine {
 @MainActor
 private final class Heard {
   var count = 0
+}
+
+/// An editor that takes a set time, as a very large page or a slow device would, and answers even
+/// after it was given up on.
+private struct StubEditor: PDFTextEditing {
+  let find: Duration
+  let edit: Duration
+  var regions = true
+
+  /// Waits without ending early when the caller gives up, as work that cannot be interrupted does.
+  private func wait(_ duration: Duration) async {
+    guard duration > .zero else { return }
+    await Task.detached { try? await Task.sleep(for: duration) }.value
+  }
+
+  func text(ofPage page: Data) async -> EditablePageText {
+    await wait(find)
+    let text = await ContentStreamTextEditor().text(ofPage: page)
+    return regions ? text : EditablePageText(regions: [], kind: .text)
+  }
+
+  func applying(_ edits: [TextEdit], toPage page: Data) async -> TextEditResult {
+    await wait(edit)
+    return await ContentStreamTextEditor().applying(edits, toPage: page)
+  }
 }

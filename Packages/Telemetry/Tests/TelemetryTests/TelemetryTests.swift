@@ -1,3 +1,4 @@
+import Core
 import Foundation
 import Testing
 
@@ -110,5 +111,15 @@ struct DiagnosticsLogTests {
       appVersion: "1.0", build: "42", system: "iOS 26", libraryIndex: "persistent", documentCount: 3, events: [:],
       problems: ["System-reported problems (30 days): none"])
     #expect(summary.lines.last == "System-reported problems (30 days): none")
+  }
+
+  @Test("The diagnostics summary ends with the text-editing counts when there are any")
+  func summaryIncludesTextEditing() {
+    let summary = DiagnosticsSummary(
+      appVersion: "1.0", build: "42", system: "iOS 26", libraryIndex: "persistent", documentCount: 3, events: [:],
+      problems: ["System-reported problems (30 days): none"],
+      textEditing: TextEditingDiagnostics(pageKind: .text).lines)
+    #expect(summary.lines.contains("Text editing page: text"))
+    #expect(summary.lines.last == "Text editing taps: 0, picked 0")
   }
 }

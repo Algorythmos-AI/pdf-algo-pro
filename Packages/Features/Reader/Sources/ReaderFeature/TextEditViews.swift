@@ -236,6 +236,9 @@ struct TextEditMessageLabel: View {
     case .fontMatched: Text("The font will be matched as closely as possible.", bundle: .module)
     case .coversOriginal:
       Text("Your text will cover this text. The original stays in the file underneath.", bundle: .module)
+    case .lookingForText: Text("Looking for text on this page…", bundle: .module)
+    case .noEditableText: Text("No text on this page can be edited.", bundle: .module)
+    case .tookTooLong: Text("This is taking too long. Nothing was changed. Try again.", bundle: .module)
     }
   }
 }

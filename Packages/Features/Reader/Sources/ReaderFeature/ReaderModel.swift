@@ -111,6 +111,11 @@ public final class ReaderModel {
   private let recognition: RecognitionCoordinator
   private let signatures: any SignatureStoring
   private let textEditing: any TextEditingAccessProviding
+  /// What finds and changes existing text: the native editor unless a test or another engine is
+  /// given (ADR-0025).
+  private let textEditor: any PDFTextEditing
+  /// Where counts about text editing go, for a problem report; nothing from the document.
+  private let textEditingDiagnostics: TextEditingDiagnosticsLog?
 
   /// Creates a reader for a document.
   ///
@@ -121,9 +126,13 @@ public final class ReaderModel {
     intake: DocumentIntake, index: any DocumentIndexing, settings: any SettingsStoring,
     telemetry: any TelemetryRecording,
     recognition: RecognitionCoordinator, signatures: any SignatureStoring, speech: SpeechReader = SpeechReader(),
-    textEditing: any TextEditingAccessProviding = FixedTextEditingAccess(.hidden)
+    textEditing: any TextEditingAccessProviding = FixedTextEditingAccess(.hidden),
+    textEditingDiagnostics: TextEditingDiagnosticsLog? = nil,
+    textEditor: any PDFTextEditing = ContentStreamTextEditor()
   ) {
+    self.textEditor = textEditor
     self.textEditing = textEditing
+    self.textEditingDiagnostics = textEditingDiagnostics
     self.documentID = documentID
     startPage = pageIndex
     assistantTask = task
@@ -156,12 +165,15 @@ public final class ReaderModel {
       self.document = document
       let url = try await library.fileURL(for: documentID)
       fileURL = url
-      let controller = try PDFDocumentController(url: url)
+      let controller = try PDFDocumentController(url: url, textEditor: textEditor)
       knownVersion = try? FileVersion(url)
       watch(url)
       controller.displayMode = settings.load().readerDisplayMode
       controller.onAnnotationTransformed = { [weak self] in
         Task { await self?.annotationTransformed() }
+      }
+      if let log = textEditingDiagnostics {
+        controller.onTextEditingDiagnostics = { record in log.record(record) }
       }
       self.controller = controller
       if controller.isLocked {
@@ -499,6 +511,12 @@ public final class ReaderModel {
     case fontMatched
     /// The text can only be covered; the original stays in the file underneath.
     case coversOriginal
+    /// The page's text is still being found.
+    case lookingForText
+    /// The page has text, but none of it can be edited or covered.
+    case noEditableText
+    /// Finding the text or making the edit took too long; nothing was changed.
+    case tookTooLong
   }
 
   /// Whether editing existing text is offered in this build and to this person.
@@ -521,6 +539,8 @@ public final class ReaderModel {
   private var hasConfirmedEditingSigned = false
   /// Whether the document's words changed since the search text was last brought up to date.
   private var textChangedSinceIndexing = false
+  /// Counts looks at a page's text, so an answer about a page that is no longer the question is dropped.
+  private var textSearches = 0
 
   /// Whether a text edit is being typed or made, so other changes wait.
   private var isBusyEditingText: Bool { isCommittingTextEdit || selectedTextRegion != nil }
@@ -569,17 +589,32 @@ public final class ReaderModel {
   }
 
   /// Works out what to say about the page on screen: nothing when it has text to edit.
+  ///
+  /// The reader is never silent about a page it cannot offer: while the text is being found for
+  /// longer than a moment it says so, and afterwards it says when there is nothing to tap.
   public func textEditingPageChanged() async {
     guard let controller, controller.isEditingText, controller.selectedTextRegion == nil else { return }
     let page = controller.currentPageIndex
-    let kind = await controller.pageText(onPage: page).kind
+    textSearches += 1
+    let search = textSearches
+    // Most pages are found at once; saying "looking" for those would only flicker.
+    let notice = Task { [weak self] in
+      try? await Task.sleep(for: .milliseconds(400))
+      guard let self, !Task.isCancelled, self.textSearches == search, self.controller === controller,
+        controller.isEditingText, controller.selectedTextRegion == nil
+      else { return }
+      self.textEditMessage = .lookingForText
+    }
+    let text = await controller.pageText(onPage: page)
+    notice.cancel()
     guard self.controller === controller, controller.isEditingText, controller.currentPageIndex == page,
-      controller.selectedTextRegion == nil
+      controller.selectedTextRegion == nil, textSearches == search
     else { return }
-    switch kind {
-    case .text: textEditMessage = nil
+    switch text.kind {
+    case .text: textEditMessage = text.regions.isEmpty ? .noEditableText : nil
     case .image: textEditMessage = .pageIsImage
     case .unreadable: textEditMessage = .pageNotEditable
+    case .tookTooLong: textEditMessage = .tookTooLong
     }
   }
 
@@ -633,6 +668,8 @@ public final class ReaderModel {
     case .refused(.restricted):
       controller.clearTextRegionSelection()
       errorMessage = Self.restrictedMessage
+    case .refused(.timedOut):
+      textEditMessage = .tookTooLong
     case .refused:
       textEditMessage = .cannotEdit
     }

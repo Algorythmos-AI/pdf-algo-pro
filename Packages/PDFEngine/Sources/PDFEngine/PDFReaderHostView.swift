@@ -91,9 +91,23 @@ final class PDFReaderHostView: PDFView {
     private var transformStart: AnnotationGeometry?
     private var transformOffset = CGSize.zero
     private var transformScale: CGFloat = 1
+    private var hasGestures = false
   #endif
 
+  /// Binds the view to a document's controller.
+  ///
+  /// Safe to call again with another controller: a reader that loads its document a second time
+  /// makes a new controller, and the view on screen must follow it, or everything the controller
+  /// asks of the view (text editing, drawing, going to a page) would go nowhere.
   func configure(for controller: PDFDocumentController) {
+    guard self.controller !== controller else { return }
+    if let previous = self.controller {
+      #if canImport(UIKit)
+        if previous.isEditingText { setEditingText(false) }
+      #endif
+      previous.detach(self)
+    }
+    if let pageObserver { NotificationCenter.default.removeObserver(pageObserver) }
     #if canImport(UIKit)
       // The provider is asked for a view as each page comes on screen, so it is in place first.
       textOverlays.host = self
@@ -119,8 +133,23 @@ final class PDFReaderHostView: PDFView {
     linkDelegate.onLink = { [weak controller] url in controller?.linkTapped(url) }
     delegate = linkDelegate
     #if canImport(UIKit)
-      // Selecting annotations (F3) works alongside PDFKit's own taps: links still open and text
-      // selection still clears.
+      installGestures()
+      textOverlays.watch(self)
+    #endif
+    controller.attach(self)
+    selectionChanged()
+    #if canImport(UIKit)
+      if controller.isEditingText { setEditingText(true) }
+    #endif
+  }
+
+  #if canImport(UIKit)
+    /// Adds the view's own gesture recognizers, once however often it is bound.
+    private func installGestures() {
+      guard !hasGestures else { return }
+      hasGestures = true
+      // Selecting annotations (F3) and picking text to edit (FR-EDIT-001) work alongside PDFKit's
+      // own taps: links still open and text selection still clears.
       let tap = UITapGestureRecognizer(target: self, action: #selector(tapped(_:)))
       tap.cancelsTouchesInView = false
       tap.delegate = tapDelegate
@@ -140,9 +169,8 @@ final class PDFReaderHostView: PDFView {
       let pinch = UIPinchGestureRecognizer(target: self, action: #selector(pinched(_:)))
       pinch.delegate = transformDelegate
       addGestureRecognizer(pinch)
-    #endif
-    controller.attach(self)
-  }
+    }
+  #endif
 
   func apply(_ mode: ReaderDisplayMode) {
     switch mode {
@@ -315,14 +343,35 @@ final class PDFReaderHostView: PDFView {
   extension PDFReaderHostView {
     /// Selects the annotation under a tap, or clears the selection (F3).
     @objc fileprivate func tapped(_ recognizer: UITapGestureRecognizer) {
-      // While text is being edited, taps pick text (through the page overlays), not annotations.
-      guard let controller, !controller.isDrawing, !controller.isEditingText, let document else { return }
+      guard let controller, !controller.isDrawing, let document else { return }
       let point = recognizer.location(in: self)
+      // While text is being edited, a tap picks text, not an annotation. Picking happens here and
+      // nowhere else: this recognizer is on screen for every page, whatever PDFKit does with the
+      // overlays that outline the text.
+      if controller.isEditingText {
+        // Where a page has no overlay to shield it, the tap may also have started a form field.
+        endEditing()
+        pickText(at: point)
+        return
+      }
       guard let page = page(for: point, nearest: false) else {
         controller.clearSelection()
         return
       }
       controller.selectAnnotation(at: convert(point, to: page), onPage: document.index(for: page))
+    }
+
+    /// Picks the text nearest a point in this view, for editing.
+    func pickText(at point: CGPoint) {
+      guard let controller, let document, let page = page(for: point, nearest: true) else { return }
+      let pageIndex = document.index(for: page)
+      guard pageIndex != NSNotFound else { return }
+      // A fingertip's reach, in page points: body text is far smaller than a finger.
+      let reach = 22 / max(scaleFactor, 0.1)
+      let onPage = convert(point, to: page)
+      Task { @MainActor in
+        await controller.selectTextRegion(at: onPage, onPage: pageIndex, reach: reach)
+      }
     }
 
     /// Whether a gesture starting at a point in this view is on the selected annotation.

@@ -138,6 +138,7 @@ struct TextInterpreter {
   /// Interprets a page's operations.
   mutating func interpret(_ operations: [ContentOperation]) throws -> PageContent {
     for (index, operation) in operations.enumerated() {
+      if index.isMultiple(of: 512) { try Task.checkCancellation() }
       try apply(operation, at: index)
     }
     return PageContent(operations: operations, runs: runs, painted: painted, spans: spans)

@@ -79,7 +79,7 @@ public struct DiagnosticsSummary: Sendable, Equatable {
   /// Builds the summary.
   public init(
     appVersion: String, build: String, system: String, libraryIndex: String, documentCount: Int,
-    events: [String: Int], problems: [String] = []
+    events: [String: Int], problems: [String] = [], textEditing: [String] = []
   ) {
     var lines = [
       "App: PDF Algo Pro \(appVersion) (\(build))",
@@ -89,6 +89,7 @@ public struct DiagnosticsSummary: Sendable, Equatable {
     ]
     lines += events.keys.sorted().map { "Event \($0): \(events[$0] ?? 0)" }
     lines += problems
+    lines += textEditing
     self.lines = lines
   }
 

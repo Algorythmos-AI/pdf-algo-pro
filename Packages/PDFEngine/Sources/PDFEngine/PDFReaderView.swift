@@ -19,7 +19,12 @@
       return view
     }
 
-    /// Nothing to update: the controller drives the view directly.
-    public func updateUIView(_ uiView: UIViewType, context: Context) {}
+    /// The controller drives the view directly, so the only thing to update is which controller.
+    ///
+    /// A reader that is shown again loads its document afresh and makes a new controller; the view
+    /// on screen follows it.
+    public func updateUIView(_ uiView: UIViewType, context: Context) {
+      (uiView as? PDFReaderHostView)?.configure(for: controller)
+    }
   }
 #endif

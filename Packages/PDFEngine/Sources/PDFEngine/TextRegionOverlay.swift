@@ -2,16 +2,22 @@
   import PDFKit
   import UIKit
 
-  /// Marks the text that can be edited on one page with a faint outline, and takes the taps that
-  /// pick it.
+  /// Marks the text that can be edited on one page with a faint outline.
   ///
   /// PDFKit keeps the view exactly over its page as the page scrolls and zooms.
   ///
   /// It is a view, never an annotation, so nothing it shows can be saved into the document.
   ///
+  /// It draws, and it shields: a touch that lands on it does not reach the form fields and links
+  /// of the page underneath, which are not what a tap means while text is being edited. It does not
+  /// pick. The page view's own tap recognizer does that (`PDFReaderHostView.pickText(at:)`), and it
+  /// sees every tap on a page whether or not PDFKit has given that page an overlay, so picking
+  /// never depends on this view being there.
+  ///
   /// It adds no accessibility elements of its own: PDFKit already exposes each line of a page's
   /// text to VoiceOver, and does not expose an overlay's elements. Activating one of PDFKit's lines
-  /// sends a tap to its middle, which lands here and picks the text, so each line is read once.
+  /// sends a tap to its middle, which the page view takes and picks the text, so each line is read
+  /// once.
   @MainActor
   final class TextRegionOverlayView: UIView {
     weak var host: PDFReaderHostView?
@@ -29,7 +35,6 @@
       outlines.fillColor = nil
       outlines.lineWidth = 1
       layer.addSublayer(outlines)
-      addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(tapped(_:))))
     }
 
     @available(*, unavailable)
@@ -44,6 +49,13 @@
     override func tintColorDidChange() {
       super.tintColorDidChange()
       redraw()
+    }
+
+    /// An overlay PDFKit puts back on screen shows what the mode is now, not what it was when the
+    /// overlay was last seen.
+    override func didMoveToWindow() {
+      super.didMoveToWindow()
+      if window != nil { host?.textOverlays.refresh(self) }
     }
 
     /// Where a region is in this view.
@@ -62,18 +74,6 @@
       outlines.path = path.cgPath
       outlines.strokeColor = tintColor.withAlphaComponent(0.45).cgColor
     }
-
-    @objc private func tapped(_ recognizer: UITapGestureRecognizer) {
-      guard let host, let page, let controller = host.controller, let document = host.document else { return }
-      let point = host.convert(recognizer.location(in: host), to: page)
-      let pageIndex = document.index(for: page)
-      guard pageIndex != NSNotFound else { return }
-      // A fingertip's reach, in page points: body text is far smaller than a finger.
-      let reach = 22 / max(host.scaleFactor, 0.1)
-      Task { @MainActor in
-        await controller.selectTextRegion(at: point, onPage: pageIndex, reach: reach)
-      }
-    }
   }
 
   /// Gives PDFKit an overlay for each page on screen, and fills it with that page's regions while
@@ -83,28 +83,63 @@
     weak var host: PDFReaderHostView?
     /// Whether the page view was fitting pages to its width before text editing zoomed in.
     var restoresAutoScaling = false
-    private var overlays: [ObjectIdentifier: TextRegionOverlayView] = [:]
+    /// Every overlay PDFKit was given and still holds.
+    ///
+    /// Held weakly and never taken out by hand: PDFKit may stop showing an overlay and show the
+    /// same one again later, and one that was dropped from this list in between would stay hidden
+    /// for good.
+    private let overlays = NSHashTable<TextRegionOverlayView>.weakObjects()
+    private var isWatching = false
+    private var refreshIsPending = false
+
+    /// How many overlays are showing regions; for diagnostics and tests.
+    var shownCount: Int { overlays.allObjects.count { !$0.isHidden && $0.window != nil } }
 
     func pdfView(_ view: PDFView, overlayViewFor page: PDFPage) -> UIView? {
       let overlay = TextRegionOverlayView()
       overlay.host = host
       overlay.page = page
-      overlays[ObjectIdentifier(page)] = overlay
+      overlays.add(overlay)
       refresh(overlay)
       return overlay
     }
 
-    func pdfView(_ pdfView: PDFView, willEndDisplayingOverlayView overlayView: UIView, for page: PDFPage) {
-      if overlays[ObjectIdentifier(page)] === overlayView { overlays[ObjectIdentifier(page)] = nil }
+    func pdfView(_ pdfView: PDFView, willDisplayOverlayView overlayView: UIView, for page: PDFPage) {
+      guard let overlay = overlayView as? TextRegionOverlayView else { return }
+      overlay.page = page
+      overlays.add(overlay)
+      refresh(overlay)
+    }
+
+    func pdfView(_ pdfView: PDFView, willEndDisplayingOverlayView overlayView: UIView, for page: PDFPage) {}
+
+    /// Refreshes the overlays whenever what is on screen changes: other pages, or another zoom.
+    func watch(_ view: PDFView) {
+      guard !isWatching else { return }
+      isWatching = true
+      // Selector observers end with the object, so there is nothing to take down.
+      for name in [Notification.Name.PDFViewVisiblePagesChanged, .PDFViewScaleChanged] {
+        NotificationCenter.default.addObserver(self, selector: #selector(screenChanged), name: name, object: view)
+      }
+    }
+
+    /// Many of these arrive during one scroll or pinch; one refresh answers them all.
+    @objc private func screenChanged() {
+      guard !refreshIsPending, host?.controller?.isEditingText == true else { return }
+      refreshIsPending = true
+      Task { @MainActor [weak self] in
+        self?.refreshIsPending = false
+        self?.refreshAll()
+      }
     }
 
     /// Shows or hides every overlay to match the mode.
     func refreshAll() {
-      for overlay in overlays.values { refresh(overlay) }
+      for overlay in overlays.allObjects { refresh(overlay) }
     }
 
     /// Shows the regions of the overlay's page, once they are found, or hides the overlay.
-    private func refresh(_ overlay: TextRegionOverlayView) {
+    func refresh(_ overlay: TextRegionOverlayView) {
       guard let controller = host?.controller, controller.isEditingText, let page = overlay.page,
         let document = host?.document
       else {
@@ -119,7 +154,7 @@
         guard let text = await controller?.pageText(onPage: pageIndex), let overlay, controller?.isEditingText == true,
           overlay.page === page
         else { return }
-        overlay.regions = text.regions
+        if overlay.regions != text.regions { overlay.regions = text.regions }
       }
     }
   }

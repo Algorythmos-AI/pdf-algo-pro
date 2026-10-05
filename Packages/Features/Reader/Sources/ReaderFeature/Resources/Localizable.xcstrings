@@ -836,6 +836,17 @@
         }
       }
     },
+    "Looking for text on this page…" : {
+      "comment" : "Shown while editing text when finding the page's text takes more than a moment",
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recherche du texte sur cette page…"
+          }
+        }
+      }
+    },
     "Markup" : {
       "localizations" : {
         "fr" : {
@@ -932,6 +943,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Aucune table des matières"
+          }
+        }
+      }
+    },
+    "No text on this page can be edited." : {
+      "comment" : "Shown while editing text on a page whose text cannot be edited or covered",
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun texte de cette page ne peut être modifié."
           }
         }
       }
@@ -1811,6 +1833,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Impossible d’ouvrir ce fichier. Il est peut-être endommagé ou n’est pas un PDF. Votre bibliothèque n’a pas changé."
+          }
+        }
+      }
+    },
+    "This is taking too long. Nothing was changed. Try again." : {
+      "comment" : "Shown when finding a page's text or making an edit passed its time limit",
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cela prend trop de temps. Rien n’a été modifié. Réessayez."
           }
         }
       }
