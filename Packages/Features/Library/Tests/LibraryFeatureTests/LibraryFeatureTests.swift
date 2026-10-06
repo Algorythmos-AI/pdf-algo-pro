@@ -391,7 +391,7 @@ struct LibraryModelTests {
     #expect(harness.model.counts[.all] == 2)
   }
 
-  @Test("Home's recent documents are the last five opened, newest first, never deleted ones")
+  @Test("Home's recent documents are the last three opened, newest first, never deleted ones")
   func recentDocuments() async throws {
     let harness = Harness()
     for index in 1...7 {
@@ -402,14 +402,14 @@ struct LibraryModelTests {
     }
     await harness.library.seed(Document(title: "Never opened", fileName: "n.pdf", addedAt: .now))
     await harness.model.load()
-    #expect(harness.model.recentDocuments.map(\.title) == (3...7).reversed().map { "Opened \($0)" })
+    #expect(harness.model.recentDocuments.map(\.title) == (5...7).reversed().map { "Opened \($0)" })
     // Recents is the same whatever the list is sorted by.
     harness.model.sort = .title
     await harness.model.reload()
     #expect(harness.model.recentDocuments.first?.title == "Opened 7")
     let newest = try #require(harness.model.recentDocuments.first)
     await harness.model.delete(newest.id)
-    #expect(harness.model.recentDocuments.map(\.title) == (2...6).reversed().map { "Opened \($0)" })
+    #expect(harness.model.recentDocuments.map(\.title) == (4...6).reversed().map { "Opened \($0)" })
   }
 
   @Test("Choosing a section shows its documents at once, before the library answers again")
@@ -469,22 +469,8 @@ struct LibraryModelTests {
     #expect(harness.model.listRequests == 2)
   }
 
-  @Test("A recent document's card draws with and without its page, at the largest text size")
-  func recentCardDraws() {
-    let page = CGContext(
-      data: nil, width: 20, height: 26, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(),
-      bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)?.makeImage()
-    let documents = [
-      Document(title: "A long title that needs its two lines on the card", fileName: "a.pdf", addedAt: .now),
-      Document(title: "Locked", fileName: "l.pdf", addedAt: .now, isEncrypted: true),
-    ]
-    for document in documents {
-      for image in [page, nil] {
-        let card = RecentCard(document: document, thumbnail: { image })
-          .environment(\.dynamicTypeSize, .accessibility5)
-        #expect(ImageRenderer(content: card).uiImage != nil)
-      }
-    }
+  @Test("A button on Home draws with a style of its own")
+  func homeButtonDraws() {
     let button = Button {
     } label: {
       Text(verbatim: "Tap")

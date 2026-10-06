@@ -121,7 +121,7 @@ screenshots, the support site). Inside the app, backgrounds and text use the sys
 The company mark's colours and outline are those of the logo the company publishes on its website
 (`public/bimi/algorythmos.svg` in the website's public repository, read on 2026-10-06). They are
 the same in every appearance, and `color.logo.*` is used by `CompanyMark` only. `opacity.brandGlow`
-(0.12) is the most brand tint `BrandGlow` lays over a background: measured in the design-system
+(0.1) is the most brand tint `BrandGlow` lays over a background: measured in the design-system
 tests, primary and secondary text over it keep at least 4.5:1 in all four appearances.
 
 ### Measured contrast
@@ -439,6 +439,12 @@ also offered as a custom accessibility action.
 | `IconTile` | An SF Symbol on a small filled tile, as the system's Settings rows show theirs | List rows that lead somewhere. `brand` for things to open or change, `intelligence` for what the intelligence layer does, `quiet` for things set aside (Recently deleted). The fills and their symbol colours are the declared contrast pairs. Decoration beside the row's title |
 
 ### Lists
+
+Home on iPhone is the one grouped screen that is not a `List`: it is a scroll view of cards drawn
+like a grouped list's sections (PAP-040). In the sidebar-style list the accessibility audit reported
+small text and the rows' counts as not scaling or as clipped, on text that used standard styles; as
+cards, every part lays itself out at once when the text size changes, and the audit passes at the
+default size and at AX3. In a wide window the same sections are a `.sidebar` list.
 
 System `List` styles only: `.insetGrouped` for settings, `.sidebar` for the library sidebar, plain
 for search results. Swipe actions (for example Delete, Favourite) always have an equivalent in the

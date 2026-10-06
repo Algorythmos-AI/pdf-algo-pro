@@ -152,72 +152,10 @@ public struct LibraryView<Detail: View>: View {
 
   // MARK: - Sidebar
 
+  /// The first column: Home on iPhone, a sidebar beside the documents on a wide window.
   private var sidebar: some View {
-    List(
-      // On iPhone the back button clears this selection to show the sections. Only choosing a section
-      // goes to its documents: answering the clearing by going forward again made back do nothing.
-      selection: Binding(
-        get: { compactColumn == .sidebar ? nil : model.section },
-        set: { section in
-          if let section {
-            model.section = section
-            compactColumn = .content
-          } else {
-            compactColumn = .sidebar
-          }
-        })
-    ) {
-      // On iPhone this column is Home. Beside the documents, on a wide window, it stays a sidebar.
-      if sizeClass == .compact {
-        Section {
-          homeHeader
-          homeActions
-          if model.phase == .loaded, model.counts[.all] == 0 { homeStart }
-        }
-        .listRowBackground(Color.clear)
-        .listRowInsets(EdgeInsets(top: Spacing.s100, leading: 0, bottom: Spacing.s100, trailing: 0))
-        .listRowSeparator(.hidden)
-        if !model.recentDocuments.isEmpty {
-          Section {
-            homeRecents
-              .listRowBackground(Color.clear)
-              .listRowInsets(EdgeInsets())
-              .listRowSeparator(.hidden)
-          } header: {
-            Text("Continue reading", bundle: .module)
-          }
-        }
-      }
-      Section {
-        ForEach(LibrarySection.fixed, id: \.self) { section in
-          sectionRow(section).tag(section)
-        }
-      }
-      if !model.tags.isEmpty {
-        Section {
-          ForEach(model.tags, id: \.self) { tag in
-            Label(tag, systemImage: "tag").tag(LibrarySection.tag(tag))
-          }
-        } header: {
-          Text("Tags", bundle: .module)
-        }
-      }
-      Section {
-        homeFooter
-          .listRowBackground(Color.clear)
-          .listRowInsets(EdgeInsets())
-          .listRowSeparator(.hidden)
-      }
-    }
-    .scrollContentBackground(sizeClass == .compact ? .hidden : .automatic)
-    .background {
-      if sizeClass == .compact {
-        ZStack(alignment: .top) {
-          Color.ds.backgroundGrouped
-          BrandGlow().frame(height: 360)
-        }
-        .ignoresSafeArea()
-      }
+    Group {
+      if sizeClass == .compact { home } else { sectionList }
     }
     .navigationTitle(Text("PDF Algo Pro", bundle: .module))
     .toolbar {
@@ -234,10 +172,108 @@ public struct LibraryView<Detail: View>: View {
     }
   }
 
+  /// The sidebar of a wide window: the sections with their counts, and the tags.
+  private var sectionList: some View {
+    List(
+      // Choosing a section shows its documents in the next column.
+      selection: Binding(
+        get: { compactColumn == .sidebar ? nil : model.section },
+        set: { section in
+          if let section {
+            model.section = section
+            compactColumn = .content
+          } else {
+            compactColumn = .sidebar
+          }
+        })
+    ) {
+      Section {
+        ForEach(LibrarySection.fixed, id: \.self) { section in
+          sectionLabel(section)
+            .tag(section)
+            .accessibilityElement(children: .combine)
+            .accessibilityValue(sectionCount(section))
+            .accessibilityIdentifier("library.section.\(Self.identifier(for: section))")
+        }
+      }
+      if !model.tags.isEmpty {
+        Section {
+          ForEach(model.tags, id: \.self) { tag in
+            Label(tag, systemImage: "tag").tag(LibrarySection.tag(tag))
+          }
+        } header: {
+          Text("Tags", bundle: .module).foregroundStyle(Color.ds.labelSecondary)
+        }
+      }
+    }
+  }
+
   // MARK: - Home
 
-  /// A section's row: its tile and title, and how many documents it holds once the library has loaded.
-  private func sectionRow(_ section: LibrarySection) -> some View {
+  /// Home, the screen an iPhone opens on.
+  ///
+  /// A scroll view of cards, not a list: every part lays itself out at once when the text size
+  /// changes, and nothing is cut to a list row's shape.
+  private var home: some View {
+    ScrollView {
+      VStack(alignment: .leading, spacing: Spacing.s300) {
+        VStack(alignment: .leading, spacing: Spacing.s200) {
+          homeHeader
+          homeActions
+          if model.phase == .loaded, model.counts[.all] == 0 { homeStart }
+        }
+        if !model.recentDocuments.isEmpty {
+          VStack(alignment: .leading, spacing: Spacing.s100) {
+            homeHeading(Text("Continue reading", bundle: .module))
+            homeCard(model.recentDocuments, id: \.id) { document in recentRow(document) }
+          }
+        }
+        homeCard(LibrarySection.fixed, id: \.self) { section in sectionRow(section) }
+        if !model.tags.isEmpty {
+          VStack(alignment: .leading, spacing: Spacing.s100) {
+            homeHeading(Text("Tags", bundle: .module))
+            homeCard(model.tags, id: \.self) { tag in tagRow(tag) }
+          }
+        }
+        homeFooter
+      }
+      .padding(.horizontal, Spacing.s200)
+      .padding(.bottom, Spacing.s300)
+    }
+    .background {
+      ZStack(alignment: .top) {
+        Color.ds.backgroundGrouped
+        // Behind the title only: text further down is read against a plain background.
+        BrandGlow().frame(height: 220)
+      }
+      .ignoresSafeArea()
+    }
+  }
+
+  /// A heading over one of Home's cards.
+  private func homeHeading(_ title: Text) -> some View {
+    title
+      .font(.title3.weight(.semibold))
+      .foregroundStyle(Color.ds.labelPrimary)
+      .accessibilityAddTraits(.isHeader)
+  }
+
+  /// A card of rows with a hairline between them, as a grouped list draws its sections.
+  private func homeCard<Items: RandomAccessCollection, ID: Hashable, Row: View>(
+    _ items: Items, id: KeyPath<Items.Element, ID>, @ViewBuilder row: @escaping (Items.Element) -> Row
+  ) -> some View {
+    let last = items.last?[keyPath: id]
+    return VStack(spacing: Spacing.s0) {
+      ForEach(items, id: id) { item in
+        row(item)
+        if item[keyPath: id] != last { Divider().padding(.leading, Spacing.s200) }
+      }
+    }
+    .background(Color.ds.backgroundGroupedElevated, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+  }
+
+  /// A section's tile and title, and how many documents it holds once the library has loaded.
+  private func sectionLabel(_ section: LibrarySection) -> some View {
     HStack(spacing: Spacing.s150) {
       IconTile(systemName: Self.symbol(for: section), tone: section == .recentlyDeleted ? .quiet : .brand)
       Self.title(for: section).foregroundStyle(Color.ds.labelPrimary)
@@ -246,11 +282,59 @@ public struct LibraryView<Detail: View>: View {
         Text(count, format: .number)
           .monospacedDigit()
           .foregroundStyle(Color.ds.labelSecondary)
-          .accessibilityLabel(Text("\(count) documents", bundle: .module))
+          // The row says the count in words (`sectionCount`); a spoken label here would be longer
+          // than the digit it sits on.
+          .accessibilityHidden(true)
       }
     }
+  }
+
+  /// How many documents a section holds, in words, for VoiceOver; empty until the library has loaded.
+  private func sectionCount(_ section: LibrarySection) -> Text {
+    guard model.phase == .loaded, let count = model.counts[section] else { return Text(verbatim: "") }
+    return Text("\(count) documents", bundle: .module)
+  }
+
+  /// A section's row on Home: tapping it shows the section's documents.
+  private func sectionRow(_ section: LibrarySection) -> some View {
+    Button {
+      model.section = section
+      compactColumn = .content
+    } label: {
+      HStack(spacing: Spacing.s100) {
+        sectionLabel(section)
+        Image(systemName: "chevron.forward")
+          .font(.footnote.weight(.semibold))
+          .foregroundStyle(Color.ds.labelTertiary)
+          .accessibilityHidden(true)
+      }
+      .homeRow()
+    }
+    .buttonStyle(DimmingButtonStyle())
     .accessibilityElement(children: .combine)
+    .accessibilityValue(sectionCount(section))
     .accessibilityIdentifier("library.section.\(Self.identifier(for: section))")
+  }
+
+  /// A tag's row on Home.
+  private func tagRow(_ tag: String) -> some View {
+    Button {
+      model.section = .tag(tag)
+      compactColumn = .content
+    } label: {
+      HStack(spacing: Spacing.s150) {
+        IconTile(systemName: "tag")
+        Text(tag).foregroundStyle(Color.ds.labelPrimary)
+        Spacer(minLength: Spacing.s100)
+        Image(systemName: "chevron.forward")
+          .font(.footnote.weight(.semibold))
+          .foregroundStyle(Color.ds.labelTertiary)
+          .accessibilityHidden(true)
+      }
+      .homeRow()
+    }
+    .buttonStyle(DimmingButtonStyle())
+    .accessibilityIdentifier("library.section.\(Self.identifier(for: .tag(tag)))")
   }
 
   /// The app's mark beside what the library holds.
@@ -264,7 +348,9 @@ public struct LibraryView<Detail: View>: View {
           .accessibilityAddTraits(.isHeader)
         // The line keeps its place while the library loads, so nothing below it moves.
         Group {
-          if let count = model.counts[.all], count > 0 {
+          if model.phase != .loaded {
+            Text(verbatim: " ").accessibilityHidden(true)
+          } else if let count = model.counts[.all], count > 0 {
             Text("\(count) documents", bundle: .module)
           } else {
             Text("No documents yet", bundle: .module)
@@ -272,8 +358,6 @@ public struct LibraryView<Detail: View>: View {
         }
         .font(.subheadline)
         .foregroundStyle(Color.ds.labelSecondary)
-        .opacity(model.phase == .loaded ? 1 : 0)
-        .accessibilityHidden(model.phase != .loaded)
       }
       Spacer(minLength: 0)
     }
@@ -343,35 +427,26 @@ public struct LibraryView<Detail: View>: View {
     }
   }
 
-  /// The documents opened last, newest first.
-  private var homeRecents: some View {
-    ScrollView(.horizontal) {
-      HStack(alignment: .top, spacing: Spacing.s150) {
-        ForEach(model.recentDocuments) { document in
-          Button {
-            // Back from the document then shows Recents, where it is first.
-            model.section = .recents
-            model.open(document.id)
-            compactColumn = .detail
-          } label: {
-            RecentCard(document: document, thumbnail: { await model.thumbnail(for: document) })
-          }
-          .buttonStyle(DimmingButtonStyle())
-          .accessibilityIdentifier("library.home.recent.\(document.title)")
-        }
-      }
-      // A list row is cut to its section's rounded corners; the inset keeps the cards clear of them.
-      .padding(.horizontal, Spacing.s050)
-      .padding(.top, Spacing.s050)
-      .padding(.bottom, Spacing.s200)
+  /// One of the documents opened last, as the document list shows it.
+  private func recentRow(_ document: Document) -> some View {
+    Button {
+      // Back from the document then shows Recents, where it is first.
+      model.section = .recents
+      model.open(document.id)
+      compactColumn = .detail
+    } label: {
+      DocumentRow(
+        document: document, snippet: nil, thumbnail: { await model.thumbnail(for: document) }, titleLineLimit: nil
+      )
+      .homeRow()
     }
-    .scrollIndicators(.hidden)
+    .buttonStyle(DimmingButtonStyle())
+    .accessibilityIdentifier("library.home.recent.\(document.title)")
   }
 
   /// What the app promises about documents, and who makes it.
   private var homeFooter: some View {
-    VStack(spacing: Spacing.s150) {
-      // Not a `Label`: in a list row its symbol takes a row icon's width, far from the words.
+    VStack(spacing: Spacing.s100) {
       HStack(spacing: Spacing.s100) {
         Image(systemName: "lock.shield").accessibilityHidden(true)
         Text("Your documents stay on this device.", bundle: .module)
@@ -386,7 +461,6 @@ public struct LibraryView<Detail: View>: View {
     .foregroundStyle(Color.ds.labelSecondary)
     .multilineTextAlignment(.center)
     .frame(maxWidth: .infinity)
-    .padding(.vertical, Spacing.s100)
   }
 
   /// A document brought in from Home is filed in All documents, so that is where Back should lead.
@@ -916,6 +990,23 @@ public struct LibraryView<Detail: View>: View {
     case .openAssistant:
       Text("Choose a PDF and the assistant opens with it. Answers cite their pages.", bundle: .module)
     }
+  }
+}
+
+extension View {
+  /// The inset and height of a row in one of Home's cards: at least the 44-point target.
+  fileprivate func homeRow() -> some View {
+    padding(.horizontal, Spacing.s200)
+      .padding(.vertical, Spacing.s100)
+      .frame(maxWidth: .infinity, minHeight: Sizes.targetMinimum + Spacing.s100, alignment: .leading)
+      .contentShape(Rectangle())
+  }
+}
+
+/// A button that only dims while pressed: for Home's rows and its text button.
+struct DimmingButtonStyle: ButtonStyle {
+  func makeBody(configuration: Configuration) -> some View {
+    configuration.label.opacity(configuration.isPressed ? 0.6 : 1)
   }
 }
 

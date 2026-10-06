@@ -70,7 +70,7 @@ public final class LibraryModel {
   /// Counted with `LibrarySection.contains`, the rule the library files documents by, so a count
   /// never differs from the list it leads to.
   public private(set) var counts: [LibrarySection: Int] = [:]
-  /// The documents opened most recently, newest first, for Home's "Continue reading".
+  /// The few documents opened most recently, newest first, for Home's "Continue reading".
   public private(set) var recentDocuments: [Core.Document] = []
   /// How many times a link, Spotlight, a widget or an intent has asked for a section's documents.
   ///
@@ -209,7 +209,7 @@ public final class LibraryModel {
   }
 
   /// How many recent documents Home shows.
-  static let recentLimit = 5
+  static let recentLimit = 3
 
   /// Shows a section's documents, for a link, Spotlight, a widget or an intent.
   ///

@@ -157,8 +157,8 @@ struct BrandMarkTests {
       // The middle of the bowl is a hole, and the stem is solid.
       let hole = BrandGeometry.point(110, 160, in: rect)
       let stem = BrandGeometry.point(190, 160, in: rect)
-      #expect(!letter.contains(hole, eoFill: true))
-      #expect(letter.contains(stem, eoFill: true))
+      #expect(!letter.cgPath.contains(hole, using: .evenOdd))
+      #expect(letter.cgPath.contains(stem, using: .evenOdd))
     }
   }
 

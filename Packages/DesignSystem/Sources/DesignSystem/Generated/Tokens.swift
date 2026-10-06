@@ -86,8 +86,8 @@ public enum Spacing {
 
 /// Opacity tokens.
 public enum Opacities {
-  /// `opacity.brandGlow` = 0.12.
-  public static let brandGlow: Double = 0.12
+  /// `opacity.brandGlow` = 0.1.
+  public static let brandGlow: Double = 0.1
 }
 
 /// Size tokens.
