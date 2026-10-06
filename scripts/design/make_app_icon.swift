@@ -14,7 +14,7 @@
 // Last, it writes the app mark the interface shows (Home, Settings, About) into the DesignSystem
 // package: the default icon, scaled down, so the mark on screen is always the icon on the Home Screen.
 // The artwork is a large page carrying a "PDF" mark drawn as paths (no font) and the intelligence
-// sparkle, on a crimson-to-violet field. Coordinates have their origin at the bottom left, y up.
+// sparkle, on a red field that deepens from the top left to the bottom right. Coordinates have their origin at the bottom left, y up.
 import CoreGraphics
 import CoreText
 import Foundation
@@ -156,7 +156,7 @@ func sparklePath() -> CGPath {
 
 // MARK: - Drawing
 
-/// The crimson-to-violet gradient, from the top left to the bottom right of the canvas.
+/// The red gradient, lighter at the top left and deepest at the bottom right of the canvas.
 func fillGradient(in context: CGContext) {
   let colors = [gradientStart.cgColor(), gradientMid.cgColor(), brandTint.cgColor()] as CFArray
   let gradient = CGGradient(

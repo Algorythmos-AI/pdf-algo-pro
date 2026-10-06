@@ -113,7 +113,8 @@ struct SignaturePad: View {
         var path = Path()
         path.addLines(stroke)
         context.stroke(
-          path, with: .color(Color.ds.brandTint), style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
+          path, with: .color(Color.ds.labelPrimary), style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round)
+        )
       }
     }
     .background(Color.ds.backgroundSecondary, in: RoundedRectangle(cornerRadius: 12, style: .continuous))

@@ -199,7 +199,7 @@ struct PageGrid: View {
             .overlay(alignment: .topTrailing) {
               if isSelecting {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                  .font(.title3).foregroundStyle(isSelected ? Color.ds.brandTint : Color.ds.labelSecondary)
+                  .font(.title3).foregroundStyle(isSelected ? Color.ds.selection : Color.ds.labelSecondary)
                   .background(Circle().fill(Color.ds.backgroundPrimary))
                   .padding(Spacing.s050)
                   .accessibilityHidden(true)
@@ -237,7 +237,7 @@ private struct PageThumbnail: View {
       // Every page has an edge and a soft shadow, so a white page reads as a page on a white sheet.
       .overlay(
         RoundedRectangle(cornerRadius: 4, style: .continuous)
-          .strokeBorder(isCurrent ? Color.ds.brandTint : Color.ds.separator, lineWidth: isCurrent ? 2 : 1)
+          .strokeBorder(isCurrent ? Color.ds.selection : Color.ds.separator, lineWidth: isCurrent ? 2 : 1)
       )
       .shadow(color: .black.opacity(0.12), radius: 3, y: 1)
       .frame(height: 128)

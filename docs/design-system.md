@@ -14,7 +14,7 @@ Owner: Design · Reviewed: each milestone, and whenever a token or component cha
 |---|---|
 | Foundation | Apple's [Human Interface Guidelines](https://developer.apple.com/design/human-interface-guidelines/) (HIG) first; system components before custom ones ([ADR-0022](adr/0022-apple-first-capability-baseline.md)) |
 | Materials | Liquid Glass only in the control layer (toolbars, page indicator, tab and sidebar chrome); standard materials in the content layer |
-| Colour | Semantic tokens mapped to system colours; brand violet as the app accent and brand cyan as the intelligence marker, each with light, dark and Increase Contrast variants |
+| Colour | Semantic tokens mapped to system colours; the product's red as the app accent and brand cyan as the intelligence marker, each with light, dark and Increase Contrast variants |
 | Type | SF Pro through system text styles, full Dynamic Type up to AX5; no bundled fonts |
 | Spacing | 8-point grid with 4-point half-steps, named tokens |
 | Motion | One `Motion` helper that honours Reduce Motion; one `Haptics` helper over system feedback |
@@ -41,12 +41,16 @@ Owner: Design · Reviewed: each milestone, and whenever a token or component cha
    ([SF Symbols](https://developer.apple.com/design/human-interface-guidelines/sf-symbols)). A custom
    symbol is drawn as an SF Symbols template only when no system symbol fits (for example a
    redaction mark), and it ships with all weights.
-5. **Brand as an accent, with a few signature moments.** Violet marks what is interactive and cyan
-   marks what the intelligence layer produced. Everything else is system colour. The brand is also
+5. **Brand as an accent, with a few signature moments.** Red marks what is interactive and cyan
+   marks what the intelligence layer produced. Everything else is system colour: screens are white
+   or the system's grouped grey in light and the system's dark backgrounds in dark, never a red
+   surface or a red navigation bar ([PAP-047](decision-register.md)). The brand is also
    shown, on purpose and in few places (PAP-040): Home carries the app mark, a soft wash of the brand
    tint behind its header (`BrandGlow`) and, in its footer, the company mark with "Built by
    Algorythmos"; Settings and About carry the app mark and the company mark. Screens where people
-   work on a document (the reader, the assistant, the scanner) carry none of these.
+   work on a document (the reader, the assistant, the scanner) carry none of these, and there
+   what is selected or being edited is `color.selection`, the system's blue: on a document, red is
+   an annotation colour and the colour of Delete.
 6. **Honest interface.** Generated text is always labelled and never styled as document text; the
    tier that answered is always visible; paywalls close in one action from the moment they appear.
    These follow founder principles
@@ -86,26 +90,37 @@ to redefine the meaning of dynamic system colours, so each token keeps the syste
 | `color.status.warning` | `systemOrange` | Warnings, always with a symbol |
 | `color.status.error` | `systemRed` | Errors and destructive actions, always with a symbol |
 | `color.link` | `link` | Inline links in help text |
-| `color.brand.tint` | Brand violet (below) | App accent colour: interactive text, selected state, borderless buttons |
-| `color.brand.fill` / `color.brand.onFill` | Brand violet fill and its label colour | Prominent buttons |
+| `color.selection` | `systemBlue` | What is selected or being edited on a document: the outline of a selected annotation, the outlines of editable text, the editing field's rule and caret, the current and the selected pages in Pages |
+| `color.brand.tint` | Brand red (below) | App accent colour: interactive text, selected state, borderless buttons |
+| `color.brand.fill` / `color.brand.onFill` | Brand red fill and its label colour | Prominent buttons |
 | `color.intelligence.tint` | Brand cyan (below) | Markers for AI-generated content: tier badge, citation chips |
 | `color.intelligence.fill` / `color.intelligence.onFill` | Cyan fill and its label colour | Selected citation chip |
 | `color.page.background` | The PDF's own rendering | Never tinted; pages render as authored |
 
-Rule: violet always means "you can act on this"; cyan always means "the intelligence layer produced
-this". The HIG warns against using one colour to mean different things
+Rule: the brand red always means "you can act on this"; cyan always means "the intelligence layer
+produced this". The HIG warns against using one colour to mean different things
 ([Color](https://developer.apple.com/design/human-interface-guidelines/color)).
+
+**Red and destructive actions.** The brand red and the red of destructive actions are almost the
+same colour (`#C41230` and `color.system.destructiveText` `#C2181F` are 1.01:1 against each other),
+so colour cannot tell them apart and nothing relies on it to. A destructive action always has the
+system's destructive role, a symbol or a verb that names the loss ("Delete"), and a confirmation
+when it cannot be undone. A filled red button is never a destructive action, and a bar that holds
+a destructive action keeps its other labels plain (the reader's selection bar sets its tint to the
+label colour).
 
 ### Brand and accent tokens
 
-Values come from the company website's design tokens (organisation brand standard). The Increase
-Contrast variants are **proposed here**; the brand source does not define them (see open questions).
+The red is the product's own ([PAP-047](decision-register.md)); it replaced the organisation's
+violet on 2026-10-07. The cyan and the company mark still come from the company website's design
+tokens (organisation brand standard). The cyan's Increase Contrast variants are **proposed here**;
+the brand source does not define them (see open questions).
 
-| Token | Light | Dark | Light, Increase Contrast (proposed) | Dark, Increase Contrast (proposed) |
+| Token | Light | Dark | Light, Increase Contrast | Dark, Increase Contrast |
 |---|---|---|---|---|
-| `color.brand.tint` | `#6D28D9` | `#A78BFA` | `#4C1D95` | `#C4B5FD` |
-| `color.brand.strong` | `#5B21B6` | `#8B5CF6` | `#4C1D95` | `#C4B5FD` |
-| `color.brand.fill` | `#6D28D9` | `#A78BFA` | `#4C1D95` | `#C4B5FD` |
+| `color.brand.tint` | `#C41230` | `#FF6F7D` | `#881337` | `#FDA4AF` |
+| `color.brand.strong` | `#A30F28` | `#FB4F64` | `#881337` | `#FDA4AF` |
+| `color.brand.fill` | `#C41230` | `#FF6F7D` | `#881337` | `#FDA4AF` |
 | `color.brand.onFill` | `#FFFFFF` | `#08080C` | `#FFFFFF` | `#000000` |
 | `color.intelligence.tint` | `#0E7490` | `#22D3EE` | `#155E75` | `#67E8F9` |
 | `color.intelligence.fill` | `#0E7490` | `#22D3EE` | `#155E75` | `#67E8F9` |
@@ -141,38 +156,34 @@ light), `#F2F2F7` (secondarySystemBackground, light), `#E5E5EA` (a common light 
 surfaces). Apple does not publish these values in the HIG; the parity test resolves them on device
 and recomputes every ratio, so a difference fails the build rather than going unnoticed.
 
-**Brand tokens on their own theme backgrounds (the website pair)**
+**Website tokens on their own theme backgrounds (reference; the brand red is not a website colour)**
 
 | Foreground | Background | Ratio | Body text (4.5:1) | Large text and UI (3:1) |
 |---|---|---|---|---|
 | Dark text `#F4F4F7` | `#08080C` | 18.21:1 | Pass | Pass |
-| Dark brand `#A78BFA` | `#08080C` | 7.35:1 | Pass | Pass |
-| Dark brand-strong `#8B5CF6` | `#08080C` | 4.72:1 | Pass (narrowly) | Pass |
 | Dark accent `#22D3EE` | `#08080C` | 11.06:1 | Pass | Pass |
 | Light text `#111218` | `#FAFAF9` | 17.90:1 | Pass | Pass |
-| Light brand `#6D28D9` | `#FAFAF9` | 6.80:1 | Pass | Pass |
-| Light brand-strong `#5B21B6` | `#FAFAF9` | 8.60:1 | Pass | Pass |
 | Light accent `#0E7490` | `#FAFAF9` | 5.13:1 | Pass | Pass |
 
 **Brand tokens on iOS system backgrounds (how the app actually uses them)**
 
 | Foreground | Background | Ratio | Body text | Large text and UI |
 |---|---|---|---|---|
-| Light brand `#6D28D9` | `#FFFFFF` | 7.10:1 | Pass | Pass |
-| Light brand `#6D28D9` | `#F2F2F7` | 6.37:1 | Pass | Pass |
-| Light brand `#6D28D9` | `#E5E5EA` | 5.66:1 | Pass | Pass |
-| Light brand-strong `#5B21B6` | `#FFFFFF` | 8.98:1 | Pass | Pass |
-| Light brand-strong `#5B21B6` | `#F2F2F7` | 8.05:1 | Pass | Pass |
+| Light brand `#C41230` | `#FFFFFF` | 6.04:1 | Pass | Pass |
+| Light brand `#C41230` | `#F2F2F7` | 5.41:1 | Pass | Pass |
+| Light brand `#C41230` | `#E5E5EA` | 4.81:1 | Pass | Pass |
+| Light brand-strong `#A30F28` | `#FFFFFF` | 7.91:1 | Pass | Pass |
+| Light brand-strong `#A30F28` | `#F2F2F7` | 7.08:1 | Pass | Pass |
 | Light accent `#0E7490` | `#FFFFFF` | 5.36:1 | Pass | Pass |
 | Light accent `#0E7490` | `#F2F2F7` | 4.80:1 | Pass | Pass |
 | Light accent `#0E7490` | `#E5E5EA` | 4.27:1 | **Fail** | Pass |
-| Dark brand `#A78BFA` | `#000000` | 7.72:1 | Pass | Pass |
-| Dark brand `#A78BFA` | `#1C1C1E` | 6.25:1 | Pass | Pass |
-| Dark brand `#A78BFA` | `#2C2C2E` | 5.12:1 | Pass | Pass |
-| Dark brand `#A78BFA` | `#3A3A3C` | 4.17:1 | **Fail** | Pass |
-| Dark brand-strong `#8B5CF6` | `#000000` | 4.96:1 | Pass | Pass |
-| Dark brand-strong `#8B5CF6` | `#1C1C1E` | 4.02:1 | **Fail** | Pass |
-| Dark brand-strong `#8B5CF6` | `#2C2C2E` | 3.29:1 | **Fail** | Pass |
+| Dark brand `#FF6F7D` | `#000000` | 7.82:1 | Pass | Pass |
+| Dark brand `#FF6F7D` | `#1C1C1E` | 6.34:1 | Pass | Pass |
+| Dark brand `#FF6F7D` | `#2C2C2E` | 5.19:1 | Pass | Pass |
+| Dark brand `#FF6F7D` | `#3A3A3C` | 4.23:1 | **Fail** | Pass |
+| Dark brand-strong `#FB4F64` | `#000000` | 6.40:1 | Pass | Pass |
+| Dark brand-strong `#FB4F64` | `#1C1C1E` | 5.19:1 | Pass | Pass |
+| Dark brand-strong `#FB4F64` | `#2C2C2E` | 4.25:1 | **Fail** | Pass |
 | Dark accent `#22D3EE` | `#000000` | 11.62:1 | Pass | Pass |
 | Dark accent `#22D3EE` | `#1C1C1E` | 9.42:1 | Pass | Pass |
 | Dark accent `#22D3EE` | `#2C2C2E` | 7.71:1 | Pass | Pass |
@@ -181,52 +192,55 @@ and recomputes every ratio, so a difference fails the build rather than going un
 
 | Label | Fill | Ratio | Body text | Large text and UI |
 |---|---|---|---|---|
-| `#FFFFFF` | Light brand `#6D28D9` | 7.10:1 | Pass | Pass |
-| `#FFFFFF` | Light brand-strong `#5B21B6` | 8.98:1 | Pass | Pass |
-| `#FFFFFF` | Dark brand `#A78BFA` | 2.72:1 | **Fail** | **Fail** |
-| `#FFFFFF` | Dark brand-strong `#8B5CF6` | 4.23:1 | **Fail** | Pass |
-| `#08080C` | Dark brand `#A78BFA` | 7.35:1 | Pass | Pass |
+| `#FFFFFF` | Light brand `#C41230` | 6.04:1 | Pass | Pass |
+| `#FFFFFF` | Light brand-strong `#A30F28` | 7.91:1 | Pass | Pass |
+| `#FFFFFF` | Dark brand `#FF6F7D` | 2.68:1 | **Fail** | **Fail** |
+| `#FFFFFF` | Dark brand-strong `#FB4F64` | 3.28:1 | **Fail** | Pass |
+| `#08080C` | Dark brand `#FF6F7D` | 7.45:1 | Pass | Pass |
 | `#FFFFFF` | Light accent `#0E7490` | 5.36:1 | Pass | Pass |
 | `#FFFFFF` | Dark accent `#22D3EE` | 1.81:1 | **Fail** | **Fail** |
 | `#08080C` | Dark accent `#22D3EE` | 11.06:1 | Pass | Pass |
 
-**Increase Contrast variants (proposed)**
+**Increase Contrast variants (the cyan values are proposed)**
 
 | Foreground | Background | Ratio |
 |---|---|---|
-| `#4C1D95` | `#FFFFFF` / `#F2F2F7` / `#E5E5EA` | 10.95:1 / 9.82:1 / 8.73:1 |
-| `#C4B5FD` | `#000000` / `#1C1C1E` / `#2C2C2E` | 11.38:1 / 9.22:1 / 7.55:1 |
+| `#881337` | `#FFFFFF` / `#F2F2F7` / `#E5E5EA` | 9.57:1 / 8.57:1 / 7.62:1 |
+| `#FDA4AF` | `#000000` / `#1C1C1E` / `#2C2C2E` | 11.11:1 / 9.00:1 / 7.37:1 |
 | `#155E75` | `#FFFFFF` / `#F2F2F7` | 7.27:1 / 6.51:1 |
 | `#67E8F9` | `#000000` / `#1C1C1E` | 14.49:1 / 11.74:1 |
-| `#FFFFFF` on `#4C1D95`; `#000000` on `#C4B5FD` | — | 10.95:1; 11.38:1 |
+| `#FFFFFF` on `#881337`; `#000000` on `#FDA4AF` | — | 9.57:1; 11.11:1 |
 
 **Tokens used in the wrong appearance, and the logo**
 
 | Foreground | Background | Ratio | Result |
 |---|---|---|---|
-| Light brand `#6D28D9` | Dark `#08080C` | 2.81:1 | **Fail** |
-| Dark brand `#A78BFA` | Light `#FAFAF9` | 2.61:1 | **Fail** |
+| Light brand `#C41230` | Dark `#08080C` | 3.31:1 | **Fail** |
+| Dark brand `#FF6F7D` | Light `#FAFAF9` | 2.57:1 | **Fail** |
 | Dark accent `#22D3EE` | Light `#FAFAF9` | 1.73:1 | **Fail** |
 | Logo `#6D00FF` | `#FAFAF9` / `#08080C` / `#000000` | 6.50:1 / 2.95:1 / 3.09:1 | Below 3:1 on `#08080C` |
 | Logo `#7658E7` | `#FAFAF9` / `#08080C` / `#000000` | 4.65:1 / 4.11:1 / 4.32:1 | Above 3:1 |
 
 ### Colour rules from the measurements
 
-1. **Every brand token passes AA for body text on its own website background** (lowest: dark
-   brand-strong, 4.72:1).
-2. **Dark brand-strong `#8B5CF6` is not a body-text colour in the app.** It fails on the dark
-   secondary and tertiary surfaces (4.02:1 and 3.29:1). It is limited to large text (18 points or
-   more, or bold), symbols and focus rings; body text uses `color.brand.tint`.
-3. **Dark prominent buttons use a dark label.** White on `#A78BFA` is 2.72:1 and white on
-   `#8B5CF6` is 4.23:1. `color.brand.onFill` is `#08080C` in dark (7.35:1). The same applies to the
+1. **The brand red passes AA for body text on every primary, secondary and grouped system
+   background, in all four appearances** (lowest: light on `#E5E5EA`, 4.81:1). The design-system
+   tests resolve the system backgrounds on the device and check it.
+2. **Dark brand-strong `#FB4F64` is not a body-text colour in the app.** It fails on the dark
+   tertiary surface (4.25:1). It is limited to large text (18 points or more, or bold), symbols
+   and focus rings; body text uses `color.brand.tint`.
+3. **Dark prominent buttons use a dark label.** White on `#FF6F7D` is 2.68:1 and white on
+   `#FB4F64` is 3.28:1. `color.brand.onFill` is `#08080C` in dark (7.45:1). The same applies to the
    cyan fill (white on `#22D3EE` is 1.81:1). `PrimaryButton` sets the label colour explicitly; the
    default white label of a tinted system button is never relied on in dark.
-4. **No brand text on the darkest elevated fills.** Dark brand `#A78BFA` on `#3A3A3C` is 4.17:1 and
+4. **No brand text on the darkest elevated fills.** Dark brand `#FF6F7D` on `#3A3A3C` is 4.23:1 and
    light accent `#0E7490` on `#E5E5EA` is 4.27:1. Tinted text sits on primary, secondary or grouped
    backgrounds only; on fills, use `color.label.primary` with a tinted symbol.
 5. **Tokens always resolve per appearance.** Used in the wrong appearance, the brand colours fail
-   (1.73:1 to 2.81:1). Tokens are asset-catalog colours with all four variants; a single hex value in
-   feature code is blocked by the `invariants` gate.
+   (1.73:1 to 3.31:1). Tokens are dynamic colours with all four variants, generated from
+   `design/tokens.json`; the app's accent colour in the asset catalog is written by the same
+   generator, whose check fails when the two differ. A single hex value in feature code is blocked
+   by the `invariants` gate.
 6. **Liquid Glass changes contrast.** Tinted glass takes colour from content behind it
    ([Color, Liquid Glass color](https://developer.apple.com/design/human-interface-guidelines/color)).
    The two custom glass controls are snapshot-tested over light pages, dark pages and photographs;
@@ -255,37 +269,41 @@ Increase Contrast, and suggests a brand colour as the app accent in apps with mo
 content ([Color](https://developer.apple.com/design/human-interface-guidelines/color)). PDFs are
 colourful content, so the chrome stays neutral and the accent does the brand work.
 **Trade-offs.** Less brand presence than a fully branded theme; two extra colour families
-(violet and cyan) to keep meaningful. **Alternatives considered.** A fully branded dark theme like
+(red and cyan) to keep meaningful. **Alternatives considered.** A fully branded dark theme like
 the website (fights document colours, loses system adaptivity, more contrast risk). System blue with
-no brand (loses identity). **Risks.** Violet near the system purple could read as a system state;
-mitigated by using it only for interaction. **Future scalability impact.** The same tokens carry to
+no brand (loses identity). Solid red navigation bars on every screen, as other apps in the category
+have (a pattern from other platforms that fights Liquid Glass and puts red chrome over documents).
+**Risks.** The brand red is the colour of destructive actions; mitigated by the rule above and by
+keeping red off working screens. A red app in a category of red apps is less distinct than the
+violet was; the icon's sparkle and the cyan marker carry the difference. **Future scalability impact.** The same tokens carry to
 iPad, Mac and visionOS; Mac honours the user's own accent colour when it is not "multicolour"
 ([Color](https://developer.apple.com/design/human-interface-guidelines/color)), which the Mac adapter
 allows. **Pillars served.** PIL-7 Native Apple Experience.
 
 ## App icon
 
-Version 2, approved by the owner on 2026-10-01. `scripts/design/make_app_icon.swift` draws it from
+Version 3: the artwork of version 2 (approved by the owner on 2026-10-01) on a red field, decided
+on 2026-10-07 ([PAP-047](decision-register.md)). `scripts/design/make_app_icon.swift` draws it from
 `design/tokens.json` and writes both icon sets; never edit the PNGs by hand.
 
 | Element | Default appearance | Dark | Tinted |
 |---|---|---|---|
-| Field | Diagonal gradient, top left to bottom right: `color.icon.gradientStart` `#F43F5E`, `color.icon.gradientMid` `#C026D3` at 55%, `color.brand.tint` `#6D28D9` | Transparent (the system draws it) | Transparent |
-| Page, 61% of the width, with a folded corner | White; fold `color.icon.fold` `#DDD6FE` | The field gradient | White |
+| Field | Diagonal gradient, top left to bottom right: `color.icon.gradientStart` `#FF5468`, `color.icon.gradientMid` `#E11D48` at 55%, `color.brand.tint` `#C41230` | Transparent (the system draws it) | Transparent |
+| Page, 61% of the width, with a folded corner | White; fold `color.icon.fold` `#FECDD3` | The field gradient | White |
 | "PDF" mark and the rule under it | `color.brand.tint` | Cut out of the page | Cut out of the page |
 | Sparkle over the top-left corner of the page | `color.intelligence.tint` (dark value) with a white ring | The same, with a cut-out ring | Grey |
 | Beta badge (Staging only) | `color.icon.stagingBadge` `#F59E0B` pill with a white "β" | The same | White pill, cut-out "β" |
 
-- **Why a warm field.** Observation (App Store search for "pdf editor", iPhone, 2026-10-01): every
-  result above the fold used a red icon with a large page or a "PDF" mark, and the interim violet
-  icon with a small page read as generic beside them. The field starts in the category's red and
-  ends in the brand violet, so the icon is recognised as a PDF app and still differs from the
-  others.
-- **Assumption:** the gradient icon is recognised faster in search than a plain red or plain violet
-  one. Validation plan: the alternate-icon test in the
+- **Why a red field.** Observation (App Store search for "pdf editor", iPhone, 2026-10-01): every
+  result above the fold used a red icon with a large page or a "PDF" mark. Version 2 ended its
+  field in the brand violet to differ from them; with the brand now red, the field is red
+  throughout, lighter at the top left and deepest at the bottom right. What is meant to set the
+  icon apart now is the cyan sparkle with its white ring.
+- **Assumption:** a red icon with the sparkle is recognised as a PDF app and is still told apart
+  from the others. Validation plan: the alternate-icon test in the
   [App Store strategy](app-store-strategy.md) once the app is live.
 - **The icon colours are for the icon only.** `color.icon.*` never appears in the interface as a
-  colour; there, violet still means "you can act on this" and cyan still means the intelligence
+  colour; there, the brand red means "you can act on this" and cyan means the intelligence
   layer. The icon itself does appear, as an image: `AppMark` shows it on Home, in Settings and in
   About (PAP-040). The script writes that image (`AppMark.png` in the `DesignSystem` package) from
   the same artwork, and the `invariants` gate checks it is there.
@@ -294,9 +312,9 @@ Version 2, approved by the owner on 2026-10-01. `scripts/design/make_app_icon.sw
   build configuration in `project.yml`.
 - **Liquid Glass.** The script also writes an Icon Composer document for each set (`AppIcon.icon`,
   `AppIcon-Staging.icon`) with the page, the sparkle and the badge as separate glass layers over a
-  crimson-to-violet fill. The build uses the document, and iOS draws the dark, tinted and clear
+  red fill. The build uses the document, and iOS draws the dark, tinted and clear
   appearances from it. An Icon Composer fill takes two colours and runs top to bottom, so there the
-  field goes from crimson straight to violet without the magenta stop.
+  field goes from `color.icon.gradientStart` straight to `color.brand.tint` without the middle stop.
 - `scripts/ci/invariants.py` checks that the default image of each set is an opaque 1024 × 1024 PNG
   and that each Icon Composer document has all its layer images.
 
@@ -834,7 +852,7 @@ Figma library) in the [readiness review](readiness-review.md). The action:
 
 ## Open questions
 
-- **Increase Contrast brand values.** The proposed `#4C1D95`, `#C4B5FD`, `#155E75` and `#67E8F9` pass
+- **Increase Contrast cyan values.** The proposed `#155E75` and `#67E8F9` pass
   AAA; the brand owner confirms them or supplies others.
 - **Typed signature typeface.** Which installed system script face to use, and whether a typed
   signature meets users' expectations in Australia and France.

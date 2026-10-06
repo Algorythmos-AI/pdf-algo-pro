@@ -20,11 +20,12 @@ struct DesignTokenTests {
   @Test("Brand colours resolve differently in each of the four appearances")
   func brandResolvesPerAppearance() {
     let tint = DynamicColor.uiColor(
-      light: RGB(0.4275, 0.1569, 0.8510), dark: RGB(0.6549, 0.5451, 0.9804),
-      lightHighContrast: RGB(0.2980, 0.1137, 0.5843), darkHighContrast: RGB(0.7686, 0.7098, 0.9922))
+      light: RGB(0.7686, 0.0706, 0.1882), dark: RGB(1.0000, 0.4353, 0.4902),
+      lightHighContrast: RGB(0.5333, 0.0745, 0.2157), darkHighContrast: RGB(0.9922, 0.6431, 0.6863))
     let values = DynamicColor.Appearance.allCases.map { rgb(tint, in: $0) }
-    #expect(Set(values.map { "\(Int($0.red * 255))" }).count == 4)
-    #expect(abs(values[0].red - 0.4275) < 1 / 255)
+    // Whole colours are compared: in a red family two appearances can share a red channel.
+    #expect(Set(values.map { "\(Int($0.red * 255)) \(Int($0.green * 255)) \(Int($0.blue * 255))" }).count == 4)
+    #expect(abs(values[0].red - 0.7686) < 1 / 255)
   }
 
   @Test("A prominent button's label meets 4.5:1 on its fill in every appearance (colour rule 3)")
@@ -40,8 +41,8 @@ struct DesignTokenTests {
   @Test("Brand tint meets 4.5:1 on system backgrounds in every appearance (WCAG 2.2 AA)")
   func brandTintContrast() {
     let tint = DynamicColor.uiColor(
-      light: RGB(0.4275, 0.1569, 0.8510), dark: RGB(0.6549, 0.5451, 0.9804),
-      lightHighContrast: RGB(0.2980, 0.1137, 0.5843), darkHighContrast: RGB(0.7686, 0.7098, 0.9922))
+      light: RGB(0.7686, 0.0706, 0.1882), dark: RGB(1.0000, 0.4353, 0.4902),
+      lightHighContrast: RGB(0.5333, 0.0745, 0.2157), darkHighContrast: RGB(0.9922, 0.6431, 0.6863))
     for appearance in DynamicColor.Appearance.allCases {
       for background in [SystemColorName.systemBackground, .systemGroupedBackground] {
         let ratio = RGB.contrast(rgb(tint, in: appearance), rgb(background.uiColor, in: appearance))

@@ -9,6 +9,9 @@ Rules checked on every run:
   * every declared contrast pair meets its minimum WCAG 2.2 ratio in every appearance;
   * spacing tokens are multiples of 4 (the 8-point grid with 4-point half-steps);
   * opacity tokens are between 0 and 1.
+
+It also writes the app's accent colour (AccentColor.colorset) from `color.brand.tint`, and `--check`
+fails when that asset differs from the tokens.
 """
 from __future__ import annotations
 
@@ -19,6 +22,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 TOKENS = ROOT / "design" / "tokens.json"
 OUTPUT = ROOT / "Packages" / "DesignSystem" / "Sources" / "DesignSystem" / "Generated" / "Tokens.swift"
+# The app's accent colour, which system controls take their tint from: `color.brand.tint`, written
+# here so the asset catalog cannot drift from the tokens.
+ACCENT = ROOT / "App" / "PDFAlgoPro" / "Resources" / "Assets.xcassets" / "AccentColor.colorset" / "Contents.json"
 APPEARANCES = ("light", "dark", "lightHighContrast", "darkHighContrast")
 EXTENSION = "com.algorythmos.appearances"
 # Colour groups whose tokens carry a value for each appearance. `color.icon` is for the app icon alone
@@ -129,19 +135,42 @@ def render(tokens: dict) -> str:
     return "\n".join(lines)
 
 
+def render_accent(tokens: dict) -> str:
+    values = tokens["color"]["brand"]["tint"]["$extensions"][EXTENSION]
+    dark = {"appearance": "luminosity", "value": "dark"}
+    high = {"appearance": "contrast", "value": "high"}
+    colors = []
+    for appearance, traits in (("light", []), ("dark", [dark]), ("lightHighContrast", [high]), ("darkHighContrast", [dark, high])):
+        value = values[appearance].lstrip("#").upper()
+        entry: dict = {"idiom": "universal"}
+        if traits:
+            entry["appearances"] = traits
+        entry["color"] = {
+            "color-space": "srgb",
+            "components": {"alpha": "1.000", "red": f"0x{value[0:2]}", "green": f"0x{value[2:4]}", "blue": f"0x{value[4:6]}"},
+        }
+        colors.append(entry)
+    return json.dumps({"colors": colors, "info": {"author": "xcode", "version": 1}}, indent=2)
+
+
 def main() -> int:
     tokens = json.loads(TOKENS.read_text(encoding="utf-8"))
     errors = check(tokens)
     for e in errors:
         print(f"::error::{e}")
     rendered = render(tokens)
+    accent = render_accent(tokens)
     if "--check" in sys.argv:
         if not OUTPUT.exists() or OUTPUT.read_text(encoding="utf-8") != rendered:
             print("::error::Packages/DesignSystem Generated/Tokens.swift is stale; run scripts/design/generate_tokens.py")
             errors.append("stale")
+        if not ACCENT.exists() or ACCENT.read_text(encoding="utf-8") != accent:
+            print("::error::AccentColor.colorset differs from color.brand.tint; run scripts/design/generate_tokens.py")
+            errors.append("stale accent")
     elif not errors:
         OUTPUT.parent.mkdir(parents=True, exist_ok=True)
         OUTPUT.write_text(rendered, encoding="utf-8")
+        ACCENT.write_text(accent, encoding="utf-8")
     print(f"design tokens: {len(errors)} problem(s)")
     return 1 if errors else 0
 

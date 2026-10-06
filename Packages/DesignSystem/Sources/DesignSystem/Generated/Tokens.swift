@@ -4,12 +4,12 @@ import SwiftUI
 
 /// Colour tokens (docs/design-system.md). Brand tokens resolve per appearance, including Increase Contrast.
 public struct DesignColors: Sendable {
-  /// `color.brand.tint`: light #6D28D9, dark #A78BFA, lightHighContrast #4C1D95, darkHighContrast #C4B5FD.
-  public var brandTint: Color { DynamicColor.make(light: RGB(0.4275, 0.1569, 0.8510), dark: RGB(0.6549, 0.5451, 0.9804), lightHighContrast: RGB(0.2980, 0.1137, 0.5843), darkHighContrast: RGB(0.7686, 0.7098, 0.9922)) }
-  /// `color.brand.strong`: light #5B21B6, dark #8B5CF6, lightHighContrast #4C1D95, darkHighContrast #C4B5FD.
-  public var brandStrong: Color { DynamicColor.make(light: RGB(0.3569, 0.1294, 0.7137), dark: RGB(0.5451, 0.3608, 0.9647), lightHighContrast: RGB(0.2980, 0.1137, 0.5843), darkHighContrast: RGB(0.7686, 0.7098, 0.9922)) }
-  /// `color.brand.fill`: light #6D28D9, dark #A78BFA, lightHighContrast #4C1D95, darkHighContrast #C4B5FD.
-  public var brandFill: Color { DynamicColor.make(light: RGB(0.4275, 0.1569, 0.8510), dark: RGB(0.6549, 0.5451, 0.9804), lightHighContrast: RGB(0.2980, 0.1137, 0.5843), darkHighContrast: RGB(0.7686, 0.7098, 0.9922)) }
+  /// `color.brand.tint`: light #C41230, dark #FF6F7D, lightHighContrast #881337, darkHighContrast #FDA4AF.
+  public var brandTint: Color { DynamicColor.make(light: RGB(0.7686, 0.0706, 0.1882), dark: RGB(1.0000, 0.4353, 0.4902), lightHighContrast: RGB(0.5333, 0.0745, 0.2157), darkHighContrast: RGB(0.9922, 0.6431, 0.6863)) }
+  /// `color.brand.strong`: light #A30F28, dark #FB4F64, lightHighContrast #881337, darkHighContrast #FDA4AF.
+  public var brandStrong: Color { DynamicColor.make(light: RGB(0.6392, 0.0588, 0.1569), dark: RGB(0.9843, 0.3098, 0.3922), lightHighContrast: RGB(0.5333, 0.0745, 0.2157), darkHighContrast: RGB(0.9922, 0.6431, 0.6863)) }
+  /// `color.brand.fill`: light #C41230, dark #FF6F7D, lightHighContrast #881337, darkHighContrast #FDA4AF.
+  public var brandFill: Color { DynamicColor.make(light: RGB(0.7686, 0.0706, 0.1882), dark: RGB(1.0000, 0.4353, 0.4902), lightHighContrast: RGB(0.5333, 0.0745, 0.2157), darkHighContrast: RGB(0.9922, 0.6431, 0.6863)) }
   /// `color.brand.onFill`: light #FFFFFF, dark #08080C, lightHighContrast #FFFFFF, darkHighContrast #000000.
   public var brandOnFill: Color { DynamicColor.make(light: RGB(1.0000, 1.0000, 1.0000), dark: RGB(0.0314, 0.0314, 0.0471), lightHighContrast: RGB(1.0000, 1.0000, 1.0000), darkHighContrast: RGB(0.0000, 0.0000, 0.0000)) }
   /// `color.intelligence.tint`: light #0E7490, dark #22D3EE, lightHighContrast #155E75, darkHighContrast #67E8F9.
@@ -58,6 +58,8 @@ public struct DesignColors: Sendable {
   public var destructiveText: Color { DynamicColor.make(light: RGB(0.7608, 0.0941, 0.1216), dark: RGB(1.0000, 0.5412, 0.5412), lightHighContrast: RGB(0.6235, 0.0627, 0.0863), darkHighContrast: RGB(1.0000, 0.6039, 0.6039)) }
   /// Resolves to the system colour `link`.
   public var link: Color { DynamicColor.system(.link) }
+  /// Resolves to the system colour `systemBlue`.
+  public var selection: Color { DynamicColor.system(.systemBlue) }
 }
 
 /// Spacing tokens: an 8-point grid with 4-point half-steps.

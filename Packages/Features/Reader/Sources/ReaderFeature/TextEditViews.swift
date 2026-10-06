@@ -125,7 +125,9 @@ struct TextEditLayer: View {
           .frame(width: max(frame.width + 24, geometry.size.width - frame.minX - Spacing.s200), height: frame.height)
           // The field covers the old words while new ones are typed, in a colour the text shows on.
           .background(Self.isLight(selection.region) ? Color.black : Color.white)
-          .overlay(alignment: .bottom) { Rectangle().fill(Color.ds.brandTint).frame(height: 1.5) }
+          .overlay(alignment: .bottom) { Rectangle().fill(Color.ds.selection).frame(height: 1.5) }
+          // The caret too: in the app's red it would read as a mistake in the text.
+          .tint(Color.ds.selection)
           .offset(x: frame.minX - 2, y: frame.minY)
         }
       }

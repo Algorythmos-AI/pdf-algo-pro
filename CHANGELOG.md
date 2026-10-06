@@ -9,6 +9,11 @@ Store notes (see the changelog strategy).
 
 ## [Unreleased]
 
+### Changed
+- A new look: red on white. Buttons, tiles and the app icon are now red, and screens stay white
+  (or dark in Dark Mode). On a document, what you select is outlined in blue, so that red there
+  only ever means a red annotation or Delete.
+
 ### Added
 - Editing text (internal builds): move a line of a PDF's own text. Tap Edit, press and hold a line,
   and drag it to where you want it. The line moves in the page itself and can be undone; it is not

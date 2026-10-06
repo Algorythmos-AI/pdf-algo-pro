@@ -123,6 +123,9 @@ final class PDFReaderHostView: PDFView {
       isFindInteractionEnabled = true
       pageShadowsEnabled = true
       backgroundColor = .secondarySystemBackground
+      // Selection on a page is the system's blue, not the app's red accent: on a document, red is an
+      // annotation colour and the colour of Delete. The outlines below and the page overlays inherit it.
+      tintColor = .systemBlue
     #endif
     pageObserver = NotificationCenter.default.addObserver(forName: .PDFViewPageChanged, object: self, queue: .main) {
       [weak self, weak controller] _ in
