@@ -1,6 +1,6 @@
 # ADR-0011: StoreKit 2 subscriptions without a third-party SDK
 
-**Status:** accepted (2026-09-28)
+**Status:** accepted (2026-09-28); the plans and the paywall's placement are superseded by [ADR-0026](0026-first-run-subscription-offer-and-plans.md) (2026-10-07), and StoreKit 2 without a third-party SDK stands
 
 **Context.** The business model is freemium with a Pro subscription and fair-use AI credits. Subscriptions must meet App Store rules and never block first value.
 

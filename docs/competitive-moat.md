@@ -58,8 +58,9 @@ built in four reinforcing layers:
 3. **Native Apple depth.** Documents as App Intents entities for Siri and Spotlight, Control Center
    scan, Share and Action extensions, widgets, open in place from Files, multi-window on iPad
    ([ADR-0022](adr/0022-apple-first-capability-baseline.md)).
-4. **Trust as a business model.** No trial traps, no forced sign-in, AI that can be hidden, no
-   paywall on the user's own files ([founder principles](founder-principles.md)).
+4. **Trust as a business model.** No trial traps (a reminder before a trial ends, and an offer
+   that closes at once), no forced sign-in, AI that can be hidden, no paywall on the user's own
+   files ([founder principles](founder-principles.md)).
 
 The layers compound. Private intelligence makes people willing to bring sensitive documents; more
 documents make library-wide answers more valuable; native integration puts the app where documents
