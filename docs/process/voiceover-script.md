@@ -45,16 +45,24 @@ Record anything that fails as an issue with the `accessibility` label, with the 
 2. Swipe through the choices: the four AI choices come first ("Chat with PDF", "Summarise
    document", "Extract data with AI", "Analyse contract"), then the other tasks. Each says whether
    it is selected, and choices not in this version say they are coming later.
-3. Select two choices, then activate "Continue". The library opens and the choice you made first
-   leads the empty state.
+3. Select two choices, then activate "Continue". Home opens and the choice you made first is the
+   first of its actions.
 
-### 2. Library
+### 2. Home and the library
 
-1. The empty state reads its heading, "No documents yet", and the three actions.
-2. Activate "Try a sample". The sample opens in the reader.
-3. Go back to the library. The sample's row reads its title, and the rotor's Actions item offers
+1. Home reads "PDF Algo Pro", then "Your library, No documents yet" as one heading, then the
+   actions (Import, Scan), the line about what can be done, and "Try a sample". The app's mark is
+   not read: the name beside it says the same.
+2. Each section reads its name and how many documents it holds, for example "All documents,
+   0 documents". The footer reads "Your documents stay on this device." and "Algorythmos, Built by
+   Algorythmos".
+3. Activate "All documents". The empty state reads its heading, "No documents yet", and the three
+   actions. Activate "Try a sample". The sample opens in the reader.
+4. Go back to the library. The sample's row reads its title, and the rotor's Actions item offers
    the row's swipe actions, Favourite among them. Favourite it, and check that the row now says so.
-4. Open Settings from the toolbar, then close it with a two-finger scrub.
+5. Go back to Home. "Continue reading" is a heading and the sample is under it; the counts now read
+   "All documents, 1 document" and "Favourites, 1 document".
+6. Open Settings from the toolbar, then close it with a two-finger scrub.
 
 ### 3. Reader
 
