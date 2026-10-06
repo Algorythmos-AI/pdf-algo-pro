@@ -7,7 +7,7 @@ lives in the linked documents.
 
 Owner: Maintainer · Reviewed: every pull request that changes state; at least monthly
 
-Last updated: 2026-10-06
+Last updated: 2026-10-07
 
 ## Current phase
 
@@ -23,6 +23,7 @@ building it are PAP-031 and PAP-032. The readiness gate is still **NOT READY** f
 
 | Item | State | Next step |
 |---|---|---|
+| First run, subscription and free allowance ([ADR-0026](adr/0026-first-run-subscription-offer-and-plans.md), PAP-042 to PAP-045) | Decided on 2026-10-07 and specified in the PRD, pricing strategy and design system; nothing of it is built. The app still shows the intent question on first launch, has no purchase screen and meters nothing | Store foundation (product catalogue, entitlement store, allowance, StoreKit test configuration), then the introduction, offer and confirmation. Owner: paid-app agreements, the Family Sharing decision, then the subscription group and products for the production and Staging apps |
 | Editing existing text (FR-EDIT-001, [ADR-0025](adr/0025-native-text-editing-for-the-safe-subset.md)) | On `integration` since 2026-10-04 and in the Staging build of 2026-10-05, behind the `textEditing` release flag (on in Debug and Staging, off in Release) and the Pro access value; no purchase flow yet | ADR-0025 accepted (PAP-036). Owner's first device run (2026-10-05) found Edit dead after a document was opened a second time: the page view stayed bound to the first load. Fixed on `fix/dependable-text-editing` with one picking path, outlines that cannot go stale, time limits and a content-free editing summary in Report a problem. The owner confirmed editing on the phone; a second defect (edits to documents in a typeface the device lacks were refused; no way to finish) was fixed in #145 with a guarantee of no dead ends (PAP-039), and a synthetic corpus now checks every line of fifteen kinds of document. Next: the owner sweeps a folder of their own PDFs with the local probe, then runs the [text editing device test](process/text-editing-device-test.md), including its new "Staying dependable" rows; the flag goes on in Release only after it is signed off |
 | TestFlight readiness ([#47](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/47)) | On `integration`: version history, signed PDFs saved as a copy, one writer per document, App Lock, follow-up questions, the privacy report, whole-library search, document info, multi-select and merge, moving and resizing annotations, read aloud across pages, link confirmation, stamps, bookmarks, the annotation list, scan review, CSV file, the Siri summary, the rating request, app icon v2 with Liquid Glass. Foundations not yet used by a screen: the kill-switch package, the AI routing policy with consent, and the Commerce package | The owner gives the go for the Staging build; device checks in the [device smoke test](process/device-smoke-test.md) |
 | Independent PDF validation (plan B2) | qpdf and PDFium in CI, and Core Graphics in the corpus tests; the save suites run under Thread Sanitizer. All advisory | Make the jobs required after two weeks; [#96](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/96) is a quirk of the synthetic input |
@@ -48,7 +49,8 @@ building it are PAP-031 and PAP-032. The readiness gate is still **NOT READY** f
 
 ## Open questions
 
-- PRD OQ-1 to OQ-5 ([PRD](prd.md#open-questions)).
+- PRD OQ-1 to OQ-5 ([PRD](prd.md#open-questions)). OQ-2 (the two allowance numbers) and OQ-5 (Family
+  Sharing) now block the subscription products.
 - Legal review items LR-01 to LR-21 ([compliance roadmap](compliance-roadmap.md)).
 - Whether Private Cloud Compute counts as "third-party AI" under Guideline 5.1.2(i); consent is
   shown regardless.
@@ -62,6 +64,10 @@ The last ten, newest first; all decisions are in the [decision register](decisio
 
 | ID | Decision |
 |---|---|
+| PAP-045 | First run becomes three introduction pages; the intent question moves to Settings; a one-time tip on Home; a confirmation after purchase |
+| PAP-044 | The free tier meters scans saved and intelligence requests per day; Pro removes the limits and adds text editing; existing documents are never gated |
+| PAP-043 | Pro is a weekly and an annual plan, with the trial on the weekly plan; supersedes "no weekly plans" |
+| PAP-042 | The subscription offer may show once at the end of first run, closable at once; supersedes "no paywall before first value" |
 | PAP-040 | On iPhone the app opens on Home (mark, starting actions, recent documents, sections with counts, trust footer); the brand shows in a few signature moments on Home, in Settings and in About |
 | PAP-039 | An edit that cannot be proven is covered automatically and announced; pages are rehearsed; the proof compares baselines |
 | PAP-038 | Privacy policy, terms, support and product pages live on algorythmos.com and linked from Settings; support address pdfalgopro@algorythmos.com; drift guards in CI and the release workflow |

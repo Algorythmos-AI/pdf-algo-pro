@@ -40,7 +40,7 @@ Owner: Product · Reviewed: at the end of each phase
 | Fill forms; sign with ink signatures kept in the Keychain | PIL-2, PIL-5 |
 | Scan with the document camera; on-device OCR; searchable PDFs | PIL-3, PIL-5, PIL-6 |
 | On-device intelligence: summarise, ask with page citations, extract fields | PIL-4, PIL-5, PIL-6 |
-| Onboarding intent picker (AI-first options on top) | PIL-4, PIL-7 |
+| Onboarding intent picker (AI-first options on top); replaced in V1 by the introduction pages | PIL-4, PIL-7 |
 | Share extension, App Intents, Spotlight, Files integration, drag and drop | PIL-7 |
 | Privacy manifest, MetricKit, on-device diagnostics | PIL-5 |
 
@@ -55,7 +55,8 @@ Owner: Product · Reviewed: at the end of each phase
 | Password protection and app lock | PIL-5 |
 | "Analyse Contract" with a not-legal-advice disclosure | PIL-4 |
 | Opt-in Private Cloud Compute tier for long documents | PIL-4, PIL-5 |
-| Subscriptions (StoreKit 2), honest paywall after first value | PIL-7 |
+| First-run introduction pages, a one-time tip on Home | PIL-4, PIL-7 |
+| Subscriptions (StoreKit 2): weekly and annual plans, a closable offer at the end of first run, a free daily allowance, a confirmation after purchase | PIL-5, PIL-7 |
 | Widgets, Control Center scan control, Action extension | PIL-7 |
 | English and French throughout | PIL-7 |
 
