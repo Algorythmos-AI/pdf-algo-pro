@@ -197,18 +197,26 @@ public struct TextEdit: Hashable, Sendable {
   public let original: String
   /// The new text.
   public let replacement: String
+  /// How far to move the text, in page points; zero leaves it where it is.
+  ///
+  /// With `replacement` the same as the region's text, the edit only moves it.
+  public let offset: CGVector
 
   /// Creates an edit of a region.
-  public init(region: EditableTextRegion, replacement: String) {
-    self.init(region: region, original: region.text, replacement: replacement)
+  public init(region: EditableTextRegion, replacement: String, offset: CGVector = .zero) {
+    self.init(region: region, original: region.text, replacement: replacement, offset: offset)
   }
 
   /// Creates an edit of a region, saying what the region's text was when the edit was made.
-  public init(region: EditableTextRegion, original: String, replacement: String) {
+  public init(region: EditableTextRegion, original: String, replacement: String, offset: CGVector = .zero) {
     regionID = region.id
     self.original = original
     self.replacement = replacement
+    self.offset = offset
   }
+
+  /// Whether the edit moves the text.
+  public var moves: Bool { offset != .zero }
 }
 
 /// How an edit was made.

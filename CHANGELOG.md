@@ -10,6 +10,9 @@ Store notes (see the changelog strategy).
 ## [Unreleased]
 
 ### Added
+- Editing text (internal builds): move a line of a PDF's own text. Tap Edit, press and hold a line,
+  and drag it to where you want it. The line moves in the page itself and can be undone; it is not
+  moved on top of other content.
 - Settings › About is now a page of its own: the app's version, the privacy policy, terms and
   support, a way to share PDF Algo Pro, and who makes it.
 - The app opens on a new Home: scan or import in one tap, pick up the documents you opened last,

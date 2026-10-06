@@ -92,6 +92,9 @@ final class PDFReaderHostView: PDFView {
     private var transformOffset = CGSize.zero
     private var transformScale: CGFloat = 1
     private var hasGestures = false
+    private lazy var liftDelegate = LiftGestureDelegate(host: self)
+    /// The text being dragged: what it is, where the finger took hold, and its picture.
+    private var lift: (selection: TextRegionSelection, origin: CGPoint, picture: UIView)?
   #endif
 
   /// Binds the view to a document's controller.
@@ -169,6 +172,12 @@ final class PDFReaderHostView: PDFView {
       let pinch = UIPinchGestureRecognizer(target: self, action: #selector(pinched(_:)))
       pinch.delegate = transformDelegate
       addGestureRecognizer(pinch)
+      // While text is being edited, pressing on a line and holding lifts it, and the drag that
+      // follows moves it (FR-EDIT-009). A quick drag still scrolls and a tap still picks.
+      let lift = UILongPressGestureRecognizer(target: self, action: #selector(lifted(_:)))
+      lift.minimumPressDuration = 0.35
+      lift.delegate = liftDelegate
+      addGestureRecognizer(lift)
     }
   #endif
 
@@ -362,6 +371,67 @@ final class PDFReaderHostView: PDFView {
       controller.selectAnnotation(at: convert(point, to: page), onPage: document.index(for: page))
     }
 
+    /// The text a press at a point in this view would lift, while text is being edited and none
+    /// is picked.
+    fileprivate func liftableText(at point: CGPoint) -> TextRegionSelection? {
+      guard let controller, controller.isEditingText, controller.selectedTextRegion == nil, let document,
+        let page = page(for: point, nearest: false)
+      else { return nil }
+      let pageIndex = document.index(for: page)
+      let reach = 12 / max(scaleFactor, 0.1)
+      guard pageIndex != NSNotFound,
+        let region = controller.knownTextRegion(at: convert(point, to: page), onPage: pageIndex, reach: reach),
+        region.isUpright || region.capability.editsContent
+      else { return nil }
+      return TextRegionSelection(pageIndex: pageIndex, region: region)
+    }
+
+    /// Lifts a line of text under a long press, carries its picture with the finger, and on
+    /// letting go asks for the text to be moved there.
+    @objc fileprivate func lifted(_ recognizer: UILongPressGestureRecognizer) {
+      let point = recognizer.location(in: self)
+      switch recognizer.state {
+      case .began:
+        guard let selection = liftableText(at: point), let page = document?.page(at: selection.pageIndex) else {
+          recognizer.state = .cancelled
+          return
+        }
+        let frame = convert(selection.region.bounds, from: page).insetBy(dx: -3, dy: -2)
+        // A picture of the line as it is on screen, raised a little, so it is plain what is held.
+        let picture = resizableSnapshotView(from: frame, afterScreenUpdates: false, withCapInsets: .zero) ?? UIView()
+        picture.frame = frame
+        picture.layer.borderColor = tintColor.cgColor
+        picture.layer.borderWidth = 1.5
+        picture.layer.cornerRadius = 3
+        picture.layer.shadowColor = UIColor.black.cgColor
+        picture.layer.shadowOpacity = 0.25
+        picture.layer.shadowRadius = 6
+        picture.layer.shadowOffset = CGSize(width: 0, height: 3)
+        picture.isUserInteractionEnabled = false
+        addSubview(picture)
+        lift = (selection, point, picture)
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+      case .changed:
+        guard let lift, let page = document?.page(at: lift.selection.pageIndex) else { return }
+        let frame = convert(lift.selection.region.bounds, from: page).insetBy(dx: -3, dy: -2)
+        lift.picture.frame = frame.offsetBy(dx: point.x - lift.origin.x, dy: point.y - lift.origin.y)
+      case .ended:
+        guard let lift, let page = document?.page(at: lift.selection.pageIndex) else { return }
+        lift.picture.removeFromSuperview()
+        self.lift = nil
+        // The drag in page space: the difference between where it ended and where it started.
+        let start = convert(lift.origin, to: page)
+        let end = convert(point, to: page)
+        let offset = CGVector(dx: end.x - start.x, dy: end.y - start.y)
+        // A press that did not travel is not a move.
+        guard hypot(point.x - lift.origin.x, point.y - lift.origin.y) >= 8 else { return }
+        controller?.onTextMoveRequested?(lift.selection, offset)
+      default:
+        lift?.picture.removeFromSuperview()
+        lift = nil
+      }
+    }
+
     /// Picks the text nearest a point in this view, for editing.
     func pickText(at point: CGPoint) {
       guard let controller, let document, let page = page(for: point, nearest: true) else { return }
@@ -489,6 +559,36 @@ final class PDFReaderHostView: PDFView {
         transformStart = nil
         transformOffset = .zero
         transformScale = 1
+      }
+    }
+  }
+
+  /// Lets a long press begin only on a line of text while text is being edited, and holds the
+  /// page still while the line is carried.
+  @MainActor
+  final class LiftGestureDelegate: NSObject, UIGestureRecognizerDelegate {
+    private weak var host: PDFReaderHostView?
+
+    init(host: PDFReaderHostView) {
+      self.host = host
+    }
+
+    func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+      MainActor.assumeIsolated {
+        guard let host else { return false }
+        return host.liftableText(at: gestureRecognizer.location(in: host)) != nil
+      }
+    }
+
+    func gestureRecognizer(
+      _ gestureRecognizer: UIGestureRecognizer, shouldBeRequiredToFailBy otherGestureRecognizer: UIGestureRecognizer
+    ) -> Bool {
+      // While text is being edited, scrolling and zooming wait to see whether a touch is a press
+      // on a line: once a line is lifted the page stays still under it. A drag fails the press
+      // within a few points, so scrolling starts as it always did.
+      MainActor.assumeIsolated {
+        guard host?.controller?.isEditingText == true else { return false }
+        return otherGestureRecognizer is UIPanGestureRecognizer || otherGestureRecognizer is UIPinchGestureRecognizer
       }
     }
   }

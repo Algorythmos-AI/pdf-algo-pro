@@ -1594,17 +1594,6 @@
         }
       }
     },
-    "Tap any text to change it" : {
-      "comment" : "Hint shown while editing text, before any text is picked",
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Touchez un texte pour le modifier"
-          }
-        }
-      }
-    },
     "Tap Edit, then tap any text to change it." : {
       "comment" : "Message of the one-time tip that points at the Edit button",
       "localizations" : {
@@ -1612,6 +1601,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Touchez Modifier, puis touchez un texte pour le changer."
+          }
+        }
+      }
+    },
+    "Tap text to change it. Hold and drag to move it." : {
+      "comment" : "Hint shown while editing text, before any text is picked",
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Touchez un texte pour le modifier. Maintenez et faites glisser pour le déplacer."
           }
         }
       }
@@ -1643,6 +1643,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Texte modifié"
+          }
+        }
+      }
+    },
+    "Text moved" : {
+      "comment" : "VoiceOver announcement after a line of text was moved",
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Texte déplacé"
           }
         }
       }
@@ -1754,6 +1765,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Les pages sont dans un nouveau document, « %@ »."
+          }
+        }
+      }
+    },
+    "There isn’t room for it there. Nothing was moved." : {
+      "comment" : "Shown when text was dropped onto other content or off the page",
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il n’y a pas la place à cet endroit. Rien n’a été déplacé."
           }
         }
       }
