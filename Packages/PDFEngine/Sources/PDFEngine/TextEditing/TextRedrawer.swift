@@ -31,7 +31,17 @@ enum FontMatcher {
   }
 
   /// The font to draw `text` with in place of `font`.
-  static func match(_ font: TextFont, size: CGFloat, text: String) -> Match {
+  ///
+  /// - Parameters:
+  ///   - font: The document's font.
+  ///   - size: The size to draw at, in points.
+  ///   - text: The new words.
+  ///   - original: The words the font is replacing and how wide they are set, in points at `size`,
+  ///     when known. A substitute is then chosen by how closely it sets the same words.
+  /// - Returns: The font, and whether it is the original typeface.
+  static func match(
+    _ font: TextFont, size: CGFloat, text: String, original: (text: String, width: Double)? = nil
+  ) -> Match {
     if let device = deviceFont(named: font.postScriptName, size: size) { return Match(font: device, isExact: true) }
     if let program = font.program, let provider = CGDataProvider(data: program as CFData),
       let embedded = CGFont(provider)
@@ -39,7 +49,7 @@ enum FontMatcher {
       let candidate = CTFontCreateWithGraphicsFont(embedded, size, nil, nil)
       if covers(candidate, text) { return Match(font: candidate, isExact: true) }
     }
-    return Match(font: fallback(for: font, size: size), isExact: false)
+    return Match(font: fallback(for: font, size: size, original: original), isExact: false)
   }
 
   /// Whether a font has a glyph for every character of a text.
@@ -50,38 +60,64 @@ enum FontMatcher {
     return CTFontGetGlyphsForCharacters(font, &characters, &glyphs, characters.count)
   }
 
-  /// The closest standard font: Courier for fixed-pitch text, Times New Roman for serif text,
-  /// Helvetica otherwise, in the original's weight and slant.
-  static func fallback(for font: TextFont, size: CGFloat) -> CTFont {
+  /// Families to substitute from, as PostScript names for regular, bold, italic and bold italic.
+  ///
+  /// The first of each list is the standard choice; the others ship with iOS and macOS too.
+  private static let fixedPitch = [["Courier", "Courier-Bold", "Courier-Oblique", "Courier-BoldOblique"]]
+  private static let serif = [
+    ["TimesNewRomanPSMT", "TimesNewRomanPS-BoldMT", "TimesNewRomanPS-ItalicMT", "TimesNewRomanPS-BoldItalicMT"],
+    ["Georgia", "Georgia-Bold", "Georgia-Italic", "Georgia-BoldItalic"],
+    ["Palatino-Roman", "Palatino-Bold", "Palatino-Italic", "Palatino-BoldItalic"],
+  ]
+  private static let sans = [
+    ["Helvetica", "Helvetica-Bold", "Helvetica-Oblique", "Helvetica-BoldOblique"],
+    ["HelveticaNeue", "HelveticaNeue-Bold", "HelveticaNeue-Italic", "HelveticaNeue-BoldItalic"],
+    ["ArialMT", "Arial-BoldMT", "Arial-ItalicMT", "Arial-BoldItalicMT"],
+    ["Verdana", "Verdana-Bold", "Verdana-Italic", "Verdana-BoldItalic"],
+    ["TrebuchetMS", "TrebuchetMS-Bold", "TrebuchetMS-Italic", "Trebuchet-BoldItalic"],
+  ]
+
+  /// The closest standard font: fixed-pitch for fixed-pitch text, serif for serif text, sans
+  /// serif otherwise, in the original's weight and slant.
+  ///
+  /// Without `original` it is Courier, Times New Roman or Helvetica. With it, the family is the
+  /// one of its kind that sets the original words closest to their original width: the new words
+  /// then take about the room the old ones did, which is what makes a substitute look right and
+  /// fit. It is deterministic: it depends only on the original font's traits and those words.
+  static func fallback(
+    for font: TextFont, size: CGFloat, original: (text: String, width: Double)? = nil
+  ) -> CTFont {
     let lowered = font.postScriptName.lowercased()
     let serifNames = ["times", "georgia", "garamond", "cambria", "serif", "roman", "palatino", "baskerville", "book"]
-    let name: String
+    let families: [[String]]
     if font.isFixedPitch || lowered.contains("courier") || lowered.contains("mono") {
-      name =
-        switch (font.isBold, font.isItalic) {
-        case (true, true): "Courier-BoldOblique"
-        case (true, false): "Courier-Bold"
-        case (false, true): "Courier-Oblique"
-        case (false, false): "Courier"
-        }
+      families = fixedPitch
     } else if font.isSerif || (serifNames.contains(where: lowered.contains) && !lowered.contains("sans")) {
-      name =
-        switch (font.isBold, font.isItalic) {
-        case (true, true): "TimesNewRomanPS-BoldItalicMT"
-        case (true, false): "TimesNewRomanPS-BoldMT"
-        case (false, true): "TimesNewRomanPS-ItalicMT"
-        case (false, false): "TimesNewRomanPSMT"
-        }
+      families = serif
     } else {
-      name =
-        switch (font.isBold, font.isItalic) {
-        case (true, true): "Helvetica-BoldOblique"
-        case (true, false): "Helvetica-Bold"
-        case (false, true): "Helvetica-Oblique"
-        case (false, false): "Helvetica"
-        }
+      families = sans
     }
-    return CTFontCreateWithName(name as CFString, size, nil)
+    let style = (font.isBold ? 1 : 0) + (font.isItalic ? 2 : 0)
+    let standard = CTFontCreateWithName(families[0][style] as CFString, size, nil)
+    guard let original, original.width > 0, !original.text.isEmpty, families.count > 1 else { return standard }
+    var best = standard
+    var smallest = Double.infinity
+    for family in families {
+      guard let candidate = deviceFont(named: family[style], size: size), covers(candidate, original.text) else {
+        continue
+      }
+      let line = CTLineCreateWithAttributedString(
+        NSAttributedString(
+          string: original.text, attributes: [NSAttributedString.Key(kCTFontAttributeName as String): candidate]))
+      let width = CTLineGetTypographicBounds(line, nil, nil, nil) - CTLineGetTrailingWhitespaceWidth(line)
+      let difference = abs(width - original.width)
+      // The standard family wins a tie, and anything within half a percent of it.
+      if difference < smallest - 0.005 * original.width {
+        smallest = difference
+        best = candidate
+      }
+    }
+    return best
   }
 }
 
@@ -100,6 +136,9 @@ struct PlannedText {
 
   /// Where the new text's ink falls, in page space.
   var bounds: CGRect { region.pageBox(fromDrawn: startDrawn, width: widthDrawn) }
+
+  /// Where the new text's baseline starts, in page space.
+  var baselineStart: CGPoint { CGPoint(x: startDrawn, y: 0).applying(region.drawing) }
 }
 
 /// Whether a replacement could be laid out.
@@ -128,7 +167,13 @@ enum TextRedrawer {
       return .declined(.refused(.unsupportedCharacters))
     }
     let size = CGFloat(region.pointSize)
-    let match = FontMatcher.match(region.font, size: size, text: text)
+    // The old words and their width tell a substitute font apart from its neighbours. A justified
+    // line is wider than its words, and letter spacing widens them too, so those say nothing.
+    let stretch = region.horizontalScale
+    let spaced = abs(region.characterSpacingDrawn) > 0.01 * region.pointSize
+    let oldWords =
+      region.isJustified || spaced || stretch <= 0 ? nil : (text: region.text, width: region.widthDrawn / stretch)
+    let match = FontMatcher.match(region.font, size: size, text: text, original: oldWords)
     var attributes: [NSAttributedString.Key: Any] = [
       NSAttributedString.Key(kCTFontAttributeName as String): match.font,
       NSAttributedString.Key(kCTForegroundColorAttributeName as String): color(region.fill),
@@ -154,7 +199,6 @@ enum TextRedrawer {
       }
     }
 
-    let stretch = region.horizontalScale
     let natural = (CTLineGetTypographicBounds(line, nil, nil, nil) - CTLineGetTrailingWhitespaceWidth(line)) * stretch
     guard natural.isFinite, natural > 0 else { return .declined(.refused(.unsupportedCharacters)) }
     let original = region.widthDrawn

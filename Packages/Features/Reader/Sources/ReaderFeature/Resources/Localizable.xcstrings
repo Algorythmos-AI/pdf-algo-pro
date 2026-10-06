@@ -1922,6 +1922,17 @@
         }
       }
     },
+    "This text can’t be changed or covered here. Nothing was changed." : {
+      "comment" : "Shown when text can be neither edited nor covered",
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce texte ne peut être ni modifié ni recouvert ici. Rien n’a été modifié."
+          }
+        }
+      }
+    },
     "This text can’t be changed. Nothing was changed." : {
       "localizations" : {
         "fr" : {
@@ -2018,6 +2029,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Votre nom"
+          }
+        }
+      }
+    },
+    "Your text covers the old text. The original is still in the file underneath." : {
+      "comment" : "Shown after the reader covered text that could not be changed",
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre texte recouvre l’ancien. L’original est toujours dans le fichier, en dessous."
           }
         }
       }

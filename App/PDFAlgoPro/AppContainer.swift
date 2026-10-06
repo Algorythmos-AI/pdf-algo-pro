@@ -33,6 +33,9 @@ struct LaunchEnvironment {
   let textEditing: TextEditingAccess?
   /// Show tips in a UI test (`-show-tips`), from an empty store; other UI tests see none.
   let showsTips: Bool
+  /// Use an editor that can never prove an edit (`-text-editor unprovable`), so UI tests can see
+  /// what the reader does then.
+  let refusesTextEdits: Bool
 
   init(arguments: [String] = ProcessInfo.processInfo.arguments) {
     #if DEBUG
@@ -57,6 +60,10 @@ struct LaunchEnvironment {
         default: nil
         }
       showsTips = arguments.contains("-show-tips")
+      let editor = arguments.firstIndex(of: "-text-editor").flatMap {
+        arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil
+      }
+      refusesTextEdits = editor == "unprovable"
     #else
       isUITesting = false
       skipsOnboarding = false
@@ -67,6 +74,7 @@ struct LaunchEnvironment {
       disablesAnimations = false
       textEditing = nil
       showsTips = false
+      refusesTextEdits = false
     #endif
   }
 }
@@ -99,6 +107,13 @@ final class AppContainer {
   let thumbnails = ThumbnailCache()
   /// Whether editing existing text is offered: the release flag and the Pro entitlement (FR-EDIT-001).
   let textEditing: any TextEditingAccessProviding
+  /// What edits existing text: the native editor, or under test one that cannot prove an edit.
+  var textEditor: any PDFTextEditing {
+    #if DEBUG
+      if environment.refusesTextEdits { return UnprovableTextEditor() }
+    #endif
+    return ContentStreamTextEditor()
+  }
   /// Counts about the last look at a page's text, for "Report a problem"; in memory only.
   let textEditingDiagnostics = TextEditingDiagnosticsLog()
   let indexLevel: LibraryIndex.StoreLevel
@@ -260,3 +275,22 @@ struct Folders {
     try? url.setResourceValues(values)
   }
 }
+
+#if DEBUG
+  /// An editor that can never prove a real edit, as the native editor cannot for some documents.
+  ///
+  /// It finds a page's text and rehearses honestly. For UI tests only (`-text-editor unprovable`).
+  struct UnprovableTextEditor: PDFTextEditing {
+    func text(ofPage page: Data) async -> EditablePageText { await ContentStreamTextEditor().text(ofPage: page) }
+
+    func rehearsing(_ region: EditableTextRegion, onPage page: Data) async -> TextEditResult {
+      await ContentStreamTextEditor().rehearsing(region, onPage: page)
+    }
+
+    func applying(_ edits: [TextEdit], toPage page: Data) async -> TextEditResult {
+      TextEditResult(
+        page: nil, outcomes: edits.map { _ in .refused(.notVerified) },
+        proofFailure: TextEditProofFailure(.newTextMissing))
+    }
+  }
+#endif

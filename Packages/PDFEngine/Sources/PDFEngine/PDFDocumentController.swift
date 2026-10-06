@@ -106,6 +106,8 @@ public final class PDFDocumentController {
   @ObservationIgnored var incomingLinks: [ObjectIdentifier: [PDFAnnotation]]?
   /// Roughly how many bytes of replaced pages the undo history is holding on to.
   @ObservationIgnored var textUndoBytes = 0
+  /// Rehearsals of an edit, one per page whose text was found, while they run and after.
+  @ObservationIgnored var textRehearsals: [ObjectIdentifier: Task<Void, Never>] = [:]
   /// Searches for pages' text that are running now, so that a second ask joins the first.
   @ObservationIgnored var textSearches: [ObjectIdentifier: (page: PDFPage, work: Task<Bool, Never>)] = [:]
   /// How long finding one page's text may take before the page is reported as taking too long.

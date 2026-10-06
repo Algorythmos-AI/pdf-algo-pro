@@ -77,6 +77,21 @@ public enum TextEditRefusal: String, Hashable, Sendable, CaseIterable {
   case timedOut
 }
 
+extension TextEditRefusal {
+  /// Whether this refusal says the text could not be edited in the page's content, as opposed to
+  /// something being wrong with the replacement or the moment.
+  ///
+  /// Text refused this way can still be covered.
+  public var meansNotEditableInPlace: Bool {
+    switch self {
+    case .notVerified, .overlapsOtherContent, .unsupportedFont, .unsupportedDrawing, .unsupportedScript,
+      .pageNotEditable:
+      true
+    case .scanned, .restricted, .unsupportedCharacters, .stale, .timedOut: false
+    }
+  }
+}
+
 /// Why an edit may look slightly different from the surrounding text.
 public enum TextEditLimit: String, Hashable, Sendable, CaseIterable {
   /// The exact font is not on the device and not complete in the document, so the closest match
@@ -223,15 +238,62 @@ public enum TextEditOutcome: Hashable, Sendable {
   }
 }
 
+/// Which check of the proof an edit failed, with the numbers that check measured.
+///
+/// For diagnosis only. It holds a fixed word and counts, never anything from the document, so it
+/// can go into a problem report.
+public struct TextEditProofFailure: Hashable, Sendable {
+  /// The checks, in the order the proof makes them.
+  public enum Check: String, Hashable, Sendable, CaseIterable {
+    /// The edited page could not be read back at all.
+    case reread
+    /// The new text was not found where it was put.
+    case newTextMissing
+    /// The page has a different number of pieces of text than it should.
+    case regionCount
+    /// Another piece of text reads differently than before.
+    case otherTextChanged
+    /// Another piece of text is somewhere else, or another width.
+    case otherTextMoved
+    /// PDFKit, reading on its own, does not find the new text.
+    case independentReader
+    /// A page could not be drawn for comparing.
+    case render
+    /// The picture changed away from the edited text.
+    case strayPixels
+    /// Something else is already drawn where the new text goes.
+    case occupied
+    /// The new text cannot be seen.
+    case noInk
+  }
+
+  /// The check that failed.
+  public let check: Check
+  /// What the check measured, and what it was measured against; zero where there is nothing.
+  public let measured: Int
+  /// The limit or the expected value.
+  public let expected: Int
+
+  /// Creates a failure.
+  public init(_ check: Check, measured: Int = 0, expected: Int = 0) {
+    self.check = check
+    self.measured = measured
+    self.expected = expected
+  }
+}
+
 /// The result of applying edits to a page.
 public struct TextEditResult: Sendable {
   /// The page with every edit made, as a one-page PDF; `nil` unless every edit was made.
   public let page: Data?
   /// What happened to each edit, in the order they were given.
   public let outcomes: [TextEditOutcome]
+  /// The proof's check that failed, when the edits were made and then not proven.
+  public let proofFailure: TextEditProofFailure?
 
   /// Creates a result.
-  public init(page: Data?, outcomes: [TextEditOutcome]) {
+  public init(page: Data?, outcomes: [TextEditOutcome], proofFailure: TextEditProofFailure? = nil) {
+    self.proofFailure = proofFailure
     self.page = page
     self.outcomes = outcomes
   }
@@ -259,4 +321,18 @@ public protocol PDFTextEditing: Sendable {
   /// - Returns: The edited page when every edit could be made and proven; otherwise no page and the
   ///   reason for each edit.
   func applying(_ edits: [TextEdit], toPage page: Data) async -> TextEditResult
+
+  /// Tries out an edit to a region without keeping it; see the default.
+  func rehearsing(_ region: EditableTextRegion, onPage page: Data) async -> TextEditResult
+}
+
+extension PDFTextEditing {
+  /// Tries out an edit to learn whether this page can be edited at all: a region is replaced with
+  /// its own words through the whole of `applying`, proof included, and the result is thrown away.
+  ///
+  /// The reader asks for this when it first finds a page's text, so that text which cannot be
+  /// edited is offered for covering before the person types, not refused after.
+  public func rehearsing(_ region: EditableTextRegion, onPage page: Data) async -> TextEditResult {
+    await applying([TextEdit(region: region, replacement: region.text)], toPage: page)
+  }
 }

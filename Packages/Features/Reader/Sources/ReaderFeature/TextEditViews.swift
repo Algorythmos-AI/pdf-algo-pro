@@ -164,6 +164,9 @@ struct TextEditBar: View {
   /// The field is here when the layer found it cannot sit over the text.
   private var showsField: Bool { draft.isInPlace == false }
 
+  /// Whether this text can be neither changed nor covered, so that Done could only refuse again.
+  private var isDeadEnd: Bool { model.textEditMessage == .cannotEditOrCover }
+
   var body: some View {
     VStack(alignment: .leading, spacing: Spacing.s100) {
       if let message = model.textEditMessage {
@@ -173,7 +176,8 @@ struct TextEditBar: View {
         Button(role: .cancel) {
           model.cancelTextEdit()
         } label: {
-          Text("Cancel", bundle: .module)
+          // Where nothing more can be done with this text, the one button says so.
+          if isDeadEnd { Text("Close", bundle: .module) } else { Text("Cancel", bundle: .module) }
         }
         .keyboardShortcut(.cancelAction)
         .accessibilityIdentifier("reader.textEdit.cancel")
@@ -187,7 +191,7 @@ struct TextEditBar: View {
         }
         if model.isCommittingTextEdit {
           ProgressView().accessibilityLabel(Text("Changing the text…", bundle: .module))
-        } else {
+        } else if !isDeadEnd {
           Button(action: commit) {
             Text("Done", bundle: .module).bold()
           }
@@ -208,9 +212,14 @@ struct TextEditBar: View {
 
   private func commit() {
     Task {
-      if await model.commitTextEdit(draft.text) {
-        UIAccessibility.post(notification: .announcement, argument: String(localized: "Text changed", bundle: .module))
-      }
+      guard await model.commitTextEdit(draft.text) else { return }
+      // What is announced is what happened: covered text is not changed text.
+      let said =
+        model.textEditNotice == .coveredInstead
+        ? String(
+          localized: "Your text covers the old text. The original is still in the file underneath.", bundle: .module)
+        : String(localized: "Text changed", bundle: .module)
+      UIAccessibility.post(notification: .announcement, argument: said)
     }
   }
 }
@@ -239,6 +248,8 @@ struct TextEditMessageLabel: View {
     case .lookingForText: Text("Looking for text on this page…", bundle: .module)
     case .noEditableText: Text("No text on this page can be edited.", bundle: .module)
     case .tookTooLong: Text("This is taking too long. Nothing was changed. Try again.", bundle: .module)
+    case .cannotEditOrCover:
+      Text("This text can’t be changed or covered here. Nothing was changed.", bundle: .module)
     }
   }
 }
@@ -250,7 +261,9 @@ struct TextEditHint: View {
 
   var body: some View {
     Group {
-      if let message = model.textEditMessage {
+      if model.textEditNotice == .coveredInstead {
+        TextEditNoticeCard(model: model)
+      } else if let message = model.textEditMessage {
         VStack(spacing: Spacing.s100) {
           TextEditMessageLabel(message: message)
           if message == .pageIsImage, model.canRecognizeText {
@@ -282,5 +295,52 @@ struct TextEditHint: View {
       }
     }
     .accessibilityIdentifier("reader.textEdit.hint")
+  }
+}
+
+/// Tells the person that their text was placed over the old text, which is still in the file, and
+/// lets them take that back.
+///
+/// It stays until they act on it: someone changing a name must not go on believing the old name
+/// is gone.
+struct TextEditNoticeCard: View {
+  let model: ReaderModel
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: Spacing.s100) {
+      Text("Your text covers the old text. The original is still in the file underneath.", bundle: .module)
+        .font(.subheadline)
+        .foregroundStyle(Color.ds.labelPrimary)
+        .fixedSize(horizontal: false, vertical: true)
+        .accessibilityIdentifier("reader.textEdit.notice")
+      HStack(spacing: Spacing.s150) {
+        Button {
+          Task { await model.undoCoverInstead() }
+        } label: {
+          Text("Undo", bundle: .module)
+        }
+        .accessibilityIdentifier("reader.textEdit.notice.undo")
+        Spacer(minLength: 0)
+        Button {
+          model.dismissTextEditNotice()
+        } label: {
+          Text("OK", bundle: .module).bold()
+        }
+        .accessibilityIdentifier("reader.textEdit.notice.ok")
+      }
+      .frame(minHeight: Sizes.targetMinimum)
+    }
+    .padding(Spacing.s150)
+    .frame(maxWidth: 360)
+    // Opaque: it lies over the page's words, and words behind a see-through card lower the
+    // contrast of the words on it. The shadow is the shape's alone, not each word's.
+    .background {
+      RoundedRectangle(cornerRadius: 12, style: .continuous)
+        .fill(Color.ds.backgroundGroupedElevated)
+        .shadow(color: .black.opacity(0.12), radius: 12, y: 4)
+    }
+    .overlay { RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.ds.separator) }
+    .padding(.horizontal, Spacing.s200)
+    .accessibilityElement(children: .contain)
   }
 }

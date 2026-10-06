@@ -44,6 +44,9 @@ struct TextRegion {
   /// The baseline's angle in page space.
   var angle: Double { atan2(Double(drawing.b), Double(drawing.a)) }
 
+  /// Where the baseline starts, in page space.
+  var baselineStart: CGPoint { CGPoint.zero.applying(drawing) }
+
   /// A stretch of the baseline in the region's drawing units, as the box its text covers in page space.
   func pageBox(fromDrawn x: Double, width: Double) -> CGRect {
     Self.pageBox(font: font, pointSize: pointSize, drawing: drawing, fromDrawn: x, width: width)

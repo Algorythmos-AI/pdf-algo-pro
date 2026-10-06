@@ -120,6 +120,6 @@ struct DiagnosticsLogTests {
       problems: ["System-reported problems (30 days): none"],
       textEditing: TextEditingDiagnostics(pageKind: .text).lines)
     #expect(summary.lines.contains("Text editing page: text"))
-    #expect(summary.lines.last == "Text editing taps: 0, picked 0")
+    #expect(summary.lines.last == "Text editing session: made 0, covered 0, refused 0")
   }
 }

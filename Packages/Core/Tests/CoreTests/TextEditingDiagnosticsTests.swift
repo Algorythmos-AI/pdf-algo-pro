@@ -27,11 +27,29 @@ struct TextEditingDiagnosticsTests {
         "Text editing view: bound, outlined pages 2",
         "Text editing taps: 4, picked 3",
         "Text editing last edit: refused (notVerified), 310 ms",
+        "Text editing rehearsal: proven 0, not proven 0",
+        "Text editing session: made 0, covered 0, refused 0",
       ])
     record.lastEdit = .edited
-    #expect(record.lines.last == "Text editing last edit: made, 310 ms")
+    #expect(record.lines.contains("Text editing last edit: made, 310 ms"))
     record.lastEdit = .tooLong
-    #expect(record.lines.last == "Text editing last edit: too long, 310 ms")
+    #expect(record.lines.contains("Text editing last edit: too long, 310 ms"))
+    record.proofCheck = "newTextMissing"
+    record.proofMeasured = 0
+    record.proofExpected = -14
+    record.rehearsalProven = 1
+    record.rehearsalUnproven = 2
+    record.made = 3
+    record.covered = 1
+    record.refusals = 2
+    #expect(
+      record.lines.suffix(3) == [
+        "Text editing proof: newTextMissing 0/-14",
+        "Text editing rehearsal: proven 1, not proven 2",
+        "Text editing session: made 3, covered 1, refused 2",
+      ])
+    record.proofCheck = "Jane Example, 12 Sample Street"
+    #expect(!record.lines.joined().contains("Sample Street"))
     #expect(TextEditingDiagnostics(pageKind: .timedOut).lines.first == "Text editing page: timed-out")
     #expect(TextEditingDiagnostics(pageKind: .image).lines.contains("Text editing view: not bound, outlined pages 0"))
   }

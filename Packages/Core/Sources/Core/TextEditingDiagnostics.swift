@@ -42,6 +42,23 @@ public struct TextEditingDiagnostics: Sendable, Equatable {
   public var lastEdit: EditResult?
   /// How long the last edit took, in milliseconds.
   public var editMilliseconds = 0
+  /// The proof's check the last unproven edit failed, as the engine's fixed name for it.
+  public var proofCheck: String?
+  /// What that check measured, and the value it was measured against.
+  public var proofMeasured = 0
+  /// The limit or expected value of that check.
+  public var proofExpected = 0
+  /// How the rehearsal went when the page's text was found: lines that could be edited and proven,
+  /// and lines that could not.
+  public var rehearsalProven = 0
+  /// Lines the rehearsal could not edit and prove.
+  public var rehearsalUnproven = 0
+  /// Since the document was opened: edits made in the page's content.
+  public var made = 0
+  /// Since the document was opened: texts covered, because they could not be edited.
+  public var covered = 0
+  /// Since the document was opened: edits refused with nothing changed.
+  public var refusals = 0
 
   /// Creates a record for a page.
   public init(pageKind: PageKind) {
@@ -67,6 +84,11 @@ public struct TextEditingDiagnostics: Sendable, Equatable {
       lines.append("Text editing last edit: refused (\(Self.safe(reason))), \(editMilliseconds) ms")
     case nil: break
     }
+    if let proofCheck {
+      lines.append("Text editing proof: \(Self.safe(proofCheck)) \(proofMeasured)/\(proofExpected)")
+    }
+    lines.append("Text editing rehearsal: proven \(rehearsalProven), not proven \(rehearsalUnproven)")
+    lines.append("Text editing session: made \(made), covered \(covered), refused \(refusals)")
     return lines
   }
 
