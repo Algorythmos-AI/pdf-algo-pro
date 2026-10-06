@@ -48,7 +48,7 @@ Record anything that fails as an issue with the `accessibility` label, with the 
    and protect" where it does not.
 3. Activate "Continue" on the third page. The subscription offer opens with "Close" as its first
    button; activate it and Home opens. Without a connection Home opens straight away.
-4. In Settings, the first section reads "Subscription", then the plan as one stop ("Plan, Free"),
+4. In Settings, after "Document intelligence", the next section reads "Subscription", then the plan as one stop ("Plan, Free"),
    then "See plans", "Manage subscription", "Restore purchases" and "Redeem a code". "What you do
    most" is further down, under "Home screen".
 

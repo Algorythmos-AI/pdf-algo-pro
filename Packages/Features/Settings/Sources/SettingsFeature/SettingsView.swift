@@ -52,7 +52,6 @@ public struct SettingsView: View {
           }
         }
         // First of the settings, so the AI switch is on screen without scrolling (privacy by default).
-        if let subscription { subscription }
         Section {
           Toggle(isOn: $model.isIntelligenceHidden) {
             TileLabel(Text("Hide AI features", bundle: .module), systemImage: "sparkles", tone: .intelligence)
@@ -67,6 +66,8 @@ public struct SettingsView: View {
           )
           .foregroundStyle(Color.ds.labelSecondary)
         }
+        // After the AI switch, which stays on the first screen at every text size (FR-AI-009).
+        if let subscription { subscription }
         Section {
           // One row, not ten switches: the choices open on their own screen, so the settings people
           // look for (privacy, App Lock, storage) are on the first screen.
