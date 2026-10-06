@@ -122,6 +122,8 @@ nonisolated public enum SystemColorName: String, CaseIterable, Sendable {
   case systemRed
   /// `link`.
   case link
+  /// `systemBlue`.
+  case systemBlue
 
   /// The UIKit system colour.
   public var uiColor: UIColor {
@@ -141,6 +143,7 @@ nonisolated public enum SystemColorName: String, CaseIterable, Sendable {
     case .systemOrange: .systemOrange
     case .systemRed: .systemRed
     case .link: .link
+    case .systemBlue: .systemBlue
     }
   }
 }

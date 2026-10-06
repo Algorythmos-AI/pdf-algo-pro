@@ -28,17 +28,21 @@ struct ReaderToolbar: ToolbarContent {
     }
     ToolbarItemGroup(placement: .primaryAction) {
       if model.isDrawing {
+        // Undo is beside the work, not two menus away: a line or a shape that went wrong is taken
+        // back with one tap (a tester's report, 2026-10-06).
+        UndoRedoButtons(model: model, prefix: "reader.drawing")
         Button {
           model.setDrawing(false)
         } label: {
-          Text("Done", bundle: .module)
+          Text("Done", bundle: .module).bold()
         }
         .accessibilityIdentifier("reader.doneDrawing")
       } else if model.markupTool != nil {
+        UndoRedoButtons(model: model, prefix: "reader.markupTool")
         Button {
           model.stopMarkupTool()
         } label: {
-          Text("Done", bundle: .module)
+          Text("Done", bundle: .module).bold()
         }
         .accessibilityIdentifier("reader.doneMarkup")
       } else if model.isEditingText {
@@ -541,5 +545,39 @@ private struct EditLabelStyle: ViewModifier {
     } else {
       content.labelStyle(.titleOnly)
     }
+  }
+}
+
+/// Undo and Redo for the bar, while a tool is in hand.
+struct UndoRedoButtons: View {
+  let model: ReaderModel
+  /// The start of the buttons' identifiers, so each mode's pair can be told apart in tests.
+  let prefix: String
+
+  var body: some View {
+    Button {
+      Task { await model.undo() }
+    } label: {
+      Label {
+        Text("Undo", bundle: .module)
+      } icon: {
+        Image(systemName: "arrow.uturn.backward")
+      }
+    }
+    .disabled(!model.canUndo)
+    .keyboardShortcut("z")
+    .accessibilityIdentifier("\(prefix).undo")
+    Button {
+      Task { await model.redo() }
+    } label: {
+      Label {
+        Text("Redo", bundle: .module)
+      } icon: {
+        Image(systemName: "arrow.uturn.forward")
+      }
+    }
+    .disabled(!model.canRedo)
+    .keyboardShortcut("z", modifiers: [.command, .shift])
+    .accessibilityIdentifier("\(prefix).redo")
   }
 }
