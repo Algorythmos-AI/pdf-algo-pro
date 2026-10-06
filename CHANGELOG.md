@@ -117,6 +117,9 @@ Store notes (see the changelog strategy).
 - On iPad the app uses a single window for now (#54).
 
 ### Fixed
+- Editing text (internal builds): a line containing "fi" or "fl" drawn as a single joined letter
+  could only be covered, not changed. Such lines are now changed like any other, and the editor
+  shows ordinary letters.
 - Editing text (internal builds), from testers' feedback: every line now gets its own outline, where
   some pages showed one large box around a whole block; a line low on the page is no longer typed
   into unseen under the keyboard; and explanations about fonts and covering are given once, not at
