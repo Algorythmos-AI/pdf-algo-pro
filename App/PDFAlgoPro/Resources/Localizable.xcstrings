@@ -43,12 +43,32 @@
         }
       }
     },
+    "OK" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        }
+      }
+    },
     "Open Document" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ouvrir un document"
+          }
+        }
+      }
+    },
+    "Open Settings" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvrir les réglages"
           }
         }
       }
@@ -239,6 +259,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Votre essai de PDF Algo Pro se termine le %@. Gérez-le dans Réglages, sous Abonnement."
+          }
+        }
+      }
+    },
+    "Your PDF Algo Pro trial ends on %@. You can manage or cancel it in Settings, under Subscription." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre essai de PDF Algo Pro se termine le %@. Vous pouvez le gérer ou l’annuler dans Réglages, sous Abonnement."
+          }
+        }
+      }
+    },
+    "Your trial ends soon" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre essai se termine bientôt"
           }
         }
       }

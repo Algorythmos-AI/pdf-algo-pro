@@ -82,7 +82,12 @@ struct RootView: View {
     .onChange(of: scenePhase, initial: true) { _, phase in
       Task { await app.lock.scenePhaseChanged(to: phase) }
       // A subscription can change while the app is away: bought on another device, renewed, refunded.
-      if phase == .active { Task { await app.container.entitlements.refresh() } }
+      if phase == .active {
+        Task {
+          await app.container.entitlements.refresh()
+          await app.checkTrialNotice()
+        }
+      }
     }
     // A calm moment to ask for a rating: a document or a sheet has just closed (plan §6).
     .onChange(of: app.library.selection == nil) { _, closed in
@@ -100,6 +105,26 @@ struct RootView: View {
     // A trial that has ended, been refunded or become paid has nothing left to remind of.
     .onChange(of: app.container.entitlements.entitlement) { _, entitlement in
       Task { await app.container.reminders.entitlementChanged(entitlement) }
+    }
+    .alert(
+      Text("Your trial ends soon"),
+      isPresented: Binding(get: { app.trialNotice != nil }, set: { if !$0 { app.trialNotice = nil } }),
+      presenting: app.trialNotice
+    ) { _ in
+      Button {
+        app.sheet = .settings
+      } label: {
+        Text("Open Settings")
+      }
+      .accessibilityIdentifier("trialNotice.settings")
+      Button(role: .cancel) {
+      } label: {
+        Text("OK")
+      }
+    } message: { endsAt in
+      Text(
+        "Your PDF Algo Pro trial ends on \(endsAt, format: .dateTime.day().month(.wide)). You can manage or cancel it in Settings, under Subscription."
+      )
     }
     .onOpenURL { app.handle($0) }
     .onContinueUserActivity(CSSearchableItemActionType) { app.handleSpotlight($0) }

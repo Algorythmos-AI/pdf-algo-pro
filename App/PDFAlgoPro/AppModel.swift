@@ -33,6 +33,8 @@ final class AppModel {
   var sheet: Sheet?
   /// Why the subscription offer is, or was last, on screen.
   private(set) var paywallTrigger: PaywallTrigger = .settings
+  /// The end of a trial to tell the person about now, in the app, because no notification will.
+  var trialNotice: Date?
   /// Whether the plans had loaded by the time first run ended; asked for when first run starts, so
   /// its end never waits on the App Store.
   @ObservationIgnored private var plansAreAvailable = false
@@ -143,6 +145,17 @@ final class AppModel {
       !entitlement.grantsPro(at: Date())
     else { return }
     presentPaywall(.onboarding)
+  }
+
+  /// Says in the app that a trial ends within a day, for someone who has no notification for it.
+  ///
+  /// Asked when the app becomes active. Never over a sheet or during first run: it waits for the
+  /// next time the app is opened on Home or on a document.
+  func checkTrialNotice() async {
+    guard sheet == nil, settings.hasCompletedOnboarding, trialNotice == nil else { return }
+    let entitlement = await container.entitlements.resolved()
+    guard sheet == nil else { return }
+    trialNotice = container.reminders.noticeDue(for: entitlement)
   }
 
   /// Shows the subscription offer; it replaces a sheet that is up, such as Settings.

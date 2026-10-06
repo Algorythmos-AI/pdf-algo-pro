@@ -37,7 +37,32 @@ struct TrialReminderSchedulerTests {
   private func make() -> (TrialReminderScheduler, RecordingNotifications) {
     let notifications = RecordingNotifications()
     let fixed = now
-    return (TrialReminderScheduler(notifications: notifications) { fixed }, notifications)
+    let defaults = UserDefaults(suiteName: "reminder-tests-\(UUID().uuidString)") ?? .standard
+    return (TrialReminderScheduler(notifications: notifications, defaults: defaults) { fixed }, notifications)
+  }
+
+  @Test("Without a notification, the app says once that the trial ends within a day (FR-STORE-006)")
+  func notice() {
+    let (scheduler, _) = make()
+    let soon = now.addingTimeInterval(day / 2)
+    #expect(scheduler.noticeDue(for: .trial(endsAt: now.addingTimeInterval(3 * day))) == nil, "Not yet")
+    #expect(scheduler.noticeDue(for: .trial(endsAt: soon)) == soon)
+    #expect(scheduler.noticeDue(for: .trial(endsAt: soon)) == nil, "Once per trial")
+    #expect(scheduler.noticeDue(for: .trial(endsAt: now.addingTimeInterval(day / 4))) != nil, "A later trial is new")
+    for entitlement in [Entitlement?.none, Entitlement.none, .subscribed, .expired] {
+      #expect(scheduler.noticeDue(for: entitlement) == nil)
+    }
+  }
+
+  @Test("A trial with a notification scheduled gets no in-app notice as well; turning it off brings the notice back")
+  func noticeOrNotification() async {
+    let (scheduler, _) = make()
+    let end = now.addingTimeInterval(day + 60)
+    #expect(await scheduler.set(true, trialEndsAt: end))
+    #expect(scheduler.noticeDue(for: .trial(endsAt: end)) == nil)
+    #expect(await !scheduler.set(false, trialEndsAt: end))
+    // Still more than a day away, so not due yet; the trial is no longer marked as reminded.
+    #expect(scheduler.noticeDue(for: .trial(endsAt: end)) == nil)
   }
 
   @Test("Turned on, one reminder is scheduled a day before the trial ends, replacing any other")

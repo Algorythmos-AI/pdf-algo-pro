@@ -48,12 +48,22 @@ struct AppTests {
     end()
   }
 
+  /// Waits for a sheet the app decides on in a task: the scanner opens once the day's allowance has
+  /// been asked (FR-STORE-008).
+  private func shows(_ sheet: AppModel.Sheet, in app: AppModel) async -> Bool {
+    for _ in 0..<2_000 {
+      if app.sheet == sheet { return true }
+      await Task.yield()
+    }
+    return app.sheet == sheet
+  }
+
   @Test("Every route navigates and none acts by itself (ADR-0004)")
-  func routes() throws {
+  func routes() async throws {
     let app = makeApp()
     #expect(app.settings.hasCompletedOnboarding)
     app.navigate(to: .scan)
-    #expect(app.sheet == .scan)
+    #expect(await shows(.scan, in: app))
     app.navigate(to: .settings)
     #expect(app.sheet == .settings)
     let id = DocumentID()
@@ -67,9 +77,9 @@ struct AppTests {
     app.navigate(to: .library(.favorites))
     #expect(app.library.listRequests == 2)
     app.handle(try #require(URL(string: "pdfalgopro://scan")))
-    #expect(app.sheet == .scan)
+    #expect(await shows(.scan, in: app))
     app.handle(try #require(URL(string: "https://example.com/scan")))
-    #expect(app.sheet == .scan)
+    #expect(await shows(.scan, in: app))
   }
 
   @Test("Spotlight results open their document (FR-LIB-005)")
@@ -105,7 +115,7 @@ struct AppTests {
     _ = try await open.perform()
     #expect(app.library.selection?.id.description == entity.id)
     _ = try await ScanDocumentIntent().perform()
-    #expect(app.sheet == .scan)
+    #expect(await shows(.scan, in: app))
     #expect(!PDFAlgoProShortcuts.appShortcuts.isEmpty)
 
     // Summarise returns the summary, labelled as generated on this device, and needs the device unlocked.
