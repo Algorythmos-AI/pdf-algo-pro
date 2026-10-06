@@ -92,6 +92,9 @@ Store notes (see the changelog strategy).
 - Report a problem now includes the diagnostics summary unless you turn it off in Settings › Help,
   and remembers your choice. The summary never includes your documents, and you can read it in the
   email, and delete it, before you send.
+- Drawing: Undo and Redo are in the bar while you draw or mark text, so a line or shape that went
+  wrong is taken back with one tap. With a shape tool in hand, dragging a shape that is already on
+  the page moves it; dragging on the bare page draws a new one.
 - Settings is easier to scan: every row has a symbol, and privacy and security are in one place
   (the privacy report moved there from its own section).
 - Report a problem now writes to pdfalgopro@algorythmos.com.
