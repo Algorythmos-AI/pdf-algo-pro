@@ -40,6 +40,7 @@ that does nothing.**
 |---|---|---|
 | N1 | A letter or statement from a reporting tool (a bank, a lender, a utility), set in a typeface the iPhone does not have. Change a name | "The font will be matched as closely as possible." shows before typing; Done changes the words; the new words sit on the same line as their neighbours and look close to them |
 | N2 | On any document where Done ends with "Your text covers the old text…" | The message stays until OK or Undo; Undo removes the cover; the next line on that page says "Your text will cover this text" before typing |
+| N4 | A line with the words "first", "office" or "file" in a book-style typeface. Change another word on that line | The words change in the page (not "your text covers"), and the editor shows ordinary letters |
 | N3 | After any refusal, Settings › Report a problem | A line "Text editing proof: …" names the check, and "Text editing session: made, covered, refused" counts what happened. Send that, never the document |
 
 ## Staying dependable

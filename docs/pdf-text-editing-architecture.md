@@ -133,10 +133,30 @@ is the family of its kind (sans serif, serif or fixed pitch) that sets the old w
 their original width (`FontMatcher.fallback(for:size:original:)`), so new words take about the
 room the old ones did. It is deterministic.
 
+**Ligatures are letters.** A page often draws "fi" or "fl" as one glyph, and its font names that
+glyph as the single character "ﬁ". The engine used to offer the line with that character in it;
+PDFKit, reading on its own, returns the two letters, so the proof's independent-reader check
+refused every edit to such a line and it was covered instead. A line is now offered, edited and
+compared in letters (`TextRegionBuilder.spelledOut`; `EditProof.squeezed` compares with
+compatibility mapping). Found by the corpus on 2026-10-06, not by a person.
+
+**The corpus.** `TextEditCorpus` (test support) holds synthetic documents in the shapes real
+tools write: the acceptance scenarios, a statement from a reporting tool, a letter with bold and
+italic runs sharing lines, a web page saved as a PDF, a paper set like TeX, two columns, rotated
+and slanted text, text on colour, very small and very large text, hand-written operators, and a
+page whose box does not start at the origin. `TextEditingGuaranteeTests` changes every line of
+every one a little and counts how each ends: changed, covered, too long, close-only, or a dead
+end. Dead ends must be zero; on the corpus every line must be truly edited, so a line that falls
+back to a cover is caught as a regression.
+
 **Running the engine on a document that cannot be shared.** `TextEditingProbe` (in the engine's
 tests) reads a PDF or a folder named by `PAP_PROBE_PDF`, tries every line, and prints codes and
 counts only: no words. It is skipped when the variable is not set, so CI never runs it and no
-document enters the repository.
+document enters the repository. Given a folder, it prints one row per document (the producing
+software's name, pages, and how many lines ended each way) and a total, which is the measure of
+how the editor does on real files:
+
+    PAP_PROBE_PDF=~/Desktop/pdf-probe swift test --filter TextEditingProbe
 
 ## What can be edited
 
@@ -319,6 +339,7 @@ UI tests see no tips unless they pass `-show-tips`, which starts TipKit from an 
 | `EditProofTests` | The proof refuses each kind of wrong result |
 | `TextEditingHostileInputTests` | Malformed and fuzzed input, limits |
 | `TextEditingControllerTests` | Save and reopen, undo and redo interleaved with annotations and page changes, forms, outline, metadata, links, encryption, permissions, signatures, covering, save faults, long documents |
+| `TextEditingGuaranteeTests` | Every line of every corpus document ends as a real edit; ligatures; no dead ends |
 | `TextEditingDependabilityTests` | The rehearsal (marks an unprovable page, leaves a provable one, never holds back the lines), covering instead of editing. Time limits and discarded late answers, cancellation, picking with no page view, the page view following a new controller, outlines after PDFKit puts them away, repeated edit-save-reopen, the diagnostics record |
 | `ReaderTextEditingTests` | The reader model and views: access, commit, cancel, undo, refusals, scanned pages, signed copies, search text, a reloaded document, the "looking", "nothing to edit" and "too long" messages, the diagnostics summary's vocabulary |
 | `TextEditingDiagnosticsTests` | The summary lines; reasons reduced to letters |
