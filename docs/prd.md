@@ -86,32 +86,38 @@ targets are only defined here; their values are held privately.
 
 | ID | Requirement | Priority | Phase | Pillars |
 |---|---|---|---|---|
-| FR-ONB-001 | On first launch, ask "What do you do with PDFs most often?" with options in this order: Chat with PDF, Summarise document, Extract data with AI, Analyse contract, Edit PDF text, Annotate or highlight, Sign, Convert PDF to Word, Excel or PowerPoint, Merge or organise pages, Read or view, Scan to PDF, All tools | Must | MVP | PIL-4, PIL-7 |
-| FR-ONB-002 | The question can be skipped; skipping leads to the library | Must | MVP | PIL-7 |
-| FR-ONB-003 | The chosen intent personalises the home screen (primary action and suggested tools) and can be changed in Settings | Must | MVP | PIL-7 |
-| FR-ONB-004 | No paywall, account or sign-in appears before the user completes a first task | Must | MVP | PIL-5 |
+| FR-ONB-001 | On first launch, show three introduction pages, one capability each, in this order: scan to PDF; sign and mark up; ask your document on this iPhone ([PAP-045](decision-register.md)) | Must | V1 | PIL-4, PIL-7 |
+| FR-ONB-002 | The introduction can be skipped from every page; it never returns uninvited | Must | V1 | PIL-7 |
+| FR-ONB-003 | "What you do most", set in Settings, personalises the home screen (primary action and suggested tools); it is not asked on first launch | Must | MVP | PIL-7 |
+| FR-ONB-004 | No account, sign-in or permission request appears during first run. The subscription offer may appear once, at the end of the introduction, with a Close button from its first frame; it never appears at a later launch ([PAP-042](decision-register.md)) | Must | V1 | PIL-5 |
 | FR-ONB-005 | "Analyse contract" shows the disclosure "Not legal advice. Check important terms with a qualified professional." before its first use and on every result | Must | V1 | PIL-4 |
-| FR-ONB-006 | When the on-device model is unavailable, AI intents explain why (device not eligible, Apple Intelligence off, model not ready) and offer the non-AI tools. Devices without Apple Intelligence get the non-AI tools only until V2; from V2, Pro users on those devices can also opt in to the Claude tier, whose consent screen follows FR-ONB-004 (no paywall before first value) | Must | MVP | PIL-4, PIL-6 |
-| FR-ONB-007 | The intent question offers only options that work in the installed build; an option whose feature has not shipped is left out rather than marked "coming later" | Must | V1 | PIL-7 |
+| FR-ONB-006 | When the on-device model is unavailable, AI intents explain why (device not eligible, Apple Intelligence off, model not ready) and offer the non-AI tools. Devices without Apple Intelligence get the non-AI tools only until V2; from V2, Pro users on those devices can also opt in to the Claude tier, whose consent screen appears only when they first use it. On first run, where on-device intelligence is unavailable the third introduction page shows organising and protecting documents instead | Must | MVP | PIL-4, PIL-6 |
+| FR-ONB-007 | The introduction pages, the offer's list of what Pro adds and the "What you do most" options show only what works in the installed build; a feature that has not shipped is left out rather than marked "coming later" | Must | V1 | PIL-7 |
+| FR-ONB-008 | A one-time tip on Home points to the starting actions (scan, import); it stops for good once either is used, it is closed, or it has shown three times | Should | V1 | PIL-7 |
 
 **Acceptance (Must):**
 
-- *FR-ONB-001/002.* Given a fresh install, when the app launches, then the intent question shows the
-  options in the order listed, less those whose feature isn't in the build (FR-ONB-007), and a Skip
-  control leads to the library.
-- *FR-ONB-003.* Given the user picked "Scan to PDF", when the home screen appears, then its primary
-  action is Scan, and Settings > Home shows "Scan to PDF" as changeable.
-- *FR-ONB-004.* Given a fresh install, when the user opens a document and completes any core task,
-  then no paywall, account prompt or sign-in has appeared before that point (UI test asserts no
-  paywall view in the flow).
+- *FR-ONB-001/002.* Given a fresh install, when the app launches, then the first introduction page
+  shows, each page has one Continue button and a Skip control, and Skip from the first page reaches
+  Home in at most two actions. Given the introduction was finished or skipped, or settings stored by
+  an earlier version, when the app launches again, then neither the introduction nor the offer shows.
+- *FR-ONB-003.* Given the user picked "Scan to PDF" in Settings > Home, when the home screen appears,
+  then its primary action is Scan. Given nothing was picked, then Home shows its default actions.
+- *FR-ONB-004.* Given a fresh install, when the introduction ends, then the offer shows only if the
+  products have loaded and the person does not have Pro; its Close button exists as soon as it
+  appears and one action on it leads to Home. Given the app is terminated while the offer is up,
+  when it launches again, then Home shows and the offer does not. Given the store cannot be reached,
+  then the introduction ends on Home. No account prompt, sign-in or permission request appears at
+  any point of first run (UI tests).
 - *FR-ONB-005.* Given the user chose Analyse contract, when the first analysis runs and whenever a
   result shows, then the disclosure is visible without scrolling.
 - *FR-ONB-006.* Given a device where `SystemLanguageModel.availability` is unavailable, when the user
   picks Chat with PDF, then the app states the reason in plain language and offers the non-AI tools;
   it never shows a spinner that does not resolve. From V2, given a Pro user on such a device, the app
-  also offers the opt-in Claude tier, and its consent screen appears only after first value
-  (FR-ONB-004).
-- *FR-ONB-007.* Given a build in which a feature is switched off or not yet shipped, when the intent question shows, then no option leads to that feature and none is labelled "coming later".
+  also offers the opt-in Claude tier, and its consent screen appears only when they first use it.
+  Given such a device on first run, then the third page shows organising and protecting documents,
+  decided before the page is shown; it never changes while on screen.
+- *FR-ONB-007.* Given a build in which a feature is switched off or not yet shipped, when the introduction, the offer or the "What you do most" options show, then nothing names that feature and nothing is labelled "coming later".
 
 **Apple-first:** SwiftUI; Dynamic Type at all sizes; VoiceOver labels on every option.
 
@@ -333,23 +339,33 @@ manager and keyboard shortcuts.
 
 | ID | Requirement | Priority | Phase | Pillars |
 |---|---|---|---|---|
-| FR-STORE-001 | Free tier covers reading, annotation, form filling, signing, scanning with OCR and a fair allowance of on-device intelligence | Must | V1 | PIL-7 |
-| FR-STORE-002 | Pro subscription (monthly and annual, with trial) through StoreKit 2 | Must | V1 | PIL-7 |
-| FR-STORE-003 | The paywall states price, period, trial length, renewal terms, and links to Terms and Privacy; Restore Purchases and Manage Subscription are always available | Must | V1 | PIL-7 |
+| FR-STORE-001 | Free tier covers reading, annotation, form filling, signing, organising pages and passwords without limit, and a daily allowance of scans saved and of on-device intelligence requests ([PAP-044](decision-register.md)) | Must | V1 | PIL-7 |
+| FR-STORE-002 | Pro subscription (weekly and annual, with an introductory free trial on the weekly plan) through StoreKit 2 ([PAP-043](decision-register.md)) | Must | V1 | PIL-7 |
+| FR-STORE-003 | The paywall states price, period, trial length and renewal terms through StoreKit's own views, shows both plans, links to Terms and Privacy, and can be closed in one action from the moment it appears; Restore Purchases and Manage Subscription are always available | Must | V1 | PIL-7 |
 | FR-STORE-004 | Losing Pro never locks the user out of their own documents or annotations | Must | V1 | PIL-5 |
 | FR-STORE-005 | One subscription across iPhone, iPad and Mac (universal purchase) | Must | V2 | PIL-7 |
-| FR-STORE-006 | A trial reminder before the trial converts to paid: a local notification if the user allows it, otherwise an in-app notice | Must | V1 | PIL-7 |
+| FR-STORE-006 | A trial reminder one day before the trial ends: a local notification if the user allows it, otherwise an in-app notice | Must | V1 | PIL-7 |
+| FR-STORE-007 | After a purchase, a confirmation screen says what is now available and, during a trial, the date it ends, and offers the trial reminder; it is the only place notification permission is asked | Must | V1 | PIL-7 |
+| FR-STORE-008 | The free allowance is checked before a metered action starts and counted only when the action succeeds; reaching it opens the paywall and discards nothing the user has made | Must | V1 | PIL-5, PIL-7 |
 
 **Acceptance (Must):**
 
 - *FR-STORE-003.* Given the paywall, when reviewed against [Guideline 3.1.2](https://developer.apple.com/app-store/review/guidelines/#subscriptions)
   and the [App Store strategy](app-store-strategy.md) checklist, then every required disclosure is
   present (UI test and release checklist).
-- *FR-STORE-004.* Given a lapsed subscription, when the user opens any document, then it opens, reads
-  and exports; only Pro actions are unavailable.
-- *FR-STORE-006.* Given a trial that converts in two days, when that day comes, then the user is reminded by notification (if allowed) or on next launch, with the date and a link to Manage Subscription.
+- *FR-STORE-001/008.* Given a free user whose scans for the day are used, when they start a scan,
+  then the paywall opens before the camera does. Given a scan or a request that fails, then the
+  allowance is unchanged. Given a new calendar day, then the allowance is whole again. Given Pro,
+  then no allowance applies. Given an App Intent that scans or summarises, then the same rule holds.
+- *FR-STORE-002.* Given a person who is not eligible for the introductory offer, when the paywall
+  shows, then no text of the app's own mentions a trial; trial wording comes only from StoreKit.
+- *FR-STORE-004.* Given a lapsed subscription or a used allowance, when the user opens any document,
+  then it opens, reads, annotates, saves, shares and exports; only Pro actions and new metered
+  actions are unavailable.
+- *FR-STORE-006.* Given a trial that ends tomorrow, when that day comes, then the user is reminded by notification (if allowed) or on next launch, with the date and a link to Manage Subscription. Given the trial was cancelled, refunded or became paid before then, then no reminder is pending.
+- *FR-STORE-007.* Given a purchase that completes, when the entitlement grants Pro, then the confirmation shows in the same presentation as the paywall, with the trial end date only during a trial. Given a purchase that is pending approval or was cancelled, then the paywall stays and no confirmation or error shows. Given the confirmation is closed, then no rating request follows.
 
-**Apple-first:** `SubscriptionStoreView`; Family Sharing decision recorded in the pricing strategy;
+**Apple-first:** `SubscriptionStoreView`; Family Sharing decision recorded in the pricing strategy before the products are created (OQ-5);
 App Store Server Notifications V2 (after the relay exists).
 
 ### Settings, privacy and support (FR-SET)
@@ -358,7 +374,7 @@ App Store Server Notifications V2 (after the relay exists).
 |---|---|---|---|---|
 | FR-SET-001 | Privacy centre showing each cloud tier, its consent state and what it sends; revoke with one tap | Must | V1 | PIL-5 |
 | FR-SET-002 | App lock with Face ID or Touch ID | Should | V1 | PIL-5 |
-| FR-SET-003 | "Report a problem" composing an email with an opt-in diagnostics bundle that contains no document content | Must | MVP | PIL-5 |
+| FR-SET-003 | "Report a problem" composing an email whose draft includes a diagnostics summary with no document content; the summary is on by default, can be turned off in Settings (the choice is kept), and is in the draft to be read or deleted before sending (PAP-041) | Must | MVP | PIL-5 |
 | FR-SET-004 | Opt-in, aggregated usage telemetry: off by default everywhere; sent only after the user opts in ([analytics strategy](analytics-strategy.md)) | Must | V2 | PIL-5 |
 | FR-SET-005 | Privacy report: AI requests by tier over the last 30 days and the number of documents sent to cloud AI, kept on the device | Must | V1 | PIL-5 |
 
@@ -423,7 +439,7 @@ or the release checklist in [release management](release-management.md).
 | # | Question | Owner | Resolved by |
 |---|---|---|---|
 | OQ-1 | Which PDF SDK vendor, and does it convert to Office on device? | Architecture | SDK spike (readiness blocker C1) |
-| OQ-2 | Exact free-tier allowance for on-device intelligence | Product | Pricing strategy and research R5 |
+| OQ-2 | The two free-tier allowance numbers: scans saved and on-device intelligence requests per day (shape decided in [PAP-044](decision-register.md)) | Product | Pricing strategy and research R5 |
 | OQ-3 | Does Private Cloud Compute need its own consent step under Guideline 5.1.2(i)? Apple's text covers third-party AI; treat it as needing consent until Apple says otherwise | Product | App Review guidance; compliance roadmap |
 | OQ-4 | Document identity across renames and iCloud moves | Architecture | Document-identity spike |
 | OQ-5 | Family Sharing for the subscription | Product | Pricing strategy |
@@ -432,12 +448,12 @@ or the release checklist in [release management](release-management.md).
 
 | Requirement area | ADRs | Tests (testing strategy) |
 |---|---|---|
-| FR-ONB | ADR-0003, ADR-0004, ADR-0022 | UI tests (onboarding flows, no-paywall assertion) |
+| FR-ONB | ADR-0003, ADR-0004, ADR-0022, ADR-0026 | UI tests (introduction, Skip, the offer's Close button, no offer at a later launch) |
 | FR-LIB | ADR-0005, ADR-0006, ADR-0010 | File coordination, Spotlight and deletion tests |
 | FR-READ, FR-ANN | ADR-0007 | Golden corpus, round-trip annotation, performance tests |
 | FR-SCAN | ADR-0008 | OCR accuracy suite, background task tests |
 | FR-AI | ADR-0009, ADR-0020, ADR-0021 | AI evaluation suite, red-team suite, latency tests |
 | FR-EDIT, FR-ORG | ADR-0007 | Edit, redaction, conversion and merge tests |
-| FR-STORE | ADR-0011 | StoreKit configuration tests, paywall UI tests |
+| FR-STORE | ADR-0011, ADR-0026 | StoreKit configuration tests, allowance and entitlement unit tests, paywall UI tests |
 | FR-SET | ADR-0012, ADR-0017 | Diagnostics bundle inspection, consent tests |
 | NFR-* | ADR-0012, ADR-0013, ADR-0014, ADR-0018 | Gates in the quality gates document |

@@ -280,9 +280,11 @@ items:
     priority: p0
     size: l
     pillars: [PIL-7]
-    refs: [FR-STORE-001, FR-STORE-002, FR-STORE-003, FR-STORE-004, ADR-0011]
+    refs: [FR-STORE-001, FR-STORE-002, FR-STORE-003, FR-STORE-004, FR-STORE-006, FR-STORE-007, FR-STORE-008, ADR-0011, ADR-0026]
     acceptance:
       - Paywall meets every Guideline 3.1.2 disclosure; lapsed users keep full access to their documents
+      - The offer closes in one action from its first frame and never shows at a later launch
+      - The free allowance is checked before a metered action and counted only on success
   - id: V-004
     title: Private Cloud Compute tier with consent
     type: epic
@@ -364,6 +366,44 @@ items:
       - A word edited in a corpus PDF is in the text extracted from the saved file, the old word is not, and the rest of the page is unchanged
       - Every edit is proven before it reaches the document, or refused with the document untouched
       - The text editing device test is signed off before the release flag is turned on in a Release build
+  - id: V-011
+    title: First-run introduction pages and Home's first-use tip
+    type: task
+    milestone: V1
+    priority: p0
+    size: l
+    pillars: [PIL-4, PIL-7]
+    labels: [ios, design]
+    refs: [FR-ONB-001, FR-ONB-002, FR-ONB-004, FR-ONB-006, FR-ONB-007, FR-ONB-008, ADR-0026]
+    acceptance:
+      - Acceptance criteria of the listed requirements pass in UI tests, in English and French, at default and accessibility text sizes
+      - Settings stored by an earlier version show neither the introduction nor the offer
+  - id: V-012
+    title: Subscription offer, purchase confirmation and the Settings subscription section
+    type: task
+    milestone: V1
+    priority: p0
+    size: l
+    pillars: [PIL-5, PIL-7]
+    labels: [ios, design]
+    refs: [FR-STORE-002, FR-STORE-003, FR-STORE-006, FR-STORE-007, ADR-0026, V-003]
+    acceptance:
+      - The offer has a Close button from its first frame, shows both plans and states no price or trial in the app's own text
+      - A completed purchase shows the confirmation in the same presentation; a pending or cancelled one does not
+      - The trial reminder is scheduled only during a trial and removed on every other entitlement
+  - id: V-013
+    title: Free daily allowance and one entitlement store
+    type: task
+    milestone: V1
+    priority: p0
+    size: m
+    pillars: [PIL-5, PIL-7]
+    labels: [ios]
+    refs: [FR-STORE-001, FR-STORE-004, FR-STORE-008, ADR-0026, V-003]
+    acceptance:
+      - The allowance is checked before a metered action starts and counted only on success, including from App Intents
+      - Every operation on an existing document is allowed in every entitlement state
+      - Internal builds follow the sandbox store, with an override in Internal testing
 
   # ---------------- V1.1 ----------------
   - id: P-001

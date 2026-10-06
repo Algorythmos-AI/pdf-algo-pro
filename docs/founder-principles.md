@@ -29,8 +29,10 @@ Owner: Maintainer · Reviewed: yearly, or when a principle is challenged by a re
    connection. Cloud features are additions, never requirements.
 4. **AI must show its work.** Answers about a document cite the pages they come from. When the
    model is unsure, it says so. The app never presents generated content as the document's own.
-5. **Useful before paid.** Users reach real value before any paywall, and the paywall is honest:
-   clear price, clear terms, easy to close, easy to cancel. No dark patterns.
+5. **Useful without paying.** The free tier does real work and nothing ever locks people out of
+   their own documents. The paywall is honest: clear price, clear terms, closes in one action from
+   the moment it appears, easy to cancel. It may be offered once at the end of first run
+   ([PAP-042](decision-register.md)), never as a condition of using the app. No dark patterns.
 6. **Quality over speed.** Performance budgets, accessibility and tests are requirements, not
    polish. We slip a date before we ship a regression.
 7. **Evidence over opinion.** Claims cite sources; numbers are sourced or labelled as assumptions

@@ -113,23 +113,28 @@ struct SettingsModelTests {
     #expect(store.load().readerDisplayMode == .singlePage && model.readerDisplayMode == .singlePage)
   }
 
-  @Test("Diagnostics are attached only when the user opts in (FR-SET-003)")
+  @Test("Diagnostics are in the draft unless the person turns them off, and that choice is kept (FR-SET-003)")
   func supportEmail() async throws {
-    let (model, _, _) = makeModel()
-    let plain = try #require(await model.supportEmailURL())
-    #expect(plain.absoluteString.hasPrefix("mailto:pdfalgopro@algorythmos.com?subject=PDF%20Algo%20Pro%20support"))
-    #expect(!plain.absoluteString.contains("0.1.0"))
-    model.includesDiagnostics = true
+    let (model, store, _) = makeModel()
+    #expect(model.includesDiagnostics, "On for a new install (PAP-041)")
     let withDiagnostics = try #require(await model.supportEmailURL())
+    #expect(
+      withDiagnostics.absoluteString.hasPrefix("mailto:pdfalgopro@algorythmos.com?subject=PDF%20Algo%20Pro%20support"))
     #expect(withDiagnostics.absoluteString.contains("0.1.0"))
+    model.includesDiagnostics = false
+    let plain = try #require(await model.supportEmailURL())
+    #expect(!plain.absoluteString.contains("0.1.0"), "Turned off, nothing but the person's own words is sent")
+    // Settings is built afresh each time it opens: the choice comes back from the store, not from memory.
+    #expect(!store.load().includesDiagnostics)
+    #expect(!SettingsModel(store: store, diagnostics: { "0.1.0" }, onChange: { _ in }).includesDiagnostics)
   }
 
   @Test("Without an email account, the report can be copied and names the address")
   func reportWithoutMail() async {
     let (model, _, _) = makeModel()
-    #expect(!(await model.supportReport()).contains("0.1.0"))
-    model.includesDiagnostics = true
     #expect(await model.supportReport().contains("0.1.0"))
+    model.includesDiagnostics = false
+    #expect(!(await model.supportReport()).contains("0.1.0"))
     #expect(SettingsModel.supportAddress == "pdfalgopro@algorythmos.com")
   }
 

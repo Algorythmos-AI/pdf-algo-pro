@@ -621,12 +621,12 @@
         }
       }
     },
-    "The summary lists the app version, the system and error counts. It never includes your documents." : {
+    "The summary lists the app version, the system and error counts. It never includes your documents. You can read it in the email, and delete it, before you send." : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Le résumé indique la version de l’app, le système et le nombre d’erreurs. Il n’inclut jamais vos documents."
+            "value" : "Le résumé indique la version de l’app, le système et le nombre d’erreurs. Il n’inclut jamais vos documents. Vous pouvez le lire dans l’e-mail, et le supprimer, avant l’envoi."
           }
         }
       }

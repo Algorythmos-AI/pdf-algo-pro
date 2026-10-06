@@ -293,8 +293,12 @@ device --question + excerpts (TLS)--> Anthropic Messages API --answer--> device
   names, paths, text, questions, answers, consent history or disk-space figures. This is what
   `DiagnosticsSummary` builds and what the [privacy policy](https://algorythmos.com/pdf-algo-pro/privacy)
   lists; the three change together.
-- **Flow:** the user taps "Report a problem"; the app shows the full summary; the user sends it by
-  email if they choose. Nothing is sent automatically.
+- **Flow:** the user taps "Report a problem"; the app drafts an email with the full summary in it;
+  the user reads it, deletes it if they wish, and sends the email if they choose. Nothing is sent
+  automatically.
+- **Default:** "Include a diagnostics summary" is on for a new install and can be turned off in
+  Settings › Help; the choice is stored with the other settings (PAP-041). It was off by default
+  until 2026-10-06. The summary still leaves the device only inside an email the person sends.
 - **MetricKit summaries** (kind, date, build and the system's short reason, such as the exception
   type or a hang's duration; never call stacks) are kept on the device for 30 days, at most 100, in
   a file excluded from backup. TestFlight and App Store crash reports stay the primary source; they

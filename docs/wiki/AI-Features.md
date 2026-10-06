@@ -10,7 +10,7 @@ hidden, and answers that cannot be grounded say so.
 On-device intelligence needs an Apple Intelligence-capable device with Apple Intelligence turned
 on. On other devices the app explains why and offers the non-AI tools; until V2 that is all they
 get. From V2, Pro users on those devices can opt in to the Claude tier, and its consent screen
-never appears before first value.
+appears only when they first use it.
 
 ## Read more
 

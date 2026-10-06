@@ -111,7 +111,7 @@ every platform that supports it:
 On devices without Apple Intelligence, AI features explain what they need and the app offers the
 non-AI tools only until V2; the rest of the app is unaffected. Private Cloud Compute also needs
 Apple Intelligence, so it does not help these devices. From V2, Pro users on them can opt in to the
-Claude tier, with its consent screen shown only after first value ([PRD](prd.md), FR-ONB-006).
+Claude tier, with its consent screen shown only when they first use it ([PRD](prd.md), FR-ONB-006).
 Apple publishes which devices support Apple Intelligence
 ([Apple Intelligence](https://www.apple.com/apple-intelligence/)); the in-app check uses the
 framework's availability API rather than device model lists.

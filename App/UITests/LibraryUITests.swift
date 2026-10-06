@@ -46,8 +46,12 @@ final class LibraryUITests: UITestCase {
     // Several buttons share a row here: a tap on one must not press its neighbours.
     tap(scan, until: app.buttons["scan.images"])
     app.buttons["Cancel"].firstMatch.tap()
-    XCTAssertTrue(scan.waitForExistence(timeout: Self.settleTimeout))
-    XCTAssertTrue(scan.isHittable, "Only the scanner opened: nothing else covers Home")
+    // Home is under the sheet while it slides away, so the tile exists before it can be tapped: wait
+    // for the sheet to go, as long as any screen is given to settle. A second sheet would stay.
+    let uncovered = expectation(for: NSPredicate(format: "isHittable == true"), evaluatedWith: scan)
+    XCTAssertEqual(
+      XCTWaiter().wait(for: [uncovered], timeout: Self.settleTimeout), .completed,
+      "Only the scanner opened: nothing else covers Home")
     let recent = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "library.home.recent."))
       .firstMatch
     tap(recent, until: page)
