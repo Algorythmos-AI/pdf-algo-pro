@@ -55,7 +55,7 @@ Owner: Product · Reviewed: at the end of each phase
 | Password protection and app lock | PIL-5 |
 | "Analyse Contract" with a not-legal-advice disclosure | PIL-4 |
 | Opt-in Private Cloud Compute tier for long documents | PIL-4, PIL-5 |
-| First-run introduction pages, a one-time tip on Home | PIL-4, PIL-7 |
+| First-run introduction pages | PIL-4, PIL-7 |
 | Subscriptions (StoreKit 2): weekly and annual plans, a closable offer at the end of first run, a free daily allowance, a confirmation after purchase | PIL-5, PIL-7 |
 | Widgets, Control Center scan control, Action extension | PIL-7 |
 | English and French throughout | PIL-7 |

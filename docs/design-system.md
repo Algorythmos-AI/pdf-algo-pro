@@ -599,11 +599,13 @@ ahead of the code until the flow ships.
 - After the last page, or Skip, first run is marked complete, then the subscription offer may show
   once (see Paywall); closing it leads to Home.
 
-### Home's first-use tip
+### Home's first-use hint
 
-A one-time tip card above Home's starting actions ("Scan a document or import a file to start"),
-following the rule for tips above: drawn in the layout, gone for good once Scan or Import is used,
-it is closed, or it has shown three times, and never while a sheet is up (FR-ONB-008).
+Where the app this plan was modelled on blurs the screen and points a bubble at its add button,
+Home already says how to begin (PAP-040): while the library is empty, a line under the starting
+actions reads "Import a PDF from Files, scan a paper document, or try a sample", with the sample
+one tap away, and it goes once a document exists (FR-ONB-008). It is part of the layout, covers
+nothing and needs no dismissing, so no tip card is added on top of it.
 
 ### Intent picker (Settings)
 

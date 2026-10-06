@@ -64,7 +64,7 @@ The last ten, newest first; all decisions are in the [decision register](decisio
 
 | ID | Decision |
 |---|---|
-| PAP-045 | First run becomes three introduction pages; the intent question moves to Settings; a one-time tip on Home; a confirmation after purchase |
+| PAP-045 | First run becomes three introduction pages; the intent question moves to Settings; Home's empty-library line is the first-use hint; a confirmation after purchase |
 | PAP-044 | The free tier meters scans saved and intelligence requests per day; Pro removes the limits and adds text editing; existing documents are never gated |
 | PAP-043 | Pro is a weekly and an annual plan, with the trial on the weekly plan; supersedes "no weekly plans" |
 | PAP-042 | The subscription offer may show once at the end of first run, closable at once; supersedes "no paywall before first value" |
