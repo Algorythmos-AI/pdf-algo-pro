@@ -95,7 +95,9 @@ citations, subscribe and restore, and the privacy centre.
   answers only in a test run started from Xcode: under `xcodebuild test`, as in CI, every call to it
   fails with `SKInternalErrorDomain` 3, a limit of the tools that others report too
   ([flutter/flutter#184678](https://github.com/flutter/flutter/issues/184678)). The suite checks
-  for it and is skipped where it does not answer, so CI does not buy anything. Buying is therefore
+  for it and is skipped where it does not answer, so CI does not buy anything. Run from Xcode with
+  the `PDFAlgoPro` scheme, the Debug app sees the same test products, so the offer can be looked at
+  with its plans before the products exist in App Store Connect. Buying is therefore
   verified by running that suite from Xcode before a release that changes the store, and on a
   device with a sandbox account ([device smoke test](process/device-smoke-test.md)).
 - **Deterministic data.** Libraries are seeded from generated fixtures, dates from an injected

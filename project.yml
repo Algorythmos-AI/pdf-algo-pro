@@ -227,6 +227,9 @@ schemes:
         - path: Performance.xctestplan
     run:
       config: Debug
+      # Run from Xcode, the Debug app sees the test products, so the offer shows its plans without
+      # the App Store. Test data only (ADR-0026); the Staging and Release builds never see it.
+      storeKitConfiguration: App/Tests/Store/Products.storekit
     profile:
       config: Release
     analyze:
