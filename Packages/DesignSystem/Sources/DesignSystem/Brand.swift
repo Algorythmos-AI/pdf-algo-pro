@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // The brand moments (design system, principle 5): the app mark, the company mark, the glow behind the
 // Home header, and the tinted tiles and quick actions that carry the brand tint. Everything here sits
@@ -105,7 +106,7 @@ public struct AppMark: View {
   public var body: some View {
     let width = min(side, limit)
     let shape = RoundedRectangle(cornerRadius: width * BrandGeometry.iconCornerRatio, style: .continuous)
-    Image("AppMark", bundle: .module)
+    Image(uiImage: Self.image)
       .resizable()
       .interpolation(.high)
       .frame(width: width, height: width)
@@ -113,6 +114,15 @@ public struct AppMark: View {
       .overlay(shape.strokeBorder(Color.ds.separator, lineWidth: 0.5))
       .accessibilityHidden(true)
   }
+
+  /// The mark's image, read once from the package's resources.
+  ///
+  /// It is a file beside the package's strings, not an asset-catalog entry, so it is read by its
+  /// address: looking it up by name finds nothing in a package's bundle.
+  static let image: UIImage = {
+    let url = Bundle.module.url(forResource: "AppMark", withExtension: "png")
+    return url.flatMap { UIImage(contentsOfFile: $0.path) } ?? UIImage()
+  }()
 }
 
 /// The Algorythmos company mark, on the light tile that keeps its contrast in every appearance.

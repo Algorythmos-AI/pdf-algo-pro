@@ -360,19 +360,21 @@ public struct LibraryView<Detail: View>: View {
           .accessibilityIdentifier("library.home.recent.\(document.title)")
         }
       }
-      .padding(.vertical, Spacing.s050)
+      // A list row is cut to its section's rounded corners; the inset keeps the cards clear of them.
+      .padding(.horizontal, Spacing.s050)
+      .padding(.top, Spacing.s050)
+      .padding(.bottom, Spacing.s200)
     }
     .scrollIndicators(.hidden)
-    .scrollClipDisabled()
   }
 
   /// What the app promises about documents, and who makes it.
   private var homeFooter: some View {
     VStack(spacing: Spacing.s150) {
-      Label {
+      // Not a `Label`: in a list row its symbol takes a row icon's width, far from the words.
+      HStack(spacing: Spacing.s100) {
+        Image(systemName: "lock.shield").accessibilityHidden(true)
         Text("Your documents stay on this device.", bundle: .module)
-      } icon: {
-        Image(systemName: "lock.shield")
       }
       HStack(spacing: Spacing.s100) {
         CompanyMark(side: 22)

@@ -135,10 +135,10 @@ struct DesignTokenTests {
 @Suite("Brand marks")
 struct BrandMarkTests {
   @Test("The app mark's image is in the package, written by the icon script")
-  func appMarkImage() throws {
-    let image = try #require(UIImage(named: "AppMark", in: .module, with: nil))
+  func appMarkImage() {
+    let image = AppMark.image
     #expect(image.size.width == image.size.height)
-    #expect(image.size.width >= 120)
+    #expect(image.size.width >= 120, "Missing or empty: run scripts/design/make_app_icon.swift")
   }
 
   @Test("The company mark's outline fills its frame at any size and keeps its counter")
