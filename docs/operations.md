@@ -176,8 +176,9 @@ iCloud off are told their documents are only on that device.
 
 ## Support workflow
 
-- **Channels.** Email to info@algorythmos.com.au with the subject "PDF Algo Pro support" (a dedicated
-  support address is an open question), the support page linked from the product page, and an in-app
+- **Channels.** Email to pdfalgopro@algorythmos.com with the subject "PDF Algo Pro support" (PAP-038),
+  the [support page](https://algorythmos.com/pdf-algo-pro/support) linked from the product page and
+  from Settings › About, and an in-app
   "Report a problem" that opens a pre-filled email with the app version and, only if the user ticks
   the box, the diagnostics summary.
 - **No documents by email.** Support never asks for a user's document; if a sample is essential, the
@@ -236,8 +237,6 @@ can become a rotation as people join ([GitHub governance](github-governance.md))
 
 ## Open questions
 
-- A dedicated support email address and support page URL (readiness item: privacy and support URLs
-  live; see the [readiness review](readiness-review.md)).
 - Where release artefacts and repository mirrors are stored, and who else can reach them in an
   emergency (held privately).
 - Support in French: reply in French, or in English with a note.

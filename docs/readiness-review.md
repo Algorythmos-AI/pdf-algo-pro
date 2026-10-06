@@ -74,7 +74,7 @@ C4 and C6 keep their original IDs after reclassification, so earlier references 
 |---|---|---|---|---|
 | C4 | AI tier provider terms (workspace, data processing and retention terms, spend caps) and relay design | V2 (Claude tier) | Terms confirmed; relay design reviewed | Open |
 | C6 | CI execution: CodeQL advanced setup (details held privately) | MVP | `codeql (actions)` green and required | Partly: default setup is off and `codeql (actions)` is green; not yet a required check |
-| M1 | Privacy policy, terms and support URLs live | V1 submission | Pages published and linked | Open (#10) |
+| M1 | Privacy policy, terms and support URLs live | V1 submission | Pages published and linked | Pages live since 2026-10-06 and linked from Settings › About and the TestFlight record (PAP-038); legal review (M8) and the App Store record's URLs remain ([#10](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/10)) |
 | M2 | Golden PDF corpus, OCR corpus and AI evaluation sets | First code pull request | Corpora in the repository (synthetic or licence-clean) | In progress (#47); missed its original milestone |
 | M3 | Organisation catalog entry merged | MVP | Catalog pull request merged | Open |
 | M4 | Document-identity spike | MVP library work | Prototype passes rename, move and eviction cases | Open (#6); iCloud and folders deferred until it closes (PAP-030) |

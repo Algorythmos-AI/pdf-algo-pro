@@ -10,6 +10,14 @@
 
 <!-- Which pillars this serves (PIL-1 … PIL-7) and which platforms it touches (iPhone, iPad, Mac, visionOS). -->
 
+## Privacy
+
+<!-- Needed only when this changes the privacy manifest, a permission's usage description, the network
+     allow-list, a package dependency or networking code (CI checks). Replace the comment on the next
+     line with "none, because …" or a link to the website pull request that updates the policy. -->
+
+Privacy policy impact: <!-- none, because …, or a link -->
+
 ## Checklist
 
 - [ ] One focused change; the branch targets `integration` (or `main` for a release/hotfix)

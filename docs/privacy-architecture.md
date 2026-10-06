@@ -287,10 +287,12 @@ device --question + excerpts (TLS)--> Anthropic Messages API --answer--> device
 
 ### Support diagnostics export (FR-SET-003)
 
-- **Data:** app and OS version, device model class, current flag values
-  ([engineering playbook](engineering-playbook.md)), error categories and counts, MetricKit crash and
-  hang summaries ([MetricKit](https://developer.apple.com/documentation/metrickit)). Never document
-  names, paths, text, questions, answers, consent history or disk-space figures.
+- **Data:** app version and build, OS version, the state of the library's search index, the number of
+  documents as a range (such as 11-100, never the exact count), event and error counts, MetricKit crash
+  and hang summaries ([MetricKit](https://developer.apple.com/documentation/metrickit)). Never document
+  names, paths, text, questions, answers, consent history or disk-space figures. This is what
+  `DiagnosticsSummary` builds and what the [privacy policy](https://algorythmos.com/pdf-algo-pro/privacy)
+  lists; the three change together.
 - **Flow:** the user taps "Report a problem"; the app shows the full summary; the user sends it by
   email if they choose. Nothing is sent automatically.
 - **MetricKit summaries** (kind, date, build and the system's short reason, such as the exception

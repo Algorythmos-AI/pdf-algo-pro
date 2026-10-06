@@ -98,7 +98,7 @@ public final class SettingsModel {
   }
 
   /// Where problem reports go.
-  public static let supportAddress = "info@algorythmos.com.au"
+  public static let supportAddress = "pdfalgopro@algorythmos.com"
 
   /// The support email, with the diagnostics summary only when the user chose to include it.
   public func supportEmailURL() async -> URL? {
