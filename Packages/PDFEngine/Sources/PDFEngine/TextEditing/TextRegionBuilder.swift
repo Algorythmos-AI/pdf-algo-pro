@@ -65,6 +65,22 @@ struct TextRegion {
 
 /// Groups a page's text runs into regions and decides what can be done with each.
 enum TextRegionBuilder {
+  /// The letters each ligature stands for.
+  private static let ligatures: [Character: String] = [
+    "\u{FB00}": "ff", "\u{FB01}": "fi", "\u{FB02}": "fl", "\u{FB03}": "ffi", "\u{FB04}": "ffl", "\u{FB05}": "st",
+    "\u{FB06}": "st",
+  ]
+
+  /// Text with each ligature written as its letters.
+  ///
+  /// A page often draws "fi" as one glyph, and its font says that glyph is the single character
+  /// "ﬁ". People type, search and read the two letters, and so does every other reader of the
+  /// page, so a line is offered, edited and compared in letters.
+  static func spelledOut(_ text: String) -> String {
+    guard text.contains(where: { ligatures[$0] != nil }) else { return text }
+    return String(text.flatMap { ligatures[$0].map(Array.init) ?? [$0] })
+  }
+
   private struct Placed {
     let index: Int
     let run: TextRun
@@ -158,7 +174,7 @@ enum TextRegionBuilder {
       if needsSpace { text += " " }
       text += placed.text
     }
-    let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    let trimmed = spelledOut(text).trimmingCharacters(in: .whitespacesAndNewlines)
     guard !trimmed.isEmpty else { return nil }
 
     // Drawing units: one unit up is one page point; the text matrix's own stretch stays across.

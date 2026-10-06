@@ -248,8 +248,10 @@ enum EditProof {
     return nil
   }
 
-  /// Text with all whitespace removed, so line breaking and spacing differences do not matter.
+  /// Text with all whitespace removed and ligatures and other presentation forms reduced to their
+  /// letters, so that line breaking, spacing and how a font chose to draw a pair of letters do not
+  /// matter.
   static func squeezed(_ text: String) -> String {
-    String(text.precomposedStringWithCanonicalMapping.unicodeScalars.filter { !$0.properties.isWhitespace })
+    String(text.precomposedStringWithCompatibilityMapping.unicodeScalars.filter { !$0.properties.isWhitespace })
   }
 }
