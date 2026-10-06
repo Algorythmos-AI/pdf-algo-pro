@@ -214,7 +214,7 @@ public struct LibraryView<Detail: View>: View {
   ///
   /// A scroll view of cards, not a list: every part lays itself out at once when the text size
   /// changes, and nothing is cut to a list row's shape.
-  private var home: some View {
+  var home: some View {
     ScrollView {
       VStack(alignment: .leading, spacing: Spacing.s300) {
         VStack(alignment: .leading, spacing: Spacing.s200) {

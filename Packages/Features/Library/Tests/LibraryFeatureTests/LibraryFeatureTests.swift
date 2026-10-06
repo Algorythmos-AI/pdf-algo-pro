@@ -5,6 +5,7 @@ import ImageIO
 import PDFEngine
 import SwiftUI
 import Testing
+import UIKit
 
 @testable import LibraryFeature
 
@@ -467,6 +468,35 @@ struct LibraryModelTests {
     // Choosing a section in the app is not such a request.
     harness.model.section = .all
     #expect(harness.model.listRequests == 2)
+  }
+
+  @Test(
+    "Home on iPhone and the sidebar of a wide window both draw: empty, and with documents, tags and an AI intent")
+  func homeAndSidebarDraw() async throws {
+    let empty = Harness()
+    await empty.model.load()
+    let full = Harness(intents: [.chatWithPDF])
+    await full.library.seed(
+      Document(
+        title: "Lease", fileName: "l.pdf", addedAt: .now, lastOpenedAt: .now, isFavorite: true, tags: ["Home", "Tax"]))
+    await full.library.seed(Document(title: "Invoice", fileName: "i.pdf", addedAt: .now))
+    await full.model.load()
+    #expect(full.model.primaryAction == .openAssistant(.ask) && full.model.tags == ["Home", "Tax"])
+    for model in [empty.model, full.model] {
+      let library = LibraryView(model: model, onScan: {}, onSettings: {}, detail: { _ in EmptyView() })
+      for size in [DynamicTypeSize.large, .accessibility3] {
+        // Home is a scroll view of cards, so it draws whole without a window.
+        let home = library.home.frame(width: 390).environment(\.dynamicTypeSize, size)
+        #expect(ImageRenderer(content: home).uiImage != nil)
+        for width in [UserInterfaceSizeClass.compact, .regular] {
+          let host = UIHostingController(
+            rootView: library.environment(\.horizontalSizeClass, width).environment(\.dynamicTypeSize, size))
+          host.view.frame = CGRect(x: 0, y: 0, width: width == .compact ? 390 : 1_024, height: 844)
+          host.view.layoutIfNeeded()
+          #expect(host.view.bounds.height == 844)
+        }
+      }
+    }
   }
 
   @Test("A button on Home draws with a style of its own")
