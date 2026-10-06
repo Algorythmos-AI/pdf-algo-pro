@@ -236,7 +236,7 @@ Reading, editing, scanning, OCR, search, signing and Translation-framework trans
 Until V2 these devices get the non-AI tools only: the onboarding AI options stay visible, labelled
 with what they need, and lead to the non-AI tools. From V2, intelligence is available to Pro users
 through Claude, online and with consent; the options then also lead to the Claude consent screen,
-which follows the paywall rule: nothing is shown before first value ([PRD](prd.md), FR-ONB-006).
+which is shown only when the person first uses that tier ([PRD](prd.md), FR-ONB-006).
 App Store copy states the Apple Intelligence requirement honestly
 ([app store strategy](app-store-strategy.md)).
 

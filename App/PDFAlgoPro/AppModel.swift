@@ -86,6 +86,8 @@ final class AppModel {
       }
     }
     Task { await container.migrateSpotlightIfNeeded() }
+    // Purchases are followed from launch, so one approved or renewed while the app was closed is seen.
+    container.entitlements.start()
     // Text recognition the app was stopped in the middle of goes on from where it was (P8).
     Task { await container.recognition.resumePending() }
   }

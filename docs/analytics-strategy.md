@@ -151,7 +151,8 @@ formal differential privacy can be added at the aggregation step if volumes just
 ## Funnel and metric definitions
 
 Definitions match [success metrics](success-metrics.md). The funnel is
-**onboarding → first document → first core task → paywall view → trial → paid**.
+**onboarding → paywall view (first run) → first document → first core task → paywall view (later) →
+trial → paid**. The paywall's `trigger` tells the first-run view from the later ones.
 
 | Stage | Metric | Definition | Source |
 |---|---|---|---|
@@ -252,7 +253,7 @@ were involved; it supports the consent reporting in [AI governance](ai-governanc
 
 - **Off by default.** The setting exists only once telemetry ships.
 - **Asked once, after first value.** A card appears after the user's first successful task, never
-  during onboarding and never next to the paywall. Draft copy: "Help improve PDF Algo Pro. Share
+  during the first-run introduction and never next to the paywall or the purchase confirmation. Draft copy: "Help improve PDF Algo Pro. Share
   anonymous daily counts of which features are used. Never your documents, names or anything you
   type." Buttons "Share counts" and "Not now" have equal weight
   ([design system](design-system.md)).

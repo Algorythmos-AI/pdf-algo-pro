@@ -516,8 +516,8 @@ spike, with our own accessibility layer where needed.
 
 **Alternatives considered.** Reacting to App Review feedback (slow and risky near launch).
 
-**Trade-offs.** Some growth tactics (hard paywalls before value, tracking-based attribution) are
-ruled out.
+**Trade-offs.** Some growth tactics (paywalls that cannot be closed, tracking-based attribution)
+are ruled out.
 
 **Risks.** Guideline changes: reviewed each milestone.
 

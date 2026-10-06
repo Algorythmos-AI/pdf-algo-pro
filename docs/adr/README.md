@@ -20,7 +20,7 @@ Owner: Architecture · Reviewed: when a decision changes
 | [ADR-0008](0008-ocr-and-scanning.md) | On-device scanning and structured OCR | accepted |
 | [ADR-0009](0009-tiered-ai-and-consent.md) | Tiered AI with on-device first and consent for every cloud tier | accepted |
 | [ADR-0010](0010-search.md) | Core Spotlight for search, with an on-device index as fallback | accepted |
-| [ADR-0011](0011-storekit-2-monetisation.md) | StoreKit 2 subscriptions without a third-party SDK | accepted |
+| [ADR-0011](0011-storekit-2-monetisation.md) | StoreKit 2 subscriptions without a third-party SDK | accepted; plans and paywall placement superseded by ADR-0026 |
 | [ADR-0012](0012-on-device-observability.md) | On-device observability without third-party SDKs | accepted |
 | [ADR-0013](0013-ci-cd.md) | GitHub Actions for gates, Xcode Cloud for signed builds | accepted |
 | [ADR-0014](0014-testing-strategy-and-coverage.md) | Testing strategy and 80% coverage gate | accepted |
@@ -35,6 +35,7 @@ Owner: Architecture · Reviewed: when a decision changes
 | [ADR-0023](0023-ios-26-floor-built-with-xcode-27.md) | iOS 26 floor, built with the Xcode 27 SDK (supersedes the floor in ADR-0001) | accepted |
 | [ADR-0024](0024-remote-configuration-package.md) | Remote configuration in its own package, read from the CloudKit public database | accepted |
 | [ADR-0025](0025-native-text-editing-for-the-safe-subset.md) | Native text editing for the documents where it is safe, behind our own boundary | accepted |
+| [ADR-0026](0026-first-run-subscription-offer-and-plans.md) | A closable subscription offer at the end of first run, weekly and annual plans, and a free allowance (supersedes the plans and paywall placement in ADR-0011) | accepted |
 
 ## Writing one
 
