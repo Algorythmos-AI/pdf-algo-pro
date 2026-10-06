@@ -89,10 +89,23 @@ struct TextEditLayer: View {
   let selection: TextRegionSelection
   let draft: TextEditDraft
   @State private var frame: CGRect?
+  @State private var height: CGFloat = 0
 
-  /// Whether the field can sit over the text: upright, and big enough on screen to read.
-  static func fitsInPlace(_ selection: TextRegionSelection, frame: CGRect?) -> Bool {
+  /// The share of the reader's height, from the top, that stays clear of the keyboard and the
+  /// editor's bar while text is being typed.
+  ///
+  /// Assumption: the keyboard with its bar takes a little over half of an iPhone's height; checked
+  /// in the device test plan.
+  static let clearShare = 0.45
+
+  /// Whether the field can sit over the text: upright, big enough on screen to read, and where it
+  /// can be seen while it is typed into.
+  ///
+  /// Text that the page could not scroll clear of the keyboard is edited in the bar instead, which
+  /// is always in view.
+  static func fitsInPlace(_ selection: TextRegionSelection, frame: CGRect?, within height: CGFloat? = nil) -> Bool {
     guard let frame, selection.region.isUpright else { return false }
+    if let height, frame.maxY > height * clearShare { return false }
     return frame.height >= 12 && frame.minX >= 0 && frame.minY >= 0
   }
 
@@ -117,12 +130,17 @@ struct TextEditLayer: View {
         }
       }
     }
+    .onGeometryChange(for: CGFloat.self) {
+      $0.size.height
+    } action: {
+      height = $0
+    }
     .task(id: selection) {
       // The page has just scrolled the text clear of the keyboard; read where it ended up.
       try? await Task.sleep(for: .milliseconds(80))
       let measured = model.controller?.selectedTextRegionFrame
       frame = measured
-      draft.isInPlace = Self.fitsInPlace(selection, frame: measured)
+      draft.isInPlace = Self.fitsInPlace(selection, frame: measured, within: height > 0 ? height : nil)
     }
     .accessibilityElement(children: .contain)
   }
@@ -245,6 +263,7 @@ struct TextEditMessageLabel: View {
     case .fontMatched: Text("The font will be matched as closely as possible.", bundle: .module)
     case .coversOriginal:
       Text("Your text will cover this text. The original stays in the file underneath.", bundle: .module)
+    case .coversOriginalBriefly: Text("Covers the original text.", bundle: .module)
     case .lookingForText: Text("Looking for text on this page…", bundle: .module)
     case .noEditableText: Text("No text on this page can be edited.", bundle: .module)
     case .tookTooLong: Text("This is taking too long. Nothing was changed. Try again.", bundle: .module)
@@ -282,7 +301,7 @@ struct TextEditHint: View {
         }
         .padding(Spacing.s150)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-      } else {
+      } else if model.showsTextEditStartHint {
         Label {
           Text("Tap any text to change it", bundle: .module)
         } icon: {

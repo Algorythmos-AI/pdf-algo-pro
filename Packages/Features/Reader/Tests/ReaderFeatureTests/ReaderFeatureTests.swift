@@ -1236,7 +1236,7 @@ struct ReaderTextEditingTests {
       #expect(ImageRenderer(content: TextEditMessageLabel(message: message).frame(width: 300)).uiImage != nil)
     }
     reader.cancelTextEdit()
-    #expect(ImageRenderer(content: TextEditHint(model: reader).frame(width: 390)).uiImage != nil)
+    #expect(!reader.showsTextEditStartHint, "Once text has been picked, how to start is not said again")
   }
 
   @Test("A document that is loaded again is edited through its new controller")
@@ -1508,6 +1508,45 @@ struct ReaderTextEditingTests {
     #expect(await reader.commitTextEdit("Customer: David Smith"))
     #expect(reader.textEditNotice == nil, "Nothing happened that the person was not told of first")
     #expect(try #require(reader.controller).annotationCount(onPage: 0) == 2)
+  }
+
+  @Test("An explanation is given once, not at every line")
+  func explanationsAreGivenOnce() async throws {
+    let harness = Harness()
+    // Every line of this page is in a matched font.
+    let document = await harness.seed(try TextEditFixtures.invoice())
+    let reader = harness.reader(for: document, editor: RefusingEditor(rehearsalsFail: true))
+    await reader.load()
+    await reader.beginTextEditing()
+    #expect(reader.showsTextEditStartHint, "How to start is shown until something is picked")
+    await reader.controller?.finishTextRehearsal(onPage: 0)
+
+    // Text that will be covered: the whole sentence the first time, a few words after that.
+    try await pick("John Smith", in: reader)
+    #expect(reader.textEditMessage == .coversOriginal && !reader.showsTextEditStartHint)
+    reader.cancelTextEdit()
+    try await pick("Materials", in: reader)
+    #expect(reader.textEditMessage == .coversOriginalBriefly, "Still said, because it changes what Done does")
+    reader.cancelTextEdit()
+    #expect(!reader.showsTextEditStartHint)
+    let label = TextEditMessageLabel(message: .coversOriginalBriefly).frame(width: 300)
+    #expect(ImageRenderer(content: label).uiImage != nil)
+  }
+
+  @Test("The field sits over the text only where it can be seen above the keyboard")
+  func fieldStaysInView() async throws {
+    let harness = Harness()
+    let (reader, _) = try await editing(try TextEditFixtures.invoice(), in: harness, picking: "John Smith")
+    let selection = try #require(reader.selectedTextRegion)
+    let high = CGRect(x: 40, y: 150, width: 200, height: 20)
+    let low = CGRect(x: 40, y: 560, width: 200, height: 20)
+    #expect(TextEditLayer.fitsInPlace(selection, frame: high, within: 800))
+    #expect(!TextEditLayer.fitsInPlace(selection, frame: low, within: 800), "It would be under the keyboard")
+    #expect(TextEditLayer.fitsInPlace(selection, frame: low), "With no height known, as before")
+    // Then the field is in the bar, which is always in view.
+    let draft = TextEditDraft()
+    draft.isInPlace = false
+    #expect(ImageRenderer(content: TextEditBar(model: reader, draft: draft).frame(width: 390)).uiImage != nil)
   }
 }
 

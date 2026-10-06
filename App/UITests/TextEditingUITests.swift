@@ -69,7 +69,7 @@ final class TextEditingUITests: UITestCase {
     // The paged layout holds on to the page it was showing; the new page must take its place.
     XCTAssertTrue(line(containing: "Try these: now", in: app).waitForExistence(timeout: 20), "The page shows the edit")
     let indicator = app.staticTexts["reader.pageIndicator"]
-    XCTAssertTrue(indicator.label.contains("1 of 3"), "Still on the page that was edited")
+    XCTAssertTrue(indicator.label.contains("1 of 3"), "Still on the page that was edited, not \(indicator.label)")
   }
 
   /// Opening a document a second time used to leave the page view bound to the first load, so
@@ -221,7 +221,9 @@ final class TextEditingUITests: UITestCase {
     // Undo takes the cover away, and the notice with it.
     app.buttons["reader.textEdit.notice.undo"].tap()
     XCTAssertTrue(notice.waitForNonExistence(timeout: 10))
-    XCTAssertTrue(app.descendants(matching: .any)["reader.textEdit.hint"].firstMatch.waitForExistence(timeout: 5))
+    XCTAssertTrue(done.isEnabled, "Text editing goes on")
+    XCTAssertFalse(
+      app.staticTexts["Tap any text to change it"].exists, "How to start is not said again once text was picked")
 
     // The next line on this page says it will be covered before anything is typed.
     tap(line(containing: "This sample shows", in: app), until: field)
