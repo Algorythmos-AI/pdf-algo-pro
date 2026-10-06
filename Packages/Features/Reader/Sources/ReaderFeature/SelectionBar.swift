@@ -95,6 +95,8 @@ struct SelectionBar: View {
       Button(action: onDone) { Text("Done", bundle: .module).minimumTarget() }
         .accessibilityIdentifier("reader.selection.done")
     }
+    // Plain labels, so that the only red on this bar is Delete (the app's accent is red too).
+    .tint(Color.ds.labelPrimary)
     .padding(Spacing.s150)
     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     .accessibilityElement(children: .contain)
