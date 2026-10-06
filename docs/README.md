@@ -175,7 +175,7 @@ blocks implementation today?
 ### Also in this folder
 
 - [Planning backlog](planning/backlog.yaml): planned work as code, synced to issues.
-- [Architecture decision records](adr/README.md): ADR-0001 to ADR-0022.
+- [Architecture decision records](adr/README.md): ADR-0001 to ADR-0026.
 - [Wiki source](wiki/Home.md): curated pages published to the GitHub wiki ([wiki plan](wiki-plan.md)).
 
 ## Conventions

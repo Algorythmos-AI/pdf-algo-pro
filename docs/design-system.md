@@ -52,7 +52,8 @@ Owner: Design · Reviewed: each milestone, and whenever a token or component cha
    what is selected or being edited is `color.selection`, the system's blue: on a document, red is
    an annotation colour and the colour of Delete.
 6. **Honest interface.** Generated text is always labelled and never styled as document text; the
-   tier that answered is always visible; paywalls are easy to close. These follow founder principles
+   tier that answered is always visible; paywalls close in one action from the moment they appear.
+   These follow founder principles
    4, 5 and 10.
 7. **Accessible by default.** Accessibility is a requirement of every component, tested in CI, not
    a pass at the end ([testing strategy](testing-strategy.md)).
@@ -335,7 +336,7 @@ on 2026-10-07 ([PAP-046](decision-register.md)). `scripts/design/make_app_icon.s
 | Text style | Size at Large (default) | Size at AX5 | Used for |
 |---|---|---|---|
 | Large Title | 34 pt | 60 pt | Library title |
-| Title 1 / Title 2 / Title 3 | 28 / 22 / 20 pt | 58 / 56 / 55 pt | Onboarding question, paywall header, section titles |
+| Title 1 / Title 2 / Title 3 | 28 / 22 / 20 pt | 58 / 56 / 55 pt | Introduction headlines, paywall header, section titles |
 | Headline | 17 pt semibold | 53 pt | Card titles, list row titles |
 | Body | 17 pt | 53 pt | AI answers, settings, dialogs |
 | Callout | 16 pt | 51 pt | Intent picker descriptions |
@@ -594,9 +595,38 @@ AI answers are the product's differentiator, so their design carries the trust r
   answer's first line.
 - **Content layer:** the card uses a standard material, not Liquid Glass.
 
-### Onboarding intent picker
+### First-run introduction
 
-One screen after launch, asking "What do you do with PDFs most often?". The choice personalises the
+Three pages on first launch, one capability each ([PAP-045](decision-register.md)); this spec is
+ahead of the code until the flow ships.
+
+| Page | Shows | Where on-device intelligence is unavailable |
+|---|---|---|
+| 1 | Scan to PDF | Same |
+| 2 | Sign and mark up | Same |
+| 3 | Ask your document, on this iPhone | Organise and protect (merge, passwords) |
+
+- Each page is an illustration drawn in SwiftUI over a synthetic document, a Title headline of at
+  most two lines, one sentence in Body, and one `PrimaryButton` ("Continue") in the bottom bar, in
+  the same place on every page. At accessibility text sizes the illustration shrinks, then goes.
+- **Skip** is in the toolbar on every page. Pages can be reached with VoiceOver without a swipe
+  gesture, and the page indicator is never the only sign of progress.
+- Which third page shows is decided before it is on screen; it never changes while shown.
+- Pages name only what the installed build does (FR-ONB-007), and no permission is asked here.
+- Motion goes through `Motion`; with Reduce Motion the illustrations are still.
+- After the last page, or Skip, first run is marked complete, then the subscription offer may show
+  once (see Paywall); closing it leads to Home.
+
+### Home's first-use tip
+
+A one-time tip card above Home's starting actions ("Scan a document or import a file to start"),
+following the rule for tips above: drawn in the layout, gone for good once Scan or Import is used,
+it is closed, or it has shown three times, and never while a sheet is up (FR-ONB-008).
+
+### Intent picker (Settings)
+
+The question "What do you do with PDFs most often?" is no longer asked on first launch; it is
+Settings › Home screen › What you do most. The choice personalises the
 home screen and the order of tools; it never gates anything.
 
 | Group | Options (in this order) |
@@ -607,12 +637,11 @@ home screen and the order of tools; it never gates anything.
 - Options are cards with an SF Symbol, a title and a one-line Callout description. `Assumption:`
   more than one option can be selected, and the first selected leads the home screen; confirmed in
   usability sessions.
-- **Skip** is always visible in the toolbar; skipping shows the default home screen and the question
-  never returns uninvited (it stays available in Settings), as the HIG recommends for optional
-  onboarding ([Onboarding](https://developer.apple.com/design/human-interface-guidelines/onboarding)).
-- After the choice, the next screen is the first task: open a document (Files, Scan, or a bundled
-  synthetic sample). **No paywall, account or permission request appears before first value.**
-  Permissions are requested when the feature needs them (the camera on first scan).
+- The question is optional, as the HIG recommends for onboarding
+  ([Onboarding](https://developer.apple.com/design/human-interface-guidelines/onboarding)); with
+  nothing chosen, Home shows its default actions.
+- **No account or permission request appears during first run.** Permissions are requested when
+  the feature needs them (the camera on first scan, notifications on the purchase confirmation).
 - On devices that do not support Apple Intelligence, or where it is turned off, the AI options stay
   visible with a note that they run through an optional cloud service; the consent screen appears
   only when the user first uses one ([ADR-0009](adr/0009-tiered-ai-and-consent.md)). The app checks
@@ -625,15 +654,36 @@ home screen and the order of tools; it never gates anything.
   button, a Close button, and links to the terms and privacy policy submitted in App Store Connect
   ([SubscriptionStoreView](https://developer.apple.com/documentation/storekit/subscriptionstoreview)).
   `storeButton(_:for:)` shows Restore Purchases and Redeem Code.
-- **When it appears.** Never during onboarding or before the user's first successful task. After
-  that: when the user taps a Pro feature (marked with a "Pro" badge), from Settings, and at most one
-  dismissible "What Pro adds" card after first value.
+- **When it appears.** Once at the end of the first-run introduction ([PAP-042](decision-register.md)),
+  and only if the products have loaded and the person does not have Pro; with no connection, first
+  run ends on Home. After that: when the user taps a Pro feature (marked with a "Pro" badge), when
+  the day's free allowance is used, and from Settings. Never at a later launch.
+- **Close.** A Close button is in the toolbar from the first frame and closes in one action;
+  swiping the sheet down does the same.
+- **Our words carry no numbers.** The header and the list of what Pro adds never state a price, a
+  period or a trial. StoreKit's plan options do, so they follow the storefront and whether the
+  person is eligible for the introductory offer.
+- **When the store cannot be reached** after the person asked for the paywall, it shows a short
+  message and Close, never an empty store.
 - **Honest by construction.** Outcome-first header ("Unlimited answers with page citations"), the
   full renewal price as the most prominent price, trial length and the price after the trial, a
   plain statement that the plan renews until cancelled, and how to cancel. No countdown timers, no
-  delayed Close button, no pre-selected plan chosen for the business rather than the user. The full
+  delayed Close button, no struck-through price, both plans always visible, and StoreKit's default
+  plan selection is not overridden. The full
   disclosure checklist is in [App Store strategy](app-store-strategy.md).
 - The Manage Subscription row in Settings opens the system sheet (`manageSubscriptionsSheet`).
+  Settings opens with a subscription section: the status (Free, Trial until a date, Pro, or a
+  billing problem), See plans, Manage Subscription, Restore Purchases and Redeem Code.
+
+### Purchase confirmation
+
+Shown in the same presentation as the paywall when the entitlement changes to one that grants Pro
+(FR-STORE-007): a check mark with the `motion.emphasis` symbol effect and the success haptic,
+"Welcome to Pro", three short lines of what is now available, and one `PrimaryButton` ("Start").
+During a trial it also shows the date the trial ends and a "Remind me before the trial ends"
+switch, which is the only place the app asks for notification permission; without permission the
+reminder is an in-app notice. A pending or cancelled purchase shows nothing here, and closing this
+screen never leads to a rating request.
 
 ### Empty, error and loading states
 

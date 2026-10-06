@@ -75,7 +75,11 @@ struct RootView: View {
       }
     }
     .background(LockWindowPresenter(lock: app.lock, method: app.lockMethod))
-    .onChange(of: scenePhase, initial: true) { _, phase in Task { await app.lock.scenePhaseChanged(to: phase) } }
+    .onChange(of: scenePhase, initial: true) { _, phase in
+      Task { await app.lock.scenePhaseChanged(to: phase) }
+      // A subscription can change while the app is away: bought on another device, renewed, refunded.
+      if phase == .active { Task { await app.container.entitlements.refresh() } }
+    }
     // A calm moment to ask for a rating: a document or a sheet has just closed (plan §6).
     .onChange(of: app.library.selection == nil) { _, closed in
       guard closed else { return }

@@ -56,7 +56,11 @@ Each is a hypothesis with a test in the [competitive moat](competitive-moat.md) 
 
 ## Onboarding language
 
-The first question is "What do you do with PDFs most often?". Answer options, in this order:
+First run shows three introduction pages instead of a question ([PAP-045](decision-register.md)):
+scan to PDF; sign and mark up; ask your document on this iPhone. Each names one thing the installed
+build does. The question below now lives in Settings, where it sets Home's primary action.
+
+The question is "What do you do with PDFs most often?". Answer options, in this order:
 
 1. Chat with PDF
 2. Summarise document
@@ -72,8 +76,8 @@ The first question is "What do you do with PDFs most often?". Answer options, in
 11. Scan to PDF
 12. All tools
 
-The choice personalises the home screen; the question can be skipped; no paywall appears before the
-first completed task ([PRD](prd.md), FR-ONB requirements). The first four are the AI-first options
+The choice personalises the home screen and is never required; no account or sign-in is ever asked
+for ([PRD](prd.md), FR-ONB requirements). The first four are the AI-first options
 because they show the differentiator in the first minute; when the device cannot run the on-device
 model, they explain what they need and point to the non-AI tools (from V2, Pro users can also opt
 in to the Claude tier), and never fail silently.
