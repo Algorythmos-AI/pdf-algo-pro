@@ -558,6 +558,49 @@ extension PDFDocumentController {
     return outcome
   }
 
+  // MARK: - Moving text
+
+  /// The text at a point, if the page's text has been found; for lifting it under a finger.
+  ///
+  /// Nothing is looked for here: a page whose text is not yet known has nothing to lift.
+  public func knownTextRegion(at point: CGPoint, onPage pageIndex: Int, reach: CGFloat) -> EditableTextRegion? {
+    guard isEditingText, let page = document.page(at: pageIndex), let found = textPages[ObjectIdentifier(page)],
+      found.page === page
+    else { return nil }
+    func distance(to rect: CGRect) -> CGFloat {
+      hypot(max(rect.minX - point.x, 0, point.x - rect.maxX), max(rect.minY - point.y, 0, point.y - rect.maxY))
+    }
+    return found.text.regions.filter { distance(to: $0.bounds) <= reach }.min {
+      (distance(to: $0.bounds), $0.bounds.width * $0.bounds.height)
+        < (distance(to: $1.bounds), $1.bounds.width * $1.bounds.height)
+    }
+  }
+
+  /// A move kept on the page: the offset is shortened so the text's box stays inside the page.
+  public func offset(_ offset: CGVector, keeping region: EditableTextRegion, onPage pageIndex: Int) -> CGVector {
+    guard let page = document.page(at: pageIndex) else { return .zero }
+    let box = page.bounds(for: .cropBox).insetBy(dx: 2, dy: 2)
+    let bounds = region.bounds
+    let dx = min(max(offset.dx, box.minX - bounds.minX), box.maxX - bounds.maxX)
+    let dy = min(max(offset.dy, box.minY - bounds.minY), box.maxY - bounds.maxY)
+    return CGVector(dx: dx, dy: dy)
+  }
+
+  /// Moves a line of text, keeping its words.
+  ///
+  /// The text is erased where it was and drawn where it is put, and proven like any edit; undo
+  /// puts it back. Returns what happened; anything but `.edited` changed nothing. Text that can
+  /// only be covered is not moved here: the caller asks for that with
+  /// `cover(_:with:insteadOfEditing:movedBy:)`.
+  ///
+  /// Nothing is picked for this, so no editor opens: the text is moved as it is.
+  public func moveText(_ selection: TextRegionSelection, by offset: CGVector) async -> TextEditOutcome {
+    guard isEditingText, selectedTextRegion == nil else { return .refused(.stale) }
+    let kept = self.offset(offset, keeping: selection.region, onPage: selection.pageIndex)
+    let edit = TextEdit(region: selection.region, replacement: selection.region.text, offset: kept)
+    return await applyTextEdits([edit], onPage: selection.pageIndex).first ?? .refused(.stale)
+  }
+
   /// Applies edits to one page as a single undo step, all or nothing.
   ///
   /// This is also the entry point for anything that proposes edits, such as a future writing
@@ -591,7 +634,9 @@ extension PDFDocumentController {
     let generation = structureGeneration
     // The editor is given the regions as it returned them: in the snapshot's own space.
     let translated = edits.map { edit in
-      found.found[edit.regionID].map { TextEdit(region: $0, original: edit.original, replacement: edit.replacement) }
+      found.found[edit.regionID].map {
+        TextEdit(region: $0, original: edit.original, replacement: edit.replacement, offset: edit.offset)
+      }
         ?? edit
     }
     let editor = textEditor
@@ -783,9 +828,27 @@ extension PDFDocumentController {
   ///     page's content. Text the engine marked as editable may then be covered too.
   /// - Returns: What happened; anything but `.edited(.visualReplacement)` changed nothing.
   public func coverSelectedText(with replacement: String, insteadOfEditing: Bool = false) -> TextEditOutcome {
-    guard let selection = selectedTextRegion, let page = document.page(at: selection.pageIndex) else {
-      return .refused(.stale)
-    }
+    guard let selection = selectedTextRegion else { return .refused(.stale) }
+    return cover(selection, with: replacement, insteadOfEditing: insteadOfEditing)
+  }
+
+  /// Covers a piece of text and places new text over it, or elsewhere on its page.
+  ///
+  /// See `coverSelectedText(with:insteadOfEditing:)`, which does this for the picked text.
+  ///
+  /// - Parameters:
+  ///   - selection: The text to cover.
+  ///   - replacement: The new text.
+  ///   - insteadOfEditing: Whether this finishes an edit that could not be made or proven in the
+  ///     page's content. Text the engine marked as editable may then be covered too.
+  ///   - offset: How far from the old text the new text is placed, in page points; the cover stays
+  ///     over the old text.
+  /// - Returns: What happened; anything but `.edited(.visualReplacement)` changed nothing.
+  public func cover(
+    _ selection: TextRegionSelection, with replacement: String, insteadOfEditing: Bool = false,
+    movedBy offset: CGVector = .zero
+  ) -> TextEditOutcome {
+    guard let page = document.page(at: selection.pageIndex) else { return .refused(.stale) }
     guard textEditability != .restricted else { return .refused(.restricted) }
     let region = selection.region
     guard insteadOfEditing || !region.capability.editsContent, region.isUpright else {
@@ -798,7 +861,7 @@ extension PDFDocumentController {
     let font = AnnotationPalette.font(size: size, bold: region.style.isBold)
     let width = (text as NSString).size(withAttributes: [.font: font]).width + 8
     let pageBox = page.bounds(for: .cropBox)
-    guard region.bounds.minX + width <= pageBox.maxX else { return .tooLong }
+    guard region.bounds.minX + offset.dx + width <= pageBox.maxX else { return .tooLong }
 
     let cover = PDFAnnotation(bounds: region.bounds.insetBy(dx: -1, dy: -1), forType: .square, withProperties: nil)
     let background = Self.backgroundColor(of: page, around: region.bounds)
@@ -810,7 +873,8 @@ extension PDFDocumentController {
 
     let box = CGRect(
       x: region.bounds.minX - 2, y: region.bounds.minY - 2, width: max(width, region.bounds.width) + 4,
-      height: region.bounds.height + 4)
+      height: region.bounds.height + 4
+    ).offsetBy(dx: offset.dx, dy: offset.dy)
     let label = PDFAnnotation(bounds: box, forType: .freeText, withProperties: nil)
     label.contents = text
     label.font = font

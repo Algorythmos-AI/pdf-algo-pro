@@ -122,6 +122,9 @@ public final class PDFDocumentController {
   @ObservationIgnored var textEditLimit = Duration.seconds(15)
   /// What happened the last time text was looked for or edited, as counts only.
   @ObservationIgnored public internal(set) var textEditingDiagnostics = TextEditingDiagnostics(pageKind: .unreadable)
+  /// Called when the person has lifted a line of text and dropped it somewhere else on its page:
+  /// the text, and how far it was moved in page points.
+  @ObservationIgnored public var onTextMoveRequested: (@MainActor (TextRegionSelection, CGVector) -> Void)?
   /// Called whenever `textEditingDiagnostics` changes, so the app can keep it for a problem report.
   @ObservationIgnored public var onTextEditingDiagnostics: (@MainActor (TextEditingDiagnostics) -> Void)?
   /// The work of finding `incomingLinks`, while it runs.

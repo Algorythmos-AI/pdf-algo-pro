@@ -106,7 +106,12 @@ public struct ContentStreamTextEditor: PDFTextEditing {
         outcomes.append(.refused(refusal))
         continue
       }
-      switch TextRedrawer.plan(region, replacement: edit.replacement) {
+      // Text may be moved anywhere on the page, and nowhere off it.
+      if edit.moves, !analysis.page.mediaBox.contains(region.bounds.offsetBy(dx: edit.offset.dx, dy: edit.offset.dy)) {
+        outcomes.append(.refused(.overlapsOtherContent))
+        continue
+      }
+      switch TextRedrawer.plan(region, replacement: edit.replacement, offset: edit.offset) {
       case .planned(let plan):
         plans.append(plan)
         outcomes.append(.edited(plan.mode))

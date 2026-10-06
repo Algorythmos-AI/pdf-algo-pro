@@ -339,6 +339,7 @@ UI tests see no tips unless they pass `-show-tips`, which starts TipKit from an 
 | `EditProofTests` | The proof refuses each kind of wrong result |
 | `TextEditingHostileInputTests` | Malformed and fuzzed input, limits |
 | `TextEditingControllerTests` | Save and reopen, undo and redo interleaved with annotations and page changes, forms, outline, metadata, links, encryption, permissions, signatures, covering, save faults, long documents |
+| `TextMovingTests` | A line moved in the page and in the open document, changed and moved at once, right-aligned and slanted text, refusals onto other text and off the page, covering and placing |
 | `TextEditingGuaranteeTests` | Every line of every corpus document ends as a real edit; ligatures; no dead ends |
 | `TextEditingDependabilityTests` | The rehearsal (marks an unprovable page, leaves a provable one, never holds back the lines), covering instead of editing. Time limits and discarded late answers, cancellation, picking with no page view, the page view following a new controller, outlines after PDFKit puts them away, repeated edit-save-reopen, the diagnostics record |
 | `ReaderTextEditingTests` | The reader model and views: access, commit, cancel, undo, refusals, scanned pages, signed copies, search text, a reloaded document, the "looking", "nothing to edit" and "too long" messages, the diagnostics summary's vocabulary |
@@ -367,6 +368,31 @@ takes a tap, or makes an edit. It goes into Settings › Report a problem
 Reasons are reduced to at most 24 ASCII letters before they are written, so a field filled wrongly
 cannot carry a document's words. `ReaderTextEditingTests.diagnostics` asserts every word of the
 summary is one the app chose. The record is kept in memory only and replaced each time.
+
+## Moving text (FR-EDIT-009)
+
+A line of existing text can be moved on its page: in text editing, press on it and hold, then drag.
+
+- **In the engine a move is an edit.** `TextEdit` carries an `offset` in page points. The line is
+  erased where it was and drawn at the new place with the same words (`TextRedrawer.plan(_:replacement:offset:)`),
+  and the same proof runs: the words are found on the baseline where they were put, every other
+  line is where it was, the picture changed only at the old place and the new one, and the new
+  place was clear. Nothing was added to the proof.
+- **Where text cannot go.** Onto other content (the proof's `occupied` check) or off the page: the
+  edit is refused as `overlapsOtherContent`, nothing changes, and the reader says "There isn't
+  room for it there." The reader shortens a drag so the line stays on the page.
+- **Fallback.** Text that cannot be changed in the page is covered where it was and placed, as an
+  annotation, where it was dropped (`PDFDocumentController.cover(_:with:insteadOfEditing:movedBy:)`),
+  with the same standing notice and Undo as a covered edit (PAP-039).
+- **The gesture** (`PDFReaderHostView.lifted`). A long press (`Assumption:` 0.35 seconds, the
+  system's usual feel for lifting; checked in the device test) on a line whose text is already
+  known lifts a picture of it, which follows the finger. Nothing is picked and no editor opens.
+  While text is being edited, scrolling and zooming wait to see whether a touch is such a press; a
+  drag fails the press within a few points, so scrolling starts as before.
+- **Undo** is the page swap's, as for any edit.
+
+Limits: one line at a time; there is no way to move text with VoiceOver or a keyboard yet; a moved
+line keeps its words and its size.
 
 ## Found by testers
 

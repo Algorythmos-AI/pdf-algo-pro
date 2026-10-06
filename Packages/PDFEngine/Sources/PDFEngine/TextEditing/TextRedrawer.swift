@@ -133,12 +133,17 @@ struct PlannedText {
   /// How wide the text is, in the region's drawing units.
   let widthDrawn: Double
   let mode: TextEditMode
+  /// How far the text is moved from where the old text was, in page space.
+  var offset = CGVector.zero
 
   /// Where the new text's ink falls, in page space.
-  var bounds: CGRect { region.pageBox(fromDrawn: startDrawn, width: widthDrawn) }
+  var bounds: CGRect { region.pageBox(fromDrawn: startDrawn, width: widthDrawn).offsetBy(dx: offset.dx, dy: offset.dy) }
 
   /// Where the new text's baseline starts, in page space.
-  var baselineStart: CGPoint { CGPoint(x: startDrawn, y: 0).applying(region.drawing) }
+  var baselineStart: CGPoint {
+    let start = CGPoint(x: startDrawn, y: 0).applying(region.drawing)
+    return CGPoint(x: start.x + offset.dx, y: start.y + offset.dy)
+  }
 }
 
 /// Whether a replacement could be laid out.
@@ -161,7 +166,15 @@ enum TextRedrawer {
   static let justifiedTolerance = 0.03
 
   /// Lays out a region's replacement, or says why it cannot be drawn.
-  static func plan(_ region: TextRegion, replacement: String) -> TextPlanning {
+  ///
+  /// - Parameters:
+  ///   - region: The text to replace.
+  ///   - replacement: The new words.
+  ///   - move: How far to move the text, in page space. Moved text is set at its natural width
+  ///     from where its line started: the room it had beside its old neighbours says nothing about
+  ///     the new place, which the proof checks is clear.
+  /// - Returns: The laid-out text, or why it could not be laid out.
+  static func plan(_ region: TextRegion, replacement: String, offset move: CGVector = .zero) -> TextPlanning {
     let text = replacement.precomposedStringWithCanonicalMapping.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !text.isEmpty, text.unicodeScalars.allSatisfy(TextScript.isSimple) else {
       return .declined(.refused(.unsupportedCharacters))
@@ -216,6 +229,9 @@ enum TextRedrawer {
     {
       line = justified
       width = original
+    } else if move != .zero {
+      // Moved: nothing to fit against.
+      start = 0
     } else {
       let room: Double =
         switch region.alignment {
@@ -238,7 +254,7 @@ enum TextRedrawer {
     return .planned(
       PlannedText(
         region: region, text: text, line: line, fit: fit, startDrawn: start, widthDrawn: width,
-        mode: match.isExact && !substituted ? .contentStream : .contentStreamWithFallbackFont))
+        mode: match.isExact && !substituted ? .contentStream : .contentStreamWithFallbackFont, offset: move))
   }
 
   private static func color(_ components: [Double]) -> CGColor {
@@ -270,6 +286,7 @@ enum TextRedrawer {
       for plan in plans {
         let across = plan.region.horizontalScale * plan.fit
         context.saveGState()
+        context.translateBy(x: plan.offset.dx, y: plan.offset.dy)
         context.concatenate(plan.region.drawing)
         context.scaleBy(x: across, y: 1)
         context.textMatrix = .identity

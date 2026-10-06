@@ -278,12 +278,17 @@ applicable.
 | FR-EDIT-006 | Password-protect and remove protection | Must | V1 | PIL-5 |
 | FR-EDIT-007 | Undo and redo for every edit; autosave | Must | MVP | PIL-2 |
 | FR-EDIT-008 | Revert history: before any save that changes a document, a copy of the previous version is kept for 30 days within a storage limit, and "Revert to before…" restores it; redaction never keeps one; if a copy cannot be kept, the app offers "Save as copy" or cancel instead | Must | MVP | PIL-2, PIL-5 |
+| FR-EDIT-009 | Move a line of existing text to another place on its page by holding and dragging it, with undo; the text is moved in the page's content where that can be proven, and otherwise covered where it was and placed where it is dropped, which the app says | Should | V1 | PIL-2 |
 
 **Acceptance (Must):**
 
 - *FR-EDIT-001.* Given a corpus PDF, when a word is edited and the file is saved, then the text
   extracted from the saved file contains the new word and not the old one, and the layout of the
   rest of the page is unchanged (visual diff within tolerance).
+- *FR-EDIT-009.* Given a corpus PDF, when a line is held, dragged to an empty part of its page and
+  dropped, then the text extracted from the saved file has the line at the new place and no longer
+  at the old one, every other line is where it was, and one undo puts it back. Given a drop onto
+  other content, then nothing changes and the app says there is no room.
 - *FR-EDIT-003.* Given a form PDF, when fields are filled and the document is closed or the app
   moves to the background, then the saved file holds every entry, as read by another PDF reader
   (`PDFEngineTests.formEntriesAreSaved`). **AutoFill:** PDFKit has no public API to set a text

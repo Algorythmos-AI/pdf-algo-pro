@@ -172,6 +172,9 @@ public final class ReaderModel {
       controller.onAnnotationTransformed = { [weak self] in
         Task { await self?.annotationTransformed() }
       }
+      controller.onTextMoveRequested = { [weak self] selection, offset in
+        Task { await self?.moveText(selection, by: offset) }
+      }
       if let log = textEditingDiagnostics {
         controller.onTextEditingDiagnostics = { record in log.record(record) }
       }
@@ -523,6 +526,8 @@ public final class ReaderModel {
     case noEditableText
     /// Finding the text or making the edit took too long; nothing was changed.
     case tookTooLong
+    /// Text was dropped where something else is, or where it does not fit; nothing was moved.
+    case somethingInTheWay
     /// The text can be neither changed nor covered where it is; nothing was changed, and the only
     /// thing left to do is close the editor.
     case cannotEditOrCover
@@ -770,6 +775,59 @@ public final class ReaderModel {
     await save()
     await textEditingPageChanged()
     return true
+  }
+
+  // MARK: - Moving existing text (FR-EDIT-009)
+
+  /// How many times text has been moved in this reader; the view announces each to VoiceOver.
+  public private(set) var textMoves = 0
+
+  /// Moves a line of text to where the person dropped it, and saves.
+  ///
+  /// The words are erased where they were and drawn at the new place, proven like any edit. Text
+  /// that cannot be changed in the page is covered where it was and placed at the new place, and
+  /// the reader says so. Nothing is moved onto other content or off the page.
+  ///
+  /// - Returns: Whether the text was moved.
+  @discardableResult
+  public func moveText(_ selection: TextRegionSelection, by offset: CGVector) async -> Bool {
+    guard let controller, controller.isEditingText, controller.selectedTextRegion == nil, !isCommittingTextEdit
+    else { return false }
+    isCommittingTextEdit = true
+    defer { isCommittingTextEdit = false }
+    textEditNotice = nil
+    hasPickedText = true
+    let kept = controller.offset(offset, keeping: selection.region, onPage: selection.pageIndex)
+    var outcome: TextEditOutcome
+    if selection.region.capability.editsContent {
+      outcome = await controller.moveText(selection, by: kept)
+      if case .refused(let refusal) = outcome, refusal != .overlapsOtherContent, refusal.meansNotEditableInPlace {
+        controller.markTextCoverOnly(onPage: selection.pageIndex)
+        outcome = controller.cover(selection, with: selection.region.text, insteadOfEditing: true, movedBy: kept)
+      }
+    } else {
+      outcome = controller.cover(selection, with: selection.region.text, movedBy: kept)
+    }
+    guard self.controller === controller else { return false }
+    switch outcome {
+    case .edited(let mode):
+      textEditMessage = nil
+      // Covered text is still in the file where it was, and the person must know.
+      if mode == .visualReplacement { textEditNotice = .coveredInstead } else { textChangedSinceIndexing = true }
+      textMoves += 1
+      updateUndoState()
+      await save()
+      return true
+    case .tooLong, .refused(.overlapsOtherContent):
+      textEditMessage = .somethingInTheWay
+    case .refused(.restricted):
+      errorMessage = Self.restrictedMessage
+    case .refused(.timedOut):
+      textEditMessage = .tookTooLong
+    case .refused:
+      textEditMessage = .cannotEditOrCover
+    }
+    return false
   }
 
   /// Takes back the cover the reader placed, and its notice.

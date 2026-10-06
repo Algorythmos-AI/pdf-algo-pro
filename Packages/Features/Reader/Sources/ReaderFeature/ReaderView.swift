@@ -68,6 +68,14 @@ public struct ReaderView<Assistant: View>: View {
       .toolbar { ReaderToolbar(model: model, isAddingNote: $isAddingNote, isAddingTextBox: $isAddingTextBox) }
       .task(id: [model.offersEditTip ? 1 : 0, model.controller?.currentPageIndex ?? -1]) { await offerEditTip() }
       .onDisappear { EditTextTip.isOffered = false }
+      .onChange(of: model.textMoves) {
+        let said =
+          model.textEditNotice == .coveredInstead
+          ? String(
+            localized: "Your text covers the old text. The original is still in the file underneath.", bundle: .module)
+          : String(localized: "Text moved", bundle: .module)
+        UIAccessibility.post(notification: .announcement, argument: said)
+      }
       .alert(Text("Stamp", bundle: .module), isPresented: $model.isAddingStampText) {
         TextField(text: $stampText) { Text("Initials, Paid, Received…", bundle: .module) }
         Button {
