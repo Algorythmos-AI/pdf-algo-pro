@@ -9,6 +9,11 @@ Store notes (see the changelog strategy).
 
 ## [Unreleased]
 
+### Changed
+- A new look: red on white. Buttons, tiles and the app icon are now red, and screens stay white
+  (or dark in Dark Mode). On a document, what you select is outlined in blue, so that red there
+  only ever means a red annotation or Delete.
+
 ### Added
 - Settings › About is now a page of its own: the app's version, the privacy policy, terms and
   support, a way to share PDF Algo Pro, and who makes it.

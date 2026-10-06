@@ -324,7 +324,7 @@ What the spikes found (2026-10-06, iOS 26 simulator):
   zero, and the button's identifier is not on a view that can be found from the window). Hence no
   arrow: the card sits under the trailing end of the bar, where Edit is, and names the button.
 - The system's prominent glass button ignores a label colour set on it; in dark mode its own
-  choice is a faint violet on the violet fill. Hence the design system's capsule.
+  choice is a faint tint of the brand colour on the brand fill. Hence the design system's capsule.
 - A shadow on the whole card is also drawn behind each word and fails the contrast audit; the
   shadow is on the card's shape only.
 
