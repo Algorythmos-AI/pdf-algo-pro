@@ -181,9 +181,21 @@ results).
 | 7 | Contract clauses explained, with the disclosure visible | Understand key clauses. Not legal advice. | Comprenez les clauses. Pas un conseil juridique. | Disclosure in the [design system](design-system.md) |
 | 8 | Highlights and notes on a report | Highlight, annotate, mark up. | Surlignez, annotez, commentez. | Annotation tools |
 | 9 | Merging and reordering pages; export formats | Merge, reorder and convert. | Fusionnez, réorganisez, convertissez. | Organise and convert |
-| 10 | Library in Dark Mode with "Built by Algorythmos" | Read, edit and scan offline. No account. | Lisez, modifiez et numérisez hors ligne. Sans compte. | Offline pillar (PIL-6); no account in V1 |
+| 10 | Home in Dark Mode: the app mark, the starting actions, "Continue reading" with two or three synthetic documents, the sections with their counts, and the footer "Your documents stay on this device." with the company mark and "Built by Algorythmos" | Read, edit and scan offline. No account. | Lisez, modifiez et numérisez hors ligne. Sans compte. | Offline pillar (PIL-6); no account in V1; Home as built (PAP-040, [design system](design-system.md)) |
+
+Frame 10 is the Dark Mode screenshot Apple suggests, and the one frame that carries the company's
+mark: the endorsement is on Home and in About in the app (PAP-040), so the store shows it where the
+app does. Settings and About are not frames: they show no task, and a screenshot must show the app
+in use (Guideline 2.3.3).
 
 Production rules:
+
+- Frames are shot from the build being submitted, not drawn: the app is started on the simulator with
+  an empty private library (`-ui-testing -skip-onboarding`, in a Debug build of the same commit), the
+  synthetic documents are imported, and the screen is captured with `xcrun simctl io <device> screenshot`.
+  What a frame shows is then what the build does, which is what the caption check below relies on.
+- Frame 10 needs a library that looks used: at least three synthetic documents opened, one marked as
+  a favourite, none in Recently deleted, so no count reads "0" beside a section the caption talks about.
 
 - Documents in screenshots are synthetic and licence-clean, like the test corpus; no real people,
   companies or personal data ([testing strategy](testing-strategy.md)).
