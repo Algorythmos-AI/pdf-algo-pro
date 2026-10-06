@@ -56,6 +56,28 @@ public struct IconTile: View {
   }
 }
 
+/// A list row's label with a tile before its title, as the system's own Settings rows have.
+public struct TileLabel: View {
+  private let title: Text
+  private let systemImage: String
+  private let tone: IconTile.Tone
+
+  /// Creates a label.
+  public init(_ title: Text, systemImage: String, tone: IconTile.Tone = .brand) {
+    self.title = title
+    self.systemImage = systemImage
+    self.tone = tone
+  }
+
+  /// The label.
+  public var body: some View {
+    HStack(spacing: Spacing.s150) {
+      IconTile(systemName: systemImage, tone: tone)
+      title.foregroundStyle(Color.ds.labelPrimary)
+    }
+  }
+}
+
 /// A soft wash of the brand tint behind a screen's header.
 ///
 /// It is strongest at the top and gone by its lower edge, and never stronger than `Opacities.brandGlow`,

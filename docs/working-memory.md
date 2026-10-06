@@ -53,6 +53,8 @@ building it are PAP-031 and PAP-032. The readiness gate is still **NOT READY** f
 - Whether Private Cloud Compute counts as "third-party AI" under Guideline 5.1.2(i); consent is
   shown regardless.
 - Development language of the String Catalogs (English variant).
+- "Rate PDF Algo Pro" in Settings › About: not built, because the link needs the public App Store
+  identifier, which exists only once the app is on the store. Add it in the release pull request.
 
 ## Recent decisions
 

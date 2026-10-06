@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check that the app's public pages answer: privacy policy, terms of use, support and the product page.
+"""Check that the app's public pages answer: privacy policy, terms of use, support, the product page and the website.
 
     python3 scripts/ci/check_public_links.py            # request each page
     python3 scripts/ci/check_public_links.py --list     # print the addresses, no network
@@ -34,7 +34,8 @@ def addresses(source: str) -> list[str]:
         raise ValueError("AppLinks.swift no longer declares `site` and its pages as string literals")
     product = pages[0].rsplit("/", 1)[0]
     paths = [product, *pages]
-    return [site.group(1) + prefix + path for prefix in ("", FRENCH) for path in paths]
+    # The website itself is last: About's "Built by Algorythmos" opens it.
+    return [site.group(1) + prefix + path for prefix in ("", FRENCH) for path in paths] + [site.group(1)]
 
 
 def problem(url: str, timeout: float = 20) -> str | None:

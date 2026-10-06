@@ -361,12 +361,22 @@
         }
       }
     },
-    "Privacy" : {
+    "PDF Algo Pro is published by Algorythmos Pty Ltd." : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Confidentialité"
+            "value" : "PDF Algo Pro est publié par Algorythmos Pty Ltd."
+          }
+        }
+      }
+    },
+    "Privacy and security" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confidentialité et sécurité"
           }
         }
       }
@@ -501,6 +511,16 @@
         }
       }
     },
+    "Share PDF Algo Pro" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Partager PDF Algo Pro"
+          }
+        }
+      }
+    },
     "Sign" : {
       "localizations" : {
         "fr" : {
@@ -611,6 +631,16 @@
         }
       }
     },
+    "These open in your browser." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ces pages s’ouvrent dans votre navigateur."
+          }
+        }
+      }
+    },
     "Titles and tags are always searchable in Spotlight. Turn this off to keep what documents say out of system search. App Lock hides the app's screen in the app switcher and keeps document text out of Spotlight." : {
       "localizations" : {
         "fr" : {
@@ -621,12 +651,12 @@
         }
       }
     },
-    "Version" : {
+    "Version %@" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Version"
+            "value" : "Version %@"
           }
         }
       }
