@@ -117,7 +117,7 @@ struct SettingsModelTests {
   func supportEmail() async throws {
     let (model, _, _) = makeModel()
     let plain = try #require(await model.supportEmailURL())
-    #expect(plain.absoluteString.hasPrefix("mailto:info@algorythmos.com.au?subject=PDF%20Algo%20Pro%20support"))
+    #expect(plain.absoluteString.hasPrefix("mailto:pdfalgopro@algorythmos.com?subject=PDF%20Algo%20Pro%20support"))
     #expect(!plain.absoluteString.contains("0.1.0"))
     model.includesDiagnostics = true
     let withDiagnostics = try #require(await model.supportEmailURL())
@@ -130,7 +130,22 @@ struct SettingsModelTests {
     #expect(!(await model.supportReport()).contains("0.1.0"))
     model.includesDiagnostics = true
     #expect(await model.supportReport().contains("0.1.0"))
-    #expect(SettingsModel.supportAddress == "info@algorythmos.com.au")
+    #expect(SettingsModel.supportAddress == "pdfalgopro@algorythmos.com")
+  }
+
+  @Test("The privacy, terms and support links open the website's pages, in French for French readers")
+  func publicLinks() {
+    #expect(AppLinks.allCases.count == 3)
+    for page in AppLinks.allCases {
+      let english = page.url(languageCode: "en")
+      #expect(english.scheme == "https" && english.host() == "algorythmos.com")
+      #expect(english.path() == page.rawValue && page.rawValue.hasPrefix("/pdf-algo-pro/"))
+      #expect(page.url(languageCode: "fr").path() == "/fr-fr" + page.rawValue)
+      // Any other language, or none, gets the short address the website redirects.
+      #expect(page.url(languageCode: "de") == english && page.url(languageCode: nil) == english)
+    }
+    let privacy = AppLinks.privacyPolicy.url(languageCode: "en").absoluteString
+    #expect(privacy == "https://algorythmos.com/pdf-algo-pro/privacy")
   }
 
   @Test func screenRenders() {

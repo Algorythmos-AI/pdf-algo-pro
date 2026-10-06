@@ -118,7 +118,7 @@ result where the person typed and nothing happened.
 | Mechanism | What it does |
 |---|---|
 | **Rehearsal** (`PDFDocumentController.rehearse`) | When a page's text is found, the engine tries an edit out in the background: one line is replaced with its own words through the whole pipeline, proof included, and the result is thrown away. If it fails, two more lines are tried. If none can be edited, every line of the page is marked cover-only, so the editor says "Your text will cover this text" before anything is typed. It never delays the outlines, runs once per page, and stops at the edit time limit |
-| **Cover instead** (`ReaderModel.commitTextEdit`) | An edit refused because it could not be made or proven (`TextEditRefusal.meansNotEditableInPlace`) is finished by covering, as one undo step, and saved. The reader then shows, until dismissed, "Your text covers the old text. The original is still in the file underneath." with Undo; VoiceOver says the same. The page is marked cover-only from then on (PAP-038) |
+| **Cover instead** (`ReaderModel.commitTextEdit`) | An edit refused because it could not be made or proven (`TextEditRefusal.meansNotEditableInPlace`) is finished by covering, as one undo step, and saved. The reader then shows, until dismissed, "Your text covers the old text. The original is still in the file underneath." with Undo; VoiceOver says the same. The page is marked cover-only from then on (PAP-039) |
 | **Close, not Done** | Where text can be neither changed nor covered (rotated text, no room), the message says so and the one button is Close |
 
 Not covered automatically, because covering would not help: text too long for the space,

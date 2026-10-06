@@ -62,6 +62,18 @@ Active once the first Swift file exists (dormant before then):
 - a `PrivacyInfo.xcprivacy` exists and declares every required-reason API category the code uses
   ([Privacy manifest files](https://developer.apple.com/documentation/bundleresources/privacy-manifest-files)).
 
+The same job runs [`scripts/ci/privacy_impact.py`](../../scripts/ci/privacy_impact.py) on pull requests.
+The [privacy policy](https://algorythmos.com/pdf-algo-pro/privacy) is published from the website's
+repository, so a change here can make it wrong without touching it. When a pull request changes the
+privacy manifest, a permission's usage description, the network allow-list, a package dependency or
+networking code outside tests, its description must carry the line
+`Privacy policy impact: none, because …` or `Privacy policy impact: <link to the website pull request>`.
+Editing the description runs the check again.
+
+Before a release, [`scripts/ci/check_public_links.py`](../../scripts/ci/check_public_links.py) requests
+the privacy policy, terms of use, support and product pages in English and French, at the addresses
+the app itself links to (`AppLinks.swift`), and fails unless each answers on algorythmos.com.
+
 Planned (not in `invariants.py` yet; each is added with the first code it checks):
 
 - **AI tool allow-list:** a `Tool` conformance or a tool passed to a `LanguageModelSession` must be

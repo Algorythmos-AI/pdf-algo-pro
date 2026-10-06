@@ -371,6 +371,16 @@
         }
       }
     },
+    "Privacy Policy" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Politique de confidentialité"
+          }
+        }
+      }
+    },
     "Privacy report" : {
       "localizations" : {
         "fr" : {
@@ -557,6 +567,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Résumer un document"
+          }
+        }
+      }
+    },
+    "Support" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Assistance"
+          }
+        }
+      }
+    },
+    "Terms of Use" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conditions d’utilisation"
           }
         }
       }
