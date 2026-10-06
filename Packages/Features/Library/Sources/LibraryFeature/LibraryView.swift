@@ -452,7 +452,8 @@ public struct LibraryView<Detail: View>: View {
         Text("Your documents stay on this device.", bundle: .module)
       }
       HStack(spacing: Spacing.s100) {
-        CompanyMark(side: 22)
+        // The words beside it name the company; read aloud, the mark would only say it twice.
+        CompanyMark(side: 22).accessibilityHidden(true)
         Text("Built by Algorythmos", bundle: .module)
       }
       .accessibilityElement(children: .combine)

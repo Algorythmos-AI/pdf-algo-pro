@@ -60,7 +60,8 @@ public struct AboutView: View {
       Section {
         Link(destination: AppLinks.company) {
           HStack(spacing: Spacing.s150) {
-            CompanyMark(side: 40)
+            // The words beside it name the company; read aloud, the mark would only say it twice.
+            CompanyMark(side: 40).accessibilityHidden(true)
             VStack(alignment: .leading, spacing: Spacing.s0) {
               Text("Built by Algorythmos", bundle: .module).foregroundStyle(Color.ds.labelPrimary)
               Text(verbatim: "algorythmos.com").font(.footnote).foregroundStyle(Color.ds.labelSecondary)
