@@ -62,7 +62,8 @@ The last ten, newest first; all decisions are in the [decision register](decisio
 
 | ID | Decision |
 |---|---|
-| PAP-041 | Existing text can be moved by holding and dragging a line: a real, proven move, with covering as the fallback (FR-EDIT-009) |
+| PAP-042 | Existing text can be moved by holding and dragging a line: a real, proven move, with covering as the fallback (FR-EDIT-009) |
+| PAP-041 | "Include a diagnostics summary" is on by default and the choice is stored; the summary's contents are unchanged |
 | PAP-040 | On iPhone the app opens on Home (mark, starting actions, recent documents, sections with counts, trust footer); the brand shows in a few signature moments on Home, in Settings and in About |
 | PAP-039 | An edit that cannot be proven is covered automatically and announced; pages are rehearsed; the proof compares baselines |
 | PAP-038 | Privacy policy, terms, support and product pages live on algorythmos.com and linked from Settings; support address pdfalgopro@algorythmos.com; drift guards in CI and the release workflow |

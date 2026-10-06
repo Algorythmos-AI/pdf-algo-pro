@@ -92,6 +92,9 @@ Store notes (see the changelog strategy).
 - An interim app icon, and a Staging build named "PDF Algo β" for internal testing (#52, #54).
 
 ### Changed
+- Report a problem now includes the diagnostics summary unless you turn it off in Settings › Help,
+  and remembers your choice. The summary never includes your documents, and you can read it in the
+  email, and delete it, before you send.
 - Drawing: Undo and Redo are in the bar while you draw or mark text, so a line or shape that went
   wrong is taken back with one tap. With a shape tool in hand, dragging a shape that is already on
   the page moves it; dragging on the bare page draws a new one.

@@ -363,7 +363,7 @@ App Store Server Notifications V2 (after the relay exists).
 |---|---|---|---|---|
 | FR-SET-001 | Privacy centre showing each cloud tier, its consent state and what it sends; revoke with one tap | Must | V1 | PIL-5 |
 | FR-SET-002 | App lock with Face ID or Touch ID | Should | V1 | PIL-5 |
-| FR-SET-003 | "Report a problem" composing an email with an opt-in diagnostics bundle that contains no document content | Must | MVP | PIL-5 |
+| FR-SET-003 | "Report a problem" composing an email whose draft includes a diagnostics summary with no document content; the summary is on by default, can be turned off in Settings (the choice is kept), and is in the draft to be read or deleted before sending (PAP-041) | Must | MVP | PIL-5 |
 | FR-SET-004 | Opt-in, aggregated usage telemetry: off by default everywhere; sent only after the user opts in ([analytics strategy](analytics-strategy.md)) | Must | V2 | PIL-5 |
 | FR-SET-005 | Privacy report: AI requests by tier over the last 30 days and the number of documents sent to cloud AI, kept on the device | Must | V1 | PIL-5 |
 

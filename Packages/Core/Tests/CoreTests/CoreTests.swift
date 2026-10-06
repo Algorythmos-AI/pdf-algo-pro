@@ -260,6 +260,12 @@ struct SettingsTests {
     #expect(decodedNewer == AppSettings(hasCompletedOnboarding: true, intents: [.scan]))
     let roundTrip = try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(decodedNewer))
     #expect(roundTrip == decodedNewer)
+    // A build from before the diagnostics choice was stored gets the default, on (PAP-041); a stored
+    // "off" is kept.
+    #expect(decodedOlder.includesDiagnostics && AppSettings().includesDiagnostics)
+    let turnedOff = try JSONDecoder().decode(
+      AppSettings.self, from: JSONEncoder().encode(AppSettings(includesDiagnostics: false)))
+    #expect(!turnedOff.includesDiagnostics)
     #expect(decodedOlder.isSpotlightTextIncluded, "Settings from before the Spotlight switch keep text in Spotlight")
     let off = AppSettings(isSpotlightTextIncluded: false)
     #expect(try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(off)) == off)
