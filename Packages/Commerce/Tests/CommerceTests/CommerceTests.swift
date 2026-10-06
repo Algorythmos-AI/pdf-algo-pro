@@ -317,12 +317,13 @@ struct StoreKitEntitlementsTests {
 struct TrialReminderTests {
   private let end = now.addingTimeInterval(7 * day)
 
-  @Test("The reminder is two days before the trial converts, and only a trial has one")
+  @Test("The reminder is one day before the trial ends, and only a trial has one")
   func date() {
-    #expect(TrialReminder.reminderDate(trialEndsAt: end) == now.addingTimeInterval(5 * day))
-    #expect(TrialReminder.reminderDate(for: .trial(endsAt: end)) == now.addingTimeInterval(5 * day))
+    #expect(TrialReminder.reminderDate(trialEndsAt: end) == now.addingTimeInterval(6 * day))
+    #expect(TrialReminder.reminderDate(for: .trial(endsAt: end)) == now.addingTimeInterval(6 * day))
     for entitlement in everyEntitlement where index(of: entitlement) != 1 {
       #expect(TrialReminder.reminderDate(for: entitlement) == nil)
+      #expect(TrialReminder.notificationDate(for: entitlement, now: now) == nil)
       #expect(!TrialReminder.isDueAtLaunch(entitlement: entitlement, now: now, lastRemindedTrialEnd: nil))
     }
   }
@@ -334,12 +335,20 @@ struct TrialReminderTests {
       TrialReminder.isDueAtLaunch(
         entitlement: trial, now: now.addingTimeInterval(offset), lastRemindedTrialEnd: reminded)
     }
-    #expect(!due(5 * day - 1))
-    #expect(due(5 * day))
+    #expect(!due(6 * day - 1))
+    #expect(due(6 * day))
     #expect(due(7 * day - 1))
     #expect(!due(7 * day))
     #expect(!due(6 * day, reminded: end))
     #expect(due(6 * day, reminded: end.addingTimeInterval(-30 * day)), "An earlier trial's reminder does not count")
+  }
+
+  @Test("A notification is scheduled only while the reminder date is ahead")
+  func notification() {
+    let trial = Entitlement.trial(endsAt: end)
+    #expect(TrialReminder.notificationDate(for: trial, now: now) == now.addingTimeInterval(6 * day))
+    #expect(TrialReminder.notificationDate(for: trial, now: now.addingTimeInterval(6 * day)) == nil)
+    #expect(TrialReminder.notificationDate(for: .trial(endsAt: now.addingTimeInterval(day / 2)), now: now) == nil)
   }
 }
 
