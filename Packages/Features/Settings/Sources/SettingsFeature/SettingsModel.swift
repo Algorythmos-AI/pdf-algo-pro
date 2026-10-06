@@ -8,8 +8,6 @@ import Observation
 public final class SettingsModel {
   /// The current settings; every change is saved at once.
   public private(set) var settings: AppSettings
-  /// Whether "Report a problem" attaches the diagnostics summary; off until the user turns it on.
-  public var includesDiagnostics = false
   /// The space earlier versions of documents take, in bytes; `nil` until measured (FR-EDIT-008).
   public private(set) var versionsSize: Int64?
   /// Whether "Delete version history" is asking for confirmation.
@@ -69,6 +67,13 @@ public final class SettingsModel {
     set { update { $0.isIntelligenceHidden = newValue } }
   }
 
+  /// Whether "Report a problem" puts the diagnostics summary in the draft email; on until the person
+  /// turns it off, and remembered once they have (FR-SET-003, PAP-041).
+  public var includesDiagnostics: Bool {
+    get { settings.includesDiagnostics }
+    set { update { $0.includesDiagnostics = newValue } }
+  }
+
   /// Whether document text goes to system Spotlight; titles and tags always do (FR-LIB-005, T-11).
   public var isSpotlightTextIncluded: Bool {
     get { settings.isSpotlightTextIncluded }
@@ -100,7 +105,7 @@ public final class SettingsModel {
   /// Where problem reports go.
   public static let supportAddress = "pdfalgopro@algorythmos.com"
 
-  /// The support email, with the diagnostics summary only when the user chose to include it.
+  /// The support email, with the diagnostics summary unless the person has turned it off.
   public func supportEmailURL() async -> URL? {
     var components = URLComponents()
     components.scheme = "mailto"

@@ -68,6 +68,7 @@ The last ten, newest first; all decisions are in the [decision register](decisio
 | PAP-044 | The free tier meters scans saved and intelligence requests per day; Pro removes the limits and adds text editing; existing documents are never gated |
 | PAP-043 | Pro is a weekly and an annual plan, with the trial on the weekly plan; supersedes "no weekly plans" |
 | PAP-042 | The subscription offer may show once at the end of first run, closable at once; supersedes "no paywall before first value" |
+| PAP-041 | "Include a diagnostics summary" is on by default and the choice is stored; the summary's contents are unchanged |
 | PAP-040 | On iPhone the app opens on Home (mark, starting actions, recent documents, sections with counts, trust footer); the brand shows in a few signature moments on Home, in Settings and in About |
 | PAP-039 | An edit that cannot be proven is covered automatically and announced; pages are rehearsed; the proof compares baselines |
 | PAP-038 | Privacy policy, terms, support and product pages live on algorythmos.com and linked from Settings; support address pdfalgopro@algorythmos.com; drift guards in CI and the release workflow |
