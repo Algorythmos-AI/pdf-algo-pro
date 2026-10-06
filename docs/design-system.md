@@ -656,8 +656,9 @@ home screen and the order of tools; it never gates anything.
   plan selection is not overridden. The full
   disclosure checklist is in [App Store strategy](app-store-strategy.md).
 - The Manage Subscription row in Settings opens the system sheet (`manageSubscriptionsSheet`).
-  Settings opens with a subscription section: the status (Free, Trial until a date, Pro, or a
-  billing problem), See plans, Manage Subscription, Restore Purchases and Redeem Code.
+  Settings has a subscription section straight after the AI switch, which stays first so that it is
+  on the first screen at every text size: the plan (Free, Trial until a date, Pro, or a payment
+  problem), See plans, Manage Subscription, Restore Purchases and Redeem Code.
 
 ### Purchase confirmation
 
