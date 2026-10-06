@@ -106,12 +106,74 @@ extension PDFDocumentController {
       clearSelection()
       return false
     }
+    select(annotation, on: page, pageIndex: pageIndex)
+    return true
+  }
+
+  private func select(_ annotation: PDFAnnotation, on page: PDFPage, pageIndex: Int) {
     selected = (annotation, page)
     let kind = Self.kind(of: annotation)
     selection = AnnotationSelection(
       kind: kind, pageIndex: pageIndex, text: annotation.contents,
       isSignature: kind == .ink && annotation.contents == Self.signatureContents)
+  }
+
+  /// Selects what a touch is on while a shape tool is in hand, so that the drag moves it.
+  ///
+  /// The test is on what is drawn, not on the annotation's box: an arrow's box is the whole
+  /// rectangle it crosses and an oval's is everything inside it, and a new shape must be able to
+  /// start there. So a line is hit along its length, a rectangle or oval on its outline, a pen
+  /// stroke on the stroke; anything else, such as a stamp or a text box, anywhere on it.
+  ///
+  /// - Returns: Whether something was selected; when not, any selection is let go.
+  func selectForMoving(at point: CGPoint, onPage pageIndex: Int, reach: CGFloat = 14) -> Bool {
+    guard let page = document.page(at: pageIndex),
+      let annotation = page.annotations.last(where: { Self.isDrawn($0, at: point, reach: reach) })
+    else {
+      clearSelection()
+      return false
+    }
+    select(annotation, on: page, pageIndex: pageIndex)
     return true
+  }
+
+  /// Whether a point is on what an annotation draws, within a fingertip's reach.
+  static func isDrawn(_ annotation: PDFAnnotation, at point: CGPoint, reach: CGFloat) -> Bool {
+    let bounds = annotation.bounds
+    guard isSelectable(annotation), bounds.insetBy(dx: -reach, dy: -reach).contains(point) else { return false }
+    switch kind(of: annotation) {
+    case .highlight, .underline, .strikeThrough:
+      // Marks on text belong to their words; they are not moved about.
+      return false
+    case .line:
+      let start = CGPoint(x: bounds.minX + annotation.startPoint.x, y: bounds.minY + annotation.startPoint.y)
+      let end = CGPoint(x: bounds.minX + annotation.endPoint.x, y: bounds.minY + annotation.endPoint.y)
+      let length = hypot(end.x - start.x, end.y - start.y)
+      guard length > 0 else { return true }
+      // How far along the line the nearest point is, kept between its ends.
+      let along = max(
+        0,
+        min(1, ((point.x - start.x) * (end.x - start.x) + (point.y - start.y) * (end.y - start.y)) / (length * length)))
+      let nearest = CGPoint(x: start.x + along * (end.x - start.x), y: start.y + along * (end.y - start.y))
+      return hypot(point.x - nearest.x, point.y - nearest.y) <= reach
+    case .rectangle:
+      let inner = bounds.insetBy(dx: reach, dy: reach)
+      // A small rectangle is all outline.
+      return inner.isNull || inner.isEmpty || !inner.contains(point)
+    case .oval:
+      let halfWidth = bounds.width / 2
+      let halfHeight = bounds.height / 2
+      guard min(halfWidth, halfHeight) > 1.5 * reach else { return true }
+      let distance = hypot((point.x - bounds.midX) / halfWidth, (point.y - bounds.midY) / halfHeight)
+      return abs(distance - 1) * min(halfWidth, halfHeight) <= reach
+    case .ink:
+      let local = CGPoint(x: point.x - bounds.minX, y: point.y - bounds.minY)
+      return (annotation.paths ?? []).contains { path in
+        path.cgPath.copy(strokingWithWidth: 2 * reach, lineCap: .round, lineJoin: .round, miterLimit: 1).contains(local)
+      }
+    default:
+      return true
+    }
   }
 
   /// Selects an annotation just added to a page.

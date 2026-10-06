@@ -393,7 +393,15 @@ public struct ReaderView<Assistant: View>: View {
       }
       if model.isDrawing {
         Label {
-          Text("Draw on the page", bundle: .module)
+          // With a shape in hand, what is already on the page can be moved; that is said, or
+          // nobody finds it.
+          if model.selection != nil {
+            Text("Drag it to move it", bundle: .module)
+          } else if model.drawingTool == .pen {
+            Text("Draw on the page", bundle: .module)
+          } else {
+            Text("Drag to draw. Drag a shape to move it.", bundle: .module)
+          }
         } icon: {
           Image(systemName: "pencil.tip")
         }

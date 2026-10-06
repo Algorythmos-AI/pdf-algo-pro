@@ -332,6 +332,9 @@ public final class ReaderModel {
   /// Whether touches on the page draw ink (F2a).
   public var isDrawing: Bool { controller?.isDrawing ?? false }
 
+  /// What a drag draws while drawing is on.
+  public var drawingTool: DrawingTool { controller?.drawingTool ?? .pen }
+
   /// Starts or stops drawing; each stroke is saved and can be undone.
   public func setDrawing(_ isDrawing: Bool, tool: DrawingTool = .pen) {
     guard let controller else { return }

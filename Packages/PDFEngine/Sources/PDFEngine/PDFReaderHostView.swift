@@ -258,6 +258,7 @@ final class PDFReaderHostView: PDFView {
       capture.tool = tool
       capture.autoresizingMask = [.flexibleWidth, .flexibleHeight]
       capture.onStroke = { [weak self] points in self?.finishStroke(points) }
+      capture.shouldDraw = { [weak self] point in self?.takesForMoving(point) != true }
       addSubview(capture)
       inkCapture = capture
     #endif
@@ -374,9 +375,25 @@ final class PDFReaderHostView: PDFView {
       }
     }
 
+    /// Whether a touch, while a shape tool is in hand, is for moving what it lands on.
+    ///
+    /// A touch on a shape, a stamp or anything else that can be moved selects it, so the drag
+    /// that follows moves it; a touch on bare page lets go of any selection and draws. With the
+    /// pen every touch draws, because a line may well start on top of another.
+    fileprivate func takesForMoving(_ point: CGPoint) -> Bool {
+      guard let controller, controller.isDrawing, controller.drawingTool != .pen, let document,
+        let page = page(for: point, nearest: false)
+      else { return false }
+      // A fingertip's reach, in page points.
+      let reach = 14 / max(scaleFactor, 0.1)
+      return controller.selectForMoving(at: convert(point, to: page), onPage: document.index(for: page), reach: reach)
+    }
+
     /// Whether a gesture starting at a point in this view is on the selected annotation.
     fileprivate func isOnSelection(_ point: CGPoint) -> Bool {
-      guard let controller, !controller.isDrawing, let document, let page = page(for: point, nearest: false) else {
+      // While drawing, the drawing layer decides first whether a touch draws; a touch that reaches
+      // here is one it left for moving.
+      guard let controller, let document, let page = page(for: point, nearest: false) else {
         return false
       }
       return controller.isOnSelection(convert(point, to: page), pageIndex: document.index(for: page))

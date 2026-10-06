@@ -89,6 +89,9 @@ Store notes (see the changelog strategy).
 - An interim app icon, and a Staging build named "PDF Algo β" for internal testing (#52, #54).
 
 ### Changed
+- Drawing: Undo and Redo are in the bar while you draw or mark text, so a line or shape that went
+  wrong is taken back with one tap. With a shape tool in hand, dragging a shape that is already on
+  the page moves it; dragging on the bare page draws a new one.
 - Settings is easier to scan: every row has a symbol, and privacy and security are in one place
   (the privacy report moved there from its own section).
 - Report a problem now writes to pdfalgopro@algorythmos.com.
