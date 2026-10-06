@@ -7,12 +7,15 @@ import UniformTypeIdentifiers
 
 /// The library: a split view with sections, the document list and the open document (ADR-0004).
 ///
-/// On iPhone it collapses to a stack; layouts follow size, never device type.
+/// On iPhone it collapses to a stack that opens on Home, the first column: the app's mark, the actions
+/// people start with, the documents they opened last, and the sections. Layouts follow size, never
+/// device type.
 public struct LibraryView<Detail: View>: View {
   @State private var model: LibraryModel
   @State private var columns = NavigationSplitViewVisibility.automatic
   @State private var compactColumn = NavigationSplitViewColumn.content
   @Environment(\.horizontalSizeClass) private var sizeClass
+  @Environment(\.dynamicTypeSize) private var typeSize
   @State private var isPickingFiles = false
   @State private var isPickingPhotos = false
   @State private var photos: [PhotosPickerItem] = []
@@ -43,7 +46,7 @@ public struct LibraryView<Detail: View>: View {
     @ViewBuilder detail: @escaping (DocumentSelection) -> Detail
   ) {
     _model = State(initialValue: model)
-    _compactColumn = State(initialValue: model.selection == nil ? .content : .detail)
+    _compactColumn = State(initialValue: Self.firstColumn(for: model))
     self.onScan = onScan
     self.onSettings = onSettings
     self.detail = detail
@@ -132,6 +135,8 @@ public struct LibraryView<Detail: View>: View {
       Text("\(document.title) will be removed from this device. This can't be undone.", bundle: .module)
     }
     .onChange(of: model.selection) { compactColumn = model.selection == nil ? .content : .detail }
+    // A link, Spotlight or an intent asked for a section: leave Home for its documents.
+    .onChange(of: model.listRequests) { if model.selection == nil { compactColumn = .content } }
     // On iPhone the back button leaves the document without telling the model. Closing it there lets
     // the same document open again, and lets the list pick up what changed in the reader. It waits
     // for the document to slide away so the empty detail never shows in its place.
@@ -162,15 +167,30 @@ public struct LibraryView<Detail: View>: View {
           }
         })
     ) {
+      // On iPhone this column is Home. Beside the documents, on a wide window, it stays a sidebar.
+      if sizeClass == .compact {
+        Section {
+          homeHeader
+          homeActions
+          if model.phase == .loaded, model.counts[.all] == 0 { homeStart }
+        }
+        .listRowBackground(Color.clear)
+        .listRowInsets(EdgeInsets(top: Spacing.s100, leading: 0, bottom: Spacing.s100, trailing: 0))
+        .listRowSeparator(.hidden)
+        if !model.recentDocuments.isEmpty {
+          Section {
+            homeRecents
+              .listRowBackground(Color.clear)
+              .listRowInsets(EdgeInsets())
+              .listRowSeparator(.hidden)
+          } header: {
+            Text("Continue reading", bundle: .module)
+          }
+        }
+      }
       Section {
         ForEach(LibrarySection.fixed, id: \.self) { section in
-          Label {
-            Self.title(for: section)
-          } icon: {
-            Image(systemName: Self.symbol(for: section))
-          }
-          .tag(section)
-          .accessibilityIdentifier("library.section.\(Self.identifier(for: section))")
+          sectionRow(section).tag(section)
         }
       }
       if !model.tags.isEmpty {
@@ -181,6 +201,22 @@ public struct LibraryView<Detail: View>: View {
         } header: {
           Text("Tags", bundle: .module)
         }
+      }
+      Section {
+        homeFooter
+          .listRowBackground(Color.clear)
+          .listRowInsets(EdgeInsets())
+          .listRowSeparator(.hidden)
+      }
+    }
+    .scrollContentBackground(sizeClass == .compact ? .hidden : .automatic)
+    .background {
+      if sizeClass == .compact {
+        ZStack(alignment: .top) {
+          Color.ds.backgroundGrouped
+          BrandGlow().frame(height: 360)
+        }
+        .ignoresSafeArea()
       }
     }
     .navigationTitle(Text("PDF Algo Pro", bundle: .module))
@@ -196,6 +232,170 @@ public struct LibraryView<Detail: View>: View {
         .accessibilityIdentifier("library.sidebar.settings")
       }
     }
+  }
+
+  // MARK: - Home
+
+  /// A section's row: its tile and title, and how many documents it holds once the library has loaded.
+  private func sectionRow(_ section: LibrarySection) -> some View {
+    HStack(spacing: Spacing.s150) {
+      IconTile(systemName: Self.symbol(for: section), tone: section == .recentlyDeleted ? .quiet : .brand)
+      Self.title(for: section).foregroundStyle(Color.ds.labelPrimary)
+      Spacer(minLength: Spacing.s100)
+      if model.phase == .loaded, let count = model.counts[section] {
+        Text(count, format: .number)
+          .monospacedDigit()
+          .foregroundStyle(Color.ds.labelSecondary)
+          .accessibilityLabel(Text("\(count) documents", bundle: .module))
+      }
+    }
+    .accessibilityElement(children: .combine)
+    .accessibilityIdentifier("library.section.\(Self.identifier(for: section))")
+  }
+
+  /// The app's mark beside what the library holds.
+  private var homeHeader: some View {
+    HStack(spacing: Spacing.s200) {
+      AppMark()
+      VStack(alignment: .leading, spacing: Spacing.s050) {
+        Text("Your library", bundle: .module)
+          .font(.title3.weight(.semibold))
+          .foregroundStyle(Color.ds.labelPrimary)
+          .accessibilityAddTraits(.isHeader)
+        // The line keeps its place while the library loads, so nothing below it moves.
+        Group {
+          if let count = model.counts[.all], count > 0 {
+            Text("\(count) documents", bundle: .module)
+          } else {
+            Text("No documents yet", bundle: .module)
+          }
+        }
+        .font(.subheadline)
+        .foregroundStyle(Color.ds.labelSecondary)
+        .opacity(model.phase == .loaded ? 1 : 0)
+        .accessibilityHidden(model.phase != .loaded)
+      }
+      Spacer(minLength: 0)
+    }
+    .accessibilityElement(children: .combine)
+  }
+
+  /// The actions people start with; the onboarding choice decides which one is filled (FR-ONB-003).
+  private var homeActions: some View {
+    let layout =
+      typeSize.isAccessibilitySize
+      ? AnyLayout(VStackLayout(spacing: Spacing.s100)) : AnyLayout(HStackLayout(spacing: Spacing.s100))
+    let primary = model.primaryAction
+    return layout {
+      if case .openAssistant(let task) = primary {
+        QuickAction(Self.assistantTitle(for: task), systemImage: "sparkles", prominence: .filled) {
+          startAtAllDocuments()
+          pick(task: task)
+        }
+        .accessibilityIdentifier("library.home.primary.assistant")
+      }
+      if primary == .scanDocument {
+        homeScan(.filled).accessibilityIdentifier("library.home.primary.scan")
+        homeImport(.tonal).accessibilityIdentifier("library.home.import")
+      } else {
+        homeImport(primary == .importDocument ? .filled : .tonal)
+          .accessibilityIdentifier(primary == .importDocument ? "library.home.primary.import" : "library.home.import")
+        homeScan(.tonal).accessibilityIdentifier("library.home.scan")
+      }
+    }
+    .fixedSize(horizontal: false, vertical: true)
+  }
+
+  private func homeScan(_ prominence: QuickAction.Prominence) -> some View {
+    QuickAction(Text("Scan", bundle: .module), systemImage: "doc.viewfinder", prominence: prominence) {
+      startAtAllDocuments()
+      onScan()
+    }
+  }
+
+  private func homeImport(_ prominence: QuickAction.Prominence) -> some View {
+    QuickAction(Text("Import", bundle: .module), systemImage: "square.and.arrow.down", prominence: prominence) {
+      startAtAllDocuments()
+      pick(task: nil)
+    }
+  }
+
+  /// With nothing in the library yet: what can be done, and the sample.
+  private var homeStart: some View {
+    VStack(alignment: .leading, spacing: Spacing.s050) {
+      Text(
+        "Import a PDF from Files, scan a paper document, or try a sample. Everything stays on this device.",
+        bundle: .module
+      )
+      .font(.callout)
+      .foregroundStyle(Color.ds.labelSecondary)
+      Button {
+        startAtAllDocuments()
+        Task { await model.addSample(task: model.primaryTask) }
+      } label: {
+        Text("Try a sample", bundle: .module)
+          .font(.callout.weight(.semibold))
+          .foregroundStyle(Color.ds.brandTint)
+          .minimumTarget()
+      }
+      .buttonStyle(DimmingButtonStyle())
+      .accessibilityIdentifier("library.home.sample")
+    }
+  }
+
+  /// The documents opened last, newest first.
+  private var homeRecents: some View {
+    ScrollView(.horizontal) {
+      HStack(alignment: .top, spacing: Spacing.s150) {
+        ForEach(model.recentDocuments) { document in
+          Button {
+            // Back from the document then shows Recents, where it is first.
+            model.section = .recents
+            model.open(document.id)
+            compactColumn = .detail
+          } label: {
+            RecentCard(document: document, thumbnail: { await model.thumbnail(for: document) })
+          }
+          .buttonStyle(DimmingButtonStyle())
+          .accessibilityIdentifier("library.home.recent.\(document.title)")
+        }
+      }
+      .padding(.vertical, Spacing.s050)
+    }
+    .scrollIndicators(.hidden)
+    .scrollClipDisabled()
+  }
+
+  /// What the app promises about documents, and who makes it.
+  private var homeFooter: some View {
+    VStack(spacing: Spacing.s150) {
+      Label {
+        Text("Your documents stay on this device.", bundle: .module)
+      } icon: {
+        Image(systemName: "lock.shield")
+      }
+      HStack(spacing: Spacing.s100) {
+        CompanyMark(side: 22)
+        Text("Built by Algorythmos", bundle: .module)
+      }
+      .accessibilityElement(children: .combine)
+    }
+    .font(.footnote)
+    .foregroundStyle(Color.ds.labelSecondary)
+    .multilineTextAlignment(.center)
+    .frame(maxWidth: .infinity)
+    .padding(.vertical, Spacing.s100)
+  }
+
+  /// A document brought in from Home is filed in All documents, so that is where Back should lead.
+  private func startAtAllDocuments() {
+    model.section = .all
+  }
+
+  /// The column an iPhone shows first: an open document, a section that was asked for, or Home.
+  static func firstColumn(for model: LibraryModel) -> NavigationSplitViewColumn {
+    if model.selection != nil { return .detail }
+    return model.listRequests > 0 ? .content : .sidebar
   }
 
   // MARK: - Content
@@ -694,6 +894,16 @@ public struct LibraryView<Detail: View>: View {
     case .openAssistant(.summarize): Text("Summarise a document", bundle: .module)
     case .openAssistant(.extract): Text("Extract data from a PDF", bundle: .module)
     case .openAssistant(.explainContract): Text("Understand a contract", bundle: .module)
+    }
+  }
+
+  /// The assistant action's title on Home, short enough for a tile.
+  static func assistantTitle(for task: AssistantTask) -> Text {
+    switch task {
+    case .ask: Text("Ask a PDF", bundle: .module)
+    case .summarize: Text("Summarise", bundle: .module)
+    case .extract: Text("Extract data", bundle: .module)
+    case .explainContract: Text("Explain a contract", bundle: .module)
     }
   }
 

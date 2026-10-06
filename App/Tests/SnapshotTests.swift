@@ -62,9 +62,18 @@ extension AppTests {
       check(OnboardingView(model: app.onboarding))
     }
 
+    /// Home, the screen the app opens on, with nothing in the library yet.
+    @Test func home() async {
+      let app = app(["-skip-onboarding"])
+      await app.library.load()
+      check(LibraryView(model: app.library, onScan: {}, onSettings: {}) { _ in EmptyView() })
+    }
+
+    /// The document list's own empty state, one step in from Home: a section was asked for.
     @Test func emptyLibrary() async {
       let app = app(["-skip-onboarding"])
       await app.library.load()
+      app.library.show(.all)
       check(LibraryView(model: app.library, onScan: {}, onSettings: {}) { _ in EmptyView() })
     }
 

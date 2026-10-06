@@ -19,6 +19,9 @@ final class LargeTextUITests: UITestCase {
 
   func testTheLibraryScanningAndSettingsAtALargeTextSize() throws {
     let app = launchLarge(["-skip-onboarding"])
+    XCTAssertTrue(app.buttons["library.home.sample"].waitForExistence(timeout: Self.settleTimeout))
+    try audit(app)
+    openDocumentList(app)
     XCTAssertTrue(app.buttons["library.empty.sample"].waitForExistence(timeout: Self.settleTimeout))
     try audit(app)
     app.buttons["library.scan"].tap()

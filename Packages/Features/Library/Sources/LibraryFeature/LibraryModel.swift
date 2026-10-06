@@ -38,7 +38,13 @@ public final class LibraryModel {
 
   /// The section in the sidebar.
   public var section: LibrarySection = .all {
-    didSet { if section != oldValue { Task { await reload() } } }
+    didSet {
+      guard section != oldValue else { return }
+      // What the library last held, filed by the same rule, so a section never opens showing the
+      // one before it. The reload that follows asks the library again.
+      documents = sort.sorted(pool.filter(section.contains))
+      Task { await reload() }
+    }
   }
   /// The sort order, remembered in settings.
   public var sort: LibrarySort {
@@ -59,6 +65,22 @@ public final class LibraryModel {
   public private(set) var results: [SearchHit]?
   /// Tags in use, for sidebar sections.
   public private(set) var tags: [String] = []
+  /// How many documents each fixed section holds, for Home; empty until the library has loaded.
+  ///
+  /// Counted with `LibrarySection.contains`, the rule the library files documents by, so a count
+  /// never differs from the list it leads to.
+  public private(set) var counts: [LibrarySection: Int] = [:]
+  /// The documents opened most recently, newest first, for Home's "Continue reading".
+  public private(set) var recentDocuments: [Core.Document] = []
+  /// How many times a link, Spotlight, a widget or an intent has asked for a section's documents.
+  ///
+  /// On iPhone the app opens on Home; the view goes to the document list when this changes, also when
+  /// the section asked for is the one already chosen.
+  public private(set) var listRequests = 0
+  /// Every document the library held at the last reload, deleted ones included.
+  private var pool: [Core.Document] = []
+  /// The reload in progress or last finished; the next one waits for it, so reloads apply in order.
+  private var reloading: Task<Void, Never>?
   /// Loading state.
   public private(set) var phase: Phase = .loading
   /// A message for the last failed action; the library itself is unchanged.
@@ -150,15 +172,52 @@ public final class LibraryModel {
     }
   }
 
-  /// Reloads the current section and tags.
+  /// Reloads the current section, the tags, and what Home shows: the counts and the recent documents.
+  ///
+  /// Reloads run one after another, in the order they were asked for. Two at once could finish out of
+  /// order and leave an earlier section's documents under a later section's title.
   public func reload() async {
+    let previous = reloading
+    let task = Task {
+      await previous?.value
+      await reloadNow()
+    }
+    reloading = task
+    await task.value
+  }
+
+  private func reloadNow() async {
     do {
-      documents = try await library.documents(in: section, sortedBy: sort)
-      tags = try await library.allTags()
+      let section = section
+      let listed = try await library.documents(in: section, sortedBy: sort)
+      let current = section == .all ? listed : try await library.documents(in: .all, sortedBy: sort)
+      let deleted =
+        section == .recentlyDeleted ? listed : try await library.documents(in: .recentlyDeleted, sortedBy: sort)
+      let tags = try await library.allTags()
+      // The section can change while the library answers; that change's own reload follows this one.
+      if section == self.section { documents = listed }
+      self.tags = tags
+      pool = current + deleted
+      counts = Dictionary(
+        uniqueKeysWithValues: LibrarySection.fixed.map { section in (section, pool.count(where: section.contains)) })
+      recentDocuments = Array(
+        LibrarySort.recentlyOpened.sorted(pool.filter(LibrarySection.recents.contains)).prefix(Self.recentLimit))
       if !query.isEmpty { await search() }
     } catch {
       errorMessage = Self.message(for: error)
     }
+  }
+
+  /// How many recent documents Home shows.
+  static let recentLimit = 5
+
+  /// Shows a section's documents, for a link, Spotlight, a widget or an intent.
+  ///
+  /// Unlike setting `section`, this also tells the view to leave Home for the document list.
+  public func show(_ section: LibrarySection) {
+    self.section = section
+    selection = nil
+    listRequests += 1
   }
 
   /// Searches the whole library, whichever section is showing (FR-LIB-003).

@@ -5,10 +5,11 @@ import XCTest
 final class ScanUITests: UITestCase {
   func testScannerOffersImagesWithoutACamera() throws {
     let app = launch(["-skip-onboarding"])
-    let scan = app.buttons["library.scan"]
-    XCTAssertTrue(scan.waitForExistence(timeout: Self.settleTimeout))
-    scan.tap()
-    XCTAssertTrue(app.buttons["scan.images"].waitForExistence(timeout: Self.settleTimeout))
+    // From Home, then from the document list's bar: both start the same scanner.
+    tap(app.buttons["library.home.scan"], until: app.buttons["scan.images"])
     try audit(app, onSheet: true)
+    app.buttons["Cancel"].firstMatch.tap()
+    openDocumentList(app)
+    tap(app.buttons["library.scan"], until: app.buttons["scan.images"])
   }
 }

@@ -67,6 +67,38 @@ struct DesignTokenTests {
     }
   }
 
+  @Test("Text over the brand glow at its strongest keeps 4.5:1 in every appearance")
+  func brandGlowContrast() {
+    let tint = UIColor(Color.ds.brandTint)
+    let labels = [UIColor(Color.ds.labelPrimary), UIColor(Color.ds.labelSecondary)]
+    for appearance in DynamicColor.Appearance.allCases {
+      for background in [SystemColorName.systemBackground, .systemGroupedBackground] {
+        let washed = rgb(tint, in: appearance)
+          .blended(over: rgb(background.uiColor, in: appearance), opacity: Opacities.brandGlow)
+        for label in labels {
+          let ratio = RGB.contrast(rgb(label, in: appearance), washed)
+          #expect(ratio >= 4.5, "\(appearance) on \(background): \(ratio)")
+        }
+      }
+    }
+  }
+
+  @Test("The company mark keeps its contrast on its tile, which is the same in every appearance")
+  func companyMarkContrast() {
+    let tile = UIColor(Color.ds.logoTile)
+    for appearance in DynamicColor.Appearance.allCases {
+      #expect(rgb(tile, in: appearance) == RGB(1, 1, 1))
+      #expect(RGB.contrast(rgb(UIColor(Color.ds.logoMark), in: appearance), rgb(tile, in: appearance)) >= 4.5)
+      #expect(RGB.contrast(rgb(UIColor(Color.ds.logoDotEnd), in: appearance), rgb(tile, in: appearance)) >= 3)
+    }
+  }
+
+  @Test func blendingMixesTowardsTheBackground() {
+    #expect(RGB(1, 0, 0).blended(over: RGB(0, 0, 1), opacity: 0) == RGB(0, 0, 1))
+    #expect(RGB(1, 0, 0).blended(over: RGB(0, 0, 1), opacity: 1) == RGB(1, 0, 0))
+    #expect(RGB(1, 1, 1).blended(over: RGB(0, 0, 0), opacity: 0.5) == RGB(0.5, 0.5, 0.5))
+  }
+
   @Test func contrastFormulaMatchesKnownValues() {
     #expect(abs(RGB.contrast(RGB(0, 0, 0), RGB(1, 1, 1)) - 21) < 0.01)
     #expect(abs(RGB.contrast(RGB(0.5, 0.5, 0.5), RGB(0.5, 0.5, 0.5)) - 1) < 0.01)
@@ -100,6 +132,52 @@ struct DesignTokenTests {
 }
 
 @MainActor
+@Suite("Brand marks")
+struct BrandMarkTests {
+  @Test("The app mark's image is in the package, written by the icon script")
+  func appMarkImage() throws {
+    let image = try #require(UIImage(named: "AppMark", in: .module, with: nil))
+    #expect(image.size.width == image.size.height)
+    #expect(image.size.width >= 120)
+  }
+
+  @Test("The company mark's outline fills its frame at any size and keeps its counter")
+  func companyMarkOutline() {
+    for side in [CGFloat(20), 218, 1_000] {
+      let rect = CGRect(x: 10, y: 20, width: side, height: side * 258 / 218)
+      let letter = AlgorythmosLetterform().path(in: rect)
+      let bounds = letter.boundingRect
+      // The stem reaches the right edge and the bowl the left; the dot above it reaches the top.
+      #expect(abs(bounds.maxX - rect.maxX) < side * 0.01)
+      #expect(abs(bounds.minX - rect.minX) < side * 0.01)
+      #expect(bounds.maxY <= rect.maxY + side * 0.01)
+      let dot = AlgorythmosDot().path(in: rect).boundingRect
+      #expect(abs(dot.minY - rect.minY) < side * 0.01)
+      #expect(abs(dot.width - dot.height) < 0.001)
+      // The middle of the bowl is a hole, and the stem is solid.
+      let hole = BrandGeometry.point(110, 160, in: rect)
+      let stem = BrandGeometry.point(190, 160, in: rect)
+      #expect(!letter.contains(hole, eoFill: true))
+      #expect(letter.contains(stem, eoFill: true))
+    }
+  }
+
+  @Test("The glow goes when Reduce Transparency or Increase Contrast is on, and the marks still draw")
+  func glowRespectsAccessibilitySettings() {
+    #expect(BrandGlow.isShown(reduceTransparency: false, contrast: .standard))
+    #expect(!BrandGlow.isShown(reduceTransparency: true, contrast: .standard))
+    #expect(!BrandGlow.isShown(reduceTransparency: false, contrast: .increased))
+    let views: [AnyView] = [
+      AnyView(CompanyMark().environment(\.layoutDirection, .rightToLeft)),
+      AnyView(AppMark(side: 120).environment(\.colorScheme, .dark)),
+    ]
+    for view in views {
+      #expect(ImageRenderer(content: view).uiImage != nil)
+    }
+  }
+}
+
+@MainActor
 @Suite("Components")
 struct ComponentTests {
   @Test("Every tier has a visible name", arguments: IntelligenceTier.allCases)
@@ -122,6 +200,11 @@ struct ComponentTests {
       AnyView(Button("Go") {}.buttonStyle(.primary)), AnyView(Text(verbatim: "Card").cardStyle().readableWidth()),
       AnyView(Text(verbatim: "Moving").motion(value: 1)),
       AnyView(Text(verbatim: "Tap").minimumTarget()),
+      AnyView(IconTile(systemName: "doc.on.doc")), AnyView(IconTile(systemName: "sparkles", tone: .intelligence)),
+      AnyView(IconTile(systemName: "trash", tone: .quiet)), AnyView(BrandGlow().frame(height: 200)),
+      AnyView(AppMark()), AnyView(CompanyMark()), AnyView(AlgorythmosMark().frame(width: 100)),
+      AnyView(QuickAction(Text(verbatim: "Scan"), systemImage: "doc.viewfinder", prominence: .filled) {}),
+      AnyView(QuickAction(Text(verbatim: "Import"), systemImage: "plus") {}),
     ]
     for view in views {
       let renderer = ImageRenderer(content: view.frame(width: 390).environment(\.dynamicTypeSize, .accessibility5))

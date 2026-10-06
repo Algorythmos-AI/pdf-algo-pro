@@ -124,6 +124,20 @@ def icon_document_problems(resources: Path = (ROOT / ICON_CATALOG).parent) -> li
     return problems
 
 
+APP_MARK = "Packages/DesignSystem/Sources/DesignSystem/Resources/AppMark.png"
+
+
+def app_mark_problems(path: Path = ROOT / APP_MARK) -> list[str]:
+    """The app mark the interface shows is written by the icon script, so it exists and is a square PNG."""
+    if not path.exists():
+        return [f"{APP_MARK}: missing; run scripts/design/make_app_icon.swift"]
+    data = path.read_bytes()
+    if data[:8] != b"\x89PNG\r\n\x1a\n" or data[12:16] != b"IHDR":
+        return [f"{APP_MARK}: not a PNG"]
+    width, height = struct.unpack(">II", data[16:24])
+    return [] if width == height else [f"{APP_MARK}: {width} x {height}, not square"]
+
+
 APP_SOURCES = "App/PDFAlgoPro"
 APP_NAME_KEYS = ("CFBundleDisplayName", "CFBundleName")
 
@@ -164,6 +178,7 @@ def main() -> int:
 
     errors.extend(icon_problems())
     errors.extend(icon_document_problems())
+    errors.extend(app_mark_problems())
     errors.extend(infoplist_name_problems())
 
     swift = [p for p in tracked("*.swift") if not p.startswith("scripts/")]

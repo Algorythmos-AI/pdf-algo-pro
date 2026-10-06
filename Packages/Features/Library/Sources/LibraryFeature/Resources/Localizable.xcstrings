@@ -57,6 +57,52 @@
         }
       }
     },
+    "%lld documents" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld document"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld documents"
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld document"
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld documents"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld documents"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%lld file(s) couldn't be imported because they aren't readable PDFs. Nothing else changed." : {
       "localizations" : {
         "en" : {
@@ -341,12 +387,32 @@
         }
       }
     },
+    "Ask a PDF" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Interroger un PDF"
+          }
+        }
+      }
+    },
     "Author" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Auteur"
+          }
+        }
+      }
+    },
+    "Built by Algorythmos" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conçu par Algorythmos"
           }
         }
       }
@@ -417,6 +483,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Choisir des fichiers"
+          }
+        }
+      }
+    },
+    "Continue reading" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reprendre la lecture"
           }
         }
       }
@@ -517,6 +593,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "OK"
+          }
+        }
+      }
+    },
+    "Explain a contract" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expliquer un contrat"
+          }
+        }
+      }
+    },
+    "Extract data" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Extraire des données"
           }
         }
       }
@@ -1091,6 +1187,16 @@
         }
       }
     },
+    "Summarise" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Résumer"
+          }
+        }
+      }
+    },
     "Summarise a document" : {
       "localizations" : {
         "fr" : {
@@ -1197,6 +1303,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Vos documents sont en sécurité. Réessayez dans un instant."
+          }
+        }
+      }
+    },
+    "Your documents stay on this device." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vos documents restent sur cet appareil."
+          }
+        }
+      }
+    },
+    "Your library" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre bibliothèque"
           }
         }
       }

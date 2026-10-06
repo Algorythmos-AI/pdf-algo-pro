@@ -61,6 +61,11 @@ struct AppTests {
     #expect(app.sheet == nil && app.library.selection == DocumentSelection(id: id, pageIndex: 3))
     app.navigate(to: .library(.favorites))
     #expect(app.library.section == .favorites && app.library.selection == nil)
+    // On iPhone the app opens on Home; a route to a section tells the library to show its documents,
+    // also when that section is already the one chosen.
+    #expect(app.library.listRequests == 1)
+    app.navigate(to: .library(.favorites))
+    #expect(app.library.listRequests == 2)
     app.handle(try #require(URL(string: "pdfalgopro://scan")))
     #expect(app.sheet == .scan)
     app.handle(try #require(URL(string: "https://example.com/scan")))

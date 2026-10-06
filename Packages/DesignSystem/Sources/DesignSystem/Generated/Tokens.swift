@@ -18,6 +18,14 @@ public struct DesignColors: Sendable {
   public var intelligenceFill: Color { DynamicColor.make(light: RGB(0.0549, 0.4549, 0.5647), dark: RGB(0.1333, 0.8275, 0.9333), lightHighContrast: RGB(0.0824, 0.3686, 0.4588), darkHighContrast: RGB(0.4039, 0.9098, 0.9765)) }
   /// `color.intelligence.onFill`: light #FFFFFF, dark #08080C, lightHighContrast #FFFFFF, darkHighContrast #000000.
   public var intelligenceOnFill: Color { DynamicColor.make(light: RGB(1.0000, 1.0000, 1.0000), dark: RGB(0.0314, 0.0314, 0.0471), lightHighContrast: RGB(1.0000, 1.0000, 1.0000), darkHighContrast: RGB(0.0000, 0.0000, 0.0000)) }
+  /// `color.logo.mark`: light #3715E0, dark #3715E0, lightHighContrast #3715E0, darkHighContrast #3715E0.
+  public var logoMark: Color { DynamicColor.make(light: RGB(0.2157, 0.0824, 0.8784), dark: RGB(0.2157, 0.0824, 0.8784), lightHighContrast: RGB(0.2157, 0.0824, 0.8784), darkHighContrast: RGB(0.2157, 0.0824, 0.8784)) }
+  /// `color.logo.dotStart`: light #4A18E8, dark #4A18E8, lightHighContrast #4A18E8, darkHighContrast #4A18E8.
+  public var logoDotStart: Color { DynamicColor.make(light: RGB(0.2902, 0.0941, 0.9098), dark: RGB(0.2902, 0.0941, 0.9098), lightHighContrast: RGB(0.2902, 0.0941, 0.9098), darkHighContrast: RGB(0.2902, 0.0941, 0.9098)) }
+  /// `color.logo.dotEnd`: light #8420F5, dark #8420F5, lightHighContrast #8420F5, darkHighContrast #8420F5.
+  public var logoDotEnd: Color { DynamicColor.make(light: RGB(0.5176, 0.1255, 0.9608), dark: RGB(0.5176, 0.1255, 0.9608), lightHighContrast: RGB(0.5176, 0.1255, 0.9608), darkHighContrast: RGB(0.5176, 0.1255, 0.9608)) }
+  /// `color.logo.tile`: light #FFFFFF, dark #FFFFFF, lightHighContrast #FFFFFF, darkHighContrast #FFFFFF.
+  public var logoTile: Color { DynamicColor.make(light: RGB(1.0000, 1.0000, 1.0000), dark: RGB(1.0000, 1.0000, 1.0000), lightHighContrast: RGB(1.0000, 1.0000, 1.0000), darkHighContrast: RGB(1.0000, 1.0000, 1.0000)) }
   /// Resolves to the system colour `systemBackground`.
   public var backgroundPrimary: Color { DynamicColor.system(.systemBackground) }
   /// Resolves to the system colour `secondarySystemBackground`.
@@ -74,6 +82,12 @@ public enum Spacing {
   public static let s600: CGFloat = 48
   /// `space.s800` = 64 points.
   public static let s800: CGFloat = 64
+}
+
+/// Opacity tokens.
+public enum Opacities {
+  /// `opacity.brandGlow` = 0.12.
+  public static let brandGlow: Double = 0.12
 }
 
 /// Size tokens.

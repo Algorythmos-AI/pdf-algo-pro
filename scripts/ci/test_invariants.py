@@ -38,6 +38,16 @@ def test_the_committed_icons_pass():
     assert invariants.icon_problems() == []
 
 
+def test_the_app_mark_is_a_square_png_from_the_icon_script(tmp_path):
+    assert invariants.app_mark_problems() == []
+    assert "missing; run scripts/design/make_app_icon.swift" in invariants.app_mark_problems(tmp_path / "AppMark.png")[0]
+    wide = tmp_path / "wide.png"
+    wide.write_bytes(png(360, 180, 2))
+    assert "not square" in invariants.app_mark_problems(wide)[0]
+    wide.write_bytes(b"GIF89a")
+    assert "not a PNG" in invariants.app_mark_problems(wide)[0]
+
+
 def test_every_icon_set_needs_an_opaque_default_image(tmp_path):
     app_store = tmp_path / "AppIcon.appiconset"
     app_store.mkdir()

@@ -77,6 +77,13 @@ class UITestCase: XCTestCase {
     }
   }
 
+  /// Opens All documents from Home, the screen the app starts on, and waits for the list's own bar.
+  func openDocumentList(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
+    tap(
+      app.descendants(matching: .any)["library.section.all"].firstMatch, until: app.buttons["library.scan"],
+      file: file, line: line)
+  }
+
   /// Opens a menu, taps one of its items and waits for what the item opens (see `tap(_:until:)`).
   ///
   /// On a slow CI runner the tap on the item can be swallowed, or what it opens can take longer than a
