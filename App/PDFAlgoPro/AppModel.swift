@@ -100,8 +100,7 @@ final class AppModel {
     switch route {
     case .library(let section):
       sheet = nil
-      library.section = section
-      library.selection = nil
+      library.show(section)
     case .document(let id, let pageIndex):
       sheet = nil
       library.open(id, pageIndex: pageIndex)

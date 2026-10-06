@@ -5,6 +5,7 @@ import ImageIO
 import PDFEngine
 import SwiftUI
 import Testing
+import UIKit
 
 @testable import LibraryFeature
 
@@ -358,6 +359,156 @@ struct LibraryModelTests {
     #expect(await harness.model.thumbnail(for: Document(title: "x", fileName: "missing.pdf", addedAt: .now)) == nil)
   }
 
+  @Test("Home's counts always equal what each section lists, whatever changes (FR-LIB-002)")
+  func countsMatchTheLists() async throws {
+    let harness = Harness()
+    #expect(harness.model.counts.isEmpty, "No counts before the library has loaded")
+    let lease = await harness.library.seed(
+      Document(title: "Lease", fileName: "l.pdf", addedAt: .now, lastOpenedAt: .now, isFavorite: true))
+    let invoice = await harness.library.seed(Document(title: "Invoice", fileName: "i.pdf", addedAt: .now))
+    await harness.library.seed(Document(title: "Notes", fileName: "n.pdf", addedAt: .now, tags: ["Work"]))
+    await harness.model.load()
+    func check(_ step: Comment) async throws {
+      for section in LibrarySection.fixed {
+        let listed = try await harness.library.documents(in: section, sortedBy: .title).count
+        #expect(harness.model.counts[section] == listed, "\(step): \(section)")
+      }
+    }
+    try await check("loaded")
+    #expect(harness.model.counts == [.all: 3, .recents: 1, .favorites: 1, .recentlyDeleted: 0])
+    await harness.model.toggleFavorite(invoice)
+    try await check("favourite added")
+    await harness.model.delete([lease.id, invoice.id])
+    try await check("two deleted")
+    #expect(harness.model.counts == [.all: 1, .recents: 0, .favorites: 0, .recentlyDeleted: 2])
+    await harness.model.undoDelete()
+    try await check("delete undone")
+    await harness.model.deletePermanently(lease.id)
+    try await check("one removed for good")
+    // The counts do not depend on the section being shown.
+    harness.model.section = .recentlyDeleted
+    await harness.model.reload()
+    try await check("another section showing")
+    #expect(harness.model.counts[.all] == 2)
+  }
+
+  @Test("Home's recent documents are the last three opened, newest first, never deleted ones")
+  func recentDocuments() async throws {
+    let harness = Harness()
+    for index in 1...7 {
+      await harness.library.seed(
+        Document(
+          title: "Opened \(index)", fileName: "o\(index).pdf", addedAt: .now,
+          lastOpenedAt: Date(timeIntervalSince1970: Double(index))))
+    }
+    await harness.library.seed(Document(title: "Never opened", fileName: "n.pdf", addedAt: .now))
+    await harness.model.load()
+    #expect(harness.model.recentDocuments.map(\.title) == (5...7).reversed().map { "Opened \($0)" })
+    // Recents is the same whatever the list is sorted by.
+    harness.model.sort = .title
+    await harness.model.reload()
+    #expect(harness.model.recentDocuments.first?.title == "Opened 7")
+    let newest = try #require(harness.model.recentDocuments.first)
+    await harness.model.delete(newest.id)
+    #expect(harness.model.recentDocuments.map(\.title) == (4...6).reversed().map { "Opened \($0)" })
+  }
+
+  @Test("Choosing a section shows its documents at once, before the library answers again")
+  func sectionShowsItsDocumentsAtOnce() async throws {
+    let harness = Harness()
+    await harness.library.seed(Document(title: "Starred", fileName: "s.pdf", addedAt: .now, isFavorite: true))
+    await harness.library.seed(Document(title: "Plain", fileName: "p.pdf", addedAt: .now))
+    await harness.library.seed(Document(title: "Tagged", fileName: "t.pdf", addedAt: .now, tags: ["Tax"]))
+    await harness.model.load()
+    harness.model.section = .favorites
+    #expect(harness.model.documents.map(\.title) == ["Starred"], "No wait, and never the section before")
+    harness.model.section = .tag("tax")
+    #expect(harness.model.documents.map(\.title) == ["Tagged"])
+    harness.model.section = .recentlyDeleted
+    #expect(harness.model.documents.isEmpty)
+    await harness.model.reload()
+    #expect(harness.model.documents.isEmpty)
+  }
+
+  @Test("Reloads apply in the order they were asked for, so the list always matches the section")
+  func reloadsApplyInOrder() async throws {
+    let harness = Harness()
+    await harness.library.seed(Document(title: "Starred", fileName: "s.pdf", addedAt: .now, isFavorite: true))
+    await harness.library.seed(Document(title: "Plain", fileName: "p.pdf", addedAt: .now))
+    await harness.model.load()
+    let sections: [LibrarySection] = [.favorites, .all, .recentlyDeleted, .recents, .all, .favorites]
+    await withTaskGroup(of: Void.self) { group in
+      for round in 0..<30 {
+        // Each change starts a reload of its own; more are asked for while those are in flight.
+        harness.model.section = sections[round % sections.count]
+        group.addTask { await harness.model.reload() }
+      }
+    }
+    await harness.model.reload()
+    #expect(harness.model.section == .favorites)
+    #expect(harness.model.documents.map(\.title) == ["Starred"])
+    #expect(harness.model.counts == [.all: 2, .recents: 0, .favorites: 1, .recentlyDeleted: 0])
+  }
+
+  @Test("A link or an intent that asks for a section leaves Home for its documents, every time (ADR-0004)")
+  func showingASection() async throws {
+    let harness = Harness()
+    let document = await harness.library.seed(Document(title: "Open", fileName: "o.pdf", addedAt: .now))
+    await harness.model.load()
+    #expect(LibraryView<EmptyView>.firstColumn(for: harness.model) == .sidebar, "The app opens on Home")
+    harness.model.open(document.id)
+    #expect(LibraryView<EmptyView>.firstColumn(for: harness.model) == .detail)
+    harness.model.show(.favorites)
+    #expect(harness.model.section == .favorites && harness.model.selection == nil)
+    #expect(harness.model.listRequests == 1)
+    #expect(LibraryView<EmptyView>.firstColumn(for: harness.model) == .content)
+    // Asking for the section already chosen still counts: the view may be on Home.
+    harness.model.show(.favorites)
+    #expect(harness.model.listRequests == 2)
+    // Choosing a section in the app is not such a request.
+    harness.model.section = .all
+    #expect(harness.model.listRequests == 2)
+  }
+
+  @Test(
+    "Home on iPhone and the sidebar of a wide window both draw: empty, and with documents, tags and an AI intent")
+  func homeAndSidebarDraw() async throws {
+    let empty = Harness()
+    await empty.model.load()
+    let full = Harness(intents: [.chatWithPDF])
+    await full.library.seed(
+      Document(
+        title: "Lease", fileName: "l.pdf", addedAt: .now, lastOpenedAt: .now, isFavorite: true, tags: ["Home", "Tax"]))
+    await full.library.seed(Document(title: "Invoice", fileName: "i.pdf", addedAt: .now))
+    await full.model.load()
+    #expect(full.model.primaryAction == .openAssistant(.ask) && full.model.tags == ["Home", "Tax"])
+    for model in [empty.model, full.model] {
+      let library = LibraryView(model: model, onScan: {}, onSettings: {}, detail: { _ in EmptyView() })
+      for size in [DynamicTypeSize.large, .accessibility3] {
+        // Home is a scroll view of cards, so it draws whole without a window.
+        let home = library.home.frame(width: 390).environment(\.dynamicTypeSize, size)
+        #expect(ImageRenderer(content: home).uiImage != nil)
+        for width in [UserInterfaceSizeClass.compact, .regular] {
+          let host = UIHostingController(
+            rootView: library.environment(\.horizontalSizeClass, width).environment(\.dynamicTypeSize, size))
+          host.view.frame = CGRect(x: 0, y: 0, width: width == .compact ? 390 : 1_024, height: 844)
+          host.view.layoutIfNeeded()
+          #expect(host.view.bounds.height == 844)
+        }
+      }
+    }
+  }
+
+  @Test("A button on Home draws with a style of its own")
+  func homeButtonDraws() {
+    let button = Button {
+    } label: {
+      Text(verbatim: "Tap")
+    }
+    .buttonStyle(DimmingButtonStyle())
+    #expect(ImageRenderer(content: button).uiImage != nil)
+  }
+
   @Test("Section copy exists for every section and home action")
   func copy() {
     for section in LibrarySection.fixed + [.tag("Tax")] {
@@ -369,6 +520,9 @@ struct LibraryModelTests {
     for action in [HomeAction.importDocument, .scanDocument] + AssistantTask.allCases.map(HomeAction.openAssistant) {
       _ = LibraryView<EmptyView>.primaryTitle(for: action)
       _ = LibraryView<EmptyView>.primaryDetail(for: action)
+    }
+    for task in AssistantTask.allCases {
+      _ = LibraryView<EmptyView>.assistantTitle(for: task)
     }
   }
 }

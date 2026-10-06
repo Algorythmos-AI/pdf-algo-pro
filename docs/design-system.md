@@ -41,9 +41,12 @@ Owner: Design · Reviewed: each milestone, and whenever a token or component cha
    ([SF Symbols](https://developer.apple.com/design/human-interface-guidelines/sf-symbols)). A custom
    symbol is drawn as an SF Symbols template only when no system symbol fits (for example a
    redaction mark), and it ships with all weights.
-5. **Brand as an accent.** Violet marks what is interactive and cyan marks what the intelligence
-   layer produced. Everything else is system colour. The endorsement "Built by Algorythmos" appears
-   in About and on the App Store, not in working screens.
+5. **Brand as an accent, with a few signature moments.** Violet marks what is interactive and cyan
+   marks what the intelligence layer produced. Everything else is system colour. The brand is also
+   shown, on purpose and in few places (PAP-040): Home carries the app mark, a soft wash of the brand
+   tint behind its header (`BrandGlow`) and, in its footer, the company mark with "Built by
+   Algorythmos"; Settings and About carry the app mark and the company mark. Screens where people
+   work on a document (the reader, the assistant, the scanner) carry none of these.
 6. **Honest interface.** Generated text is always labelled and never styled as document text; the
    tier that answered is always visible; paywalls are easy to close. These follow founder principles
    4, 5 and 10.
@@ -108,10 +111,18 @@ Contrast variants are **proposed here**; the brand source does not define them (
 | `color.intelligence.onFill` | `#FFFFFF` | `#08080C` | `#FFFFFF` | `#000000` |
 | Website background (reference only) | `#FAFAF9` | `#08080C` | — | — |
 | Website text (reference only) | `#111218` | `#F4F4F7` | — | — |
-| Logo "a" mark gradient | `#6D00FF` → `#7658E7` | same | — | — |
+| `color.logo.mark` (company mark, letterform) | `#3715E0` | same | same | same |
+| `color.logo.dotStart` → `color.logo.dotEnd` (company mark, dot) | `#4A18E8` → `#8420F5` | same | same | same |
+| `color.logo.tile` (the tile the company mark sits on) | `#FFFFFF` | same | same | same |
 
 The website backgrounds and text colours are listed for reference and marketing surfaces (App Store
 screenshots, the support site). Inside the app, backgrounds and text use the system tokens above.
+
+The company mark's colours and outline are those of the logo the company publishes on its website
+(`public/bimi/algorythmos.svg` in the website's public repository, read on 2026-10-06). They are
+the same in every appearance, and `color.logo.*` is used by `CompanyMark` only. `opacity.brandGlow`
+(0.1) is the most brand tint `BrandGlow` lays over a background: measured in the design-system
+tests, primary and secondary text over it keep at least 4.5:1 in all four appearances.
 
 ### Measured contrast
 
@@ -219,9 +230,10 @@ and recomputes every ratio, so a difference fails the build rather than going un
    ([Color, Liquid Glass color](https://developer.apple.com/design/human-interface-guidelines/color)).
    The two custom glass controls are snapshot-tested over light pages, dark pages and photographs;
    where a label falls below 4.5:1, the control switches to an opaque style.
-7. **The logo is decoration, not text.** WCAG exempts logotypes from the text-contrast rule, but
-   `#6D00FF` falls below 3:1 on the dark website background. In dark appearance the mark sits on a
-   light tile or uses a lighter variant (brand-owner decision; open question).
+7. **The logo is decoration, not text, and always sits on its light tile.** WCAG exempts logotypes
+   from the text-contrast rule, but the mark's violet falls below 3:1 on dark backgrounds. So
+   `CompanyMark` draws it on `color.logo.tile` in every appearance (PAP-040): `color.logo.mark` on
+   the tile is a declared contrast pair of at least 4.5:1 in `tokens.json`, checked in CI.
 8. **Colour is never the only signal.** Status, selection, annotation colour and OCR confidence
    always carry a shape, symbol or text, as the HIG requires
    ([Accessibility](https://developer.apple.com/design/human-interface-guidelines/accessibility)).
@@ -271,8 +283,11 @@ Version 2, approved by the owner on 2026-10-01. `scripts/design/make_app_icon.sw
 - **Assumption:** the gradient icon is recognised faster in search than a plain red or plain violet
   one. Validation plan: the alternate-icon test in the
   [App Store strategy](app-store-strategy.md) once the app is live.
-- **The icon colours are for the icon only.** `color.icon.*` never appears in the interface; there,
-  violet still means "you can act on this" and cyan still means the intelligence layer.
+- **The icon colours are for the icon only.** `color.icon.*` never appears in the interface as a
+  colour; there, violet still means "you can act on this" and cyan still means the intelligence
+  layer. The icon itself does appear, as an image: `AppMark` shows it on Home, in Settings and in
+  About (PAP-040). The script writes that image (`AppMark.png` in the `DesignSystem` package) from
+  the same artwork, and the `invariants` gate checks it is there.
 - **The "PDF" mark is drawn as paths**, not set in a font, so the icon depends on no font licence.
 - **Staging** (`AppIcon-Staging`) is the same artwork with the beta badge, selected by the Staging
   build configuration in `project.yml`.
@@ -379,7 +394,7 @@ uses `@ScaledMetric` so it grows with Dynamic Type. Values off the grid are reje
 
 | Screen | Compact width | Regular width |
 |---|---|---|
-| Library | List with sections in a stack; search in the toolbar | Sidebar (sections, tags) + grid or list |
+| Library | Opens on Home, the first level of the stack: the app mark, quick actions, recent documents, then the sections with their counts. A section's list is one step in; search in its toolbar | Sidebar (sections with counts, tags) + grid or list. The Home extras are not shown: beside the documents it stays a sidebar |
 | Reader | Page fills the screen; thumbnail strip on demand at the bottom | Thumbnail rail in a leading column; inspector for annotations and AI answers in a trailing column |
 | Assistant (AI) | Sheet with detents over the page | Trailing inspector next to the page, so citations and page stay visible together |
 | Onboarding, paywall | Single column, scrolls | Centred single column at readable width |
@@ -399,6 +414,8 @@ Contrast, Large and AX5, and has snapshot and accessibility tests before it is m
 | `DestructiveButton` | `role: .destructive` | System red; confirmation for anything not undoable |
 | `IconButton` | SF Symbol, borderless | 44 × 44 point hit area; accessibility label and Voice Control input labels always set |
 
+| `QuickAction` | A tile: an SF Symbol over a short title, on a card, or on `color.brand.fill` when filled | Home's few starting actions. At most one filled tile on a screen, and it counts as that screen's `PrimaryButton`. At accessibility text sizes the symbol moves beside the title and the tiles stack |
+
 The HIG applies the accent colour to the background of prominent buttons and warns against colouring
 many controls ([Color, Liquid Glass color](https://developer.apple.com/design/human-interface-guidelines/color)).
 Equal-weight buttons are used where the choice must not be steered: consent screens and the
@@ -412,7 +429,22 @@ cards, onboarding intent options. They use `color.background.groupedElevated` or
 combined label unless it contains more than one action, in which case each action is reachable and
 also offered as a custom accessibility action.
 
+### Brand marks and tiles
+
+| Component | What it is | Rules |
+|---|---|---|
+| `AppMark` | The app icon as an image, with the icon's corner shape | Home's header, Settings and About only. Decoration beside the app's name, so hidden from VoiceOver. Grows with the text size, to one and a half times its size |
+| `CompanyMark` | The Algorythmos mark, drawn as a vector shape, on `color.logo.tile` | Home's footer and About only, beside "Built by Algorythmos". Never without its tile, never recoloured, never mirrored in right-to-left layouts. VoiceOver reads "Algorythmos" |
+| `BrandGlow` | A wash of `color.brand.tint`, strongest at the top (`opacity.brandGlow`) and gone at its lower edge | Behind Home's header only, in compact width. Removed by Reduce Transparency and by Increase Contrast. Never behind a document |
+| `IconTile` | An SF Symbol on a small filled tile, as the system's Settings rows show theirs | List rows that lead somewhere. `brand` for things to open or change, `intelligence` for what the intelligence layer does, `quiet` for things set aside (Recently deleted). The fills and their symbol colours are the declared contrast pairs. Decoration beside the row's title |
+
 ### Lists
+
+Home on iPhone is the one grouped screen that is not a `List`: it is a scroll view of cards drawn
+like a grouped list's sections (PAP-040). In the sidebar-style list the accessibility audit reported
+small text and the rows' counts as not scaling or as clipped, on text that used standard styles; as
+cards, every part lays itself out at once when the text size changes, and the audit passes at the
+default size and at AX3. In a wide window the same sections are a `.sidebar` list.
 
 System `List` styles only: `.insetGrouped` for settings, `.sidebar` for the library sidebar, plain
 for search results. Swipe actions (for example Delete, Favourite) always have an equivalent in the
@@ -584,7 +616,7 @@ home screen and the order of tools; it never gates anything.
 
 | State | Pattern | Example |
 |---|---|---|
-| Empty | `ContentUnavailableView` with a symbol, one sentence and at most two actions | Library: "No documents yet" with Scan and Import, plus "Try a sample" |
+| Empty | `ContentUnavailableView` with a symbol, one sentence and at most two actions | Library: "No documents yet" with Scan and Import, plus "Try a sample". Home offers the same three when the library is empty |
 | No search results | `ContentUnavailableView.search` with the query | "No results for 'lease'" |
 | Offline | Inline banner, not a blocking alert | "You're offline. Answers on this device still work; cloud answers resume when you're back online." |
 | Error | Plain language: what happened, what is safe, what to do next | "Couldn't save the signature. Your document hasn't changed. Try again." |
@@ -749,8 +781,6 @@ Figma library) in the [readiness review](readiness-review.md). The action:
 
 - **Increase Contrast brand values.** The proposed `#4C1D95`, `#C4B5FD`, `#155E75` and `#67E8F9` pass
   AAA; the brand owner confirms them or supplies others.
-- **Logo mark in dark appearance.** `#6D00FF` is 2.95:1 on `#08080C`. A light tile or a lighter
-  dark-mode variant of the mark is needed for the About screen and marketing.
 - **Typed signature typeface.** Which installed system script face to use, and whether a typed
   signature meets users' expectations in Australia and France.
 - **Multi-select in the intent picker**, and how the home screen orders tools for several choices.

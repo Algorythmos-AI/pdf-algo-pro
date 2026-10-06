@@ -11,6 +11,8 @@
 // It also writes an Icon Composer document beside the catalog for each set (AppIcon.icon and
 // AppIcon-Staging.icon): the same artwork in layers, which iOS 26 renders with Liquid Glass. The build
 // uses the document; the PNGs are what the document is checked against and what older tools read.
+// Last, it writes the app mark the interface shows (Home, Settings, About) into the DesignSystem
+// package: the default icon, scaled down, so the mark on screen is always the icon on the Home Screen.
 // The artwork is a large page carrying a "PDF" mark drawn as paths (no font) and the intelligence
 // sparkle, on a crimson-to-violet field. Coordinates have their origin at the bottom left, y up.
 import CoreGraphics
@@ -338,6 +340,30 @@ for (name, staging) in [("AppIcon", false), ("AppIcon-Staging", true)] {
   try! contents.write(to: iconSet.appendingPathComponent("Contents.json"), atomically: true, encoding: .utf8)
   print("wrote \(name).appiconset/Contents.json")
 }
+
+// MARK: - The app mark in the interface
+
+/// The default icon scaled to `side` pixels: opaque, like its source. The interface rounds its corners.
+func writeAppMark(side: Int, to url: URL) {
+  let space = CGColorSpace(name: CGColorSpace.sRGB)!
+  let info = CGImageAlphaInfo.noneSkipLast.rawValue
+  let full = CGContext(
+    data: nil, width: size, height: size, bitsPerComponent: 8, bytesPerRow: 0, space: space, bitmapInfo: info)!
+  draw(.standard, staging: false, in: full)
+  let small = CGContext(
+    data: nil, width: side, height: side, bitsPerComponent: 8, bytesPerRow: 0, space: space, bitmapInfo: info)!
+  small.interpolationQuality = .high
+  small.draw(full.makeImage()!, in: CGRect(x: 0, y: 0, width: side, height: side))
+  let destination = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil)!
+  CGImageDestinationAddImage(destination, small.makeImage()!, nil)
+  guard CGImageDestinationFinalize(destination) else { fatalError("could not write \(url.path)") }
+  print("wrote \(url.path)")
+}
+
+// 360 pixels covers the largest use (120 points at 3x); smaller uses scale it down.
+writeAppMark(
+  side: 360,
+  to: root.appendingPathComponent("Packages/DesignSystem/Sources/DesignSystem/Resources/AppMark.png"))
 
 // MARK: - Icon Composer documents (Liquid Glass)
 

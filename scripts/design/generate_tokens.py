@@ -7,7 +7,8 @@
 Rules checked on every run:
   * each brand colour has all four appearances (light, dark, and each with Increase Contrast);
   * every declared contrast pair meets its minimum WCAG 2.2 ratio in every appearance;
-  * spacing tokens are multiples of 4 (the 8-point grid with 4-point half-steps).
+  * spacing tokens are multiples of 4 (the 8-point grid with 4-point half-steps);
+  * opacity tokens are between 0 and 1.
 """
 from __future__ import annotations
 
@@ -20,6 +21,9 @@ TOKENS = ROOT / "design" / "tokens.json"
 OUTPUT = ROOT / "Packages" / "DesignSystem" / "Sources" / "DesignSystem" / "Generated" / "Tokens.swift"
 APPEARANCES = ("light", "dark", "lightHighContrast", "darkHighContrast")
 EXTENSION = "com.algorythmos.appearances"
+# Colour groups whose tokens carry a value for each appearance. `color.icon` is for the app icon alone
+# and is never generated into Swift.
+GROUPS = ("brand", "intelligence", "logo")
 
 
 def rgb(hex_value: str) -> tuple[float, float, float]:
@@ -50,7 +54,7 @@ def lookup(tokens: dict, path: str) -> dict:
 
 def check(tokens: dict) -> list[str]:
     errors = []
-    for group in ("brand", "intelligence"):
+    for group in GROUPS:
         for name, token in tokens["color"][group].items():
             values = token.get("$extensions", {}).get(EXTENSION, {})
             missing = [a for a in APPEARANCES if a not in values]
@@ -73,6 +77,9 @@ def check(tokens: dict) -> list[str]:
     for name, token in tokens["space"].items():
         if token["$value"] % 4:
             errors.append(f"space.{name} = {token['$value']} is not a multiple of 4")
+    for name, token in tokens.get("opacity", {}).items():
+        if not 0 <= token["$value"] <= 1:
+            errors.append(f"opacity.{name} = {token['$value']} is not between 0 and 1")
     return errors
 
 
@@ -93,7 +100,7 @@ def render(tokens: dict) -> str:
         "/// Colour tokens (docs/design-system.md). Brand tokens resolve per appearance, including Increase Contrast.",
         "public struct DesignColors: Sendable {",
     ]
-    for group in ("brand", "intelligence"):
+    for group in GROUPS:
         for name, token in tokens["color"][group].items():
             values = token["$extensions"][EXTENSION]
             swift_name = f"{group}{name[0].upper()}{name[1:]}"
@@ -112,6 +119,9 @@ def render(tokens: dict) -> str:
     lines += ["}", "", "/// Spacing tokens: an 8-point grid with 4-point half-steps.", "public enum Spacing {"]
     for name, token in tokens["space"].items():
         lines += [f"  /// `space.{name}` = {token['$value']} points.", f"  public static let {name}: CGFloat = {token['$value']}"]
+    lines += ["}", "", "/// Opacity tokens.", "public enum Opacities {"]
+    for name, token in tokens.get("opacity", {}).items():
+        lines += [f"  /// `opacity.{name}` = {token['$value']}.", f"  public static let {name}: Double = {token['$value']}"]
     lines += ["}", "", "/// Size tokens.", "public enum Sizes {"]
     for name, token in tokens["size"].items():
         lines += [f"  /// `size.{name}` = {token['$value']} points.", f"  public static let {name}: CGFloat = {token['$value']}"]

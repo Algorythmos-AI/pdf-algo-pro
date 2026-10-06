@@ -10,6 +10,9 @@ Store notes (see the changelog strategy).
 ## [Unreleased]
 
 ### Added
+- The app opens on a new Home: scan or import in one tap, pick up the documents you opened last,
+  and see how many documents each section holds. Home also says what the app promises, that your
+  documents stay on this device, and who makes it.
 - Settings › About links to the privacy policy, the terms of use and the support page on
   algorythmos.com, in French when the app is in French. They open in the browser.
 - Edit the text already in a PDF (internal builds for now): tap Edit, tap a line, type, tap Done.

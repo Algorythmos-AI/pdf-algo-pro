@@ -8,6 +8,8 @@ struct DocumentRow: View {
   let document: Document
   let snippet: String?
   let thumbnail: () async -> CGImage?
+  /// The most lines the title takes; `nil` on Home, where a title is never cut short.
+  var titleLineLimit: Int? = 2
   @State private var image: CGImage?
   @ScaledMetric(relativeTo: .body) private var thumbnailHeight: CGFloat = 64
 
@@ -31,7 +33,7 @@ struct DocumentRow: View {
       .accessibilityHidden(true)
       VStack(alignment: .leading, spacing: Spacing.s050) {
         HStack(spacing: Spacing.s050) {
-          Text(document.title).font(.headline).lineLimit(2)
+          Text(document.title).font(.headline).lineLimit(titleLineLimit)
           if document.isFavorite {
             Image(systemName: "star.fill").font(.caption).foregroundStyle(Color.ds.brandTint)
               .accessibilityLabel(Text("Favourite", bundle: .module))

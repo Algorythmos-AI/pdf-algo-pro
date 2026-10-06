@@ -13,8 +13,8 @@ final class OnboardingUITests: UITestCase {
     try audit(app)
     app.buttons["onboarding.skip"].tap()
     XCTAssertTrue(
-      app.buttons["library.empty.sample"].waitForExistence(timeout: Self.settleTimeout),
-      "Skipping leads to the library (FR-ONB-002)")
+      app.buttons["library.home.sample"].waitForExistence(timeout: Self.settleTimeout),
+      "Skipping leads to Home (FR-ONB-002)")
   }
 
   func testChoosingAnIntentPersonalisesTheHomeScreen() throws {
@@ -24,7 +24,11 @@ final class OnboardingUITests: UITestCase {
     scan.tap()
     app.buttons["onboarding.continue"].tap()
     XCTAssertTrue(
-      app.buttons["library.empty.primary.scan"].waitForExistence(timeout: Self.settleTimeout),
+      app.buttons["library.home.primary.scan"].waitForExistence(timeout: Self.settleTimeout),
       "The chosen intent leads the home screen (FR-ONB-003)")
+    openDocumentList(app)
+    XCTAssertTrue(
+      app.buttons["library.empty.primary.scan"].waitForExistence(timeout: Self.settleTimeout),
+      "And the empty document list (FR-ONB-003)")
   }
 }

@@ -5,7 +5,7 @@ import XCTest
 final class SettingsUITests: UITestCase {
   func testSettingsCanHideAI() throws {
     let app = launch(["-skip-onboarding"])
-    tap(app.buttons["library.settings"], until: app.descendants(matching: .any)["settings.hideAI"].firstMatch)
+    tap(app.buttons["library.sidebar.settings"], until: app.descendants(matching: .any)["settings.hideAI"].firstMatch)
     try audit(app, onSheet: true)
   }
 
@@ -14,7 +14,7 @@ final class SettingsUITests: UITestCase {
   /// UI tests use the scripted model, so this checks the screen, not the scores.
   func testTheAIEvaluationRunsInInternalBuilds() throws {
     let app = launch(["-skip-onboarding"])
-    tap(app.buttons["library.settings"], until: app.descendants(matching: .any)["settings.hideAI"].firstMatch)
+    tap(app.buttons["library.sidebar.settings"], until: app.descendants(matching: .any)["settings.hideAI"].firstMatch)
     let open = app.buttons["evaluation.open"]
     for _ in 0..<6 where !open.isHittable { app.swipeUp() }
     open.tap()
