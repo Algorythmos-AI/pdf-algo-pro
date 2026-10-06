@@ -74,6 +74,57 @@ struct TextEditingAccessTests {
     #expect(LaunchEnvironment(arguments: ["-text-editing", "other"]).textEditing == nil)
   }
 
+  @Test(
+    "A launch argument fixes the entitlement, and a UI test without one is not entitled",
+    arguments: [("none", Entitlement.none), ("subscribed", .subscribed), ("expired", .expired)])
+  func entitlementArgument(value: String, expected: Entitlement) async {
+    let environment = LaunchEnvironment(arguments: ["-ui-testing", "-entitlement", value])
+    #expect(environment.entitlement == expected)
+    #expect(await AppContainer(environment: environment).entitlements.resolved() == expected)
+    #expect(LaunchEnvironment(arguments: ["-entitlement"]).entitlement == nil)
+    #expect(LaunchEnvironment(arguments: ["-entitlement", "other"]).entitlement == nil)
+    let plain = AppContainer(environment: LaunchEnvironment(arguments: ["-ui-testing"]))
+    #expect(await plain.entitlements.resolved() == Entitlement.none)
+  }
+
+  @Test("The trial argument gives a trial that is running")
+  func trialArgument() async {
+    let environment = LaunchEnvironment(arguments: ["-ui-testing", "-entitlement", "trial"])
+    guard case .trial(let endsAt) = environment.entitlement else {
+      Issue.record("Expected a trial")
+      return
+    }
+    #expect(endsAt > Date())
+    let store = AppContainer(environment: environment).entitlements
+    _ = await store.resolved()
+    #expect(store.grantsPro)
+  }
+
+  @Test("UI tests have no allowance limit unless they ask for one that is used up")
+  func allowanceArgument() async {
+    let plain = AppContainer(environment: LaunchEnvironment(arguments: ["-ui-testing"]))
+    #expect(!plain.environment.allowanceExhausted)
+    for action in MeteredAction.allCases {
+      #expect(await plain.allowance.isAllowed(action, entitlement: .none))
+      await plain.allowance.recordSuccess(action)
+      #expect(await plain.allowance.usedToday(action) == 0)
+    }
+    let used = AppContainer(environment: LaunchEnvironment(arguments: ["-ui-testing", "-allowance", "exhausted"]))
+    #expect(used.environment.allowanceExhausted)
+    for action in MeteredAction.allCases {
+      #expect(await !used.allowance.isAllowed(action, entitlement: .none))
+      #expect(await used.allowance.isAllowed(action, entitlement: .subscribed))
+    }
+    #expect(!LaunchEnvironment(arguments: ["-allowance", "other"]).allowanceExhausted)
+  }
+
+  @Test("The products are named after this app's bundle identifier")
+  func catalog() throws {
+    let bundle = try #require(Bundle.main.bundleIdentifier)
+    let container = AppContainer(environment: LaunchEnvironment(arguments: ["-ui-testing"]))
+    #expect(container.catalog == ProductCatalog(bundleIdentifier: bundle))
+  }
+
   @Test("No release flag has outlived the version it must be removed by")
   func flagsAreNotOverdue() throws {
     let version = try #require(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String)

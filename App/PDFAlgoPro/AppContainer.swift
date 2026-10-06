@@ -36,6 +36,11 @@ struct LaunchEnvironment {
   /// Use an editor that can never prove an edit (`-text-editor unprovable`), so UI tests can see
   /// what the reader does then.
   let refusesTextEdits: Bool
+  /// The entitlement the app reports (`-entitlement none`, `trial`, `subscribed` or `expired`), so
+  /// UI tests can see each state without a store; `nil` leaves it to the build.
+  let entitlement: Entitlement?
+  /// Start with the day's free allowance used up (`-allowance exhausted`).
+  let allowanceExhausted: Bool
 
   init(arguments: [String] = ProcessInfo.processInfo.arguments) {
     #if DEBUG
@@ -64,6 +69,22 @@ struct LaunchEnvironment {
         arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil
       }
       refusesTextEdits = editor == "unprovable"
+      let entitled = arguments.firstIndex(of: "-entitlement").flatMap {
+        arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil
+      }
+      entitlement =
+        switch entitled {
+        case "none": Entitlement.none
+        // A trial with a day left: long enough for any test, short enough to show its end date.
+        case "trial": .trial(endsAt: Date().addingTimeInterval(24 * 60 * 60))
+        case "subscribed": .subscribed
+        case "expired": .expired
+        default: nil
+        }
+      let allowance = arguments.firstIndex(of: "-allowance").flatMap {
+        arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil
+      }
+      allowanceExhausted = allowance == "exhausted"
     #else
       isUITesting = false
       skipsOnboarding = false
@@ -75,6 +96,8 @@ struct LaunchEnvironment {
       textEditing = nil
       showsTips = false
       refusesTextEdits = false
+      entitlement = nil
+      allowanceExhausted = false
     #endif
   }
 }
@@ -107,6 +130,14 @@ final class AppContainer {
   let thumbnails = ThumbnailCache()
   /// Whether editing existing text is offered: the release flag and the Pro entitlement (FR-EDIT-001).
   let textEditing: any TextEditingAccessProviding
+  /// The Pro subscription's products, named after this app's bundle identifier (ADR-0026).
+  let catalog: ProductCatalog
+  /// The person's entitlement, followed from launch; every gate reads it here (ADR-0026).
+  let entitlements: EntitlementStore
+  /// The free tier's daily allowance of scans and intelligence requests (FR-STORE-001).
+  ///
+  /// UI tests have no limit unless they ask for a used-up allowance, and keep their counts apart.
+  let allowance: UsageAllowance
   /// What edits existing text: the native editor, or under test one that cannot prove an edit.
   var textEditor: any PDFTextEditing {
     #if DEBUG
@@ -168,12 +199,32 @@ final class AppContainer {
     metricKit?.start()
     signatures =
       environment.isUITesting ? KeychainSignatureStore(service: "ui-testing-\(UUID())") : KeychainSignatureStore()
+    let catalog = ProductCatalog(bundleIdentifier: Bundle.main.bundleIdentifier ?? "com.algorythmos.pdfalgopro")
+    self.catalog = catalog
+    let provider: any EntitlementProviding
+    if let fixed = environment.entitlement {
+      provider = FixedEntitlements(fixed)
+    } else if environment.isUITesting {
+      // A UI test never asks the App Store: without an argument, nobody is entitled.
+      provider = FixedEntitlements(.none)
+    } else {
+      provider = StoreKitEntitlements(productIDs: catalog.productIDs)
+    }
+    entitlements = EntitlementStore(provider: provider)
+    if environment.isUITesting {
+      let counts = UserDefaults(suiteName: "ui-testing-allowance-\(UUID().uuidString)") ?? .standard
+      allowance = UsageAllowance(
+        limits: environment.allowanceExhausted ? AllowanceLimits(scans: 0, intelligenceRequests: 0) : .free,
+        store: UserDefaultsAllowanceStore(defaults: counts), isUnlimited: !environment.allowanceExhausted)
+    } else {
+      allowance = UsageAllowance(store: UserDefaultsAllowanceStore())
+    }
     if let fixed = environment.textEditing {
       textEditing = FixedTextEditingAccess(fixed)
     } else {
-      // The Pro products are named when the store is built; until then nobody is entitled, and
-      // only internal builds, which grant the feature, reach it.
-      textEditing = AppTextEditingAccess.forThisBuild(entitlements: StoreKitEntitlements(productIDs: []))
+      // Internal builds grant the feature, so testers reach it before the products exist in App
+      // Store Connect; elsewhere the entitlement decides.
+      textEditing = AppTextEditingAccess.forThisBuild(entitlements: provider)
     }
   }
 
