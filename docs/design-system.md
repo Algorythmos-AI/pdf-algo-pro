@@ -451,7 +451,6 @@ Settings groups its rows under at most one heading per subject: privacy and secu
 (the statement, Spotlight, App Lock and the privacy report), and About is one row that opens the
 app's mark and version, its public pages, sharing and the company mark.
 
-
 System `List` styles only: `.insetGrouped` for settings, `.sidebar` for the library sidebar, plain
 for search results. Swipe actions (for example Delete, Favourite) always have an equivalent in the
 context menu and as accessibility custom actions, because the HIG asks for alternatives to gestures
