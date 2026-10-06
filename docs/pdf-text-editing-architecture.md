@@ -91,6 +91,53 @@ rendering noise; they are validated by the invariant tests over every fixture an
 `EditProofTests` builds deliberately wrong results (text missing, a neighbour erased, text printed
 over its neighbour, invisible text, text in the wrong place) and requires each to be refused.
 
+**Where text is, is its baseline.** The new text's place is compared on the baseline, along it
+and off it, not on the centre of its box (`Assumption:` 1 point each way, plus 2% of the width
+along the line; the constants are in `EditProof` and are validated by the same tests). A box runs from
+the font's descent to its ascent, and a matched font has different ones, so the same words on the
+same baseline have a box centred elsewhere. Comparing boxes refused every edit to documents set in
+a typeface the device lacks whose font stands taller than the substitute's: found on the owner's
+phone on 2026-10-06, on a letter from a reporting tool (all 24 lines refused; with the baseline
+compared, all 24 are proven). `TextEditorTests.matchedFontIsProvenOnTheBaseline` reproduces it with
+a synthetic page; `misplacedTextIsRefused` shows text three points off its line is still refused.
+
+**The proof says which check failed.** A refusal carries a `TextEditProofFailure`: one of
+`reread`, `newTextMissing`, `regionCount`, `otherTextChanged`, `otherTextMoved`,
+`independentReader`, `render`, `strayPixels`, `occupied`, `noInk`, with the number it measured and
+the number it was measured against (for `newTextMissing`, how far off the words are along and off
+the line, in tenths of a point). It goes into the problem report as, for example,
+`Text editing proof: newTextMissing 0/-14`: a fixed word and numbers, nothing from the document.
+
+## The guarantee: no dead ends
+
+Not every PDF can be edited in place, by this engine or any other. What the app guarantees, and is
+tested for, is that **every tap on a line ends in one of two finished results, and the app says
+which: the words are changed in the page, or the new words cover the old ones.** There is no
+result where the person typed and nothing happened.
+
+| Mechanism | What it does |
+|---|---|
+| **Rehearsal** (`PDFDocumentController.rehearse`) | When a page's text is found, the engine tries an edit out in the background: one line is replaced with its own words through the whole pipeline, proof included, and the result is thrown away. If it fails, two more lines are tried. If none can be edited, every line of the page is marked cover-only, so the editor says "Your text will cover this text" before anything is typed. It never delays the outlines, runs once per page, and stops at the edit time limit |
+| **Cover instead** (`ReaderModel.commitTextEdit`) | An edit refused because it could not be made or proven (`TextEditRefusal.meansNotEditableInPlace`) is finished by covering, as one undo step, and saved. The reader then shows, until dismissed, "Your text covers the old text. The original is still in the file underneath." with Undo; VoiceOver says the same. The page is marked cover-only from then on (PAP-039) |
+| **Close, not Done** | Where text can be neither changed nor covered (rotated text, no room), the message says so and the one button is Close |
+
+Not covered automatically, because covering would not help: text too long for the space,
+characters that cannot be drawn, a restricted document, a page that changed underneath (Done again
+works), and a time-out. Each keeps what was typed.
+
+A covered line still has the old words in the file, and the app says so each time. Removing text
+for good is redaction, which is a different feature.
+
+**Substitute fonts are chosen by width.** When the typeface is not on the device, the substitute
+is the family of its kind (sans serif, serif or fixed pitch) that sets the old words closest to
+their original width (`FontMatcher.fallback(for:size:original:)`), so new words take about the
+room the old ones did. It is deterministic.
+
+**Running the engine on a document that cannot be shared.** `TextEditingProbe` (in the engine's
+tests) reads a PDF or a folder named by `PAP_PROBE_PDF`, tries every line, and prints codes and
+counts only: no words. It is skipped when the variable is not set, so CI never runs it and no
+document enters the repository.
+
 ## What can be edited
 
 A region is one run of text on one line in one font. A paragraph is several regions; there is no
@@ -272,7 +319,7 @@ UI tests see no tips unless they pass `-show-tips`, which starts TipKit from an 
 | `EditProofTests` | The proof refuses each kind of wrong result |
 | `TextEditingHostileInputTests` | Malformed and fuzzed input, limits |
 | `TextEditingControllerTests` | Save and reopen, undo and redo interleaved with annotations and page changes, forms, outline, metadata, links, encryption, permissions, signatures, covering, save faults, long documents |
-| `TextEditingDependabilityTests` | Time limits and discarded late answers, cancellation, picking with no page view, the page view following a new controller, outlines after PDFKit puts them away, repeated edit-save-reopen, the diagnostics record |
+| `TextEditingDependabilityTests` | The rehearsal (marks an unprovable page, leaves a provable one, never holds back the lines), covering instead of editing. Time limits and discarded late answers, cancellation, picking with no page view, the page view following a new controller, outlines after PDFKit puts them away, repeated edit-save-reopen, the diagnostics record |
 | `ReaderTextEditingTests` | The reader model and views: access, commit, cancel, undo, refusals, scanned pages, signed copies, search text, a reloaded document, the "looking", "nothing to edit" and "too long" messages, the diagnostics summary's vocabulary |
 | `TextEditingDiagnosticsTests` | The summary lines; reasons reduced to letters |
 | `TextEditingUITests` | The Edit button's label; the tip showing once, stopping after Edit is used or it is closed, and never showing when editing is locked or hidden. Journeys on the simulator: edit, undo, cancel; single-page layout; locked and hidden; a document opened a second time; a second line after an edit, after leaving Edit, and after the app was away |

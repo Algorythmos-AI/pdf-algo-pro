@@ -197,6 +197,39 @@ final class TextEditingUITests: UITestCase {
     }
   }
 
+  /// An edit the engine cannot prove used to end in "This text can't be changed" with a Done
+  /// button that could only refuse again.
+  func testAnEditThatCannotBeProvenIsFinishedByCoveringAndSaysSo() throws {
+    let app = launch([
+      "-skip-onboarding", "-seed-library", "sample", "-text-editing", "available", "-text-editor", "unprovable",
+    ])
+    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
+    let done = app.buttons["reader.doneEditingText"]
+    tap(app.buttons["reader.edit"], until: done)
+    let field = app.textFields["reader.textEdit.field"]
+    tap(line(containing: "Try these", in: app), until: field)
+    field.typeText(" now")
+
+    // One tap on Done finishes: the typing is not lost, and the reader says what it did.
+    app.buttons["reader.textEdit.done"].tap()
+    let notice = app.staticTexts["reader.textEdit.notice"]
+    XCTAssertTrue(notice.waitForExistence(timeout: 20), "The reader says the text was covered")
+    XCTAssertTrue(notice.label.contains("still in the file"))
+    XCTAssertFalse(field.exists, "The editor is not left open on a dead end")
+    try audit(app)
+
+    // Undo takes the cover away, and the notice with it.
+    app.buttons["reader.textEdit.notice.undo"].tap()
+    XCTAssertTrue(notice.waitForNonExistence(timeout: 10))
+    XCTAssertTrue(app.descendants(matching: .any)["reader.textEdit.hint"].firstMatch.waitForExistence(timeout: 5))
+
+    // The next line on this page says it will be covered before anything is typed.
+    tap(line(containing: "This sample shows", in: app), until: field)
+    let message = app.staticTexts["reader.textEdit.message"]
+    XCTAssertTrue(message.waitForExistence(timeout: 5))
+    XCTAssertTrue(message.label.contains("cover"), "Said before typing")
+  }
+
   func testEditingIsLockedWithoutProAndAbsentWhenTheBuildDoesNotHaveIt() throws {
     let locked = launch(["-skip-onboarding", "-seed-library", "sample", "-text-editing", "locked"])
     XCTAssertTrue(locked.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))

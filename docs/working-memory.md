@@ -60,6 +60,7 @@ The last ten, newest first; all decisions are in the [decision register](decisio
 
 | ID | Decision |
 |---|---|
+| PAP-039 | An edit that cannot be proven is covered automatically and announced; pages are rehearsed; the proof compares baselines |
 | PAP-038 | Privacy policy, terms, support and product pages live on algorythmos.com and linked from Settings; support address pdfalgopro@algorythmos.com; drift guards in CI and the release workflow |
 | PAP-037 | The reader's bar has one filled button, "Edit", with a one-time tip; Ask stays in the bar and the title gives way on narrow iPhones |
 | PAP-036 | ADR-0025 accepted: native text editing for the safe subset; the release flag waits for the device test |

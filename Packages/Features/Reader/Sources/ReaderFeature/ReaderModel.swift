@@ -517,6 +517,16 @@ public final class ReaderModel {
     case noEditableText
     /// Finding the text or making the edit took too long; nothing was changed.
     case tookTooLong
+    /// The text can be neither changed nor covered where it is; nothing was changed, and the only
+    /// thing left to do is close the editor.
+    case cannotEditOrCover
+  }
+
+  /// Something the reader did while editing text that the person must be told, and can undo.
+  public enum TextEditNotice: Equatable, Sendable {
+    /// The typed text was placed over the old text, because the old text could not be changed.
+    /// The old text is still in the file.
+    case coveredInstead
   }
 
   /// Whether editing existing text is offered in this build and to this person.
@@ -529,6 +539,9 @@ public final class ReaderModel {
   public var selectedTextRegion: TextRegionSelection? { controller?.selectedTextRegion }
   /// What to say about the page or the text in hand, if anything.
   public private(set) var textEditMessage: TextEditMessage?
+  /// What the reader did that the person must know; it stays until they dismiss it, undo it, pick
+  /// other text or leave text editing.
+  public private(set) var textEditNotice: TextEditNotice?
   /// Whether an edit is being worked out and proven; the editor waits.
   public private(set) var isCommittingTextEdit = false
   /// Whether the person is being asked to confirm editing a digitally signed document.
@@ -616,6 +629,7 @@ public final class ReaderModel {
     guard let controller, controller.isEditingText else { return }
     controller.setEditingText(false)
     textEditMessage = nil
+    textEditNotice = nil
     await refreshSearchTextIfNeeded()
   }
 
@@ -652,6 +666,7 @@ public final class ReaderModel {
   /// What to tell the person about the text they just picked, before they type.
   public func textRegionPicked() {
     guard let region = selectedTextRegion?.region else { return }
+    textEditNotice = nil
     switch region.capability {
     case .direct: textEditMessage = nil
     case .limited: textEditMessage = .fontMatched
@@ -701,10 +716,50 @@ public final class ReaderModel {
       errorMessage = Self.restrictedMessage
     case .refused(.timedOut):
       textEditMessage = .tookTooLong
-    case .refused:
+    case .refused(let refusal) where refusal.meansNotEditableInPlace && selection.region.capability.editsContent:
+      // The words could not be changed in the page. The person is never left with typing that
+      // goes nowhere: their text covers the old text instead, and the reader says so.
+      return await coverInstead(of: selection, with: typed, in: controller)
+    case .refused(.stale):
+      // The page changed underneath; Done again works on the page as it is now.
       textEditMessage = .cannotEdit
+    case .refused:
+      textEditMessage = .cannotEditOrCover
     }
     return false
+  }
+
+  /// Finishes an edit that could not be made in the page's content by covering the text.
+  private func coverInstead(
+    of selection: TextRegionSelection, with typed: String, in controller: PDFDocumentController
+  ) async -> Bool {
+    // The same would happen to the next line of this page, so its lines now say so up front.
+    controller.markTextCoverOnly(onPage: selection.pageIndex)
+    if controller.selectedTextRegion == nil {
+      controller.selectTextRegion(selection.region, onPage: selection.pageIndex)
+    }
+    guard controller.coverSelectedText(with: typed, insteadOfEditing: true).isEdited else {
+      textEditMessage = .cannotEditOrCover
+      return false
+    }
+    textEditMessage = nil
+    textEditNotice = .coveredInstead
+    updateUndoState()
+    await save()
+    await textEditingPageChanged()
+    return true
+  }
+
+  /// Takes back the cover the reader placed, and its notice.
+  public func undoCoverInstead() async {
+    guard textEditNotice == .coveredInstead else { return }
+    textEditNotice = nil
+    await undo()
+  }
+
+  /// Puts the notice away; what it told of stays as it is.
+  public func dismissTextEditNotice() {
+    textEditNotice = nil
   }
 
   /// Lets go of the picked text without changing it.

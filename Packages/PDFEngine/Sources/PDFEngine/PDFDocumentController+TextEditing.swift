@@ -19,6 +19,8 @@ public struct TextRegionSelection: Hashable, Sendable {
 
 /// The text found on one page, kept while the page object stays in the document unchanged.
 struct TextPage {
+  /// Tells one finding of a page's text from a later one of the same page.
+  var id = UUID()
   /// The page itself, held so its identity cannot be reused by another page.
   let page: PDFPage
   /// The page as the one-page PDF the regions were found in; edits are applied to the same bytes.
@@ -155,7 +157,111 @@ extension PDFDocumentController {
       case .tookTooLong: .timedOut
       }
     noteSearch(kind, regions: regions, since: started)
+    rehearse(found)
     return .found(found)
+  }
+
+  // MARK: - Rehearsal
+
+  /// What trying an edit out on a page showed.
+  struct Rehearsal: Sendable {
+    var proven = 0
+    var unproven = 0
+    var failure: TextEditProofFailure?
+
+    /// Whether the page's text cannot be edited in place: every line tried failed.
+    var isUnprovable: Bool { unproven > 0 && proven == 0 }
+  }
+
+  /// Starts trying an edit out on a page whose text was just found, in the background.
+  ///
+  /// The page's lines are already outlined and can be picked; this does not hold them back. If no
+  /// line can be edited and proven, every line of the page is then marked cover-only, usually
+  /// well before anyone has tapped one, so the editor says so before the person types. A tap that
+  /// comes sooner is still finished by covering (`ReaderModel.commitTextEdit`).
+  private func rehearse(_ found: TextPage) {
+    let key = ObjectIdentifier(found.page)
+    // The regions as the editor returned them: in the snapshot's own space.
+    let editable = found.found.values.filter(\.capability.editsContent).sorted { $0.id < $1.id }
+    guard found.text.kind == .text, !editable.isEmpty else { return }
+    let editor = textEditor
+    let snapshot = found.snapshot
+    let limit = textEditLimit
+    textRehearsals[key]?.cancel()
+    textRehearsals[key] = Task { [weak self] in
+      let rehearsal =
+        await Self.within(limit) { await Self.rehearse(editable, onPage: snapshot, with: editor) } ?? Rehearsal()
+      // The page may have been edited, replaced or found afresh meanwhile; this is about the page
+      // as it was.
+      guard let self, let current = self.textPages[key], current.page === found.page, current.id == found.id
+      else { return }
+      self.textEditingDiagnostics.rehearsalProven = rehearsal.proven
+      self.textEditingDiagnostics.rehearsalUnproven = rehearsal.unproven
+      if let failure = rehearsal.failure { self.note(failure, in: &self.textEditingDiagnostics) }
+      if rehearsal.isUnprovable, let pageIndex = Optional(self.document.index(for: found.page)), pageIndex != NSNotFound
+      {
+        self.markTextCoverOnly(onPage: pageIndex)
+      }
+      self.publishDiagnostics()
+    }
+  }
+
+  /// Waits for the rehearsal of a page to finish, if one is running.
+  func finishTextRehearsal(onPage pageIndex: Int) async {
+    guard let page = document.page(at: pageIndex) else { return }
+    await textRehearsals[ObjectIdentifier(page)]?.value
+  }
+
+  /// Tries an edit out on one line of a page, and on two more, spread down the page, only if that
+  /// one could not be edited; the results are thrown away.
+  ///
+  /// A line that is too long in a matched font says nothing about the page and is not counted.
+  private static func rehearse(
+    _ editable: [EditableTextRegion], onPage snapshot: Data, with editor: any PDFTextEditing
+  ) async -> Rehearsal {
+    var rehearsal = Rehearsal()
+    for index in [editable.count / 2, 0, editable.count - 1] {
+      if Task.isCancelled || rehearsal.proven > 0 { break }
+      let result = await editor.rehearsing(editable[index], onPage: snapshot)
+      switch result.outcomes.first {
+      case .edited: rehearsal.proven += 1
+      case .refused(let refusal) where refusal.meansNotEditableInPlace:
+        rehearsal.unproven += 1
+        rehearsal.failure = rehearsal.failure ?? result.proofFailure
+      default: break
+      }
+    }
+    return rehearsal
+  }
+
+  /// Marks every line of a page as cover-only, after an edit to it could not be made or proven.
+  ///
+  /// The next line picked then says so before the person types.
+  public func markTextCoverOnly(onPage pageIndex: Int) {
+    guard let page = document.page(at: pageIndex), let found = textPages[ObjectIdentifier(page)],
+      found.page === page
+    else { return }
+    let regions = found.text.regions.map { region in
+      EditableTextRegion(
+        id: region.id, text: region.text, bounds: region.bounds, angle: region.angle, style: region.style,
+        capability: region.capability.editsContent ? .visualReplacementOnly(.notVerified) : region.capability)
+    }
+    textPages[ObjectIdentifier(page)] = TextPage(
+      id: found.id, page: page, snapshot: found.snapshot,
+      text: EditablePageText(regions: regions, kind: found.text.kind), found: found.found)
+    var counts = textEditingDiagnostics
+    counts.direct = 0
+    counts.limited = 0
+    counts.coverOnly = [:]
+    for region in regions {
+      if case .visualReplacementOnly(let reason) = region.capability {
+        counts.coverOnly[reason.rawValue, default: 0] += 1
+      }
+    }
+    textEditingDiagnostics = counts
+    #if canImport(UIKit)
+      view?.textOverlays.refreshAll()
+    #endif
   }
 
   // MARK: - Time limits
@@ -212,15 +318,33 @@ extension PDFDocumentController {
     record.picks = textEditingDiagnostics.picks
     record.lastEdit = textEditingDiagnostics.lastEdit
     record.editMilliseconds = textEditingDiagnostics.editMilliseconds
+    record.proofCheck = textEditingDiagnostics.proofCheck
+    record.proofMeasured = textEditingDiagnostics.proofMeasured
+    record.proofExpected = textEditingDiagnostics.proofExpected
+    record.made = textEditingDiagnostics.made
+    record.covered = textEditingDiagnostics.covered
+    record.refusals = textEditingDiagnostics.refusals
     textEditingDiagnostics = record
     publishDiagnostics()
   }
 
+  private func note(_ failure: TextEditProofFailure, in record: inout TextEditingDiagnostics) {
+    record.proofCheck = failure.check.rawValue
+    record.proofMeasured = failure.measured
+    record.proofExpected = failure.expected
+  }
+
   private func noteEdit(_ outcome: TextEditOutcome?, since start: ContinuousClock.Instant) {
     switch outcome {
-    case .edited: textEditingDiagnostics.lastEdit = .edited
-    case .tooLong: textEditingDiagnostics.lastEdit = .tooLong
-    case .refused(let reason): textEditingDiagnostics.lastEdit = .refused(reason.rawValue)
+    case .edited:
+      textEditingDiagnostics.lastEdit = .edited
+      textEditingDiagnostics.made += 1
+    case .tooLong:
+      textEditingDiagnostics.lastEdit = .tooLong
+      textEditingDiagnostics.refusals += 1
+    case .refused(let reason):
+      textEditingDiagnostics.lastEdit = .refused(reason.rawValue)
+      textEditingDiagnostics.refusals += 1
     case nil: return
     }
     textEditingDiagnostics.editMilliseconds = Self.milliseconds(since: start)
@@ -377,6 +501,7 @@ extension PDFDocumentController {
     // that comes after the limit is never seen here, so it can never reach the document.
     guard let result = await Self.within(textEditLimit, { await editor.applying(translated, toPage: snapshot) })
     else { return all(.timedOut) }
+    if let failure = result.proofFailure { note(failure, in: &textEditingDiagnostics) }
     let links = await incomingLinkIndex()
     // Everything above awaited. If the document changed meanwhile, the edit is dropped untouched.
     guard generation == structureGeneration, document.index(for: page) != NSNotFound else { return all(.stale) }
@@ -552,13 +677,19 @@ extension PDFDocumentController {
   /// read aloud find. It is two ordinary annotations (a filled rectangle and a text box), added as
   /// one undo step, and the outcome says `.visualReplacement` so it is never counted as an edit.
   /// It is offered only for text whose capability is `.visualReplacementOnly`.
-  public func coverSelectedText(with replacement: String) -> TextEditOutcome {
+  ///
+  /// - Parameters:
+  ///   - replacement: The new text.
+  ///   - insteadOfEditing: Whether this finishes an edit that could not be made or proven in the
+  ///     page's content. Text the engine marked as editable may then be covered too.
+  /// - Returns: What happened; anything but `.edited(.visualReplacement)` changed nothing.
+  public func coverSelectedText(with replacement: String, insteadOfEditing: Bool = false) -> TextEditOutcome {
     guard let selection = selectedTextRegion, let page = document.page(at: selection.pageIndex) else {
       return .refused(.stale)
     }
     guard textEditability != .restricted else { return .refused(.restricted) }
     let region = selection.region
-    guard case .visualReplacementOnly = region.capability, region.isUpright else {
+    guard insteadOfEditing || !region.capability.editsContent, region.isUpright else {
       return .refused(.unsupportedDrawing)
     }
     let text = replacement.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -589,6 +720,8 @@ extension PDFDocumentController {
     label.border = border
     add([(cover, page), (label, page)])
     selectedTextRegion = nil
+    textEditingDiagnostics.covered += 1
+    publishDiagnostics()
     return .edited(.visualReplacement)
   }
 

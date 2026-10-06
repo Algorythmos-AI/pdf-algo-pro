@@ -138,7 +138,7 @@ final class AppModel {
       selection: selection.id, pageIndex: selection.pageIndex, task: selection.task, library: container.library,
       intake: container.intake, index: container.index, settings: container.settings, telemetry: container.telemetry,
       recognition: container.recognition, signatures: container.signatures, textEditing: container.textEditing,
-      textEditingDiagnostics: container.textEditingDiagnostics)
+      textEditingDiagnostics: container.textEditingDiagnostics, textEditor: container.textEditor)
     reader = (selection, model)
     return model
   }

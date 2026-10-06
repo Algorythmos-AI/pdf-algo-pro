@@ -117,6 +117,12 @@ Store notes (see the changelog strategy).
 - On iPad the app uses a single window for now (#54).
 
 ### Fixed
+- Editing text (internal builds): documents set in a typeface the iPhone does not have, such as
+  letters and statements from reporting tools, were refused with "This text can't be changed" on
+  every line. Their text can now be changed, in the closest matching font.
+- Editing text never ends in a dead end: when the words can't be changed in the page, your text
+  is placed over the old text and the app says so, with Undo. Where that is known beforehand, the
+  editor says it before you type.
 - Editing text (internal builds): after a document was opened a second time, Edit turned on but no
   line was outlined and taps did nothing. Lines are now outlined and one tap opens a line every
   time, including after scrolling away and back, after an edit, and after the app was in the

@@ -108,24 +108,62 @@ enum EditProof {
   static func refusal(
     before: Data, erased: Data, after: Data, plans: [PlannedText], regions: [TextRegion]
   ) -> TextEditRefusal? {
-    guard let result = try? PageAnalysis(after) else { return .notVerified }
+    failure(before: before, erased: erased, after: after, plans: plans, regions: regions)?.refusal
+  }
+
+  /// Checks an edit, and says which check it failed.
+  ///
+  /// - Returns: `nil` when the edit is proven; otherwise why it is refused and the check that
+  ///   found it.
+  static func failure(
+    before: Data, erased: Data, after: Data, plans: [PlannedText], regions: [TextRegion]
+  ) -> (refusal: TextEditRefusal, check: TextEditProofFailure)? {
+    func unproven(
+      _ check: TextEditProofFailure.Check, _ measured: Int = 0, _ expected: Int = 0
+    )
+      -> (refusal: TextEditRefusal, check: TextEditProofFailure)
+    {
+      (.notVerified, TextEditProofFailure(check, measured: measured, expected: expected))
+    }
+    guard let result = try? PageAnalysis(after) else { return unproven(.reread) }
     let edited = Set(plans.map(\.region.id))
 
     // The new text reads as typed, where it was put.
     var claimed: Set<Int> = []
     for plan in plans {
-      let expected = plan.bounds
-      let match = result.regions.first {
-        !claimed.contains($0.id) && squeezed($0.text) == squeezed(plan.text)
-          && abs($0.bounds.minX - expected.minX) <= positionTolerance + 0.02 * expected.width
-          && abs($0.bounds.midY - expected.midY) <= positionTolerance
+      // Position is compared on the baseline, where text sits, not on the text's box: the box
+      // runs from the font's descent to its ascent, and a matched font has different ones, so
+      // the same words on the same baseline have a box centred somewhere else.
+      let start = plan.baselineStart
+      let angle = plan.region.angle
+      let width = plan.bounds.width
+      func offset(of region: TextRegion) -> (along: Double, off: Double) {
+        let found = region.baselineStart
+        let across = Double(found.x - start.x)
+        let up = Double(found.y - start.y)
+        return (across * cos(angle) + up * sin(angle), -across * sin(angle) + up * cos(angle))
       }
-      guard let match else { return .notVerified }
+      let reading = result.regions.filter { !claimed.contains($0.id) && squeezed($0.text) == squeezed(plan.text) }
+      let match = reading.first {
+        let offset = offset(of: $0)
+        return abs(offset.along) <= positionTolerance + 0.02 * width && abs(offset.off) <= positionTolerance
+      }
+      guard let match else {
+        // How far the nearest region that reads as typed is from where the text was put, along
+        // the baseline and off it, in tenths of a point; (9999, 9999) when none reads as typed.
+        let nearest = reading.map(offset(of:)).min { hypot($0.along, $0.off) < hypot($1.along, $1.off) }
+        guard let nearest else { return unproven(.newTextMissing, 9999, 9999) }
+        return unproven(.newTextMissing, Int((nearest.along * 10).rounded()), Int((nearest.off * 10).rounded()))
+      }
       claimed.insert(match.id)
     }
     // Every other region is still there, with the same text in the same place.
     let untouched = regions.filter { !edited.contains($0.id) }
-    guard result.regions.count == untouched.count + plans.count else { return .notVerified }
+    guard result.regions.count == untouched.count + plans.count else {
+      return unproven(.regionCount, result.regions.count, untouched.count + plans.count)
+    }
+    var changed = 0
+    var moved = 0
     for region in untouched {
       let match = result.regions.first {
         !claimed.contains($0.id) && $0.text == region.text
@@ -133,28 +171,36 @@ enum EditProof {
           && abs($0.bounds.minY - region.bounds.minY) <= positionTolerance
           && abs($0.bounds.width - region.bounds.width) <= positionTolerance
       }
-      guard let match else { return .notVerified }
-      claimed.insert(match.id)
+      if let match {
+        claimed.insert(match.id)
+      } else if result.regions.contains(where: { $0.text == region.text }) {
+        moved += 1
+      } else {
+        changed += 1
+      }
     }
+    guard changed == 0 else { return unproven(.otherTextChanged, changed, untouched.count) }
+    guard moved == 0 else { return unproven(.otherTextMoved, moved, untouched.count) }
 
     // PDFKit, which reads independently of this engine, finds the new text too.
     guard let document = PDFDocument(data: after), document.pageCount == 1,
       let text = document.page(at: 0)?.string
-    else { return .notVerified }
+    else { return unproven(.independentReader) }
     let read = squeezed(text)
-    guard plans.allSatisfy({ read.contains(squeezed($0.text)) }) else { return .notVerified }
+    let unread = plans.count { !read.contains(squeezed($0.text)) }
+    guard unread == 0 else { return unproven(.independentReader, unread, plans.count) }
 
     // The picture changed only where the text did.
     guard let old = try? PageBitmap.render(before), let blank = try? PageBitmap.render(erased),
       let new = try? PageBitmap.render(after), old.width == new.width, old.height == new.height,
       blank.width == new.width, blank.height == new.height, old.box == new.box
-    else { return .notVerified }
-    return pictureRefusal(old: old, blank: blank, new: new, plans: plans)
+    else { return unproven(.render) }
+    return pictureFailure(old: old, blank: blank, new: new, plans: plans)
   }
 
-  private static func pictureRefusal(
+  private static func pictureFailure(
     old: PageBitmap, blank: PageBitmap, new: PageBitmap, plans: [PlannedText]
-  ) -> TextEditRefusal? {
+  ) -> (refusal: TextEditRefusal, check: TextEditProofFailure)? {
     // Room around each box for antialiasing, accents and the overhang of italics.
     var excluded = [Bool](repeating: false, count: new.width * new.height)
     for plan in plans {
@@ -172,19 +218,24 @@ enum EditProof {
         if new.difference(from: old, column: column, row: row) > channelTolerance { stray += 1 }
       }
     }
-    guard Double(stray) <= max(24, strayShare * Double(new.width * new.height)) else { return .notVerified }
+    let allowed = Int(max(24, strayShare * Double(new.width * new.height)))
+    guard stray <= allowed else {
+      return (.notVerified, TextEditProofFailure(.strayPixels, measured: stray, expected: allowed))
+    }
 
     for plan in plans {
       let area = new.pixelRect(plan.bounds, padding: 0)
       let total = area.columns.count * area.rows.count
-      guard total > 0 else { return .notVerified }
+      guard total > 0 else { return (.notVerified, TextEditProofFailure(.noInk)) }
       // Where the new text goes was clear once the old text was gone: it prints over nothing.
       var colors: [Int: Int] = [:]
       for row in area.rows {
         for column in area.columns { colors[blank.coarseColor(column: column, row: row), default: 0] += 1 }
       }
       let background = colors.values.max() ?? 0
-      guard Double(total - background) <= occupiedShare * Double(total) else { return .overlapsOtherContent }
+      guard Double(total - background) <= occupiedShare * Double(total) else {
+        return (.overlapsOtherContent, TextEditProofFailure(.occupied, measured: total - background, expected: total))
+      }
       // And the new text is really there to see.
       var inked = 0
       for row in area.rows {
@@ -192,7 +243,7 @@ enum EditProof {
           inked += 1
         }
       }
-      guard inked >= 8 else { return .notVerified }
+      guard inked >= 8 else { return (.notVerified, TextEditProofFailure(.noInk, measured: inked, expected: 8)) }
     }
     return nil
   }

@@ -30,6 +30,18 @@ Owner: Quality and PDF engine · Reviewed: whenever the editor's supported cases
 | 4 | Open lecture notes. Highlight a line, add a note, fix a typo on the highlighted line, share | The highlight is still on its line and the note is still there, in this app and in the exported file; Undo steps back through all three in order |
 | 5 | Open a scan. Tap Edit | The reader says "This PDF contains images rather than editable text." and offers Recognise text; no text is outlined |
 
+## No dead ends
+
+The pass mark for every document in this plan: **after typing and tapping Done, the words are
+changed, or they are covered and the app says so. Never "nothing was changed" with a Done button
+that does nothing.**
+
+| # | Do this | It passes when |
+|---|---|---|
+| N1 | A letter or statement from a reporting tool (a bank, a lender, a utility), set in a typeface the iPhone does not have. Change a name | "The font will be matched as closely as possible." shows before typing; Done changes the words; the new words sit on the same line as their neighbours and look close to them |
+| N2 | On any document where Done ends with "Your text covers the old text…" | The message stays until OK or Undo; Undo removes the cover; the next line on that page says "Your text will cover this text" before typing |
+| N3 | After any refusal, Settings › Report a problem | A line "Text editing proof: …" names the check, and "Text editing session: made, covered, refused" counts what happened. Send that, never the document |
+
 ## Staying dependable
 
 Each of these is done on one document of several pages, without closing the app in between. A row

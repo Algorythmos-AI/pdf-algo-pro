@@ -53,6 +53,11 @@ private struct InterferingEditor: PDFTextEditing {
 
   func text(ofPage page: Data) async -> EditablePageText { await ContentStreamTextEditor().text(ofPage: page) }
 
+  // A rehearsal is not the edit under test: it goes straight to the real editor.
+  func rehearsing(_ region: EditableTextRegion, onPage page: Data) async -> TextEditResult {
+    await ContentStreamTextEditor().rehearsing(region, onPage: page)
+  }
+
   func applying(_ edits: [TextEdit], toPage page: Data) async -> TextEditResult {
     let result = await ContentStreamTextEditor().applying(edits, toPage: page)
     await interfere()
@@ -570,6 +575,7 @@ private actor Gate {
 private struct HeldEditor: PDFTextEditing {
   var find: Gate?
   var edit: Gate?
+  var rehearsal: Gate?
 
   func text(ofPage page: Data) async -> EditablePageText {
     await find?.pass()
@@ -578,12 +584,42 @@ private struct HeldEditor: PDFTextEditing {
     return text
   }
 
+  // A rehearsal is not the edit under test: it goes straight to the real editor, unless held.
+  func rehearsing(_ region: EditableTextRegion, onPage page: Data) async -> TextEditResult {
+    await rehearsal?.pass()
+    return await ContentStreamTextEditor().rehearsing(region, onPage: page)
+  }
+
   func applying(_ edits: [TextEdit], toPage page: Data) async -> TextEditResult {
     await edit?.pass()
     let result = await ContentStreamTextEditor().applying(edits, toPage: page)
     await edit?.noteAnswer()
     return result
   }
+}
+
+/// An editor that finds a page's text but can never prove an edit to it, as the native editor
+/// could not for some documents; it counts how often it was asked to try.
+private struct UnprovableEditor: PDFTextEditing {
+  let rehearsals = Gate()
+  /// Whether a rehearsal is honest (fails, as the edit will) or passes, so the failure comes
+  /// only after the person has typed.
+  var rehearsalsFail = true
+
+  private var refused: TextEditResult {
+    TextEditResult(
+      page: nil, outcomes: [.refused(.notVerified)],
+      proofFailure: TextEditProofFailure(.newTextMissing, measured: 0, expected: -14))
+  }
+
+  func text(ofPage page: Data) async -> EditablePageText { await ContentStreamTextEditor().text(ofPage: page) }
+
+  func rehearsing(_ region: EditableTextRegion, onPage page: Data) async -> TextEditResult {
+    await rehearsals.noteAnswer()
+    return rehearsalsFail ? refused : await ContentStreamTextEditor().rehearsing(region, onPage: page)
+  }
+
+  func applying(_ edits: [TextEdit], toPage page: Data) async -> TextEditResult { refused }
 }
 
 @MainActor
@@ -698,6 +734,95 @@ struct TextEditingDependabilityTests {
     #expect(controller.textEditingDiagnostics.lastEdit == .edited)
     let text = record.lines.joined(separator: " ")
     #expect(!text.contains("Smith") && !text.contains("Customer") && !text.contains("Helvetica"))
+  }
+
+  @Test("A page that cannot be edited is found out by a rehearsal, and offered for covering before anyone types")
+  func rehearsalMarksAnUnprovablePage() async throws {
+    let editor = UnprovableEditor()
+    let (controller, url) = try open(TextEditFixtures.invoice(), editor: editor)
+    let before = try Data(contentsOf: url)
+    controller.setEditingText(true)
+    // The lines are offered at once; the rehearsal follows, and then they say they will be covered.
+    #expect(await controller.pageText(onPage: 0).regions.contains { $0.capability.editsContent })
+    await controller.finishTextRehearsal(onPage: 0)
+    let text = await controller.pageText(onPage: 0)
+    #expect(text.kind == .text && !text.regions.isEmpty)
+    #expect(text.regions.allSatisfy { !$0.capability.editsContent }, "Every line says it will be covered")
+    let record = controller.textEditingDiagnostics
+    #expect(record.rehearsalUnproven > 0 && record.rehearsalProven == 0)
+    #expect(record.proofCheck == "newTextMissing" && record.proofMeasured == 0 && record.proofExpected == -14)
+    #expect(record.direct == 0 && record.limited == 0)
+    #expect(record.coverOnly.values.reduce(0, +) == text.regions.count && (record.coverOnly["notVerified"] ?? 0) > 0)
+    // It is tried on a few lines, once: asking for the page again asks nothing more of the editor.
+    let asked = await editor.rehearsals.answered
+    #expect((1...3).contains(asked))
+    _ = await controller.pageText(onPage: 0)
+    #expect(await editor.rehearsals.answered == asked)
+    // And it changed nothing.
+    #expect(!controller.hasUnsavedChanges && !controller.undoManager.canUndo)
+    #expect(try Data(contentsOf: url) == before)
+
+    // Such a line is covered, as it said it would be.
+    let region = try #require(text.regions.first { $0.text.contains("John Smith") })
+    controller.selectTextRegion(region, onPage: 0)
+    #expect(controller.coverSelectedText(with: "Customer: David Smith") == .edited(.visualReplacement))
+    #expect(controller.textEditingDiagnostics.covered == 1)
+  }
+
+  @Test("A page that can be edited is left as it is by the rehearsal")
+  func rehearsalLeavesAProvablePage() async throws {
+    let (controller, _) = try open(TextEditFixtures.invoice())
+    controller.setEditingText(true)
+    _ = await controller.pageText(onPage: 0)
+    await controller.finishTextRehearsal(onPage: 0)
+    let text = await controller.pageText(onPage: 0)
+    #expect(text.regions.contains { $0.capability.editsContent })
+    let record = controller.textEditingDiagnostics
+    #expect(record.rehearsalProven == 1, "One line was enough to know")
+    #expect(record.rehearsalProven > 0 && record.rehearsalUnproven == 0 && record.proofCheck == nil)
+    #expect(!controller.hasUnsavedChanges && controller.contentEditedPages.isEmpty)
+  }
+
+  @Test("A rehearsal never holds back the page's lines, and one that takes too long is given up on")
+  func rehearsalDoesNotHoldBackThePage() async throws {
+    let gate = Gate()
+    var editor = HeldEditor()
+    editor.rehearsal = gate
+    let (controller, _) = try open(TextEditFixtures.invoice(), editor: editor)
+    controller.textEditLimit = .milliseconds(50)
+    controller.setEditingText(true)
+    // The rehearsal is held, and the lines are there all the same.
+    let text = await controller.pageText(onPage: 0)
+    #expect(text.kind == .text && text.regions.contains { $0.capability.editsContent })
+    await controller.finishTextRehearsal(onPage: 0)
+    #expect(await controller.pageText(onPage: 0).regions.contains { $0.capability.editsContent }, "Nothing was learnt")
+    #expect(controller.textEditingDiagnostics.rehearsalUnproven == 0)
+    await gate.open()
+  }
+
+  @Test("An edit that could not be made can be finished by covering, and the page then says so up front")
+  func coveringInsteadOfEditing() async throws {
+    var editor = UnprovableEditor()
+    editor.rehearsalsFail = false
+    let (controller, _) = try open(TextEditFixtures.invoice(), editor: editor)
+    controller.setEditingText(true)
+    _ = await controller.pageText(onPage: 0)
+    await controller.finishTextRehearsal(onPage: 0)
+    #expect(try await edit(controller, containing: "John Smith", to: "Customer: David Smith") == .refused(.notVerified))
+    let record = controller.textEditingDiagnostics
+    #expect(record.proofCheck == "newTextMissing" && record.refusals == 1 && record.made == 0)
+    // The text stays picked, and is editable as far as the engine said, so plain covering is refused…
+    #expect(controller.selectedTextRegion?.region.capability.editsContent == true)
+    #expect(controller.coverSelectedText(with: "Customer: David Smith") == .refused(.unsupportedDrawing))
+    // …but covering to finish the edit is not.
+    controller.markTextCoverOnly(onPage: 0)
+    #expect(
+      controller.coverSelectedText(with: "Customer: David Smith", insteadOfEditing: true) == .edited(.visualReplacement)
+    )
+    #expect(controller.annotationCount(onPage: 0) == 2 && squeezed(controller).contains("JohnSmith"))
+    #expect(await controller.pageText(onPage: 0).regions.allSatisfy { !$0.capability.editsContent })
+    controller.undoManager.undo()
+    #expect(controller.annotationCount(onPage: 0) == 0, "One step takes the cover back")
   }
 
   #if canImport(UIKit)

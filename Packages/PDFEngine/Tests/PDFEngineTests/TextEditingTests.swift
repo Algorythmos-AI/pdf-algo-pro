@@ -1,6 +1,7 @@
 import Core
 import CoreGraphics
 import CoreTestSupport
+import CoreText
 import Foundation
 import PDFEngineTestSupport
 import PDFKit
@@ -391,6 +392,105 @@ struct TextEditorTests {
     #expect(result.outcomes == [.refused(.unsupportedCharacters)] && result.page == nil)
   }
 
+  /// One line in a typeface the device does not have, whose font stands taller above the line
+  /// than the standard fonts do, as the fonts reporting tools embed often do.
+  ///
+  /// One line only: the font is not embedded, so Core Graphics would redraw any other line in a
+  /// font of its own choosing, which is a different matter from the one tested here.
+  private static func tallFontPage(_ line: String) -> Data {
+    let content = "BT /F1 24 Tf 72 700 Td (\(line)) Tj ET"
+    let font =
+      "/F1 << /Type /Font /Subtype /TrueType /BaseFont /AAAAAB+NoSuchTypeface /Encoding /WinAnsiEncoding "
+      + "/FirstChar 32 /LastChar 122 /Widths [\(Array(repeating: "520", count: 91).joined(separator: " "))] "
+      + "/FontDescriptor 5 0 R >>"
+    return TextEditFixtures.assemble([
+      "<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+      "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << \(font) >> >> >>",
+      "<< /Length \(content.utf8.count) >>\nstream\n\(content)\nendstream",
+      "<< /Type /FontDescriptor /FontName /AAAAAB+NoSuchTypeface /Flags 32 /Ascent 1079 /Descent -210 "
+        + "/CapHeight 700 /ItalicAngle 0 /StemV 80 /FontBBox [-500 -250 1500 1100] >>",
+    ])
+  }
+
+  @Test("New words in a matched font are proven by where they sit on the line, not by the font's height")
+  func matchedFontIsProvenOnTheBaseline() async throws {
+    // The matched font is shorter above the line than the original, so the box of the new words is
+    // centred lower than the box of the old ones, on the same baseline. The proof compared the
+    // boxes and refused every edit to documents like this (a letter from a reporting tool, found
+    // on the owner's phone on 2026-10-06).
+    let editor = ContentStreamTextEditor()
+    for line in ["Sam Example", "12 Sample Street", "Sampletown 2000"] {
+      let page = Self.tallFontPage(line)
+      let region = try #require(await editor.text(ofPage: page).regions.first)
+      #expect(region.capability == .limited(.fontSubstituted))
+      // The fixture does what it is for: the substitute's box is centred more than the proof's
+      // tolerance away from the original's, on the same baseline.
+      let found = try #require(try PageAnalysis(page).regions.first)
+      let substitute = FontMatcher.match(found.font, size: CGFloat(found.pointSize), text: "Jordan Quick")
+      let originalCentre = (found.font.ascent + found.font.descent) / 2000 * found.pointSize
+      let substituteCentre = Double(CTFontGetAscent(substitute.font) - CTFontGetDescent(substitute.font)) / 2
+      #expect(!substitute.isExact && abs(originalCentre - substituteCentre) > EditProof.positionTolerance)
+
+      let result = await editor.applying([TextEdit(region: region, replacement: "Jordan Quick")], toPage: page)
+      #expect(
+        result.outcomes == [.edited(.contentStreamWithFallbackFont)], "\(String(describing: result.proofFailure))")
+      let read = PDFDocument(data: try #require(result.page))?.page(at: 0)?.string ?? ""
+      #expect(EditProof.squeezed(read).contains("JordanQuick"))
+      #expect(await editor.rehearsing(region, onPage: page).outcomes.first?.isEdited == true)
+    }
+  }
+
+  @Test("New words that really are in the wrong place are still refused, and the proof says how far off")
+  func misplacedTextIsRefused() throws {
+    let page = Self.tallFontPage("Sam Example")
+    let analysis = try PageAnalysis(page)
+    let region = try #require(analysis.regions.first)
+    guard case .planned(let plan) = TextRedrawer.plan(region, replacement: "Jordan Quick") else {
+      Issue.record("not planned")
+      return
+    }
+    let content = try TextEraser.erasing([region], in: analysis.content, bytes: analysis.bytes)
+    let erased = try analysis.file.replacingContent(of: analysis.page, with: content)
+    // The same words, drawn three points below their line.
+    let lower = TextRegion.shifted(region, by: CGVector(dx: 0, dy: -3))
+    guard case .planned(let wrong) = TextRedrawer.plan(lower, replacement: "Jordan Quick") else {
+      Issue.record("not planned")
+      return
+    }
+    let after = try TextRedrawer.draw([wrong], over: erased)
+    let failure = try #require(
+      EditProof.failure(before: page, erased: erased, after: after, plans: [plan], regions: analysis.regions))
+    #expect(failure.refusal == .notVerified && failure.check.check == .newTextMissing)
+    #expect(failure.check.measured == 0 && failure.check.expected == -30, "Tenths of a point, along and off the line")
+  }
+
+  @Test("A substitute font is the one of its kind that sets the old words closest to their width")
+  func substituteFontIsChosenByWidth() throws {
+    let analysis = try PageAnalysis(Self.tallFontPage("Quarterly report for the board"))
+    let font = try #require(analysis.regions.first).font
+    let words = "Quarterly report for the board"
+    func width(_ name: String) -> Double {
+      let line = CTLineCreateWithAttributedString(
+        NSAttributedString(
+          string: words,
+          attributes: [
+            NSAttributedString.Key(kCTFontAttributeName as String): CTFontCreateWithName(name as CFString, 11, nil)
+          ]))
+      return CTLineGetTypographicBounds(line, nil, nil, nil)
+    }
+    // With nothing to measure against, the standard choice.
+    #expect(CTFontCopyPostScriptName(FontMatcher.fallback(for: font, size: 11)) as String == "Helvetica")
+    // Told how wide the old words were, the family that comes closest.
+    for name in ["Verdana", "ArialMT", "Helvetica"] where FontMatcher.deviceFont(named: name, size: 11) != nil {
+      let chosen = FontMatcher.fallback(for: font, size: 11, original: (words, width(name)))
+      #expect(abs(width(CTFontCopyPostScriptName(chosen) as String) - width(name)) < 0.01 * width(name), "\(name)")
+    }
+    // The same answer every time.
+    let once = FontMatcher.fallback(for: font, size: 11, original: (words, width("Verdana")))
+    let again = FontMatcher.fallback(for: font, size: 11, original: (words, width("Verdana")))
+    #expect(CTFontCopyPostScriptName(once) == CTFontCopyPostScriptName(again))
+  }
+
   @Test("A font the device does not have is replaced by the closest standard font, and the edit says so")
   func fallbackFont() async throws {
     let content = "BT /F1 12 Tf 72 700 Td (Quarterly report) Tj ET"
@@ -630,6 +730,23 @@ struct EditProofTests {
       EditProof.refusal(before: page, erased: erased, after: after, plans: [plan], regions: analysis.regions) == nil)
   }
 
+  @Test("Each check of the proof says which one it is")
+  func checksAreNamed() throws {
+    let page = try TextEditFixtures.singlePage(TextEditFixtures.invoice())
+    let (analysis, plan, erased) = try plan(page, containing: "John Smith", replacement: "Customer: David Smith")
+    func check(_ after: Data, regions: [TextRegion]? = nil) -> TextEditProofFailure.Check? {
+      EditProof.failure(
+        before: page, erased: erased, after: after, plans: [plan], regions: regions ?? analysis.regions)?.check.check
+    }
+    #expect(check(try TextRedrawer.draw([plan], over: erased)) == nil)
+    #expect(check(Data("not a PDF".utf8)) == .reread)
+    #expect(check(erased) == .newTextMissing, "The new words are nowhere")
+    // One of the page's other lines is missing from what the proof is told to expect.
+    let after = try TextRedrawer.draw([plan], over: erased)
+    #expect(check(after, regions: Array(analysis.regions.dropLast())) == .regionCount)
+    #expect(Set(TextEditProofFailure.Check.allCases.map(\.rawValue)).count == 10)
+  }
+
   @Test("A result without the new text is refused")
   func missingText() throws {
     let page = try TextEditFixtures.singlePage(TextEditFixtures.invoice())
@@ -797,5 +914,17 @@ private struct SplitMix: RandomNumberGenerator {
     value = (value ^ (value >> 30)) &* 0xBF58_476D_1CE4_E5B9
     value = (value ^ (value >> 27)) &* 0x94D0_49BB_1331_11EB
     return value ^ (value >> 31)
+  }
+}
+
+extension TextRegion {
+  /// The same text, moved on the page; for drawing words where they should not be.
+  fileprivate static func shifted(_ region: TextRegion, by move: CGVector) -> TextRegion {
+    let drawing = region.drawing.concatenating(CGAffineTransform(translationX: move.dx, y: move.dy))
+    return TextRegion(
+      id: region.id, runs: region.runs, text: region.text, font: region.font, pointSize: region.pointSize,
+      drawing: drawing, horizontalScale: region.horizontalScale, widthDrawn: region.widthDrawn,
+      bounds: region.bounds.offsetBy(dx: move.dx, dy: move.dy), fill: region.fill,
+      characterSpacingDrawn: region.characterSpacingDrawn)
   }
 }

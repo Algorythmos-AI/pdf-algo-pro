@@ -124,10 +124,11 @@ public struct ContentStreamTextEditor: PDFTextEditing {
       let erased = try? analysis.file.replacingContent(of: analysis.page, with: content),
       let edited = try? TextRedrawer.draw(plans, over: erased)
     else { return refused(.pageNotEditable) }
-    if let refusal = EditProof.refusal(
+    if let failure = EditProof.failure(
       before: page, erased: erased, after: edited, plans: plans, regions: analysis.regions)
     {
-      return refused(refusal)
+      return TextEditResult(
+        page: nil, outcomes: edits.map { _ in .refused(failure.refusal) }, proofFailure: failure.check)
     }
     return TextEditResult(page: edited, outcomes: outcomes)
   }

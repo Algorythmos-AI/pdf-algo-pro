@@ -1231,7 +1231,7 @@ struct ReaderTextEditingTests {
     #expect(TextEditLayer.color(for: selection.region).cgColor.components?.prefix(3).allSatisfy { $0 < 0.01 } == true)
     for message in [
       ReaderModel.TextEditMessage.pageIsImage, .pageNotEditable, .tooLong, .unsupportedCharacters, .cannotEdit,
-      .fontMatched, .coversOriginal,
+      .fontMatched, .coversOriginal, .lookingForText, .noEditableText, .tookTooLong, .cannotEditOrCover,
     ] {
       #expect(ImageRenderer(content: TextEditMessageLabel(message: message).frame(width: 300)).uiImage != nil)
     }
@@ -1341,8 +1341,12 @@ struct ReaderTextEditingTests {
     let vocabulary: Set<String> = [
       "text", "editing", "page", "regions", "direct", "matched", "font", "cover", "only", "find", "ms", "view",
       "bound", "not", "outlined", "pages", "taps", "picked", "last", "edit", "made", "too", "long", "refused",
+      "proof", "rehearsal", "proven", "session", "covered",
     ]
-    let reasons = Set(TextEditRefusal.allCases.map { $0.rawValue.lowercased() })
+    #expect(summary.contains("rehearsal: proven") && summary.contains("session: made 1, covered 0, refused 0"))
+    let reasons = Set(
+      TextEditRefusal.allCases.map { $0.rawValue.lowercased() }
+        + TextEditProofFailure.Check.allCases.map { $0.rawValue.lowercased() })
     let said = summary.split { !$0.isLetter && !$0.isNumber }.map { $0.lowercased() }
     #expect(said.allSatisfy { vocabulary.contains($0) || reasons.contains($0) || Int($0) != nil }, "\(said)")
     #expect(!summary.contains("Smith") && !summary.contains("David") && !summary.contains("Helvetica"))
@@ -1413,6 +1417,97 @@ struct ReaderTextEditingTests {
         #expect(ImageRenderer(content: tip).uiImage != nil)
       }
     }
+  }
+
+  @Test("An edit that cannot be proven is finished by covering, and the reader says so until it is told to stop")
+  func coveredInstead() async throws {
+    let harness = Harness()
+    let log = TextEditingDiagnosticsLog()
+    let document = await harness.seed(try TextEditFixtures.invoice())
+    // The rehearsal passes, so the failure comes only after the person has typed.
+    let reader = harness.reader(for: document, diagnostics: log, editor: RefusingEditor(rehearsalsFail: false))
+    await reader.load()
+    await reader.beginTextEditing()
+    await reader.controller?.finishTextRehearsal(onPage: 0)
+    try await pick("John Smith", in: reader)
+    #expect(reader.textEditMessage != .coversOriginal, "As far as anyone knew, this text could be edited")
+
+    #expect(await reader.commitTextEdit("Customer: David Smith"), "Done finishes: the typing is not lost")
+    #expect(reader.textEditNotice == .coveredInstead && reader.textEditMessage == nil)
+    #expect(reader.selectedTextRegion == nil && reader.canUndo)
+    let controller = try #require(reader.controller)
+    #expect(controller.annotationCount(onPage: 0) == 2)
+    // It is a cover, and nothing pretends otherwise: the old words are still the page's words.
+    let url = try await harness.library.fileURL(for: document.id)
+    let saved = try PDFDocumentController(url: url)
+    #expect(saved.annotationCount(onPage: 0) == 2 && saved.pageText(at: 0).contains("John Smith"))
+    #expect(log.summary().contains("Text editing session: made 0, covered 1, refused 1"))
+    #expect(log.summary().contains("Text editing proof: newTextMissing 0/-14"))
+    let card = TextEditNoticeCard(model: reader).frame(width: 390).environment(\.dynamicTypeSize, .accessibility3)
+    #expect(ImageRenderer(content: card).uiImage != nil)
+    #expect(ImageRenderer(content: TextEditHint(model: reader).frame(width: 390)).uiImage != nil)
+
+    // The rest of the page now says so before anyone types.
+    try await pick("Materials", in: reader)
+    #expect(reader.textEditMessage == .coversOriginal && reader.textEditNotice == nil)
+    reader.cancelTextEdit()
+
+    // Undo from the notice takes the cover away again.
+    try await pick("Invoice", in: reader)
+    reader.cancelTextEdit()
+    await reader.endTextEditing()
+    #expect(await harness.index.stored[document.id] == nil, "The page's own text did not change")
+  }
+
+  @Test("The notice's Undo takes the cover back, and OK only puts the notice away")
+  func coveredInsteadUndo() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try TextEditFixtures.invoice())
+    let reader = harness.reader(for: document, editor: RefusingEditor(rehearsalsFail: false))
+    await reader.load()
+    await reader.beginTextEditing()
+    try await pick("John Smith", in: reader)
+    #expect(await reader.commitTextEdit("Customer: David Smith"))
+    let controller = try #require(reader.controller)
+    reader.dismissTextEditNotice()
+    #expect(reader.textEditNotice == nil && controller.annotationCount(onPage: 0) == 2, "OK keeps the cover")
+
+    try await pick("Materials", in: reader)
+    #expect(await reader.commitTextEdit("Timber"))
+    #expect(reader.textEditNotice == nil, "This one said it would cover before it was typed")
+    #expect(controller.annotationCount(onPage: 0) == 4)
+  }
+
+  @Test("Undo on the notice removes the cover")
+  func coveredInsteadIsUndone() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try TextEditFixtures.invoice())
+    let reader = harness.reader(for: document, editor: RefusingEditor(rehearsalsFail: false))
+    await reader.load()
+    await reader.beginTextEditing()
+    try await pick("John Smith", in: reader)
+    #expect(await reader.commitTextEdit("Customer: David Smith"))
+    await reader.undoCoverInstead()
+    #expect(reader.textEditNotice == nil)
+    #expect(try #require(reader.controller).annotationCount(onPage: 0) == 0)
+    let url = try await harness.library.fileURL(for: document.id)
+    #expect(try PDFDocumentController(url: url).annotationCount(onPage: 0) == 0, "And the file is as it was")
+  }
+
+  @Test("On a page that cannot be edited, the editor says it will cover before a letter is typed")
+  func unprovablePageSaysSoFirst() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try TextEditFixtures.invoice())
+    let reader = harness.reader(for: document, editor: RefusingEditor(rehearsalsFail: true))
+    await reader.load()
+    await reader.beginTextEditing()
+    #expect(reader.textEditMessage == nil, "The page still has text to tap")
+    await reader.controller?.finishTextRehearsal(onPage: 0)
+    try await pick("John Smith", in: reader)
+    #expect(reader.textEditMessage == .coversOriginal)
+    #expect(await reader.commitTextEdit("Customer: David Smith"))
+    #expect(reader.textEditNotice == nil, "Nothing happened that the person was not told of first")
+    #expect(try #require(reader.controller).annotationCount(onPage: 0) == 2)
   }
 }
 
@@ -1736,10 +1831,35 @@ private struct StubEditor: PDFTextEditing {
     return regions ? text : EditablePageText(regions: [], kind: .text)
   }
 
+  // A rehearsal is not the edit under test: it goes straight to the real editor.
+  func rehearsing(_ region: EditableTextRegion, onPage page: Data) async -> TextEditResult {
+    await ContentStreamTextEditor().rehearsing(region, onPage: page)
+  }
+
   func applying(_ edits: [TextEdit], toPage page: Data) async -> TextEditResult {
     await edit?.pass()
     let result = await ContentStreamTextEditor().applying(edits, toPage: page)
     await edit?.noteAnswer()
     return result
   }
+}
+
+/// An editor that finds a page's text and can never prove an edit to it.
+private struct RefusingEditor: PDFTextEditing {
+  /// Whether a rehearsal fails as the edit will, or passes so that the failure comes after typing.
+  let rehearsalsFail: Bool
+
+  private var refused: TextEditResult {
+    TextEditResult(
+      page: nil, outcomes: [.refused(.notVerified)],
+      proofFailure: TextEditProofFailure(.newTextMissing, measured: 0, expected: -14))
+  }
+
+  func text(ofPage page: Data) async -> EditablePageText { await ContentStreamTextEditor().text(ofPage: page) }
+
+  func rehearsing(_ region: EditableTextRegion, onPage page: Data) async -> TextEditResult {
+    rehearsalsFail ? refused : await ContentStreamTextEditor().rehearsing(region, onPage: page)
+  }
+
+  func applying(_ edits: [TextEdit], toPage page: Data) async -> TextEditResult { refused }
 }
