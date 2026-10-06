@@ -1,6 +1,11 @@
 Internal build of PDF Algo Pro (Staging). Use test documents, not real ones. Please try:
 
-Edit text (new)
+Home, Settings and About (new)
+- The app now opens on Home. Tap Import and Scan, open a document under Continue reading, then go back.
+- Open each section from Home: its count matches the documents listed.
+- Settings: every row has a symbol. Open About and try each link and Share.
+
+Edit text
 - Open a document, tap Edit, tap a line of text, change it, tap Done. Close and reopen: it is still changed.
 - Share the document and open it in another PDF app: the new words are there and the old ones are gone.
 - Undo and Redo while editing. Try a much longer replacement: it fits, or the app says why not and changes nothing.
