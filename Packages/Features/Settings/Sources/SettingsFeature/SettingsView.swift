@@ -137,6 +137,9 @@ public struct SettingsView: View {
           } label: {
             TileLabel(Text("Version history", bundle: .module), systemImage: "clock.arrow.circlepath")
           }
+          // One stop for VoiceOver, "Version history, 2.8 MB": with a tile in the label the row is no
+          // longer joined by the system.
+          .accessibilityElement(children: .combine)
           .accessibilityIdentifier("settings.versionsSize")
           Button(role: .destructive) {
             model.confirmsDeleteVersions = true
