@@ -94,6 +94,9 @@ Store notes (see the changelog strategy).
 - An interim app icon, and a Staging build named "PDF Algo β" for internal testing (#52, #54).
 
 ### Changed
+- Report a problem now includes the diagnostics summary unless you turn it off in Settings › Help,
+  and remembers your choice. The summary never includes your documents, and you can read it in the
+  email, and delete it, before you send.
 - Settings is easier to scan: every row has a symbol, and privacy and security are in one place
   (the privacy report moved there from its own section).
 - Report a problem now writes to pdfalgopro@algorythmos.com.

@@ -176,7 +176,7 @@ public struct SettingsView: View {
           Text("Help", bundle: .module).foregroundStyle(Color.ds.labelSecondary)
         } footer: {
           Text(
-            "The summary lists the app version, the system and error counts. It never includes your documents.",
+            "The summary lists the app version, the system and error counts. It never includes your documents. You can read it in the email, and delete it, before you send.",
             bundle: .module
           )
           .foregroundStyle(Color.ds.labelSecondary)

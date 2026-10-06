@@ -24,6 +24,11 @@ public struct AppSettings: Hashable, Codable, Sendable {
   public var isSpotlightTextIncluded: Bool
   /// Whether opening the app asks for Face ID, Touch ID or the passcode (FR-SET-002).
   public var isAppLockEnabled: Bool
+  /// Whether "Report a problem" puts the diagnostics summary in the draft email (FR-SET-003).
+  ///
+  /// On until the person turns it off (PAP-041): the summary is what makes a report answerable, it holds
+  /// no document content, and it is in the draft to be read, or deleted, before anything is sent.
+  public var includesDiagnostics: Bool
 
   /// Creates settings; the defaults are what a new install starts with.
   public init(
@@ -33,7 +38,8 @@ public struct AppSettings: Hashable, Codable, Sendable {
     readerDisplayMode: ReaderDisplayMode = .continuous,
     librarySort: LibrarySort = .recentlyOpened,
     isSpotlightTextIncluded: Bool = true,
-    isAppLockEnabled: Bool = false
+    isAppLockEnabled: Bool = false,
+    includesDiagnostics: Bool = true
   ) {
     self.hasCompletedOnboarding = hasCompletedOnboarding
     self.intents = intents
@@ -42,6 +48,7 @@ public struct AppSettings: Hashable, Codable, Sendable {
     self.librarySort = librarySort
     self.isSpotlightTextIncluded = isSpotlightTextIncluded
     self.isAppLockEnabled = isAppLockEnabled
+    self.includesDiagnostics = includesDiagnostics
   }
 
   /// Whether document text goes to Spotlight: only when chosen, and never while App Lock is on (H3).
@@ -49,7 +56,7 @@ public struct AppSettings: Hashable, Codable, Sendable {
 
   private enum CodingKeys: String, CodingKey {
     case hasCompletedOnboarding, intents, isIntelligenceHidden, readerDisplayMode, librarySort, isSpotlightTextIncluded
-    case isAppLockEnabled
+    case isAppLockEnabled, includesDiagnostics
   }
 
   /// Decodes leniently, so settings survive updates in both directions.
@@ -71,6 +78,7 @@ public struct AppSettings: Hashable, Codable, Sendable {
     librarySort = value(String.self, .librarySort).flatMap(LibrarySort.init(rawValue:)) ?? defaults.librarySort
     isSpotlightTextIncluded = value(Bool.self, .isSpotlightTextIncluded) ?? defaults.isSpotlightTextIncluded
     isAppLockEnabled = value(Bool.self, .isAppLockEnabled) ?? defaults.isAppLockEnabled
+    includesDiagnostics = value(Bool.self, .includesDiagnostics) ?? defaults.includesDiagnostics
   }
 }
 
