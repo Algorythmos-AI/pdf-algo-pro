@@ -10,6 +10,8 @@ Store notes (see the changelog strategy).
 ## [Unreleased]
 
 ### Added
+- Settings › About links to the privacy policy, the terms of use and the support page on
+  algorythmos.com, in French when the app is in French. They open in the browser.
 - Edit the text already in a PDF (internal builds for now): tap Edit, tap a line, type, tap Done.
   The words change in the page itself, in the same font where the iPhone has it, and the change is
   still there when the file is opened in another app. Each edit can be undone, and the version
@@ -82,6 +84,7 @@ Store notes (see the changelog strategy).
 - An interim app icon, and a Staging build named "PDF Algo β" for internal testing (#52, #54).
 
 ### Changed
+- Report a problem now writes to pdfalgopro@algorythmos.com.
 - Editing text (internal builds) is easier to find: the reader's bar has a filled button that says
   Edit, and the first time a document with text is open a short tip points to it. The tip goes
   away for good once Edit is used or the tip is closed. On narrower iPhones the bar no longer shows

@@ -7,7 +7,7 @@ lives in the linked documents.
 
 Owner: Maintainer · Reviewed: every pull request that changes state; at least monthly
 
-Last updated: 2026-10-05
+Last updated: 2026-10-06
 
 ## Current phase
 
@@ -60,6 +60,7 @@ The last ten, newest first; all decisions are in the [decision register](decisio
 
 | ID | Decision |
 |---|---|
+| PAP-038 | Privacy policy, terms, support and product pages live on algorythmos.com and linked from Settings; support address pdfalgopro@algorythmos.com; drift guards in CI and the release workflow |
 | PAP-037 | The reader's bar has one filled button, "Edit", with a one-time tip; Ask stays in the bar and the title gives way on narrow iPhones |
 | PAP-036 | ADR-0025 accepted: native text editing for the safe subset; the release flag waits for the device test |
 | PAP-035 | Existing-text editing is built natively for the safe subset, behind `PDFTextEditing`, a release flag and Pro; ADR-0007 stays proposed for the rest (ADR-0025) |

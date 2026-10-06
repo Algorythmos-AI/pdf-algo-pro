@@ -93,8 +93,18 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The merge commit and its parents: the privacy impact gate compares with the base (HEAD^1).
+          fetch-depth: 2
       - name: Source and privacy-manifest invariants
         run: python3 scripts/ci/invariants.py
+      - name: Privacy policy impact is stated when a change touches what the policy describes
+        if: github.event_name == 'pull_request'
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          printf '%s' "$PR_BODY" > "$RUNNER_TEMP/pr-body.md"
+          python3 scripts/ci/privacy_impact.py --base HEAD^1 --body-file "$RUNNER_TEMP/pr-body.md"
       - name: Design tokens match the generated Swift (drift and contrast)
         run: python3 scripts/design/generate_tokens.py --check
       - name: Script unit tests (sync, docs gate, coverage gate)

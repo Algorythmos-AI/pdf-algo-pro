@@ -8,6 +8,7 @@ public struct SettingsView: View {
   @State private var model: SettingsModel
   @Environment(\.openURL) private var openURL
   @Environment(\.dismiss) private var dismiss
+  @Environment(\.locale) private var locale
   @State private var reportWithoutMail: String?
   private let version: String
   private let internalTools: AnyView?
@@ -161,6 +162,13 @@ public struct SettingsView: View {
           } label: {
             Text("Version", bundle: .module)
           }
+          // App Review expects the privacy policy to be reachable in the app; each opens in the browser.
+          Link(destination: link(.privacyPolicy)) { Text("Privacy Policy", bundle: .module) }
+            .accessibilityIdentifier("settings.privacyPolicy")
+          Link(destination: link(.termsOfUse)) { Text("Terms of Use", bundle: .module) }
+            .accessibilityIdentifier("settings.termsOfUse")
+          Link(destination: link(.support)) { Text("Support", bundle: .module) }
+            .accessibilityIdentifier("settings.support")
           Text("Built by Algorythmos", bundle: .module).foregroundStyle(Color.ds.labelSecondary)
         } header: {
           Text("About", bundle: .module).foregroundStyle(Color.ds.labelSecondary)
@@ -221,6 +229,11 @@ public struct SettingsView: View {
         }
       }
     }
+  }
+
+  /// A public page's address in the language the app is shown in.
+  private func link(_ page: AppLinks) -> URL {
+    page.url(languageCode: locale.language.languageCode?.identifier)
   }
 
   static func lockTitle(_ method: AppLockMethod?) -> Text {

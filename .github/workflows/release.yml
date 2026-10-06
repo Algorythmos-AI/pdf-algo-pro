@@ -44,6 +44,8 @@ jobs:
           fi
           python3 scripts/ci/check_docs.py
           python3 scripts/ci/invariants.py
+      - name: Privacy policy, terms, support and product pages answer
+        run: python3 scripts/ci/check_public_links.py
       - name: Release notes from the CHANGELOG section
         env:
           VERSION: ${{ inputs.version }}

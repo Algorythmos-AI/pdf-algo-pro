@@ -70,7 +70,8 @@ section and drafts the store text. Then the release pull request is opened from 
 - [ ] Manual VoiceOver and Dynamic Type pass on the key flows ([VoiceOver script](process/voiceover-script.md))
 - [ ] What's New drafted in EN and FR (each at most 4000 characters)
 - [ ] App Privacy answers and privacy manifest reviewed if data practices changed
-- [ ] Privacy policy and support URLs open and current
+- [ ] Privacy policy and support URLs open and current: `python3 scripts/ci/check_public_links.py` passes
+      (the `release` workflow runs it again), and the policy's version covers this release's data practices
 - [ ] Merge method: "Create a merge commit"; head branch not deleted
 
 ### After merging (before App Store submission)
