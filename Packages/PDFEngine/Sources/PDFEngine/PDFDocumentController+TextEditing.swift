@@ -375,26 +375,125 @@ extension PDFDocumentController {
   /// edit.
   ///
   /// They can only be covered and replaced.
+  ///
+  /// The lines are built here from where PDFKit says each character is, not taken from PDFKit's
+  /// own idea of a line: for text laid out in frames or tables, PDFKit can return one "line" that
+  /// spans a whole block, which outlined half the page as one piece of text and left the real
+  /// lines in it with no outline at all (a tester's report, 2026-10-06).
   private func coveredOnly(on page: PDFPage, beside regions: [EditableTextRegion]) -> [EditableTextRegion] {
-    guard let lines = page.selection(for: page.bounds(for: .mediaBox))?.selectionsByLine() else { return [] }
     var result: [EditableTextRegion] = []
-    for line in lines {
-      let bounds = line.bounds(for: page)
-      let text = (line.string ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-      guard !text.isEmpty, bounds.width > 1, bounds.height > 1 else { continue }
+    for line in Self.readLines(on: page) {
+      let bounds = line.bounds
       let core = bounds.insetBy(dx: bounds.width * 0.1, dy: bounds.height * 0.25)
       guard !regions.contains(where: { $0.bounds.intersects(core) }) else { continue }
-      let font = line.attributedString?.attribute(.font, at: 0, effectiveRange: nil) as? PlatformFont
+      let font =
+        page.selection(for: line.range)?.attributedString?.attribute(.font, at: 0, effectiveRange: nil)
+        as? PlatformFont
       result.append(
         EditableTextRegion(
           // Negative, so it can never be mistaken for a region the editor found.
-          id: -1 - result.count, text: text, bounds: bounds, angle: 0,
+          id: -1 - result.count, text: line.text, bounds: bounds, angle: 0,
           style: TextStyle(
             fontName: font?.fontName ?? "Helvetica", pointSize: Double(font?.pointSize ?? bounds.height * 0.8),
             isBold: false, isItalic: false, isMonospaced: false, color: .black),
           capability: .visualReplacementOnly(.unsupportedFont)))
     }
     return result
+  }
+
+  /// A line of a page's text as PDFKit reads it: its characters, and the box around them.
+  struct ReadLine {
+    var range: NSRange
+    var text: String
+    var bounds: CGRect
+  }
+
+  /// The most characters of an oversized "line" that are looked at one by one.
+  static let readLineCharacterLimit = 4000
+
+  /// A page's lines of text as PDFKit reads them, each no bigger than a line.
+  ///
+  /// PDFKit's own lines are used where they are line-sized. One that is far taller than its
+  /// letters is a block (text in a frame or a table cell), and is taken apart character by
+  /// character: a character joins the line being built when it sits on about the same baseline,
+  /// close after the last one; otherwise it starts a new line.
+  static func readLines(on page: PDFPage) -> [ReadLine] {
+    guard let selections = page.selection(for: page.bounds(for: .mediaBox))?.selectionsByLine() else { return [] }
+    var lines: [ReadLine] = []
+    for selection in selections {
+      let bounds = selection.bounds(for: page)
+      let text = (selection.string ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+      guard !text.isEmpty, bounds.width > 1, bounds.height > 1, selection.numberOfTextRanges(on: page) > 0 else {
+        continue
+      }
+      let font = selection.attributedString?.attribute(.font, at: 0, effectiveRange: nil) as? PlatformFont
+      let size = font?.pointSize ?? 12
+      if bounds.height <= 2.5 * size, !text.contains("\n") {
+        lines.append(ReadLine(range: selection.range(at: 0, on: page), text: text, bounds: bounds))
+      } else {
+        for index in 0..<selection.numberOfTextRanges(on: page) {
+          lines += split(selection.range(at: index, on: page), on: page)
+        }
+      }
+    }
+    return lines
+  }
+
+  /// Takes a stretch of a page's text apart into lines, by where each character is.
+  static func split(_ range: NSRange, on page: PDFPage) -> [ReadLine] {
+    guard let string = page.string as NSString?, range.location != NSNotFound,
+      range.location + range.length <= string.length
+    else { return [] }
+    var lines: [ReadLine] = []
+    var current: ReadLine?
+    var last = CGRect.null
+    func close() {
+      if let line = current {
+        let text = line.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !text.isEmpty, line.bounds.width > 1, line.bounds.height > 1 {
+          lines.append(ReadLine(range: line.range, text: text, bounds: line.bounds))
+        }
+      }
+      current = nil
+      last = .null
+    }
+    for index in range.location..<range.location + min(range.length, readLineCharacterLimit) {
+      let one = NSRange(location: index, length: 1)
+      let character = string.substring(with: one)
+      if character == "\n" || character == "\r" {
+        close()
+        continue
+      }
+      if character.trimmingCharacters(in: .whitespaces).isEmpty {
+        // A space belongs to the line it follows; it never starts one or moves the line's edge.
+        if var line = current {
+          line.text += character
+          line.range.length = index - line.range.location + 1
+          current = line
+        }
+        continue
+      }
+      // A one-character selection, because PDFKit's per-character boxes are empty for some
+      // characters.
+      guard let box = page.selection(for: one)?.bounds(for: page), box.width > 0, box.height > 0.5,
+        box.width.isFinite, box.height.isFinite
+      else { continue }
+      let height = max(box.height, 1)
+      let sameBaseline = !last.isNull && abs(box.midY - last.midY) < 0.5 * max(height, last.height)
+      let follows = !last.isNull && box.minX >= last.minX - height && box.minX - last.maxX < 2.5 * height
+      if sameBaseline, follows, var line = current {
+        line.text += character
+        line.range.length = index - line.range.location + 1
+        line.bounds = line.bounds.union(box)
+        current = line
+      } else {
+        close()
+        current = ReadLine(range: one, text: character, bounds: box)
+      }
+      last = box
+    }
+    close()
+    return lines
   }
 
   // MARK: - Picking text

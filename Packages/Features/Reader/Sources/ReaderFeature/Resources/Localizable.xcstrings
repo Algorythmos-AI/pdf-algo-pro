@@ -517,6 +517,17 @@
         }
       }
     },
+    "Covers the original text." : {
+      "comment" : "Short form of the cover notice, shown for each covered text after the first",
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recouvre le texte d’origine."
+          }
+        }
+      }
+    },
     "Cross" : {
       "localizations" : {
         "fr" : {

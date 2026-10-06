@@ -117,6 +117,10 @@ Store notes (see the changelog strategy).
 - On iPad the app uses a single window for now (#54).
 
 ### Fixed
+- Editing text (internal builds), from testers' feedback: every line now gets its own outline, where
+  some pages showed one large box around a whole block; a line low on the page is no longer typed
+  into unseen under the keyboard; and explanations about fonts and covering are given once, not at
+  every line.
 - Editing text (internal builds): documents set in a typeface the iPhone does not have, such as
   letters and statements from reporting tools, were refused with "This text can't be changed" on
   every line. Their text can now be changed, in the closest matching font.

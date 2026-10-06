@@ -825,6 +825,69 @@ struct TextEditingDependabilityTests {
     #expect(controller.annotationCount(onPage: 0) == 0, "One step takes the cover back")
   }
 
+  @Test("Lines read from a page are each one line: never a block, never two columns joined")
+  func readLinesAreTight() throws {
+    let left = ["The first column holds", "short lines of body", "text set close to the"]
+    let right = ["A second column", "well to the right", "of the first one."]
+    var lines = [Line("20/07/2026", font: "Helvetica", size: 9, at: CGPoint(x: 72, y: 720))]
+    for (index, text) in left.enumerated() {
+      lines.append(Line(text, font: "Helvetica", size: 11, at: CGPoint(x: 72, y: 680 - CGFloat(index) * 14)))
+    }
+    for (index, text) in right.enumerated() {
+      lines.append(Line(text, font: "Helvetica", size: 11, at: CGPoint(x: 340, y: 680 - CGFloat(index) * 14)))
+    }
+    lines.append(Line("Yours sincerely,", font: "Helvetica", size: 11, at: CGPoint(x: 72, y: 300)))
+    let page = try #require(PDFDocument(data: try TextEditFixtures.make(pages: [lines]))?.page(at: 0))
+    let read = PDFDocumentController.readLines(on: page)
+    #expect(Set(read.map(\.text)) == Set(lines.map(\.text)), "\(read.map(\.text))")
+    for line in read {
+      // No taller than its letters, with room for accents and tails; no wider than its words.
+      #expect(line.bounds.height < 20 && line.bounds.width < 200, "\(line.text): \(line.bounds)")
+      #expect((page.string as NSString?)?.substring(with: line.range).contains(line.text) == true)
+    }
+    #expect(PDFDocumentController.readLines(on: PDFPage()).isEmpty)
+  }
+
+  @Test("A block that PDFKit reads as one line is taken apart into its lines")
+  func blocksAreSplit() throws {
+    let texts = ["Sam has a condition and will be", "unfit for work until Friday.", "Yours sincerely,"]
+    let lines = texts.enumerated().map { index, text in
+      Line(text, font: "Helvetica", size: 11, at: CGPoint(x: 72, y: 680 - CGFloat(index) * 14))
+    }
+    let page = try #require(PDFDocument(data: try TextEditFixtures.make(pages: [lines]))?.page(at: 0))
+    let whole = try #require(page.selection(for: page.bounds(for: .mediaBox)))
+    #expect(whole.bounds(for: page).height > 30, "The three lines together are a block")
+    var split: [PDFDocumentController.ReadLine] = []
+    for index in 0..<whole.numberOfTextRanges(on: page) {
+      split += PDFDocumentController.split(whole.range(at: index, on: page), on: page)
+    }
+    #expect(split.map(\.text) == texts, "\(split.map(\.text))")
+    #expect(split.allSatisfy { $0.bounds.height < 20 })
+  }
+
+  @Test("Text the editor finds no region for is offered line by line, each outlined on its own")
+  func unreadableTextIsOfferedByLine() async throws {
+    // An editor that finds nothing, as the native one does for text in a font or form it cannot
+    // read: every line must still be there to pick, as a line, for covering.
+    struct Blind: PDFTextEditing {
+      func text(ofPage page: Data) async -> EditablePageText { EditablePageText(regions: [], kind: .text) }
+      func applying(_ edits: [TextEdit], toPage page: Data) async -> TextEditResult {
+        TextEditResult(page: nil, outcomes: edits.map { _ in .refused(.unsupportedFont) })
+      }
+    }
+    let (controller, _) = try open(TextEditFixtures.lectureNotes(), editor: Blind())
+    controller.setEditingText(true)
+    let regions = await controller.pageText(onPage: 0).regions
+    #expect(regions.count == 3 && regions.allSatisfy { !$0.capability.editsContent })
+    #expect(regions.contains { $0.text.contains("Ribosomes") })
+    for region in regions {
+      #expect(region.bounds.height < 3 * region.style.pointSize, "\(region.bounds) for \(region.style.pointSize) pt")
+    }
+    let target = try #require(regions.first { $0.text.contains("Ribosomes") })
+    controller.selectTextRegion(target, onPage: 0)
+    #expect(controller.coverSelectedText(with: "Ribosomes assemble proteins.") == .edited(.visualReplacement))
+  }
+
   #if canImport(UIKit)
     @Test("A page view given another controller follows it, and lets go of the one it had")
     func viewFollowsItsController() async throws {

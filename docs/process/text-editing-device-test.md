@@ -40,6 +40,9 @@ that does nothing.**
 |---|---|---|
 | N1 | A letter or statement from a reporting tool (a bank, a lender, a utility), set in a typeface the iPhone does not have. Change a name | "The font will be matched as closely as possible." shows before typing; Done changes the words; the new words sit on the same line as their neighbours and look close to them |
 | N2 | On any document where Done ends with "Your text covers the old text…" | The message stays until OK or Undo; Undo removes the cover; the next line on that page says "Your text will cover this text" before typing |
+| N5 | A letter or form laid out in boxes or a table (a medical or bank letter). Tap Edit | Every line has its own outline; no outline is bigger than a line |
+| N6 | Zoom in, then pick the lowest line on the last page and type | What is typed can be seen the whole time: over the line, or in the bar above the keyboard |
+| N7 | Pick five lines in a row on a document in a typeface the iPhone lacks | "The font will be matched…" shows for the first only |
 | N3 | After any refusal, Settings › Report a problem | A line "Text editing proof: …" names the check, and "Text editing session: made, covered, refused" counts what happened. Send that, never the document |
 
 ## Staying dependable

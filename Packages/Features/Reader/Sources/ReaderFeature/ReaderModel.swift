@@ -511,6 +511,9 @@ public final class ReaderModel {
     case fontMatched
     /// The text can only be covered; the original stays in the file underneath.
     case coversOriginal
+    /// The same, in a few words: said for each such text after the first, which got the whole
+    /// sentence.
+    case coversOriginalBriefly
     /// The page's text is still being found.
     case lookingForText
     /// The page has text, but none of it can be edited or covered.
@@ -552,6 +555,11 @@ public final class ReaderModel {
   private var hasConfirmedEditingSigned = false
   /// Whether the document's words changed since the search text was last brought up to date.
   private var textChangedSinceIndexing = false
+  /// Whether, in this reader, the person has been told a font will be matched, and that text
+  /// will be covered, and has picked any text at all.
+  private var hasExplainedFontMatching = false
+  private var hasExplainedCovering = false
+  private var hasPickedText = false
   /// Counts looks at a page's text, so an answer about a page that is no longer the question is dropped.
   private var textSearches = 0
 
@@ -667,12 +675,23 @@ public final class ReaderModel {
   public func textRegionPicked() {
     guard let region = selectedTextRegion?.region else { return }
     textEditNotice = nil
+    hasPickedText = true
+    // An explanation is given once. Said again at every line it reads as nagging (a tester's
+    // report, 2026-10-06). That a text will be covered is still said each time, because it
+    // changes what Done does, but in a few words after the first.
     switch region.capability {
     case .direct: textEditMessage = nil
-    case .limited: textEditMessage = .fontMatched
-    case .visualReplacementOnly: textEditMessage = .coversOriginal
+    case .limited:
+      textEditMessage = hasExplainedFontMatching ? nil : .fontMatched
+      hasExplainedFontMatching = true
+    case .visualReplacementOnly:
+      textEditMessage = hasExplainedCovering ? .coversOriginalBriefly : .coversOriginal
+      hasExplainedCovering = true
     }
   }
+
+  /// Whether to show how to start editing: only until the person has picked some text once.
+  public var showsTextEditStartHint: Bool { !hasPickedText }
 
   /// Makes the edit the person typed, proves it and saves.
   ///

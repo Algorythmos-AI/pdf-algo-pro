@@ -347,6 +347,16 @@ Reasons are reduced to at most 24 ASCII letters before they are written, so a fi
 cannot carry a document's words. `ReaderTextEditingTests.diagnostics` asserts every word of the
 summary is one the app chose. The record is kept in memory only and replaced each time.
 
+## Found by testers
+
+From TestFlight feedback on 2026-10-06 (a letter laid out in frames, on an iPhone):
+
+| What the tester saw | Cause | Fix |
+|---|---|---|
+| Half the page outlined as one piece of text; the lines inside it had no outline | For text in frames or table cells, PDFKit's `selectionsByLine()` can return one "line" that is a whole block. The lines the editor found no region for were taken from it as they came | `PDFDocumentController.readLines(on:)` keeps PDFKit's lines only when they are line-sized (`Assumption:` no taller than 2.5 times the font size) and takes a block apart character by character |
+| A line low on the page could be picked but not edited: the field was under the keyboard | The page ends there, so it could not be scrolled clear of the keyboard and the editor's bar | The field sits over the text only in the part of the reader that stays in view (`TextEditLayer.fitsInPlace(_:frame:within:)`); otherwise it is in the bar above the keyboard, which is always in view. Giving PDFKit's scroll view room to scroll past the page's end was tried and dropped: it changed which page PDFKit reports as current |
+| "The instruction keeps coming back" | "The font will be matched…" and "Your text will cover…" were shown at every line picked | An explanation is given once per document. That a text will be covered is still said each time, in three words, because it changes what Done does. "Tap any text to change it" goes once any text has been picked |
+
 ## Known limits
 
 - **A time limit is not speed.** It turns a wait without end into a refusal that says so. The
