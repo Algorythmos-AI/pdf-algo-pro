@@ -13,7 +13,9 @@ final class LargeTextUITests: UITestCase {
 
   func testOnboardingAtALargeTextSize() throws {
     let app = launchLarge([])
-    XCTAssertTrue(app.buttons["onboarding.intent.chatWithPDF"].waitForExistence(timeout: Self.settleTimeout))
+    let headline = app.descendants(matching: .any)["onboarding.page.scan"].firstMatch
+    XCTAssertTrue(headline.waitForExistence(timeout: Self.settleTimeout))
+    XCTAssertTrue(app.buttons["onboarding.continue"].isHittable, "Continue stays on screen at a large text size")
     try audit(app)
   }
 

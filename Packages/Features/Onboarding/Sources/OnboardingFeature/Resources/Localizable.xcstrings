@@ -1,102 +1,12 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "AI options need Apple Intelligence, which is off or not available on this device. The other tools work without it." : {
+    "Ask your document" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Les options d’IA nécessitent Apple Intelligence, qui est désactivé ou indisponible sur cet appareil. Les autres outils fonctionnent sans."
-          }
-        }
-      }
-    },
-    "All tools" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tous les outils"
-          }
-        }
-      }
-    },
-    "Analyse contract" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Analyser un contrat"
-          }
-        }
-      }
-    },
-    "Annotate or highlight" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Annoter ou surligner"
-          }
-        }
-      }
-    },
-    "Ask and understand" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Demander et comprendre"
-          }
-        }
-      }
-    },
-    "Ask questions and get answers with page citations." : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Posez des questions et obtenez des réponses qui citent les pages."
-          }
-        }
-      }
-    },
-    "Change words in existing PDFs." : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Modifier le texte de PDF existants."
-          }
-        }
-      }
-    },
-    "Chat with PDF" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Discuter avec un PDF"
-          }
-        }
-      }
-    },
-    "Choose as many as you like. You can change this later in Settings." : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Choisissez-en autant que vous voulez. Vous pourrez modifier ce choix dans les réglages."
-          }
-        }
-      }
-    },
-    "Combine files and reorder pages." : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Combiner des fichiers et réorganiser les pages."
+            "value" : "Interrogez votre document"
           }
         }
       }
@@ -111,112 +21,52 @@
         }
       }
     },
-    "Convert PDF to Word, Excel or PowerPoint" : {
+    "Fill in forms, add your signature, highlight and add notes." : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Convertir un PDF en Word, Excel ou PowerPoint"
+            "value" : "Remplissez des formulaires, ajoutez votre signature, surlignez et ajoutez des notes."
           }
         }
       }
     },
-    "Edit PDF text" : {
+    "Get summaries and answers with page citations. It runs on this device, and nothing is sent anywhere." : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Modifier le texte d’un PDF"
+            "value" : "Obtenez des résumés et des réponses avec les pages citées. Tout se fait sur cet appareil, et rien n’est envoyé."
           }
         }
       }
     },
-    "Explains contracts. Not legal advice." : {
+    "Merge documents, reorder pages and add a password. Your documents stay on this device." : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Explique les contrats. Ce n’est pas un conseil juridique."
+            "value" : "Fusionnez des documents, réorganisez les pages et ajoutez un mot de passe. Vos documents restent sur cet appareil."
           }
         }
       }
     },
-    "Extract data with AI" : {
+    "Organise and protect" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Extraire des données avec l’IA"
+            "value" : "Organiser et protéger"
           }
         }
       }
     },
-    "Fill in forms and sign." : {
+    "Page %lld of %lld" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Remplir des formulaires et signer."
-          }
-        }
-      }
-    },
-    "Get the main points, each linked to its page." : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Obtenez les points essentiels, chacun lié à sa page."
-          }
-        }
-      }
-    },
-    "Highlight, underline and add notes." : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Surligner, souligner et ajouter des notes."
-          }
-        }
-      }
-    },
-    "Merge or organise pages" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Fusionner ou organiser des pages"
-          }
-        }
-      }
-    },
-    "Open, search and read comfortably." : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ouvrir, rechercher et lire confortablement."
-          }
-        }
-      }
-    },
-    "Pull invoice numbers, dates and totals into a table." : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Regroupez numéros de facture, dates et totaux dans un tableau."
-          }
-        }
-      }
-    },
-    "Read or view" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Lire ou consulter"
+            "value" : "Page %1$lld sur %2$lld"
           }
         }
       }
@@ -231,22 +81,12 @@
         }
       }
     },
-    "See everything PDF Algo Pro can do." : {
+    "Sign and mark up" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Découvrez tout ce que PDF Algo Pro sait faire."
-          }
-        }
-      }
-    },
-    "Sign" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Signer"
+            "value" : "Signer et annoter"
           }
         }
       }
@@ -261,62 +101,12 @@
         }
       }
     },
-    "Summarise document" : {
+    "Turn paper into searchable PDFs with the camera. Text is recognised on this device." : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Résumer un document"
-          }
-        }
-      }
-    },
-    "Turn PDFs into editable Office files." : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Transformer des PDF en fichiers Office modifiables."
-          }
-        }
-      }
-    },
-    "Turn paper into searchable PDFs." : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Transformer le papier en PDF avec recherche."
-          }
-        }
-      }
-    },
-    "Welcome" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bienvenue"
-          }
-        }
-      }
-    },
-    "What do you do with PDFs most often?" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Que faites-vous le plus souvent avec des PDF ?"
-          }
-        }
-      }
-    },
-    "Work with PDFs" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Travailler avec des PDF"
+            "value" : "Transformez vos papiers en PDF avec recherche grâce à l’appareil photo. Le texte est reconnu sur cet appareil."
           }
         }
       }

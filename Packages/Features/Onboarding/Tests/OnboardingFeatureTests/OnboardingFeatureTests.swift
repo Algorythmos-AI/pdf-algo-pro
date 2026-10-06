@@ -9,9 +9,10 @@ import Testing
 @Suite("Onboarding")
 struct OnboardingModelTests {
   private func makeModel(
-    availability: IntelligenceAvailability = .available(.onDevice)
+    availability: IntelligenceAvailability = .available(.onDevice), stored: AppSettings? = nil
   ) -> (OnboardingModel, InMemorySettingsStore, RecordingTelemetry, Box) {
     let settings = InMemorySettingsStore()
+    if let stored { settings.save(stored) }
     let telemetry = RecordingTelemetry()
     let finished = Box()
     let model = OnboardingModel(
@@ -20,70 +21,104 @@ struct OnboardingModelTests {
     return (model, settings, telemetry, finished)
   }
 
-  @Test("AI-first options lead; every option is offered once")
-  func groups() {
+  @Test("Three pages, one capability each, starting with scanning (FR-ONB-001)")
+  func pages() async {
+    let (model, _, telemetry, _) = makeModel()
+    #expect(model.pages.count == 3)
+    #expect(model.pages.prefix(2) == [.scan, .sign])
+    #expect(model.index == 0 && model.page == .scan && !model.isLastPage)
+    await model.load()
+    #expect(model.pages == [.scan, .sign, .ask])
+    #expect(await telemetry.events == ["onboarding.flow.started"])
+  }
+
+  @Test("Where on-device intelligence is unavailable, the third page needs none (FR-ONB-006)")
+  func unavailableIntelligence() async {
+    let (model, _, _, _) = makeModel(availability: .unavailable(.appleIntelligenceNotEnabled))
+    await model.load()
+    #expect(model.pages == [.scan, .sign, .organize])
+    #expect(!model.pages.contains(.ask))
+  }
+
+  @Test("Until intelligence is known to work, the third page is the one that needs none")
+  func unknownIntelligence() {
     let (model, _, _, _) = makeModel()
-    #expect(model.askAndUnderstand == [.chatWithPDF, .summarizeDocument, .extractData, .analyzeContract])
-    #expect(model.askAndUnderstand + model.workWithPDFs == OnboardingIntent.offered)
+    #expect(model.pages == [.scan, .sign, .organize])
   }
 
-  @Test("Only options this build can do are offered, none marked as coming later (FR-ONB-007)")
-  func onlyShippedOptions() {
+  @Test("A page that is on screen never changes, even when the answer comes late")
+  func lateAnswer() async {
     let (model, _, _, _) = makeModel()
-    #expect(!model.intents.contains(.editText) && !model.intents.contains(.convert))
-    #expect(model.intents.contains(.organize), "Organising pages and merging documents have shipped")
-    #expect(model.intents == OnboardingIntent.allCases.filter(\.isOffered))
+    await model.advance()
+    await model.advance()
+    #expect(model.isLastPage && model.page == .organize)
+    await model.load()
+    #expect(model.page == .organize, "The answer came once the third page was showing")
   }
 
-  @Test("Choices keep their order and can be undone; the first leads the home screen")
-  func selection() async {
+  @Test("Continue walks the pages, and finishes on the last")
+  func advance() async {
     let (model, settings, telemetry, finished) = makeModel()
-    model.toggle(.scan)
-    model.toggle(.chatWithPDF)
-    model.toggle(.read)
-    model.toggle(.read)
-    #expect(model.selected == [.scan, .chatWithPDF] && model.isSelected(.scan) && !model.isSelected(.read))
-    await model.finish()
-    #expect(settings.load().intents == [.scan, .chatWithPDF] && settings.load().hasCompletedOnboarding)
-    #expect(finished.value?.intents == [.scan, .chatWithPDF])
-    #expect(HomeAction.primary(for: settings.load().intents) == .scanDocument)
-    #expect(
-      await telemetry.events == [
-        "onboarding.intent.selected", "onboarding.intent.selected", "onboarding.flow.completed",
-      ])
+    await model.advance()
+    #expect(model.index == 1 && model.page == .sign)
+    #expect(!settings.load().hasCompletedOnboarding && finished.value == nil)
+    await model.advance()
+    #expect(model.index == 2 && model.isLastPage)
+    #expect(!settings.load().hasCompletedOnboarding && finished.value == nil)
+    await model.advance()
+    #expect(settings.load().hasCompletedOnboarding)
+    #expect(finished.value?.hasCompletedOnboarding == true)
+    #expect(await telemetry.events == ["onboarding.flow.completed"])
   }
 
-  @Test("Skipping finishes onboarding without choosing anything (FR-ONB-002)")
-  func skip() async {
+  @Test("Skip finishes from any page (FR-ONB-002)", arguments: 0...2)
+  func skip(from page: Int) async {
     let (model, settings, telemetry, finished) = makeModel()
+    for _ in 0..<page { await model.advance() }
     await model.skip()
-    #expect(settings.load().hasCompletedOnboarding && settings.load().intents.isEmpty)
+    #expect(settings.load().hasCompletedOnboarding)
     #expect(finished.value != nil)
     #expect(await telemetry.events == ["onboarding.flow.skipped"])
   }
 
-  @Test("AI options explain themselves when Apple Intelligence is unavailable (FR-ONB-006)")
-  func unavailableIntelligence() async {
-    let (available, _, _, _) = makeModel()
-    await available.load()
-    #expect(!available.intelligenceNeedsNote)
-    let (unavailable, _, telemetry, _) = makeModel(availability: .unavailable(.appleIntelligenceNotEnabled))
-    #expect(!unavailable.intelligenceNeedsNote)
-    await unavailable.load()
-    #expect(unavailable.intelligenceNeedsNote)
-    #expect(await telemetry.events == ["onboarding.flow.started"])
+  @Test("First run is saved as done before anything that follows is shown")
+  func savedBeforeFinishing() async {
+    let settings = InMemorySettingsStore()
+    var savedWhenCalled = false
+    let model = OnboardingModel(
+      settings: settings, intelligence: FakeIntelligence(availability: .available(.onDevice)),
+      telemetry: RecordingTelemetry()
+    ) { _ in savedWhenCalled = settings.load().hasCompletedOnboarding }
+    await model.skip()
+    #expect(savedWhenCalled)
   }
 
-  @Test("Every intent has a title, a description and a symbol", arguments: OnboardingIntent.allCases)
-  func copy(intent: OnboardingIntent) {
-    #expect(!IntentCopy.symbol(intent).isEmpty)
-    _ = IntentCopy.title(intent)
-    _ = IntentCopy.detail(intent)
+  @Test("Finishing keeps the settings that were already there")
+  func keepsSettings() async {
+    let stored = AppSettings(intents: [.scan], isIntelligenceHidden: true, isAppLockEnabled: true)
+    let (model, settings, _, finished) = makeModel(stored: stored)
+    await model.finish()
+    var expected = stored
+    expected.hasCompletedOnboarding = true
+    #expect(settings.load() == expected && finished.value == expected)
   }
 
-  @Test func screenRenders() {
+  @Test("Every page has a headline, a sentence and a symbol", arguments: OnboardingPage.allCases)
+  func copy(page: OnboardingPage) {
+    #expect(!page.symbol.isEmpty)
+    #expect(page.id == page.rawValue)
+    _ = page.title
+    _ = page.detail
+    #expect(page.usesIntelligence == (page == .ask))
+  }
+
+  @Test("Each page renders, at the default and at an accessibility text size", arguments: OnboardingPage.allCases)
+  func renders(page: OnboardingPage) {
+    #expect(ImageRenderer(content: OnboardingIllustration(page: page)).uiImage != nil)
     let (model, _, _, _) = makeModel()
-    #expect(ImageRenderer(content: OnboardingView(model: model).frame(width: 390, height: 844)).uiImage != nil)
+    let screen = OnboardingView(model: model).frame(width: 390, height: 844)
+    #expect(ImageRenderer(content: screen).uiImage != nil)
+    #expect(ImageRenderer(content: screen.dynamicTypeSize(.accessibility3)).uiImage != nil)
   }
 }
 
