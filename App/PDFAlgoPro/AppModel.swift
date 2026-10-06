@@ -70,7 +70,7 @@ final class AppModel {
       library: container.library, intake: container.intake, index: container.index, settings: container.settings,
       telemetry: container.telemetry, thumbnails: container.thumbnails)
     IntentRouter.shared.attach(
-      library: container.library, intelligence: container.intelligence, index: container.index
+      library: container.library, intelligence: container.meteredIntelligence, index: container.index
     ) { [weak self] route in self?.navigate(to: route) }
     if container.environment.seedsSample {
       Task { await library.addSample() }
@@ -181,10 +181,11 @@ final class AppModel {
       trigger: paywallTrigger, productIDs: container.catalog.ordered, benefits: paywallBenefits,
       termsOfUse: AppLinks.termsOfUse.url(languageCode: language),
       privacyPolicy: AppLinks.privacyPolicy.url(languageCode: language), entitlements: container.entitlements,
-      telemetry: container.telemetry
-    ) { [weak self] in
-      if self?.sheet == .paywall { self?.sheet = nil }
-    }
+      telemetry: container.telemetry,
+      setReminder: { [container] isOn, trialEndsAt in await container.reminders.set(isOn, trialEndsAt: trialEndsAt) },
+      onClose: { [weak self] in
+        if self?.sheet == .paywall { self?.sheet = nil }
+      })
   }
 
   /// The subscription section at the top of Settings.
@@ -223,6 +224,7 @@ final class AppModel {
       recognition: container.recognition, signatures: container.signatures, textEditing: container.textEditing,
       textEditingDiagnostics: container.textEditingDiagnostics, textEditor: container.textEditor)
     model.onSeePlans = { [weak self] in self?.presentPaywall(.lockedFeature) }
+    model.onAllowanceUsed = { [weak self] in self?.presentPaywall(.allowanceReached) }
     reader = (selection, model)
     return model
   }
@@ -233,9 +235,11 @@ final class AppModel {
   }
 
   func makeAssistant(for context: ReaderAssistantContext) -> AssistantModel {
-    AssistantModel(
-      task: context.task, intelligence: container.intelligence, pages: context.pages, telemetry: container.telemetry,
-      onReveal: context.reveal)
+    let model = AssistantModel(
+      task: context.task, intelligence: container.meteredIntelligence, pages: context.pages,
+      telemetry: container.telemetry, onReveal: context.reveal)
+    model.onSeePlans = context.seePlans
+    return model
   }
 
   func makeScan() -> ScanModel {

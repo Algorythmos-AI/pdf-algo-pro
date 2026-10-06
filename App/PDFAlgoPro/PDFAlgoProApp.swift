@@ -97,6 +97,10 @@ struct RootView: View {
     .onChange(of: app.sheet) { closed, sheet in
       if sheet == nil, closed != .paywall { askForReviewIfDue() }
     }
+    // A trial that has ended, been refunded or become paid has nothing left to remind of.
+    .onChange(of: app.container.entitlements.entitlement) { _, entitlement in
+      Task { await app.container.reminders.entitlementChanged(entitlement) }
+    }
     .onOpenURL { app.handle($0) }
     .onContinueUserActivity(CSSearchableItemActionType) { app.handleSpotlight($0) }
   }

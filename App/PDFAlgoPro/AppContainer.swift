@@ -145,6 +145,14 @@ final class AppContainer {
   ///
   /// UI tests have no limit unless they ask for a used-up allowance, and keep their counts apart.
   let allowance: UsageAllowance
+  /// Document intelligence within the free allowance, for the assistant and the Siri summary.
+  ///
+  /// The live AI evaluation and first run use `intelligence` itself, which is never metered.
+  var meteredIntelligence: any DocumentIntelligence {
+    MeteredIntelligence(base: intelligence, allowance: allowance) { [entitlements] in await entitlements.resolved() }
+  }
+  /// The reminder that a trial is about to end (FR-STORE-006); UI tests schedule nothing.
+  let reminders: TrialReminderScheduler
   /// The App Store, for asking whether the plans can be shown and for Restore Purchases.
   ///
   /// UI tests never ask the App Store: their store has its products unless a test says otherwise.
@@ -228,6 +236,8 @@ final class AppContainer {
     }
     entitlements = EntitlementStore(provider: provider)
     store = environment.isUITesting ? FixedStoreAccess(isAvailable: !environment.storeUnavailable) : StoreKitAccess()
+    reminders = TrialReminderScheduler(
+      notifications: environment.isUITesting ? SilentNotifications() : SystemNotifications())
     if environment.isUITesting {
       let counts = UserDefaults(suiteName: "ui-testing-allowance-\(UUID().uuidString)") ?? .standard
       allowance = UsageAllowance(

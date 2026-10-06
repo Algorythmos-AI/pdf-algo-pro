@@ -232,6 +232,36 @@
           }
         }
       }
+    },
+    "Your PDF Algo Pro trial ends on %@. Manage it in Settings, under Subscription." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre essai de PDF Algo Pro se termine le %@. Gérez-le dans Réglages, sous Abonnement."
+          }
+        }
+      }
+    },
+    "Your trial ends tomorrow" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre essai se termine demain"
+          }
+        }
+      }
+    },
+    "You’ve used today’s free summaries. They start again tomorrow, and Pro has no daily limit." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous avez utilisé les résumés gratuits du jour. Ils reprennent demain, et Pro n’a aucune limite quotidienne."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

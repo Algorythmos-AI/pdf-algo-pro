@@ -241,6 +241,16 @@
         }
       }
     },
+    "See plans" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voir les formules"
+          }
+        }
+      }
+    },
     "Share" : {
       "localizations" : {
         "fr" : {
@@ -277,6 +287,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sources : %@"
+          }
+        }
+      }
+    },
+    "Summaries, answers and extraction start again tomorrow. Pro has no daily limit. Your documents are not affected." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les résumés, les réponses et l’extraction reprennent demain. Pro n’a aucune limite quotidienne. Vos documents ne sont pas concernés."
           }
         }
       }
@@ -407,6 +427,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "p. %lld"
+          }
+        }
+      }
+    },
+    "You’ve used today’s free answers" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous avez utilisé les réponses gratuites du jour"
           }
         }
       }
