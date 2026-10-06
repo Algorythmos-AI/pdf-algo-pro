@@ -12,6 +12,7 @@ final class TextEditingUITests: UITestCase {
     let app = launch(["-skip-onboarding", "-seed-library", "sample", "-text-editing", "available"])
     XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
     let done = app.buttons["reader.doneEditingText"]
+    XCTAssertEqual(app.buttons["reader.edit"].label, "Edit", "The button says what it does")
     tap(app.buttons["reader.edit"], until: done)
     XCTAssertTrue(
       app.descendants(matching: .any)["reader.textEdit.hint"].firstMatch.waitForExistence(timeout: 10),
@@ -138,6 +139,62 @@ final class TextEditingUITests: UITestCase {
     XCTAssertTrue(done.waitForExistence(timeout: 15), "Text editing is still on")
     line(containing: "Try these: now", in: app).tap()
     XCTAssertTrue(field.waitForExistence(timeout: 10), "Text can be picked after the app was away")
+  }
+
+  /// The tip that points at Edit, as it is on a first open.
+  private func editTip(in app: XCUIApplication) -> XCUIElement {
+    app.descendants(matching: .any).matching(identifier: "reader.editTip").firstMatch
+  }
+
+  /// Leaves the reader and opens the sample document again.
+  private func reopen(_ app: XCUIApplication) {
+    let indicator = app.staticTexts["reader.pageIndicator"]
+    app.navigationBars.buttons.firstMatch.tap()
+    XCTAssertTrue(indicator.waitForNonExistence(timeout: 10), "Back in the library")
+    let document = app.staticTexts["Welcome to PDF Algo Pro"].firstMatch
+    XCTAssertTrue(document.waitForExistence(timeout: 10))
+    document.tap()
+    XCTAssertTrue(indicator.waitForExistence(timeout: 15))
+  }
+
+  func testTheEditTipShowsOnceAndStopsOnceEditIsUsed() throws {
+    let app = launch(["-skip-onboarding", "-seed-library", "sample", "-text-editing", "available", "-show-tips"])
+    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
+    let tip = editTip(in: app)
+    XCTAssertTrue(tip.waitForExistence(timeout: 10), "A first open points at Edit")
+    XCTAssertTrue(app.staticTexts["Edit this PDF"].exists)
+    try audit(app)
+
+    // The tip is not in the way: one tap on Edit enters text editing, and the tip is gone.
+    app.buttons["reader.edit"].tap()
+    let done = app.buttons["reader.doneEditingText"]
+    XCTAssertTrue(done.waitForExistence(timeout: 10), "One tap on Edit, with the tip showing")
+    XCTAssertTrue(tip.waitForNonExistence(timeout: 5))
+    done.tap()
+    XCTAssertTrue(app.buttons["reader.edit"].waitForExistence(timeout: 5))
+
+    // It has done its work, and does not come back.
+    reopen(app)
+    XCTAssertFalse(tip.waitForExistence(timeout: 4), "The tip is shown no more once Edit has been used")
+  }
+
+  func testTheEditTipStaysClosedAndIsNeverShownForALockedOrAbsentFeature() throws {
+    let app = launch(["-skip-onboarding", "-seed-library", "sample", "-text-editing", "available", "-show-tips"])
+    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
+    let tip = editTip(in: app)
+    XCTAssertTrue(tip.waitForExistence(timeout: 10))
+    app.buttons["reader.editTip.close"].tap()
+    XCTAssertTrue(tip.waitForNonExistence(timeout: 5), "Its close button closes it")
+    reopen(app)
+    XCTAssertFalse(tip.waitForExistence(timeout: 4), "A tip that was closed stays closed")
+    app.terminate()
+
+    for access in ["locked", "hidden"] {
+      let other = launch(["-skip-onboarding", "-seed-library", "sample", "-text-editing", access, "-show-tips"])
+      XCTAssertTrue(other.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
+      XCTAssertFalse(editTip(in: other).waitForExistence(timeout: 4), "No tip when editing is \(access)")
+      other.terminate()
+    }
   }
 
   func testEditingIsLockedWithoutProAndAbsentWhenTheBuildDoesNotHaveIt() throws {

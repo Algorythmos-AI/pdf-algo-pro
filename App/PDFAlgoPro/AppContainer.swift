@@ -31,6 +31,8 @@ struct LaunchEnvironment {
   /// Whether editing existing text is available, locked or hidden (`-text-editing locked`), so UI
   /// tests can see each state; `nil` leaves it to the build.
   let textEditing: TextEditingAccess?
+  /// Show tips in a UI test (`-show-tips`), from an empty store; other UI tests see none.
+  let showsTips: Bool
 
   init(arguments: [String] = ProcessInfo.processInfo.arguments) {
     #if DEBUG
@@ -54,6 +56,7 @@ struct LaunchEnvironment {
         case "hidden": .hidden
         default: nil
         }
+      showsTips = arguments.contains("-show-tips")
     #else
       isUITesting = false
       skipsOnboarding = false
@@ -63,6 +66,7 @@ struct LaunchEnvironment {
       intelligenceUnavailable = false
       disablesAnimations = false
       textEditing = nil
+      showsTips = false
     #endif
   }
 }

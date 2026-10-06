@@ -82,6 +82,10 @@ Store notes (see the changelog strategy).
 - An interim app icon, and a Staging build named "PDF Algo β" for internal testing (#52, #54).
 
 ### Changed
+- Editing text (internal builds) is easier to find: the reader's bar has a filled button that says
+  Edit, and the first time a document with text is open a short tip points to it. The tip goes
+  away for good once Edit is used or the tip is closed. On narrower iPhones the bar no longer shows
+  the document's title.
 - Scan offers "Choose from Photos" as well as "Choose from Files", since photos of pages are usually
   in the photo library.
 - Highlight, Underline and Strike through are tools you pick up: choose one, then select text and it

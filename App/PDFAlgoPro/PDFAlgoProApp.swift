@@ -1,12 +1,14 @@
 import AssistantFeature
 import CoreSpotlight
 import LibraryFeature
+import OSLog
 import OnboardingFeature
 import ReaderFeature
 import ScanFeature
 import SettingsFeature
 import StoreKit
 import SwiftUI
+import TipKit
 import UIKit
 
 /// PDF Algo Pro: private, on-device document intelligence for Apple platforms.
@@ -15,7 +17,28 @@ struct PDFAlgoProApp: App {
   @State private var app = AppModel(container: AppContainer())
 
   init() {
-    if LaunchEnvironment().disablesAnimations { UIView.setAnimationsEnabled(false) }
+    let environment = LaunchEnvironment()
+    if environment.disablesAnimations { UIView.setAnimationsEnabled(false) }
+    Self.startTips(environment)
+  }
+
+  /// Starts TipKit, which keeps what it knows on this device and sends nothing anywhere.
+  ///
+  /// UI tests see no tips, so a bubble never gets between a test and what it taps, unless a test
+  /// asks for them; then they start from an empty store. Without tips the app is whole, so a
+  /// failure here is only logged.
+  private static func startTips(_ environment: LaunchEnvironment) {
+    do {
+      if environment.isUITesting {
+        guard environment.showsTips else { return }
+        let store = FileManager.default.temporaryDirectory.appendingPathComponent("tips-\(UUID().uuidString)")
+        try Tips.configure([.datastoreLocation(.url(store)), .displayFrequency(.immediate)])
+      } else {
+        try Tips.configure([.displayFrequency(.immediate)])
+      }
+    } catch {
+      Logger(subsystem: "com.algorythmos.pdfalgopro", category: "tips").error("TipKit did not start")
+    }
   }
 
   var body: some Scene {

@@ -21,6 +21,7 @@ public struct ReaderView<Assistant: View>: View {
   @State private var pageNumber = ""
   @State private var textDraft = TextEditDraft()
   @Environment(\.scenePhase) private var scenePhase
+  @Environment(\.horizontalSizeClass) private var sizeClass
   private let assistant: (ReaderAssistantContext) -> Assistant
 
   /// Creates the reader; `assistant` builds the assistant sheet, supplied by the app.
@@ -29,12 +30,44 @@ public struct ReaderView<Assistant: View>: View {
     self.assistant = assistant
   }
 
+  /// Whether the bar leaves out the document's title: where it is narrow and holds the Edit button.
+  private var hidesTitle: Bool {
+    sizeClass == .compact && model.textEditingAccess != .hidden
+  }
+
+  /// Lets the tip that points at Edit show once the page has settled, and takes it away as soon
+  /// as the reader is doing anything else.
+  private func offerEditTip() async {
+    let isLocalAlertUp = isAddingNote || isAddingTextBox || isEditingSelection
+    guard model.offersEditTip, !isLocalAlertUp else {
+      EditTextTip.isOffered = false
+      return
+    }
+    // The page draws and the push animation ends before anything points at the bar.
+    try? await Task.sleep(for: .seconds(1))
+    guard !Task.isCancelled, model.offersEditTip, await model.currentPageHasEditableText(), !Task.isCancelled
+    else { return }
+    EditTextTip.isOffered = true
+  }
+
   /// The reader.
   public var body: some View {
     content
       .navigationTitle(model.document?.title ?? "")
       .navigationBarTitleDisplayMode(.inline)
+      // On a narrow bar the word Edit and the title do not both fit, and the bar would squeeze the
+      // button to keep the title. The title gives way (PAP-037); it is still the screen's name
+      // for VoiceOver and for the back button of whatever is pushed next.
+      .toolbar {
+        if hidesTitle {
+          // An empty item where the title is drawn. (Removing the title from the bar leaves it
+          // there on iOS 26.)
+          ToolbarItem(placement: .principal) { Color.clear.frame(width: 1, height: 1).accessibilityHidden(true) }
+        }
+      }
       .toolbar { ReaderToolbar(model: model, isAddingNote: $isAddingNote, isAddingTextBox: $isAddingTextBox) }
+      .task(id: [model.offersEditTip ? 1 : 0, model.controller?.currentPageIndex ?? -1]) { await offerEditTip() }
+      .onDisappear { EditTextTip.isOffered = false }
       .alert(Text("Stamp", bundle: .module), isPresented: $model.isAddingStampText) {
         TextField(text: $stampText) { Text("Initials, Paid, Received…", bundle: .module) }
         Button {
@@ -298,6 +331,8 @@ public struct ReaderView<Assistant: View>: View {
             TextEditBar(model: model, draft: textDraft)
           }
         }
+        // In the layout, above the page, so the tip covers none of the document's words.
+        .safeAreaInset(edge: .top, spacing: 0) { EditTipCard() }
       }
     }
   }

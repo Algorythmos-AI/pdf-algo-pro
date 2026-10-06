@@ -222,6 +222,47 @@ Internal builds (Debug and Staging) turn the flag on and grant access, because t
 buy in them yet. The onboarding option "Edit PDF text" stays off (`OnboardingIntent.isOffered`)
 until the flag is removed, so it can never show while the feature is hidden (FR-ONB-007).
 
+### How the feature is found
+
+Edit is the reader's primary action. It is the one filled button in the bar and it says "Edit"
+(`EditTextButton` in `ReaderToolbar.swift`), in the brand fill with the label colour set
+explicitly ([design system](design-system.md), buttons and toolbars; `PrimaryBarButtonStyle`). On a
+narrow bar there is no room for both the word and the document's title, and the bar would squeeze
+the button to keep the title, so the title is left out there (compact width, and only in builds
+that offer Edit). The owner chose to keep Ask in the bar over the title (2026-10-06, PAP-037).
+
+The first time, a tip under the bar says "Edit this PDF. Tap Edit, then tap any text to change
+it." (`EditTextTip`, TipKit; the state stays on the device). It is shown only when all of these
+hold (`ReaderModel.offersEditTip`, `currentPageHasEditableText()`):
+
+| Condition | Why |
+|---|---|
+| Access is `available` | A hidden or locked feature is never advertised |
+| The document is neither restricted nor signed | The first tap must not end in a refusal or a question |
+| The page on screen has text the editor would outline | A scan answers Edit with "this page is an image" |
+| No sheet, alert, drawing, markup tool, selection or text editing | A tip is never shown over something else |
+| The reader has been ready for a second | The page has drawn |
+
+It stops for good when Edit is used, when it is closed, or after three showings. TipKit decides
+when it shows and remembers that; the card is the reader's own (`EditTipCardBody`), because
+TipKit's card does not follow the person's text size and its message fails the contrast audit.
+The card is laid out above the page, not over it, so it covers none of the document and cannot
+hold back a sheet or swallow a tap; the page takes the space back when it goes.
+
+What the spikes found (2026-10-06, iOS 26 simulator):
+
+- A popover tip attached to a toolbar button never appears, although TipKit reports the tip as
+  available. Hence the card in the layout.
+- A toolbar button does not report its place to the reader's layout (SwiftUI gives a frame around
+  zero, and the button's identifier is not on a view that can be found from the window). Hence no
+  arrow: the card sits under the trailing end of the bar, where Edit is, and names the button.
+- The system's prominent glass button ignores a label colour set on it; in dark mode its own
+  choice is a faint violet on the violet fill. Hence the design system's capsule.
+- A shadow on the whole card is also drawn behind each word and fails the contrast audit; the
+  shadow is on the card's shape only.
+
+UI tests see no tips unless they pass `-show-tips`, which starts TipKit from an empty store.
+
 ## Testing
 
 | Suite | Covers |
@@ -234,7 +275,7 @@ until the flag is removed, so it can never show while the feature is hidden (FR-
 | `TextEditingDependabilityTests` | Time limits and discarded late answers, cancellation, picking with no page view, the page view following a new controller, outlines after PDFKit puts them away, repeated edit-save-reopen, the diagnostics record |
 | `ReaderTextEditingTests` | The reader model and views: access, commit, cancel, undo, refusals, scanned pages, signed copies, search text, a reloaded document, the "looking", "nothing to edit" and "too long" messages, the diagnostics summary's vocabulary |
 | `TextEditingDiagnosticsTests` | The summary lines; reasons reduced to letters |
-| `TextEditingUITests` | Journeys on the simulator: edit, undo, cancel; single-page layout; locked and hidden; a document opened a second time; a second line after an edit, after leaving Edit, and after the app was away |
+| `TextEditingUITests` | The Edit button's label; the tip showing once, stopping after Edit is used or it is closed, and never showing when editing is locked or hidden. Journeys on the simulator: edit, undo, cancel; single-page layout; locked and hidden; a document opened a second time; a second line after an edit, after leaving Edit, and after the app was away |
 | `TextEditingAccessTests`, `ReleaseFlagTests` | The flag, the entitlement and their composition, including a Release build |
 
 Edited documents are also exported to the independent readers in CI (qpdf and PDFium), with the

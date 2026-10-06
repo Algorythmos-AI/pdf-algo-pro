@@ -22,6 +22,40 @@ public struct PrimaryButtonStyle: ButtonStyle {
   }
 }
 
+/// The prominent button for a bar: a compact capsule in the brand fill with an explicit label
+/// colour.
+///
+/// The system's prominent glass style chooses the label's colour itself, and in dark mode that
+/// colour does not reach 4.5:1 on the brand fill (design system, colour rule 3), so the capsule and
+/// its label are drawn here. The touch target is at least 44 points whatever the capsule's size.
+public struct PrimaryBarButtonStyle: ButtonStyle {
+  @Environment(\.isEnabled) private var isEnabled
+
+  /// Creates the style.
+  public init() {}
+
+  /// Draws the button.
+  public func makeBody(configuration: Configuration) -> some View {
+    configuration.label
+      .font(.body.weight(.semibold))
+      .foregroundStyle(Color.ds.brandOnFill)
+      .lineLimit(1)
+      // A bar offers an item a square; the word asks for its own width, or it is cut to a letter.
+      .fixedSize(horizontal: true, vertical: false)
+      .padding(.horizontal, Spacing.s200)
+      .frame(minHeight: 36)
+      .background(Color.ds.brandFill.opacity(isEnabled ? 1 : 0.4), in: Capsule())
+      .opacity(configuration.isPressed ? 0.8 : 1)
+      .frame(minWidth: Sizes.targetMinimum, minHeight: Sizes.targetMinimum)
+      .contentShape(Rectangle())
+  }
+}
+
+extension ButtonStyle where Self == PrimaryBarButtonStyle {
+  /// The design system's prominent button for bars.
+  public static var primaryBar: PrimaryBarButtonStyle { PrimaryBarButtonStyle() }
+}
+
 extension ButtonStyle where Self == PrimaryButtonStyle {
   /// The design system's prominent button.
   public static var primary: PrimaryButtonStyle { PrimaryButtonStyle() }

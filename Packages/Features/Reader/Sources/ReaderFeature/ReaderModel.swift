@@ -545,6 +545,35 @@ public final class ReaderModel {
   /// Whether a text edit is being typed or made, so other changes wait.
   private var isBusyEditingText: Bool { isCommittingTextEdit || selectedTextRegion != nil }
 
+  /// Whether the tip that points at Edit may show: only when a tap on Edit would let the person
+  /// start editing at once, and nothing else is on screen over the page.
+  ///
+  /// A locked or hidden feature is never advertised, and a document that would answer with a
+  /// refusal or a question (restricted, signed) is not where to learn the button.
+  public var offersEditTip: Bool {
+    guard phase == .ready, textEditingAccess == .available, let controller,
+      controller.textEditability == .editable
+    else { return false }
+    return !controller.isDrawing && markupTool == nil && !controller.isEditingText && selection == nil
+      && !isPresenting
+  }
+
+  /// Whether a sheet, alert or dialog the reader owns is up, or about to be.
+  private var isPresenting: Bool {
+    errorMessage != nil || assistantTask != nil || sharing != nil || showsOutline || showsPages || showsAnnotations
+      || showsSignatures || showsGoToPage || isAddingStampText || confirmsEditingSigned || showsTextEditingLocked
+      || showsVersions || isAddingPassword || confirmsPasswordRemoval
+  }
+
+  /// Whether the page on screen has text that Edit would outline.
+  ///
+  /// A scan answers Edit with "this page is an image", which is no first impression to point at.
+  public func currentPageHasEditableText() async -> Bool {
+    guard let controller else { return false }
+    let text = await controller.pageText(onPage: controller.currentPageIndex)
+    return text.kind == .text && !text.regions.isEmpty
+  }
+
   /// Enters text editing, or says why it cannot be entered.
   ///
   /// Access is asked for each time, because a purchase can come or go while the document is open.
@@ -566,6 +595,8 @@ public final class ReaderModel {
     case .signed where !hasConfirmedEditingSigned && !isEditingCopy:
       confirmsEditingSigned = true
     case .signed, .editable:
+      // The person has found Edit; the tip that points at it has done its work.
+      EditTextTip.markUsed()
       stopMarkupTool()
       controller.setEditingText(true)
       await textEditingPageChanged()

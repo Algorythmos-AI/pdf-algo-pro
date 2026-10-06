@@ -393,7 +393,7 @@ Contrast, Large and AX5, and has snapshot and accessibility tests before it is m
 
 | Component | Built on | Rules |
 |---|---|---|
-| `PrimaryButton` | `.glassProminent` in bars; `.borderedProminent` in content | One per screen. `color.brand.fill` with `color.brand.onFill` label. Label is a verb plus object ("Scan document") |
+| `PrimaryButton` | In bars, the design system's own capsule (`PrimaryBarButtonStyle`): the system's `.glassProminent` chooses its label colour itself and in dark mode that colour fails colour rule 3. `.borderedProminent` in content | One per screen. `color.brand.fill` with `color.brand.onFill` label. Label is a verb plus object ("Scan document"); in a bar, where width is scarce and the object is the document on screen, the verb alone ("Edit") |
 | `SecondaryButton` | `.glass` in bars; `.bordered` in content | Alternatives to the primary action |
 | `TertiaryButton` | Borderless, `color.brand.tint` | Low-emphasis actions, "Not now" |
 | `DestructiveButton` | `role: .destructive` | System red; confirmation for anything not undoable |
@@ -426,6 +426,14 @@ context menu and as accessibility custom actions, because the HIG asks for alter
 - Toolbar labels stay monochrome over PDF content, as the HIG advises for colourful content
   ([Toolbars](https://developer.apple.com/design/human-interface-guidelines/toolbars)); only the
   selected annotation tool shows the brand tint, together with a selected shape.
+- **One exception: the reader's primary action.** The reader's bar holds exactly one filled
+  button, Edit, built as `PrimaryButton` for bars. An icon among icons was missed by people who
+  were not looking for it (owner's device test, 2026-10-06, PAP-037). Every other item in that bar
+  stays a monochrome symbol, and no second filled button is added to it.
+- **Tips** (TipKit) are for a screen's primary action only, and one-time: a tip stops for good
+  when the action is used, when it is closed, or after three showings. A tip is never shown for a
+  feature that is hidden or locked, never where the action would answer with a refusal, and never
+  over a sheet or an alert. It is drawn in the screen's layout, not presented over it.
 - Items that do not fit move to the system overflow menu on iPad and Mac; we never build our own.
 - Window titles are the document name, never the app name (same source).
 - **Ornaments** are a visionOS component: controls that float beside a window
