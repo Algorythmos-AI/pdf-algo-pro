@@ -27,6 +27,17 @@ private func open(
   return (try PDFDocumentController(url: url, textEditor: editor), url)
 }
 
+/// Gives finding and editing text time enough that no limit is reached, however slow the machine.
+///
+/// A rehearsal is given up on at `textEditLimit`, and a test that waits for what one learnt would
+/// otherwise depend on the runner's speed (Thread Sanitizer slows it many times over). The limits
+/// themselves are proven by the tests that set them short.
+@MainActor
+private func allowTimeEnough(_ controller: PDFDocumentController) {
+  controller.textFindLimit = .seconds(600)
+  controller.textEditLimit = .seconds(600)
+}
+
 /// Picks the region containing some text and replaces it, as the reader does.
 @MainActor
 @discardableResult
@@ -740,6 +751,7 @@ struct TextEditingDependabilityTests {
   func rehearsalMarksAnUnprovablePage() async throws {
     let editor = UnprovableEditor()
     let (controller, url) = try open(TextEditFixtures.invoice(), editor: editor)
+    allowTimeEnough(controller)
     let before = try Data(contentsOf: url)
     controller.setEditingText(true)
     // The lines are offered at once; the rehearsal follows, and then they say they will be covered.
@@ -772,6 +784,7 @@ struct TextEditingDependabilityTests {
   @Test("A page that can be edited is left as it is by the rehearsal")
   func rehearsalLeavesAProvablePage() async throws {
     let (controller, _) = try open(TextEditFixtures.invoice())
+    allowTimeEnough(controller)
     controller.setEditingText(true)
     _ = await controller.pageText(onPage: 0)
     await controller.finishTextRehearsal(onPage: 0)
@@ -805,6 +818,7 @@ struct TextEditingDependabilityTests {
     var editor = UnprovableEditor()
     editor.rehearsalsFail = false
     let (controller, _) = try open(TextEditFixtures.invoice(), editor: editor)
+    allowTimeEnough(controller)
     controller.setEditingText(true)
     _ = await controller.pageText(onPage: 0)
     await controller.finishTextRehearsal(onPage: 0)
