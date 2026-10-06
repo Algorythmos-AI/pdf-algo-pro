@@ -77,6 +77,22 @@ class UITestCase: XCTestCase {
     }
   }
 
+  /// Taps a control that takes its own screen away, and waits for the screen that replaces it.
+  ///
+  /// On a slow runner a tap made while the screen is still settling after an audit can be lost, and the
+  /// journey then waits on the old screen (seen once on onboarding, pull request 149). Unlike
+  /// `tap(_:until:)`, the second tap is made only while the control is still there: once the first tap
+  /// has worked the control is gone, however long the next screen takes to appear.
+  func leave(
+    by control: XCUIElement, for target: XCUIElement, file: StaticString = #filePath, line: UInt = #line
+  ) {
+    XCTAssertTrue(control.waitForExistence(timeout: Self.settleTimeout), "The control exists", file: file, line: line)
+    control.tap()
+    if !target.waitForExistence(timeout: 10), control.exists, control.isHittable { control.tap() }
+    XCTAssertTrue(
+      target.waitForExistence(timeout: Self.settleTimeout), "The tap opens what it should", file: file, line: line)
+  }
+
   /// Opens All documents from Home, the screen the app starts on, and waits for the list's own bar.
   func openDocumentList(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
     tap(

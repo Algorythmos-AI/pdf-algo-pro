@@ -11,10 +11,8 @@ final class OnboardingUITests: UITestCase {
     let positions = order.map { app.buttons["onboarding.intent.\($0)"].frame.minY }
     XCTAssertEqual(positions, positions.sorted(), "AI-first options lead, in order (FR-ONB-001)")
     try audit(app)
-    app.buttons["onboarding.skip"].tap()
-    XCTAssertTrue(
-      app.buttons["library.home.sample"].waitForExistence(timeout: Self.settleTimeout),
-      "Skipping leads to Home (FR-ONB-002)")
+    leave(by: app.buttons["onboarding.skip"], for: app.buttons["library.home.sample"])
+    XCTAssertTrue(app.buttons["library.home.sample"].exists, "Skipping leads to Home (FR-ONB-002)")
   }
 
   func testChoosingAnIntentPersonalisesTheHomeScreen() throws {
@@ -22,10 +20,9 @@ final class OnboardingUITests: UITestCase {
     let scan = app.buttons["onboarding.intent.scan"]
     XCTAssertTrue(scan.waitForExistence(timeout: Self.settleTimeout))
     scan.tap()
-    app.buttons["onboarding.continue"].tap()
+    leave(by: app.buttons["onboarding.continue"], for: app.buttons["library.home.primary.scan"])
     XCTAssertTrue(
-      app.buttons["library.home.primary.scan"].waitForExistence(timeout: Self.settleTimeout),
-      "The chosen intent leads the home screen (FR-ONB-003)")
+      app.buttons["library.home.primary.scan"].exists, "The chosen intent leads the home screen (FR-ONB-003)")
     openDocumentList(app)
     XCTAssertTrue(
       app.buttons["library.empty.primary.scan"].waitForExistence(timeout: Self.settleTimeout),
