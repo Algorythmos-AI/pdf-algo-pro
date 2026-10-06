@@ -10,6 +10,8 @@ Store notes (see the changelog strategy).
 ## [Unreleased]
 
 ### Added
+- Settings › About is now a page of its own: the app's version, the privacy policy, terms and
+  support, a way to share PDF Algo Pro, and who makes it.
 - The app opens on a new Home: scan or import in one tap, pick up the documents you opened last,
   and see how many documents each section holds. Home also says what the app promises, that your
   documents stay on this device, and who makes it.
@@ -87,6 +89,8 @@ Store notes (see the changelog strategy).
 - An interim app icon, and a Staging build named "PDF Algo β" for internal testing (#52, #54).
 
 ### Changed
+- Settings is easier to scan: every row has a symbol, and privacy and security are in one place
+  (the privacy report moved there from its own section).
 - Report a problem now writes to pdfalgopro@algorythmos.com.
 - Editing text (internal builds) is easier to find: the reader's bar has a filled button that says
   Edit, and the first time a document with text is open a short tip points to it. The tip goes

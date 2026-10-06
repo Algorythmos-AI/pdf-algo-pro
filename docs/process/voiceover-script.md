@@ -108,11 +108,15 @@ Record anything that fails as an issue with the `accessibility` label, with the 
 
 ### 7. Settings
 
-1. Each toggle reads its title and state: "Hide AI features", and "Document text in Spotlight"
-   under Privacy.
+1. The first stop reads "PDF Algo Pro, Version …" as one item. Each toggle reads its title and
+   state: "Hide AI features", and "Document text in Spotlight" under Privacy and security. The
+   tiles before the titles are not read.
 2. Turn on "Hide AI features", close Settings and open the sample: the reader has no Ask button.
    Turn the setting back off.
 3. "Report a problem" opens Mail, or, with no mail account, offers "Copy the report".
+4. Open "About". It reads the app's name and version as a heading, then "Privacy Policy", "Terms of
+   Use" and "Support" as links, "Share PDF Algo Pro", and "Algorythmos, Built by Algorythmos,
+   algorythmos.com" as one link.
 
 ### 8. Largest text size
 

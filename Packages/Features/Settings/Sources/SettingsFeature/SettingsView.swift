@@ -9,6 +9,7 @@ public struct SettingsView: View {
   @Environment(\.openURL) private var openURL
   @Environment(\.dismiss) private var dismiss
   @Environment(\.locale) private var locale
+  @Environment(\.dynamicTypeSize) private var typeSize
   @State private var reportWithoutMail: String?
   private let version: String
   private let internalTools: AnyView?
@@ -27,10 +28,30 @@ public struct SettingsView: View {
   public var body: some View {
     NavigationStack {
       Form {
-        // First, so the AI switch is on screen without scrolling (privacy by default).
+        // The app's mark and name, small enough that the AI switch below stays on the first screen.
+        // At accessibility text sizes it would push that switch off, so it is left out.
+        if !typeSize.isAccessibilitySize {
+          Section {
+            HStack(spacing: Spacing.s150) {
+              AppMark(side: 44)
+              VStack(alignment: .leading, spacing: Spacing.s0) {
+                Text(verbatim: "PDF Algo Pro").font(.headline).foregroundStyle(Color.ds.labelPrimary)
+                Text("Version \(version)", bundle: .module)
+                  .font(.footnote)
+                  .foregroundStyle(Color.ds.labelSecondary)
+              }
+            }
+            .accessibilityElement(children: .combine)
+            // The row keeps its own insets: flush to the edge, its rounded corner cuts into the mark.
+            .listRowBackground(Color.clear)
+          }
+        }
+        // First of the settings, so the AI switch is on screen without scrolling (privacy by default).
         Section {
-          Toggle(isOn: $model.isIntelligenceHidden) { Text("Hide AI features", bundle: .module) }
-            .accessibilityIdentifier("settings.hideAI")
+          Toggle(isOn: $model.isIntelligenceHidden) {
+            TileLabel(Text("Hide AI features", bundle: .module), systemImage: "sparkles", tone: .intelligence)
+          }
+          .accessibilityIdentifier("settings.hideAI")
         } header: {
           Text("Document intelligence", bundle: .module).foregroundStyle(Color.ds.labelSecondary)
         } footer: {
@@ -59,7 +80,7 @@ public struct SettingsView: View {
             .navigationTitle(Text("What you do most", bundle: .module))
             .navigationBarTitleDisplayMode(.inline)
           } label: {
-            Text("What you do most", bundle: .module)
+            TileLabel(Text("What you do most", bundle: .module), systemImage: "square.grid.2x2")
           }
           .accessibilityIdentifier("settings.intents")
         } header: {
@@ -70,7 +91,7 @@ public struct SettingsView: View {
             Text("Continuous", bundle: .module).tag(ReaderDisplayMode.continuous)
             Text("Single page", bundle: .module).tag(ReaderDisplayMode.singlePage)
           } label: {
-            Text("Page layout", bundle: .module)
+            TileLabel(Text("Page layout", bundle: .module), systemImage: "book.pages")
           }
         } header: {
           Text("Reading", bundle: .module).foregroundStyle(Color.ds.labelSecondary)
@@ -79,17 +100,26 @@ public struct SettingsView: View {
           Text(
             "Your documents stay on this device, in the PDF Algo Pro folder you can see in the Files app. The app has no account, no advertising and no tracking.",
             bundle: .module)
-          Toggle(isOn: $model.isSpotlightTextIncluded) { Text("Document text in Spotlight", bundle: .module) }
-            .accessibilityIdentifier("settings.spotlightText")
-            .disabled(model.isAppLockEnabled)
+          Toggle(isOn: $model.isSpotlightTextIncluded) {
+            TileLabel(Text("Document text in Spotlight", bundle: .module), systemImage: "magnifyingglass")
+          }
+          .accessibilityIdentifier("settings.spotlightText")
+          .disabled(model.isAppLockEnabled)
           Toggle(isOn: Binding(get: { model.isAppLockEnabled }, set: { isOn in Task { await model.setAppLock(isOn) } }))
           {
-            Self.lockTitle(model.lockMethod)
+            TileLabel(Self.lockTitle(model.lockMethod), systemImage: Self.lockSymbol(model.lockMethod))
           }
           .disabled(model.lockMethod == nil)
           .accessibilityIdentifier("settings.appLock")
+          // What document intelligence did, beside the switches that decide what leaves the app (FR-SET-001).
+          NavigationLink {
+            PrivacyReportView(model: model)
+          } label: {
+            TileLabel(Text("Privacy report", bundle: .module), systemImage: "hand.raised")
+          }
+          .accessibilityIdentifier("settings.privacyReport")
         } header: {
-          Text("Privacy", bundle: .module).foregroundStyle(Color.ds.labelSecondary)
+          Text("Privacy and security", bundle: .module).foregroundStyle(Color.ds.labelSecondary)
         } footer: {
           Text(
             "Titles and tags are always searchable in Spotlight. Turn this off to keep what documents say out of system search. App Lock hides the app's screen in the app switcher and keeps document text out of Spotlight.",
@@ -105,7 +135,7 @@ public struct SettingsView: View {
               ProgressView()
             }
           } label: {
-            Text("Version history", bundle: .module)
+            TileLabel(Text("Version history", bundle: .module), systemImage: "clock.arrow.circlepath")
           }
           .accessibilityIdentifier("settings.versionsSize")
           Button(role: .destructive) {
@@ -125,7 +155,9 @@ public struct SettingsView: View {
           .foregroundStyle(Color.ds.labelSecondary)
         }
         Section {
-          Toggle(isOn: $model.includesDiagnostics) { Text("Include a diagnostics summary", bundle: .module) }
+          Toggle(isOn: $model.includesDiagnostics) {
+            TileLabel(Text("Include a diagnostics summary", bundle: .module), systemImage: "stethoscope")
+          }
           Button {
             Task {
               guard let url = await model.supportEmailURL() else { return }
@@ -147,31 +179,17 @@ public struct SettingsView: View {
           .foregroundStyle(Color.ds.labelSecondary)
         }
         Section {
+          // The privacy policy, the terms, support and who makes the app are on this row's screen.
           NavigationLink {
-            PrivacyReportView(model: model)
+            AboutView(version: version)
           } label: {
-            Text("Privacy report", bundle: .module)
+            LabeledContent {
+              Text(version).foregroundStyle(Color.ds.labelSecondary)
+            } label: {
+              TileLabel(Text("About", bundle: .module), systemImage: "info.circle")
+            }
           }
-          .accessibilityIdentifier("settings.privacyReport")
-        } header: {
-          Text("Privacy", bundle: .module).foregroundStyle(Color.ds.labelSecondary)
-        }
-        Section {
-          LabeledContent {
-            Text(version).foregroundStyle(Color.ds.labelSecondary)
-          } label: {
-            Text("Version", bundle: .module)
-          }
-          // App Review expects the privacy policy to be reachable in the app; each opens in the browser.
-          Link(destination: link(.privacyPolicy)) { Text("Privacy Policy", bundle: .module) }
-            .accessibilityIdentifier("settings.privacyPolicy")
-          Link(destination: link(.termsOfUse)) { Text("Terms of Use", bundle: .module) }
-            .accessibilityIdentifier("settings.termsOfUse")
-          Link(destination: link(.support)) { Text("Support", bundle: .module) }
-            .accessibilityIdentifier("settings.support")
-          Text("Built by Algorythmos", bundle: .module).foregroundStyle(Color.ds.labelSecondary)
-        } header: {
-          Text("About", bundle: .module).foregroundStyle(Color.ds.labelSecondary)
+          .accessibilityIdentifier("settings.about")
         }
         if let internalTools { internalTools }
       }
@@ -231,11 +249,6 @@ public struct SettingsView: View {
     }
   }
 
-  /// A public page's address in the language the app is shown in.
-  private func link(_ page: AppLinks) -> URL {
-    page.url(languageCode: locale.language.languageCode?.identifier)
-  }
-
   static func lockTitle(_ method: AppLockMethod?) -> Text {
     switch method {
     case .faceID: Text("Require Face ID", bundle: .module)
@@ -243,6 +256,15 @@ public struct SettingsView: View {
     case .opticID: Text("Require Optic ID", bundle: .module)
     case .passcode: Text("Require passcode", bundle: .module)
     case nil: Text("App Lock (set a device passcode to use it)", bundle: .module)
+    }
+  }
+
+  static func lockSymbol(_ method: AppLockMethod?) -> String {
+    switch method {
+    case .faceID: "faceid"
+    case .touchID: "touchid"
+    case .opticID: "opticid"
+    case .passcode, nil: "lock"
     }
   }
 

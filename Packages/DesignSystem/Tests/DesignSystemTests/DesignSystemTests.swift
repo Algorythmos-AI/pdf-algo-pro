@@ -205,6 +205,7 @@ struct ComponentTests {
       AnyView(AppMark()), AnyView(CompanyMark()), AnyView(AlgorythmosMark().frame(width: 100)),
       AnyView(QuickAction(Text(verbatim: "Scan"), systemImage: "doc.viewfinder", prominence: .filled) {}),
       AnyView(QuickAction(Text(verbatim: "Import"), systemImage: "plus") {}),
+      AnyView(TileLabel(Text(verbatim: "Page layout"), systemImage: "book.pages")),
     ]
     for view in views {
       let renderer = ImageRenderer(content: view.frame(width: 390).environment(\.dynamicTypeSize, .accessibility5))

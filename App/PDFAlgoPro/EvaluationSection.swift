@@ -16,7 +16,7 @@
         NavigationLink {
           EvaluationView(intelligence: intelligence)
         } label: {
-          Text(verbatim: "AI evaluation")
+          TileLabel(Text(verbatim: "AI evaluation"), systemImage: "checklist", tone: .intelligence)
         }
         .accessibilityIdentifier("evaluation.open")
       } header: {
@@ -62,7 +62,13 @@
         if let report {
           Section {
             LabeledContent {
-              Text(verbatim: report.passes ? "Pass" : "Below a threshold").foregroundStyle(Color.ds.labelSecondary)
+              // A symbol as well as the words: the result is never told by colour alone.
+              HStack(spacing: Spacing.s050) {
+                Image(systemName: report.passes ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                  .foregroundStyle(report.passes ? Color.ds.statusSuccess : Color.ds.statusWarning)
+                  .accessibilityHidden(true)
+                Text(verbatim: report.passes ? "Pass" : "Below a threshold").foregroundStyle(Color.ds.labelSecondary)
+              }
             } label: {
               Text(verbatim: "Result, \(report.tier?.rawValue ?? "no tier")")
             }

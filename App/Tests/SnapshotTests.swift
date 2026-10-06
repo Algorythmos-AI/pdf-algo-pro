@@ -82,6 +82,10 @@ extension AppTests {
       check(SettingsView(model: app.makeSettings(), version: "1.0 (1)"))
     }
 
+    @Test func about() {
+      check(NavigationStack { AboutView(version: "1.0 (1)") })
+    }
+
     @Test func scan() {
       let app = app(["-skip-onboarding"])
       check(ScanView(model: app.makeScan()))

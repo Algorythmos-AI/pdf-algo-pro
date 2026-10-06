@@ -148,12 +148,48 @@ struct SettingsModelTests {
     #expect(privacy == "https://algorythmos.com/pdf-algo-pro/privacy")
   }
 
+  @Test("About shares the product page, in French for French readers, and links to the company's website")
+  func aboutLinks() {
+    #expect(AppLinks.product(languageCode: "en").absoluteString == "https://algorythmos.com/pdf-algo-pro")
+    #expect(AppLinks.product(languageCode: "fr").absoluteString == "https://algorythmos.com/fr-fr/pdf-algo-pro")
+    #expect(AppLinks.product(languageCode: nil) == AppLinks.product(languageCode: "de"))
+    #expect(AppLinks.company.absoluteString == "https://algorythmos.com")
+    // The release check derives the product page from the first page's path; they must agree.
+    for page in AppLinks.allCases {
+      #expect(page.rawValue.hasPrefix(AppLinks.productPath + "/"))
+    }
+  }
+
+  @Test("About draws in English and French, at the default and the largest text size")
+  func aboutRenders() {
+    for language in ["en", "fr"] {
+      for size in [DynamicTypeSize.large, .accessibility5] {
+        let about = NavigationStack { AboutView(version: "0.1.0 (12)") }
+          .environment(\.locale, Locale(identifier: language))
+          .environment(\.dynamicTypeSize, size)
+          .frame(width: 390, height: 844)
+        #expect(ImageRenderer(content: about).uiImage != nil)
+      }
+    }
+  }
+
+  @Test("App Lock's row shows the symbol of the way the device unlocks")
+  func lockSymbols() {
+    #expect(SettingsView.lockSymbol(.faceID) == "faceid")
+    #expect(SettingsView.lockSymbol(.touchID) == "touchid")
+    #expect(SettingsView.lockSymbol(.opticID) == "opticid")
+    #expect(SettingsView.lockSymbol(.passcode) == "lock" && SettingsView.lockSymbol(nil) == "lock")
+  }
+
   @Test func screenRenders() {
     let (model, _, _) = makeModel()
     #expect(
       ImageRenderer(content: SettingsView(model: model, version: "0.1.0").frame(width: 390, height: 844)).uiImage != nil
     )
     for intent in OnboardingIntent.allCases { _ = SettingsView.intentTitle(intent) }
+    // At an accessibility text size the header is left out, so the AI switch stays on the first screen.
+    let large = SettingsView(model: model, version: "0.1.0").environment(\.dynamicTypeSize, .accessibility3)
+    #expect(ImageRenderer(content: large.frame(width: 390, height: 844)).uiImage != nil)
   }
 }
 

@@ -436,6 +436,7 @@ also offered as a custom accessibility action.
 | `AppMark` | The app icon as an image, with the icon's corner shape | Home's header, Settings and About only. Decoration beside the app's name, so hidden from VoiceOver. Grows with the text size, to one and a half times its size |
 | `CompanyMark` | The Algorythmos mark, drawn as a vector shape, on `color.logo.tile` | Home's footer and About only, beside "Built by Algorythmos". Never without its tile, never recoloured, never mirrored in right-to-left layouts. VoiceOver reads "Algorythmos" |
 | `BrandGlow` | A wash of `color.brand.tint`, strongest at the top (`opacity.brandGlow`) and gone at its lower edge | Behind Home's header only, in compact width. Removed by Reduce Transparency and by Increase Contrast. Never behind a document |
+| `TileLabel` | An `IconTile` before a row's title | The label of a Settings row: a toggle, a picker, a link to another screen. Not for plain text buttons such as "Report a problem" |
 | `IconTile` | An SF Symbol on a small filled tile, as the system's Settings rows show theirs | List rows that lead somewhere. `brand` for things to open or change, `intelligence` for what the intelligence layer does, `quiet` for things set aside (Recently deleted). The fills and their symbol colours are the declared contrast pairs. Decoration beside the row's title |
 
 ### Lists
@@ -445,6 +446,10 @@ like a grouped list's sections (PAP-040). In the sidebar-style list the accessib
 small text and the rows' counts as not scaling or as clipped, on text that used standard styles; as
 cards, every part lays itself out at once when the text size changes, and the audit passes at the
 default size and at AX3. In a wide window the same sections are a `.sidebar` list.
+
+Settings groups its rows under at most one heading per subject: privacy and security are one section
+(the statement, Spotlight, App Lock and the privacy report), and About is one row that opens the
+app's mark and version, its public pages, sharing and the company mark.
 
 System `List` styles only: `.insetGrouped` for settings, `.sidebar` for the library sidebar, plain
 for search results. Swipe actions (for example Delete, Favourite) always have an equivalent in the

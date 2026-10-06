@@ -24,6 +24,7 @@ def test_the_addresses_are_the_ones_the_app_links_to():
         "https://algorythmos.com/fr-fr/pdf-algo-pro/privacy",
         "https://algorythmos.com/fr-fr/pdf-algo-pro/terms",
         "https://algorythmos.com/fr-fr/pdf-algo-pro/support",
+        "https://algorythmos.com",
     ]
 
 
