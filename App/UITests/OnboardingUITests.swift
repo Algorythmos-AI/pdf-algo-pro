@@ -19,15 +19,18 @@ final class OnboardingUITests: UITestCase {
     tap(next, until: headline("ask", in: app))
     XCTAssertTrue(app.buttons["onboarding.skip"].exists, "And on the third")
     try audit(app)
-    leave(by: next, for: app.buttons["library.home.sample"])
+    // The offer follows the last page once; closing it leads to Home (FR-ONB-004).
+    leave(by: next, for: app.buttons["paywall.close"])
+    leave(by: app.buttons["paywall.close"], for: app.buttons["library.home.sample"])
     XCTAssertTrue(app.buttons["library.home.sample"].exists, "The introduction ends on Home")
   }
 
   func testSkipLeadsToHomeFromTheFirstPage() throws {
     let app = launch([])
     XCTAssertTrue(headline("scan", in: app).waitForExistence(timeout: Self.settleTimeout))
-    leave(by: app.buttons["onboarding.skip"], for: app.buttons["library.home.sample"])
-    XCTAssertTrue(app.buttons["library.home.sample"].exists, "Skipping leads to Home (FR-ONB-002)")
+    leave(by: app.buttons["onboarding.skip"], for: app.buttons["paywall.close"])
+    leave(by: app.buttons["paywall.close"], for: app.buttons["library.home.sample"])
+    XCTAssertTrue(app.buttons["library.home.sample"].exists, "Skip, then Close: Home in two taps (FR-ONB-002)")
     XCTAssertTrue(
       app.buttons["library.home.primary.import"].exists || app.buttons["library.home.primary.scan"].exists,
       "With nothing chosen, Home shows its default actions (FR-ONB-003)")

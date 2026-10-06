@@ -1382,6 +1382,16 @@
         }
       }
     },
+    "See plans" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voir les formules"
+          }
+        }
+      }
+    },
     "Select" : {
       "localizations" : {
         "fr" : {

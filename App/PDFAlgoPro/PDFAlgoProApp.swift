@@ -3,6 +3,7 @@ import CoreSpotlight
 import LibraryFeature
 import OSLog
 import OnboardingFeature
+import PaywallFeature
 import ReaderFeature
 import ScanFeature
 import SettingsFeature
@@ -57,7 +58,7 @@ struct RootView: View {
   var body: some View {
     Group {
       if app.settings.hasCompletedOnboarding {
-        LibraryView(model: app.library, onScan: { app.sheet = .scan }, onSettings: { app.sheet = .settings }) {
+        LibraryView(model: app.library, onScan: { app.startScan() }, onSettings: { app.sheet = .settings }) {
           selection in
           ReaderView(model: app.makeReader(for: selection)) { context in
             AssistantView(model: app.makeAssistant(for: context))
@@ -71,7 +72,10 @@ struct RootView: View {
       switch sheet {
       case .scan: ScanView(model: app.makeScan())
       case .settings:
-        SettingsView(model: app.makeSettings(), version: app.container.version, internalTools: app.internalTools)
+        SettingsView(
+          model: app.makeSettings(), version: app.container.version, internalTools: app.internalTools,
+          subscription: app.subscriptionSection)
+      case .paywall: PaywallFlowView(model: app.makePaywall())
       }
     }
     .background(LockWindowPresenter(lock: app.lock, method: app.lockMethod))
@@ -88,7 +92,11 @@ struct RootView: View {
       Task { await app.library.reload() }
       askForReviewIfDue()
     }
-    .onChange(of: app.sheet == nil) { _, closed in if closed { askForReviewIfDue() } }
+    // Not after the subscription offer or its confirmation: a rating is never asked for beside a
+    // purchase (App Store strategy, ratings).
+    .onChange(of: app.sheet) { closed, sheet in
+      if sheet == nil, closed != .paywall { askForReviewIfDue() }
+    }
     .onOpenURL { app.handle($0) }
     .onContinueUserActivity(CSSearchableItemActionType) { app.handleSpotlight($0) }
   }

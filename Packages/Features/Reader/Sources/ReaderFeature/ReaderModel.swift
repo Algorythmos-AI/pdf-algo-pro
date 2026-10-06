@@ -551,6 +551,8 @@ public final class ReaderModel {
   public var confirmsEditingSigned = false
   /// Whether the explanation that editing text needs a purchase is showing.
   public var showsTextEditingLocked = false
+  /// Opens the subscription offer from that explanation; `nil` where there is none to open.
+  @ObservationIgnored public var onSeePlans: (() -> Void)?
   /// Whether the person has agreed, in this reader, to edit a signed document in a copy.
   private var hasConfirmedEditingSigned = false
   /// Whether the document's words changed since the search text was last brought up to date.

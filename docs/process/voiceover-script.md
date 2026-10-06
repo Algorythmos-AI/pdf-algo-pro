@@ -41,12 +41,16 @@ Record anything that fails as an issue with the `accessibility` label, with the 
 
 ### 1. Onboarding
 
-1. The first screen is announced with its heading, "What do you do with PDFs most often?".
-2. Swipe through the choices: the four AI choices come first ("Chat with PDF", "Summarise
-   document", "Extract data with AI", "Analyse contract"), then the other tasks. Each says whether
-   it is selected, and choices not in this version say they are coming later.
-3. Select two choices, then activate "Continue". Home opens and the choice you made first is the
-   first of its actions.
+1. The first screen is announced with its heading and where you are: "Scan to PDF, Page 1 of 3".
+   The picture is not read, and "Skip" and "Continue" are.
+2. Activate "Continue". Focus moves to the new heading, "Sign and mark up, Page 2 of 3". Activate
+   it again: the third page is "Ask your document" where Apple Intelligence works, and "Organise
+   and protect" where it does not.
+3. Activate "Continue" on the third page. The subscription offer opens with "Close" as its first
+   button; activate it and Home opens. Without a connection Home opens straight away.
+4. In Settings, the first section reads "Subscription", then the plan as one stop ("Plan, Free"),
+   then "See plans", "Manage subscription", "Restore purchases" and "Redeem a code". "What you do
+   most" is further down, under "Home screen".
 
 ### 2. Home and the library
 

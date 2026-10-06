@@ -17,7 +17,9 @@ TOOLCHAIN=$(dirname "$(dirname "$(xcrun --find swiftc)")")
 BUNDLE=$OUT/BundleStub.swift
 print 'import Foundation\nextension Foundation.Bundle { static let module = Bundle.main }' > $BUNDLE
 common=(-sdk $SDK -target arm64-apple-ios26.0-simulator -swift-version 6 -enable-upcoming-feature NonisolatedNonsendingByDefault
-  -warnings-as-errors -D DEBUG -I $OUT -F $PLAT/Developer/Library/Frameworks -I $PLAT/Developer/usr/lib -enable-testing)
+  -warnings-as-errors -D DEBUG -I $OUT -F $PLAT/Developer/Library/Frameworks -I $PLAT/Developer/usr/lib -enable-testing
+  # StoreKitTest, for the app's store tests: its header uses a symbol Apple deprecated (see project.yml).
+  -F $SDK/Developer/Library/Frameworks -Xcc -Wno-error=deprecated-declarations)
 [[ -d $TOOLCHAIN/lib/swift/host/plugins/testing ]] && common+=(-plugin-path $TOOLCHAIN/lib/swift/host/plugins/testing)
 fail=0
 
@@ -47,14 +49,14 @@ done
 run emit CommerceTestSupport non Packages/Commerce/Sources/CommerceTestSupport
 run emit PDFEngineTestSupport non Packages/PDFEngine/Sources/PDFEngineTestSupport
 run emit IntelligenceEvaluation non Packages/Intelligence/Sources/IntelligenceEvaluation
-for f in Onboarding Library Reader Assistant Scan Settings; do
+for f in Onboarding Library Reader Assistant Scan Settings Paywall; do
   run emit ${f}Feature main Packages/Features/$f/Sources/${f}Feature bundle
 done
 run check DesignSystemTests main Packages/DesignSystem/Tests
 for m in Core PDFEngine DocumentStore OCR Scanning Search Intelligence Telemetry RemoteConfig Commerce; do
   run check ${m}Tests non Packages/$m/Tests
 done
-for f in Onboarding Library Reader Assistant Scan Settings; do
+for f in Onboarding Library Reader Assistant Scan Settings Paywall; do
   run check ${f}FeatureTests main Packages/Features/$f/Tests
 done
 run emit PDFAlgoPro main App/PDFAlgoPro

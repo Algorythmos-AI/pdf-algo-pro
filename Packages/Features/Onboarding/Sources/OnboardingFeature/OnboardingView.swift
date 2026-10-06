@@ -64,12 +64,17 @@ public struct OnboardingView: View {
         model.page.title
           .font(.largeTitle.bold())
           .multilineTextAlignment(.center)
+          // As tall as its lines need: a headline that wraps at a large text size is never cut.
+          .fixedSize(horizontal: false, vertical: true)
           .accessibilityAddTraits(.isHeader)
+          // Where the person is, read with the headline: the dots below are only to look at.
+          .accessibilityValue(Text("Page \(model.index + 1) of \(model.pages.count)", bundle: .module))
           .accessibilityIdentifier("onboarding.page.\(model.page.rawValue)")
         model.page.detail
           .font(.body)
           .foregroundStyle(Color.ds.labelSecondary)
           .multilineTextAlignment(.center)
+          .fixedSize(horizontal: false, vertical: true)
       }
     }
     .padding(Spacing.s300)
@@ -78,7 +83,7 @@ public struct OnboardingView: View {
     .motion(value: model.index)
   }
 
-  /// Where the person is in the introduction: dots to look at, and the same in words for VoiceOver.
+  /// Where the person is in the introduction, to look at; VoiceOver hears it with the headline.
   private var progress: some View {
     HStack(spacing: Spacing.s100) {
       ForEach(model.pages.indices, id: \.self) { index in
@@ -88,8 +93,6 @@ public struct OnboardingView: View {
       }
     }
     .motion(value: model.index)
-    .accessibilityElement(children: .ignore)
-    .accessibilityLabel(Text("Page \(model.index + 1) of \(model.pages.count)", bundle: .module))
-    .accessibilityIdentifier("onboarding.progress")
+    .accessibilityHidden(true)
   }
 }

@@ -10,6 +10,12 @@ Store notes (see the changelog strategy).
 ## [Unreleased]
 
 ### Added
+- A short introduction the first time you open the app: three pages on what it does, with Skip on
+  every one.
+- PDF Algo Pro now has a Pro subscription. The app stays free to use, with a daily limit on new
+  scans; Pro removes it. Settings › Subscription shows your plan and lets you see the plans, manage
+  or restore a subscription, and redeem a code. Opening, reading, signing, sharing and exporting
+  your documents never need Pro.
 - Settings › About is now a page of its own: the app's version, the privacy policy, terms and
   support, a way to share PDF Algo Pro, and who makes it.
 - The app opens on a new Home: scan or import in one tap, pick up the documents you opened last,
