@@ -269,6 +269,7 @@ struct TextEditMessageLabel: View {
     case .lookingForText: Text("Looking for text on this page…", bundle: .module)
     case .noEditableText: Text("No text on this page can be edited.", bundle: .module)
     case .tookTooLong: Text("This is taking too long. Nothing was changed. Try again.", bundle: .module)
+    case .somethingInTheWay: Text("There isn’t room for it there. Nothing was moved.", bundle: .module)
     case .cannotEditOrCover:
       Text("This text can’t be changed or covered here. Nothing was changed.", bundle: .module)
     }
@@ -305,7 +306,7 @@ struct TextEditHint: View {
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
       } else if model.showsTextEditStartHint {
         Label {
-          Text("Tap any text to change it", bundle: .module)
+          Text("Tap text to change it. Hold and drag to move it.", bundle: .module)
         } icon: {
           Image(systemName: "hand.tap")
         }

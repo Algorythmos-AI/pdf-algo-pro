@@ -109,7 +109,7 @@ Status key: **Adopt** (used as the organisation does) · **Adapt** (used with a 
 | Organisation practice | PDF Algo Pro | Status |
 |---|---|---|
 | Endorsed brand: product name first, "Built by Algorythmos"; lead with trust and outcomes | Same | Adopt |
-| Company palette (violet and blue family) and website tokens with WCAG AA contrast | The cyan marks the intelligence layer and the company mark keeps its colours; the app's accent is the product's own red, not the company violet ([PAP-046](decision-register.md), [design system](design-system.md)) | Differs, recorded |
+| Company palette (violet and blue family) and website tokens with WCAG AA contrast | The cyan marks the intelligence layer and the company mark keeps its colours; the app's accent is the product's own red, not the company violet ([PAP-047](decision-register.md), [design system](design-system.md)) | Differs, recorded |
 | No copy implying a team (single-person company) | Governance written as roles ("hats") | Adopt |
 
 ## New standards introduced

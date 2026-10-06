@@ -64,7 +64,8 @@ The last ten, newest first; all decisions are in the [decision register](decisio
 
 | ID | Decision |
 |---|---|
-| PAP-046 | The accent is the product's red on white, with native bars; on documents, selection is the system's blue; the icon's field is red |
+| PAP-047 | The accent is the product's red on white, with native bars; on documents, selection is the system's blue; the icon's field is red |
+| PAP-046 | Existing text can be moved by holding and dragging a line: a real, proven move, with covering as the fallback (FR-EDIT-009) |
 | PAP-045 | First run becomes three introduction pages; the intent question moves to Settings; a one-time tip on Home; a confirmation after purchase |
 | PAP-044 | The free tier meters scans saved and intelligence requests per day; Pro removes the limits and adds text editing; existing documents are never gated |
 | PAP-043 | Pro is a weekly and an annual plan, with the trial on the weekly plan; supersedes "no weekly plans" |

@@ -44,7 +44,7 @@ Owner: Design · Reviewed: each milestone, and whenever a token or component cha
 5. **Brand as an accent, with a few signature moments.** Red marks what is interactive and cyan
    marks what the intelligence layer produced. Everything else is system colour: screens are white
    or the system's grouped grey in light and the system's dark backgrounds in dark, never a red
-   surface or a red navigation bar ([PAP-046](decision-register.md)). The brand is also
+   surface or a red navigation bar ([PAP-047](decision-register.md)). The brand is also
    shown, on purpose and in few places (PAP-040): Home carries the app mark, a soft wash of the brand
    tint behind its header (`BrandGlow`) and, in its footer, the company mark with "Built by
    Algorythmos"; Settings and About carry the app mark and the company mark. Screens where people
@@ -111,7 +111,7 @@ label colour).
 
 ### Brand and accent tokens
 
-The red is the product's own ([PAP-046](decision-register.md)); it replaced the organisation's
+The red is the product's own ([PAP-047](decision-register.md)); it replaced the organisation's
 violet on 2026-10-07. The cyan and the company mark still come from the company website's design
 tokens (organisation brand standard). The cyan's Increase Contrast variants are **proposed here**;
 the brand source does not define them (see open questions).
@@ -283,7 +283,7 @@ allows. **Pillars served.** PIL-7 Native Apple Experience.
 ## App icon
 
 Version 3: the artwork of version 2 (approved by the owner on 2026-10-01) on a red field, decided
-on 2026-10-07 ([PAP-046](decision-register.md)). `scripts/design/make_app_icon.swift` draws it from
+on 2026-10-07 ([PAP-047](decision-register.md)). `scripts/design/make_app_icon.swift` draws it from
 `design/tokens.json` and writes both icon sets; never edit the PNGs by hand.
 
 | Element | Default appearance | Dark | Tinted |

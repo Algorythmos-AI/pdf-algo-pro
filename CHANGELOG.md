@@ -15,6 +15,9 @@ Store notes (see the changelog strategy).
   only ever means a red annotation or Delete.
 
 ### Added
+- Editing text (internal builds): move a line of a PDF's own text. Tap Edit, press and hold a line,
+  and drag it to where you want it. The line moves in the page itself and can be undone; it is not
+  moved on top of other content.
 - Settings › About is now a page of its own: the app's version, the privacy policy, terms and
   support, a way to share PDF Algo Pro, and who makes it.
 - The app opens on a new Home: scan or import in one tap, pick up the documents you opened last,
@@ -97,6 +100,9 @@ Store notes (see the changelog strategy).
 - Report a problem now includes the diagnostics summary unless you turn it off in Settings › Help,
   and remembers your choice. The summary never includes your documents, and you can read it in the
   email, and delete it, before you send.
+- Drawing: Undo and Redo are in the bar while you draw or mark text, so a line or shape that went
+  wrong is taken back with one tap. With a shape tool in hand, dragging a shape that is already on
+  the page moves it; dragging on the bare page draws a new one.
 - Settings is easier to scan: every row has a symbol, and privacy and security are in one place
   (the privacy report moved there from its own section).
 - Report a problem now writes to pdfalgopro@algorythmos.com.

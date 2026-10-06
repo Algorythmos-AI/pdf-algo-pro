@@ -14,6 +14,11 @@
     var onStroke: (([CGPoint]) -> Void)?
     /// What the drag draws, so the preview matches what will be added.
     var tool = DrawingTool.pen
+    /// Asked where a touch lands, before it becomes a stroke: `false` leaves the touch to the page
+    /// view, which moves what is there instead of drawing over it.
+    var shouldDraw: ((CGPoint) -> Bool)? {
+      didSet { recognizer.canStart = shouldDraw }
+    }
     private let stroke = CAShapeLayer()
     private let recognizer = InkStrokeRecognizer()
 
@@ -97,10 +102,17 @@
   final class InkStrokeRecognizer: UIGestureRecognizer {
     /// The stroke so far, in the view's coordinates.
     private(set) var points: [CGPoint] = []
+    /// Whether a stroke may start at a point; when it may not, the recognizer fails at once and
+    /// the recognizers that waited for it take the touch.
+    var canStart: ((CGPoint) -> Bool)?
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
       guard points.isEmpty, touches.count == 1, let touch = touches.first else {
         state = state == .possible ? .failed : .cancelled
+        return
+      }
+      if let canStart, !canStart(touch.location(in: view)) {
+        state = .failed
         return
       }
       points = [touch.location(in: view)]

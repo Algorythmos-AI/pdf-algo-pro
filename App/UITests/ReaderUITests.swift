@@ -78,6 +78,45 @@ final class ReaderUITests: UITestCase {
     XCTAssertTrue(undo.isEnabled, "The signature was placed and can be undone")
   }
 
+  /// A tester placed several arrows and found no way to take one back or to move one.
+  func testAShapeIsUndoneFromTheBarAndSaysItCanBeMoved() throws {
+    let app = launch(["-skip-onboarding", "-seed-library", "sample"])
+    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
+    app.buttons["reader.markup"].tap()
+    app.buttons["Shapes"].tap()
+    app.buttons["Arrow"].tap()
+    let area = app.descendants(matching: .any)["reader.drawing"].firstMatch
+    XCTAssertTrue(area.waitForExistence(timeout: Self.settleTimeout))
+    XCTAssertTrue(app.staticTexts["Drag to draw. Drag a shape to move it."].waitForExistence(timeout: 5))
+    let undo = app.buttons["reader.drawing.undo"]
+    let redo = app.buttons["reader.drawing.redo"]
+    XCTAssertTrue(undo.waitForExistence(timeout: 5), "Undo is in the bar while drawing")
+    XCTAssertFalse(undo.isEnabled, "Nothing to undo yet")
+    try audit(app)
+
+    point(0.2, 0.6, in: area, of: app).press(forDuration: 0.1, thenDragTo: point(0.8, 0.6, in: area, of: app))
+    XCTAssertTrue(waitUntil(undo, isEnabled: true), "The arrow can be undone")
+
+    // A drag that starts on the arrow moves it: that is a second step to undo, not a second arrow.
+    point(0.5, 0.6, in: area, of: app).press(forDuration: 0.2, thenDragTo: point(0.5, 0.75, in: area, of: app))
+    XCTAssertTrue(
+      app.staticTexts["Drag it to move it"].waitForExistence(timeout: 5), "The arrow was picked up, not drawn over")
+
+    undo.tap()
+    XCTAssertTrue(waitUntil(redo, isEnabled: true), "What was undone can be redone")
+    undo.tap()
+    XCTAssertTrue(waitUntil(undo, isEnabled: false), "Both steps are taken back")
+    app.buttons["reader.doneDrawing"].tap()
+    XCTAssertTrue(app.buttons["reader.markup"].waitForExistence(timeout: 5))
+  }
+
+  /// Waits for a control to become enabled or disabled.
+  private func waitUntil(_ control: XCUIElement, isEnabled: Bool) -> Bool {
+    let predicate = NSPredicate(format: "isEnabled == %@", NSNumber(value: isEnabled))
+    return XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: predicate, object: control)], timeout: 10)
+      == .completed
+  }
+
   func testShapesAndTextBoxesAreAdded() throws {
     let app = launch(["-skip-onboarding", "-seed-library", "sample"])
     XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))

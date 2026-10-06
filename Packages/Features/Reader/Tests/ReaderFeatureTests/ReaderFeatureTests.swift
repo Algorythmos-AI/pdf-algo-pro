@@ -1548,6 +1548,65 @@ struct ReaderTextEditingTests {
     draft.isInPlace = false
     #expect(ImageRenderer(content: TextEditBar(model: reader, draft: draft).frame(width: 390)).uiImage != nil)
   }
+
+  @Test("A line is moved to where it was dropped, saved, and can be undone")
+  func movingText() async throws {
+    let harness = Harness()
+    let (reader, document) = try await editing(try TextEditFixtures.invoice(), in: harness)
+    let controller = try #require(reader.controller)
+    let region = try #require(await controller.pageText(onPage: 0).regions.first { $0.text.contains("John Smith") })
+    let selection = TextRegionSelection(pageIndex: 0, region: region)
+    #expect(reader.showsTextEditStartHint)
+
+    #expect(await reader.moveText(selection, by: CGVector(dx: 30, dy: -220)))
+    #expect(reader.textMoves == 1 && reader.textEditMessage == nil && reader.textEditNotice == nil)
+    #expect(reader.selectedTextRegion == nil && reader.canUndo && !reader.showsTextEditStartHint)
+    // In the saved file the line is where it was put, and it is still the page's own text.
+    let url = try await harness.library.fileURL(for: document.id)
+    let saved = try PDFDocumentController(url: url)
+    saved.setEditingText(true)
+    let moved = try #require(await saved.pageText(onPage: 0).regions.first { $0.text.contains("John Smith") })
+    #expect(abs(moved.bounds.midY - region.bounds.midY + 220) < 2 && saved.annotationCount(onPage: 0) == 0)
+
+    await reader.undo()
+    #expect(
+      await controller.pageText(onPage: 0).regions.contains {
+        $0.text.contains("John Smith") && abs($0.bounds.midY - region.bounds.midY) < 2
+      })
+  }
+
+  @Test("Text dropped onto other text is not moved, and the reader says there is no room")
+  func movingOntoOtherText() async throws {
+    let harness = Harness()
+    let (reader, _) = try await editing(try TextEditFixtures.invoice(), in: harness)
+    let controller = try #require(reader.controller)
+    let regions = await controller.pageText(onPage: 0).regions
+    let region = try #require(regions.first { $0.text.contains("John Smith") })
+    let target = try #require(regions.first { $0.text.contains("INV-2026") })
+    let onto = CGVector(dx: 0, dy: target.bounds.midY - region.bounds.midY)
+    #expect(await reader.moveText(TextRegionSelection(pageIndex: 0, region: region), by: onto) == false)
+    #expect(reader.textEditMessage == .somethingInTheWay && reader.textMoves == 0 && !reader.canUndo)
+    #expect(controller.annotationCount(onPage: 0) == 0 && !controller.hasUnsavedTextEdits)
+    let label = TextEditMessageLabel(message: .somethingInTheWay).frame(width: 300)
+    #expect(ImageRenderer(content: label).uiImage != nil)
+    #expect(ImageRenderer(content: TextEditHint(model: reader).frame(width: 390)).uiImage != nil)
+  }
+
+  @Test("Text that cannot be moved in the page is covered and placed, and the reader says so")
+  func movingByCovering() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try TextEditFixtures.invoice())
+    let reader = harness.reader(for: document, editor: RefusingEditor(rehearsalsFail: false))
+    await reader.load()
+    await reader.beginTextEditing()
+    let controller = try #require(reader.controller)
+    await controller.finishTextRehearsal(onPage: 0)
+    let region = try #require(await controller.pageText(onPage: 0).regions.first { $0.text.contains("John Smith") })
+    #expect(await reader.moveText(TextRegionSelection(pageIndex: 0, region: region), by: CGVector(dx: 0, dy: -220)))
+    #expect(reader.textEditNotice == .coveredInstead && controller.annotationCount(onPage: 0) == 2)
+    await reader.undoCoverInstead()
+    #expect(controller.annotationCount(onPage: 0) == 0)
+  }
 }
 
 private enum Failure: Error { case unexpected }

@@ -223,13 +223,46 @@ final class TextEditingUITests: UITestCase {
     XCTAssertTrue(notice.waitForNonExistence(timeout: 10))
     XCTAssertTrue(done.isEnabled, "Text editing goes on")
     XCTAssertFalse(
-      app.staticTexts["Tap any text to change it"].exists, "How to start is not said again once text was picked")
+      app.staticTexts["Tap text to change it. Hold and drag to move it."].exists,
+      "How to start is not said again once text was picked")
 
     // The next line on this page says it will be covered before anything is typed.
     tap(line(containing: "This sample shows", in: app), until: field)
     let message = app.staticTexts["reader.textEdit.message"]
     XCTAssertTrue(message.waitForExistence(timeout: 5))
     XCTAssertTrue(message.label.contains("cover"), "Said before typing")
+  }
+
+  /// A tester asked to move the page's own text about with a finger.
+  func testALineIsMovedByHoldingAndDraggingIt() throws {
+    let app = launch(["-skip-onboarding", "-seed-library", "sample", "-text-editing", "available"])
+    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
+    let done = app.buttons["reader.doneEditingText"]
+    tap(app.buttons["reader.edit"], until: done)
+    XCTAssertTrue(app.staticTexts["Tap text to change it. Hold and drag to move it."].waitForExistence(timeout: 10))
+    let heading = line(containing: "Try these", in: app)
+    XCTAssertTrue(heading.waitForExistence(timeout: 15))
+    let before = heading.frame
+    // Down into the empty lower half of the page.
+    let start = heading.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+    start.press(forDuration: 0.9, thenDragTo: start.withOffset(CGVector(dx: 30, dy: 220)))
+
+    let undo = app.buttons["reader.textEdit.undo"]
+    XCTAssertTrue(undo.waitForExistence(timeout: 5))
+    let moved = NSPredicate { _, _ in
+      abs(self.line(containing: "Try these", in: app).frame.minY - before.minY - 220) < 30
+    }
+    XCTAssertEqual(
+      XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: moved, object: nil)], timeout: 20), .completed,
+      "The line is where it was dropped, not at \(line(containing: "Try these", in: app).frame)")
+    XCTAssertFalse(app.textFields["reader.textEdit.field"].exists, "Moving opens no editor")
+    XCTAssertTrue(undo.isEnabled, "The move can be undone")
+
+    undo.tap()
+    let back = NSPredicate { _, _ in abs(self.line(containing: "Try these", in: app).frame.minY - before.minY) < 12 }
+    XCTAssertEqual(
+      XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: back, object: nil)], timeout: 20), .completed,
+      "Undo puts the line back")
   }
 
   func testEditingIsLockedWithoutProAndAbsentWhenTheBuildDoesNotHaveIt() throws {
