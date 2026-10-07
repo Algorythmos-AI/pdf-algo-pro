@@ -10,9 +10,20 @@
   /// One row opens the live AI evaluation. The text is English only: App Store builds do not contain it.
   struct EvaluationSection: View {
     let intelligence: any DocumentIntelligence
+    /// Reads the entitlement again, after the switch below changed what it is.
+    let onEntitlementOverride: () -> Void
+    @State private var hasPro = UserDefaults.standard.bool(forKey: InternalEntitlementOverride.key)
 
     var body: some View {
       Section {
+        Toggle(isOn: $hasPro) {
+          TileLabel(Text(verbatim: "Pro without a purchase"), systemImage: "crown", tone: .quiet)
+        }
+        .accessibilityIdentifier("internal.entitlement.pro")
+        .onChange(of: hasPro) {
+          UserDefaults.standard.set(hasPro, forKey: InternalEntitlementOverride.key)
+          onEntitlementOverride()
+        }
         NavigationLink {
           EvaluationView(intelligence: intelligence)
         } label: {
@@ -21,6 +32,12 @@
         .accessibilityIdentifier("evaluation.open")
       } header: {
         Text(verbatim: "Internal testing").foregroundStyle(Color.ds.labelSecondary)
+      } footer: {
+        Text(
+          verbatim:
+            "Off, this build follows the sandbox store: the offer, the daily limits and locked features show as they will to customers."
+        )
+        .foregroundStyle(Color.ds.labelSecondary)
       }
     }
   }

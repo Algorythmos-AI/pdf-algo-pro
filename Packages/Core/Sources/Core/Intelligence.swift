@@ -24,6 +24,8 @@ public enum IntelligenceUnavailableReason: String, Codable, Sendable, CaseIterab
   case hiddenBySettings
   /// The request does not fit the on-device model and no opt-in tier is available in this build.
   case requestTooLarge
+  /// The free tier's requests for the day are used (FR-STORE-008); they start again tomorrow.
+  case dailyAllowanceUsed
 }
 
 /// Whether document intelligence can run, and on which tier.

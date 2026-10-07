@@ -15,6 +15,12 @@ Store notes (see the changelog strategy).
   only ever means a red annotation or Delete.
 
 ### Added
+- A short introduction the first time you open the app: three pages on what it does, with Skip on
+  every one.
+- PDF Algo Pro now has a Pro subscription. The app stays free to use, with a daily limit on new
+  scans and on summaries and answers; Pro removes it. Settings › Subscription shows your plan and lets you see the plans, manage
+  or restore a subscription, and redeem a code. Opening, reading, signing, sharing and exporting
+  your documents never need Pro.
 - Editing text (internal builds): move a line of a PDF's own text. Tap Edit, press and hold a line,
   and drag it to where you want it. The line moves in the page itself and can be undone; it is not
   moved on top of other content.

@@ -1,4 +1,5 @@
 import AssistantFeature
+import Commerce
 import Core
 import CoreSpotlight
 import Foundation
@@ -7,6 +8,7 @@ import OCR
 import Observation
 import OnboardingFeature
 import PDFEngine
+import PaywallFeature
 import ReaderFeature
 import ScanFeature
 import SettingsFeature
@@ -22,11 +24,20 @@ final class AppModel {
   enum Sheet: String, Identifiable {
     case scan
     case settings
+    /// The subscription offer, and after a purchase its confirmation (ADR-0026).
+    case paywall
     var id: String { rawValue }
   }
 
   private(set) var settings: AppSettings
   var sheet: Sheet?
+  /// Why the subscription offer is, or was last, on screen.
+  private(set) var paywallTrigger: PaywallTrigger = .settings
+  /// The end of a trial to tell the person about now, in the app, because no notification will.
+  var trialNotice: Date?
+  /// Whether the plans had loaded by the time first run ended; asked for when first run starts, so
+  /// its end never waits on the App Store.
+  @ObservationIgnored private var plansAreAvailable = false
   let container: AppContainer
   let library: LibraryModel
   /// App Lock (FR-SET-002).
@@ -38,7 +49,10 @@ final class AppModel {
   @ObservationIgnored private var reader: (selection: DocumentSelection, model: ReaderModel)?
   @ObservationIgnored private(set) lazy var onboarding = OnboardingModel(
     settings: container.settings, intelligence: container.intelligence, telemetry: container.telemetry
-  ) { [weak self] in self?.settings = $0 }
+  ) { [weak self] in
+    self?.settings = $0
+    self?.offerAfterFirstRun()
+  }
 
   init(container: AppContainer) {
     self.container = container
@@ -58,7 +72,7 @@ final class AppModel {
       library: container.library, intake: container.intake, index: container.index, settings: container.settings,
       telemetry: container.telemetry, thumbnails: container.thumbnails)
     IntentRouter.shared.attach(
-      library: container.library, intelligence: container.intelligence, index: container.index
+      library: container.library, intelligence: container.meteredIntelligence, index: container.index
     ) { [weak self] route in self?.navigate(to: route) }
     if container.environment.seedsSample {
       Task { await library.addSample() }
@@ -88,6 +102,12 @@ final class AppModel {
     Task { await container.migrateSpotlightIfNeeded() }
     // Purchases are followed from launch, so one approved or renewed while the app was closed is seen.
     container.entitlements.start()
+    if !settings.hasCompletedOnboarding {
+      Task { [weak self, container] in
+        let available = await container.store.productsAreAvailable(container.catalog.ordered)
+        self?.plansAreAvailable = available
+      }
+    }
     // Text recognition the app was stopped in the middle of goes on from where it was (P8).
     Task { await container.recognition.resumePending() }
   }
@@ -107,10 +127,86 @@ final class AppModel {
       sheet = nil
       library.open(id, pageIndex: pageIndex)
     case .scan:
-      sheet = .scan
+      startScan()
     case .settings:
       sheet = .settings
     }
+  }
+
+  // MARK: - Subscription
+
+  /// Shows the subscription offer once, as first run ends (FR-ONB-004).
+  ///
+  /// Only when the plans have loaded and the person is known not to have Pro: without a connection,
+  /// or before the App Store has answered, first run simply ends on Home. Nothing is waited for
+  /// here, and nothing is stored, so the offer cannot come back at a later launch.
+  func offerAfterFirstRun() {
+    guard plansAreAvailable, let entitlement = container.entitlements.entitlement,
+      !entitlement.grantsPro(at: Date())
+    else { return }
+    presentPaywall(.onboarding)
+  }
+
+  /// Says in the app that a trial ends within a day, for someone who has no notification for it.
+  ///
+  /// Asked when the app becomes active. Never over a sheet or during first run: it waits for the
+  /// next time the app is opened on Home or on a document.
+  func checkTrialNotice() async {
+    guard sheet == nil, settings.hasCompletedOnboarding, trialNotice == nil else { return }
+    let entitlement = await container.entitlements.resolved()
+    guard sheet == nil else { return }
+    trialNotice = container.reminders.noticeDue(for: entitlement)
+  }
+
+  /// Shows the subscription offer; it replaces a sheet that is up, such as Settings.
+  func presentPaywall(_ trigger: PaywallTrigger) {
+    paywallTrigger = trigger
+    sheet = .paywall
+  }
+
+  /// Opens the scanner, or the offer when the day's free scans are used (FR-STORE-008).
+  ///
+  /// The allowance is asked before the camera opens, so a scan that was made is never refused.
+  func startScan() {
+    Task {
+      let entitlement = await container.entitlements.resolved()
+      if await container.allowance.isAllowed(.scan, entitlement: entitlement) {
+        sheet = .scan
+      } else {
+        presentPaywall(.allowanceReached)
+      }
+    }
+  }
+
+  /// What Pro adds in this build, for the offer: only what the build does (FR-ONB-007).
+  var paywallBenefits: [PaywallBenefit] {
+    var benefits: [PaywallBenefit] = [.unlimitedScans]
+    if !settings.isIntelligenceHidden { benefits.append(.unlimitedIntelligence) }
+    if ReleaseFlag.textEditing.compiledDefault || AppTextEditingAccess.isInternalBuild {
+      benefits.append(.textEditing)
+    }
+    return benefits
+  }
+
+  func makePaywall() -> PaywallModel {
+    let language = Locale.current.language.languageCode?.identifier
+    return PaywallModel(
+      trigger: paywallTrigger, productIDs: container.catalog.ordered, benefits: paywallBenefits,
+      termsOfUse: AppLinks.termsOfUse.url(languageCode: language),
+      privacyPolicy: AppLinks.privacyPolicy.url(languageCode: language), entitlements: container.entitlements,
+      telemetry: container.telemetry,
+      setReminder: { [container] isOn, trialEndsAt in await container.reminders.set(isOn, trialEndsAt: trialEndsAt) },
+      onClose: { [weak self] in
+        if self?.sheet == .paywall { self?.sheet = nil }
+      })
+  }
+
+  /// The subscription section at the top of Settings.
+  var subscriptionSection: AnyView {
+    AnyView(
+      SubscriptionSection(entitlements: container.entitlements, store: container.store) { [weak self] in
+        self?.presentPaywall(.settings)
+      })
   }
 
   /// Handles a `pdfalgopro://` URL; anything else is ignored.
@@ -140,6 +236,8 @@ final class AppModel {
       intake: container.intake, index: container.index, settings: container.settings, telemetry: container.telemetry,
       recognition: container.recognition, signatures: container.signatures, textEditing: container.textEditing,
       textEditingDiagnostics: container.textEditingDiagnostics, textEditor: container.textEditor)
+    model.onSeePlans = { [weak self] in self?.presentPaywall(.lockedFeature) }
+    model.onAllowanceUsed = { [weak self] in self?.presentPaywall(.allowanceReached) }
     reader = (selection, model)
     return model
   }
@@ -150,9 +248,11 @@ final class AppModel {
   }
 
   func makeAssistant(for context: ReaderAssistantContext) -> AssistantModel {
-    AssistantModel(
-      task: context.task, intelligence: container.intelligence, pages: context.pages, telemetry: container.telemetry,
-      onReveal: context.reveal)
+    let model = AssistantModel(
+      task: context.task, intelligence: container.meteredIntelligence, pages: context.pages,
+      telemetry: container.telemetry, onReveal: context.reveal)
+    model.onSeePlans = context.seePlans
+    return model
   }
 
   func makeScan() -> ScanModel {
@@ -164,6 +264,8 @@ final class AppModel {
       guard let self else { return }
       sheet = nil
       Task {
+        // Counted once the scan is saved: a scan that was cancelled or failed costs nothing.
+        await container.allowance.recordSuccess(.scan)
         await library.reload()
         library.open(document.id)
       }
@@ -173,7 +275,10 @@ final class AppModel {
   /// The internal tools section in Settings: the live AI evaluation, in Debug and Staging builds only.
   var internalTools: AnyView? {
     #if INTERNAL_TOOLS
-      AnyView(EvaluationSection(intelligence: container.intelligence))
+      AnyView(
+        EvaluationSection(intelligence: container.intelligence) { [container] in
+          Task { await container.entitlements.refresh() }
+        })
     #else
       nil
     #endif

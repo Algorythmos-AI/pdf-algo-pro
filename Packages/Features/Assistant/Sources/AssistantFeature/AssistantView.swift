@@ -150,6 +150,19 @@ public struct AssistantView: View {
       answerCard(answer)
     case .extracted(let extraction):
       extractionCard(extraction)
+    case .unavailable(.dailyAllowanceUsed):
+      EmptyState(Text("You’ve used today’s free answers", bundle: .module), systemImage: "sparkles") {
+        Self.explanation(for: .dailyAllowanceUsed)
+      } actions: {
+        if let onSeePlans = model.onSeePlans {
+          Button(action: onSeePlans) {
+            Text("See plans", bundle: .module)
+          }
+          .buttonStyle(.primary)
+          .accessibilityIdentifier("assistant.seePlans")
+        }
+      }
+      .accessibilityIdentifier("assistant.allowanceUsed")
     case .unavailable(let reason):
       EmptyState(Text("Document intelligence isn't available", bundle: .module), systemImage: "sparkles") {
         Self.explanation(for: reason)
@@ -348,6 +361,10 @@ public struct AssistantView: View {
     case .requestTooLarge:
       Text(
         "This request is too large for the on-device model. Try a shorter question or a smaller document.",
+        bundle: .module)
+    case .dailyAllowanceUsed:
+      Text(
+        "Summaries, answers and extraction start again tomorrow. Pro has no daily limit. Your documents are not affected.",
         bundle: .module)
     }
   }

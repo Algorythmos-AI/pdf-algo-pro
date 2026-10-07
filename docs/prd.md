@@ -93,7 +93,7 @@ targets are only defined here; their values are held privately.
 | FR-ONB-005 | "Analyse contract" shows the disclosure "Not legal advice. Check important terms with a qualified professional." before its first use and on every result | Must | V1 | PIL-4 |
 | FR-ONB-006 | When the on-device model is unavailable, AI intents explain why (device not eligible, Apple Intelligence off, model not ready) and offer the non-AI tools. Devices without Apple Intelligence get the non-AI tools only until V2; from V2, Pro users on those devices can also opt in to the Claude tier, whose consent screen appears only when they first use it. On first run, where on-device intelligence is unavailable the third introduction page shows organising and protecting documents instead | Must | MVP | PIL-4, PIL-6 |
 | FR-ONB-007 | The introduction pages, the offer's list of what Pro adds and the "What you do most" options show only what works in the installed build; a feature that has not shipped is left out rather than marked "coming later" | Must | V1 | PIL-7 |
-| FR-ONB-008 | A one-time tip on Home points to the starting actions (scan, import); it stops for good once either is used, it is closed, or it has shown three times | Should | V1 | PIL-7 |
+| FR-ONB-008 | While the library is empty, Home says under its starting actions how to begin (import, scan, or try a sample); the line goes once a document exists. No separate tip is shown | Should | V1 | PIL-7 |
 
 **Acceptance (Must):**
 

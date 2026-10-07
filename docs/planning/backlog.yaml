@@ -367,7 +367,7 @@ items:
       - Every edit is proven before it reaches the document, or refused with the document untouched
       - The text editing device test is signed off before the release flag is turned on in a Release build
   - id: V-011
-    title: First-run introduction pages and Home's first-use tip
+    title: First-run introduction pages
     type: task
     milestone: V1
     priority: p0

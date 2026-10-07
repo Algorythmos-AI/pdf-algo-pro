@@ -11,6 +11,8 @@ public struct ReaderAssistantContext {
   public let pages: () async -> [PageText]
   /// Opens a cited page and highlights the passage.
   public let reveal: (Citation) -> Void
+  /// Closes the assistant and then opens the subscription offer, when the day's requests are used.
+  public let seePlans: () -> Void
 }
 
 /// A saved document file offered to the share sheet.
@@ -559,6 +561,12 @@ public final class ReaderModel {
   public var confirmsEditingSigned = false
   /// Whether the explanation that editing text needs a purchase is showing.
   public var showsTextEditingLocked = false
+  /// Opens the subscription offer from that explanation; `nil` where there is none to open.
+  @ObservationIgnored public var onSeePlans: (() -> Void)?
+  /// Opens the subscription offer because the day's free requests are used.
+  @ObservationIgnored public var onAllowanceUsed: (() -> Void)?
+  /// Whether to open the offer once the assistant's sheet has closed: two sheets are never up at once.
+  @ObservationIgnored private var opensPlansAfterAssistant = false
   /// Whether the person has agreed, in this reader, to edit a signed document in a copy.
   private var hasConfirmedEditingSigned = false
   /// Whether the document's words changed since the search text was last brought up to date.
@@ -1340,6 +1348,11 @@ public final class ReaderModel {
         }
         pendingReveal = citation
         assistantTask = nil
+      },
+      seePlans: { [weak self] in
+        guard let self else { return }
+        opensPlansAfterAssistant = true
+        assistantTask = nil
       })
   }
 
@@ -1407,6 +1420,10 @@ public final class ReaderModel {
   /// reader grows back and could scroll back to the page it showed before. Opening the page after
   /// the sheet has gone keeps the citation's page on screen.
   public func assistantDismissed() {
+    if opensPlansAfterAssistant {
+      opensPlansAfterAssistant = false
+      onAllowanceUsed?()
+    }
     guard let citation = pendingReveal else { return }
     pendingReveal = nil
     controller?.reveal(citation)

@@ -71,8 +71,9 @@ suite that grows top-heavy (many slow UI tests covering logic) is rebalanced.
 
 ## UI tests
 
-UI tests cover critical journeys end to end: onboarding and the no-paywall-before-first-value rule
-(FR-ONB-004), open and read, annotate and save, scan to a searchable PDF, sign, organise, ask with
+UI tests cover critical journeys end to end: the first-run introduction and the rules for the
+offer that follows it (Close at once, no offer at a later launch, without the store, or with Pro;
+FR-ONB-004), open and read, annotate and save, scan to a searchable PDF, sign, organise, ask with
 citations, subscribe and restore, and the privacy centre.
 
 - **Screen objects.** Each screen has a small type (`LibraryScreen`, `ReaderScreen`) that finds
@@ -81,12 +82,24 @@ citations, subscribe and restore, and the privacy centre.
 - **Launch arguments select a test world.** In Debug builds only, the app reads arguments such as
   `-ui-testing` (which also resets state: temporary folders and throwaway settings),
   `-seed-library <fixture-set>`, `-skip-onboarding`, `-intelligence-unavailable`,
-  `-entitlement none|trial|subscribed|expired`, `-allowance exhausted` and
+  `-entitlement none|trial|subscribed|expired`, `-allowance exhausted`, `-store unavailable` and
   `-disable-animations`, and swaps
   in a container with fakes: a scripted intelligence router, a fixed entitlement (nobody is
   entitled unless the test says so, and the App Store is never asked), a free allowance with no
   limit unless the test asks for one that is used up, a local-only document store. Language, region and text size come from `-AppleLanguages`, `-AppleLocale` and
   `-UIPreferredContentSizeCategoryName`. Release builds contain none of this.
+- **The store.** UI tests never reach the App Store, so StoreKit's view shows no plans there; they
+  check what is the app's own around it (the triggers, Close, where closing leads). Buying is
+  tested in the app's unit tests against StoreKit's local test environment (`SKTestSession` with
+  `App/Tests/Store/Products.storekit`, whose amounts and periods are test data). That environment
+  answers only in a test run started from Xcode: under `xcodebuild test`, as in CI, every call to it
+  fails with `SKInternalErrorDomain` 3, a limit of the tools that others report too
+  ([flutter/flutter#184678](https://github.com/flutter/flutter/issues/184678)). The suite checks
+  for it and is skipped where it does not answer, so CI does not buy anything. Run from Xcode with
+  the `PDFAlgoPro` scheme, the Debug app sees the same test products, so the offer can be looked at
+  with its plans before the products exist in App Store Connect. Buying is therefore
+  verified by running that suite from Xcode before a release that changes the store, and on a
+  device with a sandbox account ([device smoke test](process/device-smoke-test.md)).
 - **Deterministic data.** Libraries are seeded from generated fixtures, dates from an injected
   clock, AI answers from the scripted router. No network.
 - **Stable identifiers.** Accessibility identifiers are constants shared by the app and the tests,

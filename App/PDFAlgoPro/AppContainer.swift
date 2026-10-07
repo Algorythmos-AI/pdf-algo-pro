@@ -41,6 +41,8 @@ struct LaunchEnvironment {
   let entitlement: Entitlement?
   /// Start with the day's free allowance used up (`-allowance exhausted`).
   let allowanceExhausted: Bool
+  /// Make the store unable to load its products (`-store unavailable`), as without a connection.
+  let storeUnavailable: Bool
 
   init(arguments: [String] = ProcessInfo.processInfo.arguments) {
     #if DEBUG
@@ -85,6 +87,10 @@ struct LaunchEnvironment {
         arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil
       }
       allowanceExhausted = allowance == "exhausted"
+      let store = arguments.firstIndex(of: "-store").flatMap {
+        arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil
+      }
+      storeUnavailable = store == "unavailable"
     #else
       isUITesting = false
       skipsOnboarding = false
@@ -98,6 +104,7 @@ struct LaunchEnvironment {
       refusesTextEdits = false
       entitlement = nil
       allowanceExhausted = false
+      storeUnavailable = false
     #endif
   }
 }
@@ -138,6 +145,18 @@ final class AppContainer {
   ///
   /// UI tests have no limit unless they ask for a used-up allowance, and keep their counts apart.
   let allowance: UsageAllowance
+  /// Document intelligence within the free allowance, for the assistant and the Siri summary.
+  ///
+  /// The live AI evaluation and first run use `intelligence` itself, which is never metered.
+  var meteredIntelligence: any DocumentIntelligence {
+    MeteredIntelligence(base: intelligence, allowance: allowance) { [entitlements] in await entitlements.resolved() }
+  }
+  /// The reminder that a trial is about to end (FR-STORE-006); UI tests schedule nothing.
+  let reminders: TrialReminderScheduler
+  /// The App Store, for asking whether the plans can be shown and for Restore Purchases.
+  ///
+  /// UI tests never ask the App Store: their store has its products unless a test says otherwise.
+  let store: any StoreAccessing
   /// What edits existing text: the native editor, or under test one that cannot prove an edit.
   var textEditor: any PDFTextEditing {
     #if DEBUG
@@ -208,9 +227,22 @@ final class AppContainer {
       // A UI test never asks the App Store: without an argument, nobody is entitled.
       provider = FixedEntitlements(.none)
     } else {
-      provider = StoreKitEntitlements(productIDs: catalog.productIDs)
+      let store = StoreKitEntitlements(productIDs: catalog.productIDs)
+      #if INTERNAL_TOOLS
+        provider = InternalEntitlementOverride(base: store)
+      #else
+        provider = store
+      #endif
     }
     entitlements = EntitlementStore(provider: provider)
+    store = environment.isUITesting ? FixedStoreAccess(isAvailable: !environment.storeUnavailable) : StoreKitAccess()
+    if environment.isUITesting {
+      reminders = TrialReminderScheduler(
+        notifications: SilentNotifications(),
+        defaults: UserDefaults(suiteName: "ui-testing-reminder-\(UUID().uuidString)") ?? .standard)
+    } else {
+      reminders = TrialReminderScheduler(notifications: SystemNotifications())
+    }
     if environment.isUITesting {
       let counts = UserDefaults(suiteName: "ui-testing-allowance-\(UUID().uuidString)") ?? .standard
       allowance = UsageAllowance(

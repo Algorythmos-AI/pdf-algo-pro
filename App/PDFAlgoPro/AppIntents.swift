@@ -53,6 +53,8 @@ final class IntentRouter {
       answer = try await intelligence.summarize(try await index.pages(of: id))
     } catch IntelligenceError.noText {
       throw IntentFailure.noText
+    } catch IntelligenceError.unavailable(.dailyAllowanceUsed) {
+      throw IntentFailure.allowanceUsed
     } catch IntelligenceError.unavailable {
       throw IntentFailure.intelligenceUnavailable
     } catch {
@@ -138,7 +140,7 @@ nonisolated struct ScanDocumentIntent: AppIntent {
 
 /// Why an intent that returns a result couldn't, in words Siri can say.
 nonisolated enum IntentFailure: Error, CustomLocalizedStringResourceConvertible {
-  case notReady, documentMissing, noText, intelligenceUnavailable, failed
+  case notReady, documentMissing, noText, intelligenceUnavailable, allowanceUsed, failed
 
   var localizedStringResource: LocalizedStringResource {
     switch self {
@@ -146,6 +148,7 @@ nonisolated enum IntentFailure: Error, CustomLocalizedStringResourceConvertible 
     case .documentMissing: "That document is no longer in your library."
     case .noText: "That document has no text to summarise yet. Open it and recognise its text first."
     case .intelligenceUnavailable: "Summaries need Apple Intelligence on this device, and AI features turned on."
+    case .allowanceUsed: "You’ve used today’s free summaries. They start again tomorrow, and Pro has no daily limit."
     case .failed: "The summary couldn't be made. Try again in the app."
     }
   }

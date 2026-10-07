@@ -56,9 +56,19 @@ extension AppTests {
       }
     }
 
+    /// The first page of the introduction.
     @Test func onboarding() async {
       let app = app([])
       await app.onboarding.load()
+      check(OnboardingView(model: app.onboarding))
+    }
+
+    /// Its third page, about asking a document: the scripted intelligence is available.
+    @Test func onboardingAsk() async {
+      let app = app([])
+      await app.onboarding.load()
+      await app.onboarding.advance()
+      await app.onboarding.advance()
       check(OnboardingView(model: app.onboarding))
     }
 

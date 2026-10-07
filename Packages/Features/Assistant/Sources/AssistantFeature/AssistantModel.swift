@@ -43,6 +43,8 @@ public final class AssistantModel {
   private let pages: () async -> [PageText]
   private let telemetry: any TelemetryRecording
   private let onReveal: (Citation) -> Void
+  /// Opens the subscription offer, when the day's free requests are used; `nil` where there is none.
+  @ObservationIgnored public var onSeePlans: (() -> Void)?
   private var request: Task<Void, Never>?
   /// Counts requests; only the latest may change what is shown (defect D8).
   private var generation = 0

@@ -13,15 +13,20 @@ public struct SettingsView: View {
   @State private var reportWithoutMail: String?
   private let version: String
   private let internalTools: AnyView?
+  private let subscription: AnyView?
 
   /// Creates Settings; `version` is shown in About.
   ///
   /// `internalTools` is a section the app adds in its Debug and Staging builds only, such as the live
-  /// AI evaluation; App Store builds pass none.
-  public init(model: SettingsModel, version: String, internalTools: AnyView? = nil) {
+  /// AI evaluation; App Store builds pass none. `subscription` is the section about the person's
+  /// plan, which the app composes so that Settings knows nothing of the store.
+  public init(
+    model: SettingsModel, version: String, internalTools: AnyView? = nil, subscription: AnyView? = nil
+  ) {
     _model = State(initialValue: model)
     self.version = version
     self.internalTools = internalTools
+    self.subscription = subscription
   }
 
   /// The screen.
@@ -61,6 +66,8 @@ public struct SettingsView: View {
           )
           .foregroundStyle(Color.ds.labelSecondary)
         }
+        // After the AI switch, which stays on the first screen at every text size (FR-AI-009).
+        if let subscription { subscription }
         Section {
           // One row, not ten switches: the choices open on their own screen, so the settings people
           // look for (privacy, App Lock, storage) are on the first screen.

@@ -176,6 +176,10 @@ def main() -> int:
         if not pdf.startswith("Tests/Fixtures/Synthetic/") and "/Tests/Fixtures/Synthetic/" not in pdf:
             errors.append(f"{pdf}: PDFs may only live in Tests/Fixtures/Synthetic/ (no real documents in git)")
 
+    for config in tracked("*.storekit"):
+        if not config.startswith("App/Tests/Store/"):
+            errors.append(f"{config}: a StoreKit configuration is test data and may only live in App/Tests/Store/ (ADR-0026)")
+
     errors.extend(icon_problems())
     errors.extend(icon_document_problems())
     errors.extend(app_mark_problems())

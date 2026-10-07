@@ -2,35 +2,42 @@ import Core
 import DesignSystem
 import SwiftUI
 
-/// The single onboarding screen, which asks what the person does with PDFs most often.
+/// The first-run introduction: three pages, each with a picture, a headline, a sentence and one
+/// Continue button that stays in the same place (design system, "First-run introduction").
 public struct OnboardingView: View {
   @State private var model: OnboardingModel
+  @Environment(\.dynamicTypeSize) private var typeSize
 
-  /// Creates the screen for a model.
+  /// Creates the introduction for a model.
   public init(model: OnboardingModel) {
     _model = State(initialValue: model)
   }
 
-  /// The screen.
+  /// The introduction.
   public var body: some View {
     NavigationStack {
       VStack(spacing: 0) {
-        options
-        // Below the list, not over it: text scrolled under a translucent bar loses its contrast.
-        Button {
-          Task { await model.finish() }
-        } label: {
-          Text("Continue", bundle: .module)
+        pageContent
+          .centeredScrolling()
+          .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // Below the page, not over it: text scrolled under a translucent bar loses its contrast.
+        VStack(spacing: Spacing.s200) {
+          progress
+          Button {
+            Task { await model.advance() }
+          } label: {
+            Text("Continue", bundle: .module)
+          }
+          .buttonStyle(.primary)
+          .accessibilityIdentifier("onboarding.continue")
         }
-        .buttonStyle(.primary)
-        .accessibilityIdentifier("onboarding.continue")
         .padding(Spacing.s200)
         .background(.bar)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("onboarding.actionBar")
       }
-      .navigationTitle(Text("Welcome", bundle: .module))
-      .toolbarTitleDisplayMode(.inline)
+      .background(alignment: .top) { BrandGlow().frame(height: 360).ignoresSafeArea() }
+      .background(Color.ds.backgroundPrimary)
       .toolbar {
         ToolbarItem(placement: .cancellationAction) {
           Button {
@@ -42,55 +49,50 @@ public struct OnboardingView: View {
         }
       }
       .task { await model.load() }
+      // A new page is a new screen to VoiceOver, which then reads its headline.
+      .onChange(of: model.index) { AccessibilityNotification.ScreenChanged().post() }
     }
   }
 
-  private var options: some View {
-    ScrollView {
-      VStack(alignment: .leading, spacing: Spacing.s300) {
-        VStack(alignment: .leading, spacing: Spacing.s100) {
-          Text("What do you do with PDFs most often?", bundle: .module)
-            .font(.largeTitle.bold())
-            .accessibilityAddTraits(.isHeader)
-          Text("Choose as many as you like. You can change this later in Settings.", bundle: .module)
-            .font(.callout)
-            .foregroundStyle(Color.ds.labelSecondary)
-        }
-        group(title: Text("Ask and understand", bundle: .module), intents: model.askAndUnderstand)
-        if model.intelligenceNeedsNote {
-          Label {
-            Text(
-              "AI options need Apple Intelligence, which is off or not available on this device. The other tools work without it.",
-              bundle: .module)
-          } icon: {
-            Image(systemName: "info.circle")
-          }
-          .font(.footnote)
+  private var pageContent: some View {
+    VStack(spacing: Spacing.s400) {
+      // At the largest text sizes the words need the room; the picture says nothing they do not.
+      if !typeSize.isAccessibilitySize {
+        OnboardingIllustration(page: model.page)
+      }
+      VStack(spacing: Spacing.s150) {
+        model.page.title
+          .font(.largeTitle.bold())
+          .multilineTextAlignment(.center)
+          // As tall as its lines need: a headline that wraps at a large text size is never cut.
+          .fixedSize(horizontal: false, vertical: true)
+          .accessibilityAddTraits(.isHeader)
+          // Where the person is, read with the headline: the dots below are only to look at.
+          .accessibilityValue(Text("Page \(model.index + 1) of \(model.pages.count)", bundle: .module))
+          .accessibilityIdentifier("onboarding.page.\(model.page.rawValue)")
+        model.page.detail
+          .font(.body)
           .foregroundStyle(Color.ds.labelSecondary)
-          .accessibilityIdentifier("onboarding.intelligenceNote")
-        }
-        group(title: Text("Work with PDFs", bundle: .module), intents: model.workWithPDFs)
+          .multilineTextAlignment(.center)
+          .fixedSize(horizontal: false, vertical: true)
       }
-      .padding(Spacing.s200)
-      .readableWidth()
     }
-    .background(Color.ds.backgroundGrouped)
+    .padding(Spacing.s300)
+    .readableWidth()
+    .id(model.page)
+    .motion(value: model.index)
   }
 
-  private func group(title: Text, intents: [OnboardingIntent]) -> some View {
-    VStack(alignment: .leading, spacing: Spacing.s100) {
-      title.font(.title3.weight(.semibold)).accessibilityAddTraits(.isHeader)
-      ForEach(intents) { intent in
-        Button {
-          model.toggle(intent)
-        } label: {
-          IntentCard(
-            symbol: IntentCopy.symbol(intent), title: IntentCopy.title(intent), detail: IntentCopy.detail(intent),
-            isSelected: model.isSelected(intent))
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("onboarding.intent.\(intent.rawValue)")
+  /// Where the person is in the introduction, to look at; VoiceOver hears it with the headline.
+  private var progress: some View {
+    HStack(spacing: Spacing.s100) {
+      ForEach(model.pages.indices, id: \.self) { index in
+        Capsule()
+          .fill(index == model.index ? Color.ds.brandFill : Color.ds.fillPrimary)
+          .frame(width: index == model.index ? 24 : 8, height: 8)
       }
     }
+    .motion(value: model.index)
+    .accessibilityHidden(true)
   }
 }

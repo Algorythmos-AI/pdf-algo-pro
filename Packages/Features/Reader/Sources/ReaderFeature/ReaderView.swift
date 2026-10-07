@@ -237,7 +237,13 @@ public struct ReaderView<Assistant: View>: View {
           bundle: .module)
       }
       .alert(Text("Editing text needs Pro", bundle: .module), isPresented: $model.showsTextEditingLocked) {
-        Button {
+        if let onSeePlans = model.onSeePlans {
+          Button(action: onSeePlans) {
+            Text("See plans", bundle: .module)
+          }
+          .accessibilityIdentifier("reader.textEdit.seePlans")
+        }
+        Button(role: .cancel) {
         } label: {
           Text("OK", bundle: .module)
         }

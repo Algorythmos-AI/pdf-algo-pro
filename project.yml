@@ -66,6 +66,8 @@ packages:
     path: Packages/Features/Scan
   Settings:
     path: Packages/Features/Settings
+  Paywall:
+    path: Packages/Features/Paywall
   # Test-only (ADR-0018): linked by PDFAlgoProTests alone, never by the app. Pinned exactly; 1.19.4 rather than
   # the newest release, so a dependency is at least a few weeks old before it runs in CI.
   SnapshotTesting:
@@ -105,6 +107,8 @@ targets:
         product: ScanFeature
       - package: Settings
         product: SettingsFeature
+      - package: Paywall
+        product: PaywallFeature
     info:
       path: App/PDFAlgoPro/Info.plist
       properties:
@@ -189,6 +193,9 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         PRODUCT_BUNDLE_IDENTIFIER: com.algorythmos.pdfalgopro.tests
         TARGETED_DEVICE_FAMILY: "1,2"
+        # StoreKitTest's own header uses a symbol Apple deprecated in iOS 18, and warnings are errors
+        # here: that one warning, in the SDK's module, is let through for the tests alone.
+        OTHER_SWIFT_FLAGS: $(inherited) -Xcc -Wno-error=deprecated-declarations
         SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
         SWIFT_UPCOMING_FEATURE_NONISOLATED_NONSENDING_BY_DEFAULT: YES
   PDFAlgoProUITests:
@@ -220,6 +227,9 @@ schemes:
         - path: Performance.xctestplan
     run:
       config: Debug
+      # Run from Xcode, the Debug app sees the test products, so the offer shows its plans without
+      # the App Store. Test data only (ADR-0026); the Staging and Release builds never see it.
+      storeKitConfiguration: App/Tests/Store/Products.storekit
     profile:
       config: Release
     analyze:

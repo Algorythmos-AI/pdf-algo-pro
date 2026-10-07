@@ -1,0 +1,336 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Change the words already in a PDF." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modifiez les mots déjà présents dans un PDF."
+          }
+        }
+      }
+    },
+    "Close" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fermer"
+          }
+        }
+      }
+    },
+    "Do more with Pro" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Allez plus loin avec Pro"
+          }
+        }
+      }
+    },
+    "Edit PDF text" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modifier le texte des PDF"
+          }
+        }
+      }
+    },
+    "Everything is ready for your next document." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tout est prêt pour votre prochain document."
+          }
+        }
+      }
+    },
+    "Free" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gratuit"
+          }
+        }
+      }
+    },
+    "It starts again tomorrow. Pro has no daily limit." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il se renouvelle demain. Pro n’a aucune limite quotidienne."
+          }
+        }
+      }
+    },
+    "Manage subscription" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gérer l’abonnement"
+          }
+        }
+      }
+    },
+    "Nothing could be restored. Check that you are signed in to the App Store with the account that bought Pro." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rien n’a pu être restauré. Vérifiez que vous êtes connecté à l’App Store avec le compte qui a acheté Pro."
+          }
+        }
+      }
+    },
+    "OK" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        }
+      }
+    },
+    "PDF Algo Pro is free to use. Pro removes the daily limits." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PDF Algo Pro est gratuit. Pro supprime les limites quotidiennes."
+          }
+        }
+      }
+    },
+    "Plan" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Formule"
+          }
+        }
+      }
+    },
+    "Pro" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pro"
+          }
+        }
+      }
+    },
+    "Pro, payment problem" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pro, problème de paiement"
+          }
+        }
+      }
+    },
+    "Pro, trial until %@" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pro, essai jusqu’au %@"
+          }
+        }
+      }
+    },
+    "Reading, signing, sharing and exporting your documents never need Pro. The free plan has a daily limit on new scans and on answers." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lire, signer, partager et exporter vos documents ne demande jamais Pro. La formule gratuite limite chaque jour les nouvelles numérisations et les réponses."
+          }
+        }
+      }
+    },
+    "Redeem a code" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Utiliser un code"
+          }
+        }
+      }
+    },
+    "Remind me the day before" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Me le rappeler la veille"
+          }
+        }
+      }
+    },
+    "Restore purchases" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restaurer les achats"
+          }
+        }
+      }
+    },
+    "See plans" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Voir les formules"
+          }
+        }
+      }
+    },
+    "Start" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Commencer"
+          }
+        }
+      }
+    },
+    "Subscription" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abonnement"
+          }
+        }
+      }
+    },
+    "Summaries, answers and extraction on this device, with no daily limit." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Résumés, réponses et extraction sur cet appareil, sans limite quotidienne."
+          }
+        }
+      }
+    },
+    "The feature you chose is part of Pro. Everything you already use stays free." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La fonction choisie fait partie de Pro. Tout ce que vous utilisez déjà reste gratuit."
+          }
+        }
+      }
+    },
+    "This needs Pro" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cette fonction fait partie de Pro"
+          }
+        }
+      }
+    },
+    "Turn as much paper as you like into searchable PDFs." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Transformez autant de papiers que vous voulez en PDF avec recherche."
+          }
+        }
+      }
+    },
+    "Unlimited answers" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Réponses illimitées"
+          }
+        }
+      }
+    },
+    "Unlimited scans" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Numérisations illimitées"
+          }
+        }
+      }
+    },
+    "Welcome to Pro" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bienvenue dans Pro"
+          }
+        }
+      }
+    },
+    "You can cancel at any time in Settings, under Subscription." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous pouvez annuler à tout moment dans Réglages, sous Abonnement."
+          }
+        }
+      }
+    },
+    "Your documents are always yours: opening, reading, signing, sharing and exporting never need Pro." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vos documents restent les vôtres : les ouvrir, les lire, les signer, les partager et les exporter ne demande jamais Pro."
+          }
+        }
+      }
+    },
+    "Your trial ends on %@." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre essai se termine le %@."
+          }
+        }
+      }
+    },
+    "You’ve used today’s free allowance" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous avez utilisé le quota gratuit du jour"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

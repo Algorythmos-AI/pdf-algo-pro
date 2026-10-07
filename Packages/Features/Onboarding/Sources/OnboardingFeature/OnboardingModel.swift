@@ -2,24 +2,28 @@ import Core
 import Foundation
 import Observation
 
-/// The onboarding intent picker (FR-ONB-001 to FR-ONB-004): one optional question, AI-first options
-/// on top, skippable, and never a paywall, account or permission request.
+/// The first-run introduction (FR-ONB-001, FR-ONB-002, FR-ONB-006): three pages, one capability
+/// each, skippable from every page, and never an account or a permission request.
+///
+/// The model knows nothing of the store. What follows the introduction (the subscription offer,
+/// then Home) is the app's to decide, once `onFinish` has run.
 @MainActor
 @Observable
 public final class OnboardingModel {
-  /// The options this build offers, in the fixed order (FR-ONB-007).
-  public let intents = OnboardingIntent.offered
-  /// The chosen intents, in the order they were chosen; the first leads the home screen.
-  public private(set) var selected: [OnboardingIntent] = []
-  /// Whether document intelligence can run on this device, once known.
-  public private(set) var availability: IntelligenceAvailability?
+  /// The pages, in order.
+  ///
+  /// The third is about on-device intelligence only when it is known to work here. Until that is
+  /// known it is the page that needs nothing, and a page that is on screen never changes.
+  public private(set) var pages: [OnboardingPage] = [.scan, .sign, .organize]
+  /// Which page is showing.
+  public private(set) var index = 0
 
   private let settings: any SettingsStoring
   private let intelligence: any DocumentIntelligence
   private let telemetry: any TelemetryRecording
   private let onFinish: (AppSettings) -> Void
 
-  /// Creates the model; `onFinish` receives the saved settings when the user continues or skips.
+  /// Creates the model; `onFinish` receives the saved settings when the person finishes or skips.
   public init(
     settings: any SettingsStoring, intelligence: any DocumentIntelligence, telemetry: any TelemetryRecording,
     onFinish: @escaping (AppSettings) -> Void
@@ -28,57 +32,48 @@ public final class OnboardingModel {
     self.intelligence = intelligence
     self.telemetry = telemetry
     self.onFinish = onFinish
-    selected = settings.load().intents
   }
 
-  /// Checks intelligence availability, so AI options can explain themselves (FR-ONB-006).
+  /// The page that is showing.
+  public var page: OnboardingPage { pages[index] }
+
+  /// Whether the last page is showing.
+  public var isLastPage: Bool { index == pages.count - 1 }
+
+  /// Finds out whether on-device intelligence works here, and shows its page third if so.
   public func load() async {
     await telemetry.record("onboarding.flow.started")
-    availability = await intelligence.availability()
+    let availability = await intelligence.availability()
+    guard availability.isAvailable, !isLastPage else { return }
+    pages[pages.count - 1] = .ask
   }
 
-  /// The AI-first options.
-  public var askAndUnderstand: [OnboardingIntent] { intents.filter(\.usesIntelligence) }
-  /// The other options.
-  public var workWithPDFs: [OnboardingIntent] { intents.filter { !$0.usesIntelligence } }
-
-  /// Whether an intent is chosen.
-  public func isSelected(_ intent: OnboardingIntent) -> Bool {
-    selected.contains(intent)
-  }
-
-  /// Chooses or un-chooses an intent.
-  public func toggle(_ intent: OnboardingIntent) {
-    if let index = selected.firstIndex(of: intent) {
-      selected.remove(at: index)
+  /// Goes to the next page, or finishes on the last.
+  public func advance() async {
+    if isLastPage {
+      await finish()
     } else {
-      selected.append(intent)
+      index += 1
     }
   }
 
-  /// Whether AI options should carry the "needs Apple Intelligence" note.
-  public var intelligenceNeedsNote: Bool {
-    guard let availability else { return false }
-    return !availability.isAvailable
-  }
-
-  /// Saves the choice and finishes onboarding.
+  /// Finishes the introduction after its last page.
   public func finish() async {
-    var current = settings.load()
-    current.intents = selected
-    current.hasCompletedOnboarding = true
-    settings.save(current)
-    for _ in selected { await telemetry.record("onboarding.intent.selected") }
-    await telemetry.record("onboarding.flow.completed")
-    onFinish(current)
+    await complete(recording: "onboarding.flow.completed")
   }
 
-  /// Skips the question; it never returns uninvited and stays in Settings.
+  /// Leaves the introduction early; it never returns uninvited.
   public func skip() async {
+    await complete(recording: "onboarding.flow.skipped")
+  }
+
+  /// Marks first run as done before anything else is shown, so that leaving the app at whatever
+  /// comes next (the subscription offer) leads to Home the next time.
+  private func complete(recording event: String) async {
     var current = settings.load()
     current.hasCompletedOnboarding = true
     settings.save(current)
-    await telemetry.record("onboarding.flow.skipped")
+    await telemetry.record(event)
     onFinish(current)
   }
 }

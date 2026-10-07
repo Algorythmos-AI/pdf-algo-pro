@@ -56,6 +56,16 @@ struct FixedEntitlementsTests {
   }
 }
 
+@Suite("A fixed store")
+struct FixedStoreAccessTests {
+  @Test("It answers the same every time", arguments: [true, false])
+  func fixed(isAvailable: Bool) async {
+    let store = FixedStoreAccess(isAvailable: isAvailable)
+    #expect(await store.productsAreAvailable(["a", "b"]) == isAvailable)
+    #expect(await store.restorePurchases() == isAvailable)
+  }
+}
+
 @Suite("The free allowance (FR-STORE-001, FR-STORE-008)")
 struct UsageAllowanceTests {
   private let limits = AllowanceLimits(scans: 2, intelligenceRequests: 3)
