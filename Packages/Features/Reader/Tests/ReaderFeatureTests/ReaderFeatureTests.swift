@@ -1628,6 +1628,55 @@ struct ReaderTextEditingTests {
     let narrow = TextEditLayer.fieldSpan(over: CGRect(x: 10, y: 0, width: 500, height: 20), in: 120)
     #expect(narrow.x >= 0 && narrow.x + narrow.width <= 120 && narrow.width > 0)
   }
+
+  @Test("A line longer than the field can be scrolled to either end, and stays one line")
+  func longLineScrolls() throws {
+    let field = SingleLineTextView()
+    field.font = UIFont(name: "Helvetica", size: 22)
+    field.frame = CGRect(x: 0, y: 0, width: 300, height: 30)
+    let container = UIView(frame: CGRect(x: 0, y: 0, width: 393, height: 852))
+    container.addSubview(field)
+
+    // Short text: nothing to scroll.
+    field.show("Short")
+    field.layoutIfNeeded()
+    #expect(field.contentSize.width == 300 && field.contentSize.height == 30)
+
+    // A line of small print, zoomed in: several times the field's width.
+    field.show("This footer is one long sentence of small print, set on a single line right across the page.")
+    field.layoutIfNeeded()
+    #expect(
+      field.lineWidth > 800 && field.contentSize.width >= field.lineWidth,
+      "\(field.lineWidth)")
+    #expect(field.contentSize.height == 30, "It never scrolls up and down")
+    #expect(field.isScrollEnabled && field.textContainer.maximumNumberOfLines == 1)
+    // Either end can be brought into view.
+    field.contentOffset = CGPoint(x: field.contentSize.width - 300, y: 0)
+    field.layoutIfNeeded()
+    #expect(field.contentOffset.x > 500)
+    field.contentOffset = .zero
+    field.layoutIfNeeded()
+    #expect(field.contentOffset == .zero, "The start of the line can be got back to")
+    // The line is in the middle of the field's height.
+    #expect(field.textContainerInset.top > 0 && field.textContainerInset.top < 8)
+  }
+
+  @Test("Return finishes the edit, and a pasted line break becomes a space")
+  func fieldIsOneLine() throws {
+    let draft = TextEditDraft()
+    var submitted = 0
+    let coordinator = TextEditField(draft: draft, onSubmit: { submitted += 1 }).makeCoordinator()
+    let field = SingleLineTextView()
+    field.delegate = coordinator
+    field.text = "Total due"
+    let end = NSRange(location: 9, length: 0)
+    #expect(coordinator.textView(field, shouldChangeTextIn: end, replacementText: "s"))
+    #expect(!coordinator.textView(field, shouldChangeTextIn: end, replacementText: "\n") && submitted == 1)
+    #expect(!coordinator.textView(field, shouldChangeTextIn: end, replacementText: " now\nand later"))
+    #expect(field.text == "Total due now and later" && submitted == 1)
+    coordinator.textViewDidChange(field)
+    #expect(draft.text == "Total due now and later")
+  }
 }
 
 private enum Failure: Error { case unexpected }

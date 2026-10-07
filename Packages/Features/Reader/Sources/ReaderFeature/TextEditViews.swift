@@ -25,10 +25,9 @@ struct TextEditField: UIViewRepresentable {
   var color: UIColor?
   var onSubmit: () -> Void
 
-  func makeUIView(context: Context) -> UITextField {
-    let field = UITextField()
+  func makeUIView(context: Context) -> SingleLineTextView {
+    let field = SingleLineTextView()
     field.delegate = context.coordinator
-    field.addTarget(context.coordinator, action: #selector(Coordinator.changed(_:)), for: .editingChanged)
     // Smart quotes, dashes and corrections would change what the person typed after they typed it.
     field.autocorrectionType = .no
     field.autocapitalizationType = .none
@@ -45,11 +44,12 @@ struct TextEditField: UIViewRepresentable {
     return field
   }
 
-  func updateUIView(_ field: UITextField, context: Context) {
+  func updateUIView(_ field: SingleLineTextView, context: Context) {
     context.coordinator.parent = self
-    if field.text != draft.text { field.text = draft.text }
+    if field.text != draft.text { field.show(draft.text) }
     field.font = font ?? UIFont.preferredFont(forTextStyle: .body)
     field.textColor = color ?? .label
+    field.setNeedsLayout()
     if !context.coordinator.hasFocused {
       context.coordinator.hasFocused = true
       // After this update, so the field is in a window when it asks for the keyboard.
@@ -60,7 +60,7 @@ struct TextEditField: UIViewRepresentable {
   func makeCoordinator() -> Coordinator { Coordinator(self) }
 
   @MainActor
-  final class Coordinator: NSObject, UITextFieldDelegate {
+  final class Coordinator: NSObject, UITextViewDelegate {
     var parent: TextEditField
     var hasFocused = false
 
@@ -68,14 +68,139 @@ struct TextEditField: UIViewRepresentable {
       self.parent = parent
     }
 
-    @objc func changed(_ field: UITextField) {
-      parent.draft.text = field.text ?? ""
+    func textViewDidChange(_ textView: UITextView) {
+      parent.draft.text = textView.text ?? ""
+      // Typing does not go through `text`, so the scrolling area is fitted here, and the caret is
+      // kept in view at the end of a line that has grown.
+      (textView as? SingleLineTextView)?.fitLine()
+      textView.scrollRangeToVisible(textView.selectedRange)
     }
 
-    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
-      parent.onSubmit()
+    func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
+      guard text.contains(where: \.isNewline) else { return true }
+      // Return is Done. A line that is pasted in with line breaks is one line here: the breaks
+      // become spaces.
+      if text.allSatisfy(\.isNewline) {
+        parent.onSubmit()
+      } else if let replaced = textView.textRange(from: range) {
+        textView.replace(replaced, withText: text.split(whereSeparator: \.isNewline).joined(separator: " "))
+      }
       return false
     }
+  }
+}
+
+/// One line of text to type into, which scrolls sideways under a finger when it is longer than
+/// the field.
+///
+/// A text field shows a long line only around its caret, and cannot be swiped: a line of small
+/// print, zoomed in to be read, is several screens wide, and its start could not be got back to
+/// (the owner's reports, 2026-10-07). This is a text view kept to one line, so it scrolls like any
+/// scrolling text and still follows the caret.
+final class SingleLineTextView: UITextView {
+  init() {
+    // The text system is put together here, not left to the view: left to itself the view makes
+    // a container as wide as it is, and the line would be cut off at the field's edge.
+    let storage = NSTextStorage()
+    let layout = NSLayoutManager()
+    // The line is as long as its words; the view is a window onto it.
+    let container = NSTextContainer(
+      size: CGSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude))
+    container.widthTracksTextView = false
+    container.heightTracksTextView = false
+    container.lineFragmentPadding = 0
+    container.maximumNumberOfLines = 1
+    container.lineBreakMode = .byClipping
+    layout.addTextContainer(container)
+    storage.addLayoutManager(layout)
+    super.init(frame: .zero, textContainer: container)
+    backgroundColor = .clear
+    textContainerInset = .zero
+    isScrollEnabled = true
+    alwaysBounceHorizontal = true
+    alwaysBounceVertical = false
+    showsHorizontalScrollIndicator = false
+    showsVerticalScrollIndicator = false
+    isDirectionalLockEnabled = true
+    contentInsetAdjustmentBehavior = .never
+    isBuilt = true
+  }
+
+  @available(*, unavailable)
+  required init?(coder: NSCoder) { nil }
+
+  /// False while the text view is still being put together, when its text container is not there yet.
+  private var isBuilt = false
+
+  /// How wide the line of text is, laid out.
+  var lineWidth: CGFloat {
+    keepLineUnbroken()
+    layoutManager.ensureLayout(for: textContainer)
+    return ceil(layoutManager.usedRect(for: textContainer).width)
+  }
+
+  /// Puts the container back to "as wide as the words".
+  ///
+  /// A scrolling text view sets its container to its own width whenever it lays out, whatever the
+  /// container was told, so this is said again each time.
+  private func keepLineUnbroken() {
+    if textContainer.widthTracksTextView { textContainer.widthTracksTextView = false }
+    if textContainer.size.width < 100_000 {
+      textContainer.size = CGSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+    }
+  }
+
+  override func layoutSubviews() {
+    super.layoutSubviews()
+    fitLine()
+  }
+
+  /// Shows a line of text, and fits the scrolling area to it.
+  func show(_ line: String) {
+    text = line
+    fitLine()
+  }
+
+  /// Sizes the scrolling area to the one line of text, and centres the line in the field's height.
+  ///
+  /// Called on every layout and every change to the text, because the text view does not always
+  /// lay itself out again when its text changes.
+  func fitLine() {
+    guard isBuilt else { return }
+    keepLineUnbroken()
+    layoutManager.ensureLayout(for: textContainer)
+    let used = layoutManager.usedRect(for: textContainer)
+    // The line sits in the middle of the field's height, as a text field's does.
+    let top = max(0, (bounds.height - used.height) / 2)
+    if abs(textContainerInset.top - top) > 0.5 {
+      textContainerInset = UIEdgeInsets(top: top, left: 0, bottom: 0, right: 0)
+    }
+    let size = scrollSize
+    if super.contentSize != size { super.contentSize = size }
+    if contentOffset.y != 0 { contentOffset.y = 0 }
+  }
+
+  /// Wide enough to scroll to either end, with room for the caret after the last letter; never
+  /// tall enough to scroll up and down.
+  private var scrollSize: CGSize {
+    CGSize(width: max(bounds.width, lineWidth + 6), height: bounds.height)
+  }
+
+  /// The text view works out its own scrolling size whenever the text changes, from a line as wide
+  /// as itself; whatever it asks for, it gets the size of the one unbroken line.
+  override var contentSize: CGSize {
+    get { super.contentSize }
+    set { super.contentSize = isBuilt ? scrollSize : newValue }
+  }
+}
+
+extension UITextView {
+  /// A text range for a range of the view's text, counted in UTF-16 units.
+  fileprivate func textRange(from range: NSRange) -> UITextRange? {
+    guard let start = position(from: beginningOfDocument, offset: range.location),
+      let end = position(from: start, offset: range.length)
+    else { return nil }
+    return textRange(from: start, to: end)
   }
 }
 
@@ -158,7 +283,8 @@ struct TextEditLayer: View {
   /// be seen or reached (the owner's report, 2026-10-07). Kept on screen, the field scrolls its
   /// own text as the caret moves, as any text field does.
   static func fieldSpan(over frame: CGRect, in width: CGFloat) -> (x: CGFloat, width: CGFloat) {
-    let edge = width - Spacing.s100
+    // Right to the edge: a strip of page left beside the field shows the old words there.
+    let edge = width
     let span = min(max(minimumFieldWidth, edge - (frame.minX - 2)), max(0, edge - Spacing.s100))
     // Text that starts close to the right edge: the field keeps its width and starts further left.
     let x = max(Spacing.s100, min(frame.minX - 2, edge - span))

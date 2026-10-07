@@ -148,6 +148,9 @@ Store notes (see the changelog strategy).
 - Editing text (internal builds): on a long line in small print, the end of the sentence could not
   be reached while typing, because the typing field ran off the side of the screen. The field now
   stays on screen and scrolls along the line as you move through it.
+- Editing text (internal builds): on a line wider than the typing field, only the part around the
+  caret could be reached, and the rest could not be brought into view. The field can now be swiped
+  sideways to either end of the line, and a tap puts the caret where you tap.
 - Editing text (internal builds): a line containing "fi" or "fl" drawn as a single joined letter
   could only be covered, not changed. Such lines are now changed like any other, and the editor
   shows ordinary letters.
