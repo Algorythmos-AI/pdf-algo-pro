@@ -33,7 +33,7 @@ offers. Packaging is in the [pricing strategy](pricing-strategy.md).
 2. Install and first run: three introduction pages, then the subscription offer once, closable at
    once ([PAP-042](decision-register.md)).
 3. Later paywall exposure: on a Pro action, when the day's free allowance is used, or from Settings.
-4. Trial on the weekly plan, with a reminder one day before it ends.
+4. Trial on the annual plan, with a reminder one day before it ends ([PAP-049](decision-register.md)).
 5. Paid: weekly or annual; universal across devices from V2.
 6. Renewal: App Store auto-renewal with billing retry and grace period.
 7. Lapse: documents stay fully readable and exportable; win-back offers are rare.
@@ -53,7 +53,7 @@ reviewed before EU storefronts are chosen
 |---|---|
 | The one-off task is done | Library intelligence, scanning and system integration create repeat use |
 | Price and value mismatch | Clear value on the paywall; annual plan; regional pricing |
-| Billing surprise | Trial reminder; the trial end date shown after purchase; Manage Subscription in Settings; honest copy. A weekly plan raises this risk ([PAP-043](decision-register.md)) |
+| Billing surprise | Trial reminder; the trial end date shown after purchase; Manage Subscription in Settings; honest copy. A weekly plan raises this risk ([PAP-043](decision-register.md)); the trial sits on the annual plan and the weekly plan has none ([PAP-049](decision-register.md)) |
 | Quality regressions | Release gates; phased release; fast hotfixes |
 | Involuntary churn | Grace period and billing retry |
 | A better alternative | Quarterly competitive review ([competitive moat](competitive-moat.md)) |

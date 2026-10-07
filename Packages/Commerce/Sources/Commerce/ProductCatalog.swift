@@ -4,9 +4,9 @@
 /// app each name their own products in App Store Connect and no identifier is shared between two
 /// apps. Prices, the trial and the names people see are set in App Store Connect and never here.
 public struct ProductCatalog: Sendable, Equatable {
-  /// The weekly plan, which carries the introductory offer.
+  /// The weekly plan.
   public let weekly: String
-  /// The annual plan.
+  /// The annual plan, which carries the introductory offer (PAP-049).
   public let yearly: String
 
   /// The catalogue of the app with a bundle identifier.
@@ -15,8 +15,8 @@ public struct ProductCatalog: Sendable, Equatable {
     yearly = "\(bundleIdentifier).pro.yearly"
   }
 
-  /// Both products, in the order the paywall lists them.
-  public var ordered: [String] { [weekly, yearly] }
+  /// Both products, in the order the paywall lists them: the annual plan first.
+  public var ordered: [String] { [yearly, weekly] }
 
   /// Both products, for telling a Pro purchase from any other.
   public var productIDs: Set<String> { [weekly, yearly] }

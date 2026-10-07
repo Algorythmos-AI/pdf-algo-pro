@@ -63,8 +63,10 @@ Owner: Product · Reviewed: before V1 submission, then each quarter
 
 Pro is offered as weekly and annual auto-renewing subscriptions through StoreKit 2
 ([ADR-0026](adr/0026-first-run-subscription-offer-and-plans.md)), with an introductory free trial
-on the weekly plan. The trial's length and both prices are set in App Store Connect and recorded in
-the confidential edition. Family Sharing is decided before the products are created, because it
+on the annual plan and none on the weekly plan ([PAP-049](decision-register.md)). The trial's length
+and both prices are set in App Store Connect and recorded in the confidential edition. The offer
+lists the annual plan first and marks it "Best Value" with its saving against paying weekly for a
+year, worked out on the device from StoreKit's prices for the person's storefront and rounded down. Family Sharing is decided before the products are created, because it
 cannot be turned off afterwards ([PAP-032](decision-register.md)). Offers
 (introductory, win-back) are used sparingly and only after baseline conversion is known. Price
 changes are recorded in the decision register with their evidence.
@@ -80,5 +82,6 @@ changes are recorded in the decision register with their evidence.
   the action the user just tried.
 - Can always be dismissed, in one action, from the moment it appears.
 - The app's own words never state a price, a period or a trial; StoreKit's views do, so they are
-  right for the person's storefront and their eligibility for the introductory offer.
+  right for the person's storefront and their eligibility for the introductory offer. The one
+  exception is the annual plan's saving, computed from StoreKit's prices ([PAP-049](decision-register.md)).
 - A metered action is refused before it starts, never after the work is done.

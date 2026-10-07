@@ -63,8 +63,8 @@ struct StoreSessionTests {
     #expect(await !StoreKitAccess().productsAreAvailable(catalog.ordered + ["not.a.product"]))
   }
 
-  @Test("Buying the weekly plan starts a trial, which grants Pro; expiring it takes Pro away")
-  func weeklyTrial() async throws {
+  @Test("Buying the annual plan starts a trial, which grants Pro; expiring it takes Pro away")
+  func yearlyTrial() async throws {
     let session = try session()
     defer { session.clearTransactions() }
     let provider = StoreKitEntitlements(productIDs: catalog.productIDs)
@@ -73,7 +73,7 @@ struct StoreSessionTests {
     store.start()
     #expect(await eventually(store) { $0 == Entitlement.none })
 
-    try await session.buyProduct(identifier: catalog.weekly)
+    try await session.buyProduct(identifier: catalog.yearly)
     #expect(
       await eventually(store) {
         if case .trial = $0 { true } else { false }
@@ -83,19 +83,19 @@ struct StoreSessionTests {
     for await _ in Transaction.unfinished { unfinished += 1 }
     #expect(unfinished == 0, "Every transaction was finished")
 
-    try session.expireSubscription(productIdentifier: catalog.weekly)
+    try session.expireSubscription(productIdentifier: catalog.yearly)
     await store.refresh()
     #expect(await eventually(store) { $0 == .expired })
     #expect(!store.grantsPro)
   }
 
-  @Test("Buying the annual plan is a paid subscription, with no trial")
-  func yearly() async throws {
+  @Test("Buying the weekly plan is a paid subscription, with no trial")
+  func weekly() async throws {
     let session = try session()
     defer { session.clearTransactions() }
     let store = EntitlementStore(provider: StoreKitEntitlements(productIDs: catalog.productIDs))
     store.start()
-    try await session.buyProduct(identifier: catalog.yearly)
+    try await session.buyProduct(identifier: catalog.weekly)
     #expect(await eventually(store) { $0 == .subscribed })
     #expect(store.grantsPro)
   }

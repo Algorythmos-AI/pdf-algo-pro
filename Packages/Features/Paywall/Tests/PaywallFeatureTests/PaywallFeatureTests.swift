@@ -29,7 +29,7 @@ struct PaywallModelTests {
     let telemetry = RecordingTelemetry()
     let flags = Flags()
     let model = PaywallModel(
-      trigger: trigger, productIDs: ["weekly", "yearly"], benefits: [.unlimitedScans, .unlimitedIntelligence],
+      trigger: trigger, productIDs: ["yearly", "weekly"], benefits: [.unlimitedScans, .unlimitedIntelligence],
       termsOfUse: URL(fileURLWithPath: "/terms"), privacyPolicy: URL(fileURLWithPath: "/privacy"),
       entitlements: store, telemetry: telemetry, now: { now },
       setReminder: { isOn, date in
@@ -205,5 +205,41 @@ struct SubscriptionSectionTests {
       SubscriptionSection(entitlements: store, store: FixedStoreAccess(isAvailable: true)) {}
     }
     #expect(ImageRenderer(content: form.frame(width: 390, height: 600)).uiImage != nil)
+  }
+}
+
+@MainActor
+@Suite("The annual plan's saving against paying weekly (PAP-049)")
+struct YearlySavingTests {
+  private func saving(weekly: String, yearly: String) throws -> YearlySaving? {
+    YearlySaving(weeklyPrice: try #require(Decimal(string: weekly)), yearlyPrice: try #require(Decimal(string: yearly)))
+  }
+
+  // Test values only; real prices are set in App Store Connect and never appear in this repository.
+  @Test(
+    "It is worked out from the two prices and rounded down, never up",
+    arguments: [
+      ("2.00", "60.00", 42, "44.00"),  // 42.3%
+      ("3.00", "100.00", 35, "56.00"),  // 35.9%
+      ("1.00", "26.00", 50, "26.00"),  // exactly 50%
+      ("4.10", "120.00", 43, "93.20"),  // 43.7%
+    ])
+  func storefronts(weekly: String, yearly: String, percent: Int, amount: String) throws {
+    let result = try #require(try saving(weekly: weekly, yearly: yearly))
+    #expect(result.percent == percent)
+    #expect(result.amount == Decimal(string: amount))
+  }
+
+  @Test("There is no saving to show when the annual plan saves nothing, or under one percent")
+  func noSaving() throws {
+    #expect(try saving(weekly: "0.50", yearly: "26.00") == nil)
+    #expect(try saving(weekly: "1.00", yearly: "60.00") == nil)
+    #expect(try saving(weekly: "1.00", yearly: "51.80") == nil)
+  }
+
+  @Test("A missing price shows no saving")
+  func missingPrice() throws {
+    #expect(try saving(weekly: "0", yearly: "60.00") == nil)
+    #expect(try saving(weekly: "2.00", yearly: "0") == nil)
   }
 }

@@ -4,8 +4,8 @@ import Foundation
 ///
 /// It only computes dates; scheduling a notification or showing a notice is the caller's work.
 public enum TrialReminder {
-  /// How long before the trial ends the reminder is due: one day (ADR-0026; it was two when the
-  /// trial was on the annual plan).
+  /// How long before the trial ends the reminder is due: one day of the annual plan's three-day trial
+  /// (ADR-0026, PAP-049; it was two days for the earlier seven-day trial).
   public static let leadTime: TimeInterval = 24 * 60 * 60
 
   /// The moment to remind for a trial that ends at a date.

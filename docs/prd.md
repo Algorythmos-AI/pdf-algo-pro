@@ -345,7 +345,7 @@ manager and keyboard shortcuts.
 | ID | Requirement | Priority | Phase | Pillars |
 |---|---|---|---|---|
 | FR-STORE-001 | Free tier covers reading, annotation, form filling, signing, organising pages and passwords without limit, and a daily allowance of scans saved and of on-device intelligence requests ([PAP-044](decision-register.md)) | Must | V1 | PIL-7 |
-| FR-STORE-002 | Pro subscription (weekly and annual, with an introductory free trial on the weekly plan) through StoreKit 2 ([PAP-043](decision-register.md)) | Must | V1 | PIL-7 |
+| FR-STORE-002 | Pro subscription (weekly and annual, with an introductory free trial on the annual plan) through StoreKit 2 ([PAP-043](decision-register.md), [PAP-049](decision-register.md)) | Must | V1 | PIL-7 |
 | FR-STORE-003 | The paywall states price, period, trial length and renewal terms through StoreKit's own views, shows both plans, links to Terms and Privacy, and can be closed in one action from the moment it appears; Restore Purchases and Manage Subscription are always available | Must | V1 | PIL-7 |
 | FR-STORE-004 | Losing Pro never locks the user out of their own documents or annotations | Must | V1 | PIL-5 |
 | FR-STORE-005 | One subscription across iPhone, iPad and Mac (universal purchase) | Must | V2 | PIL-7 |
