@@ -22,7 +22,7 @@ final class TextEditingUITests: UITestCase {
     // One tap on a line opens its editor, with the line's text in it.
     let heading = line(containing: "Try these", in: app)
     XCTAssertTrue(heading.waitForExistence(timeout: 15), "Editable text is offered line by line")
-    let field = app.textFields["reader.textEdit.field"]
+    let field = app.textViews["reader.textEdit.field"]
     tap(heading, until: field)
     XCTAssertEqual(field.value as? String, "Try these:")
     XCTAssertFalse(done.isEnabled, "Leaving waits until the text in hand is finished or cancelled")
@@ -62,7 +62,7 @@ final class TextEditingUITests: UITestCase {
     tap(app.buttons["reader.edit"], until: app.buttons["reader.doneEditingText"])
     let heading = line(containing: "Try these", in: app)
     XCTAssertTrue(heading.waitForExistence(timeout: 15))
-    let field = app.textFields["reader.textEdit.field"]
+    let field = app.textViews["reader.textEdit.field"]
     tap(heading, until: field)
     field.typeText(" now")
     app.buttons["reader.textEdit.done"].tap()
@@ -100,14 +100,14 @@ final class TextEditingUITests: UITestCase {
     // One tap, and no second try: a tap that is ignored is exactly the defect.
     target.tap()
     XCTAssertTrue(
-      app.textFields["reader.textEdit.field"].waitForExistence(timeout: 10), "A tap on a line opens its editor")
+      app.textViews["reader.textEdit.field"].waitForExistence(timeout: 10), "A tap on a line opens its editor")
   }
 
   func testEditingGoesOnAfterAnEditAfterLeavingAndAfterTheAppWasAway() throws {
     let app = launch(["-skip-onboarding", "-seed-library", "sample", "-text-editing", "available"])
     XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
     let done = app.buttons["reader.doneEditingText"]
-    let field = app.textFields["reader.textEdit.field"]
+    let field = app.textViews["reader.textEdit.field"]
     tap(app.buttons["reader.edit"], until: done)
 
     // One edit, then another line straight after it.
@@ -206,7 +206,7 @@ final class TextEditingUITests: UITestCase {
     XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
     let done = app.buttons["reader.doneEditingText"]
     tap(app.buttons["reader.edit"], until: done)
-    let field = app.textFields["reader.textEdit.field"]
+    let field = app.textViews["reader.textEdit.field"]
     tap(line(containing: "Try these", in: app), until: field)
     field.typeText(" now")
 
@@ -255,7 +255,7 @@ final class TextEditingUITests: UITestCase {
     XCTAssertEqual(
       XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: moved, object: nil)], timeout: 20), .completed,
       "The line is where it was dropped, not at \(line(containing: "Try these", in: app).frame)")
-    XCTAssertFalse(app.textFields["reader.textEdit.field"].exists, "Moving opens no editor")
+    XCTAssertFalse(app.textViews["reader.textEdit.field"].exists, "Moving opens no editor")
     XCTAssertTrue(undo.isEnabled, "The move can be undone")
 
     undo.tap()
@@ -263,6 +263,36 @@ final class TextEditingUITests: UITestCase {
     XCTAssertEqual(
       XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: back, object: nil)], timeout: 20), .completed,
       "Undo puts the line back")
+  }
+
+  func testALineLongerThanTheFieldCanBeReachedAtBothEnds() throws {
+    let app = launch(["-skip-onboarding", "-seed-library", "sample", "-text-editing", "available"])
+    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
+    tap(app.buttons["reader.edit"], until: app.buttons["reader.doneEditingText"])
+    let field = app.textViews["reader.textEdit.field"]
+    tap(line(containing: "Try these", in: app), until: field)
+
+    // Far more words than the field has room for: the caret, at the end, stays in view.
+    let tail = " and then a good many more words than any field on a phone has the room to show at once"
+    field.typeText(tail)
+    XCTAssertEqual(field.value as? String, "Try these:" + tail)
+
+    // Swiping the field brings the start of the line back, where a tap puts the caret.
+    for _ in 0..<4 { field.swipeRight(velocity: .fast) }
+    field.coordinate(withNormalizedOffset: CGVector(dx: 0.04, dy: 0.5)).tap()
+    field.typeText("Z")
+    let start = try XCTUnwrap(field.value as? String)
+    let place = try XCTUnwrap(start.firstIndex(of: "Z"), "The letter was typed")
+    XCTAssertLessThan(start.distance(from: start.startIndex, to: place), 12, "It went in at the start of the line")
+
+    // And swiping the other way brings the end back.
+    for _ in 0..<4 { field.swipeLeft(velocity: .fast) }
+    field.coordinate(withNormalizedOffset: CGVector(dx: 0.96, dy: 0.5)).tap()
+    field.typeText("Q")
+    let end = try XCTUnwrap(field.value as? String)
+    let last = try XCTUnwrap(end.firstIndex(of: "Q"), "The letter was typed")
+    XCTAssertLessThan(end.distance(from: last, to: end.endIndex), 12, "It went in at the end of the line")
+    app.buttons["reader.textEdit.cancel"].tap()
   }
 
   func testEditingIsLockedWithoutProAndAbsentWhenTheBuildDoesNotHaveIt() throws {
