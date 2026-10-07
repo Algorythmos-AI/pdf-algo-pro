@@ -59,9 +59,10 @@ public struct PaywallFlowView: View {
   }
 }
 
-/// The annual plan's saving, ready to show: the percentage and the amount in the storefront's currency.
+/// The annual plan's saving, ready to show: the percentage in the person's locale ("41%", "41 %") and the
+/// amount in the storefront's currency.
 struct SavingLine: Equatable {
-  let percent: Int
+  let percent: String
   let amount: String
 
   /// The saving between the weekly and the annual plan among the products; `nil` when either does not
@@ -77,7 +78,8 @@ struct SavingLine: Equatable {
     guard let weekly = plan(.week), let yearly = plan(.year),
       let saving = YearlySaving(weeklyPrice: weekly.price, yearlyPrice: yearly.price)
     else { return nil }
-    return SavingLine(percent: saving.percent, amount: saving.amount.formatted(yearly.priceFormatStyle))
+    let percent = (Double(saving.percent) / 100).formatted(.percent.precision(.fractionLength(0)))
+    return SavingLine(percent: percent, amount: saving.amount.formatted(yearly.priceFormatStyle))
   }
 }
 
@@ -129,7 +131,7 @@ struct SavingNote: View {
       Text("Best Value", bundle: .module)
         .font(.caption.bold())
         .foregroundStyle(Color.ds.brandTint)
-      Text("Pro Yearly: save \(saving.percent)% compared to paying weekly.", bundle: .module)
+      Text("Pro Yearly: save \(saving.percent) compared to paying weekly.", bundle: .module)
         .font(.subheadline.bold())
       Text("That’s \(saving.amount) saved per year.", bundle: .module)
         .font(.subheadline)

@@ -141,12 +141,12 @@
         }
       }
     },
-    "Pro Yearly: save %lld%% compared to paying weekly." : {
+    "Pro Yearly: save %@ compared to paying weekly." : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Pro annuel : économisez %lld %% par rapport à la formule hebdomadaire."
+            "value" : "Pro annuel : économisez %@ par rapport à la formule hebdomadaire."
           }
         }
       }
