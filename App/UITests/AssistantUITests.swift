@@ -18,11 +18,20 @@ final class AssistantUITests: UITestCase {
     try audit(app, onSheet: true)
     let citation = app.buttons["Source: page 2"]
     XCTAssertTrue(citation.exists, "The answer cites page 2")
-    citation.tap()
     let indicator = app.staticTexts["reader.pageIndicator"]
     XCTAssertTrue(indicator.waitForExistence(timeout: Self.settleTimeout))
-    expectation(for: NSPredicate(format: "label CONTAINS %@", "2 of 3"), evaluatedWith: indicator)
-    waitForExpectations(timeout: Self.settleTimeout)
+    // On a slow runner a tap made straight after the audit can be lost, and the page then never
+    // changes (seen once on `integration`, where the audit alone took 31 seconds). Opening a citation
+    // twice shows the same page, so the tap is made again when the first one did nothing.
+    let onPageTwo = NSPredicate(format: "label CONTAINS %@", "2 of 3")
+    citation.tap()
+    let first = XCTNSPredicateExpectation(predicate: onPageTwo, object: indicator)
+    if XCTWaiter().wait(for: [first], timeout: 10) != .completed, citation.exists, citation.isHittable {
+      citation.tap()
+    }
+    let opened = XCTNSPredicateExpectation(predicate: onPageTwo, object: indicator)
+    XCTAssertEqual(
+      XCTWaiter().wait(for: [opened], timeout: Self.settleTimeout), .completed, "The citation opens page 2")
   }
 
   func testQuestionsTheDocumentCannotAnswerSaySo() throws {
