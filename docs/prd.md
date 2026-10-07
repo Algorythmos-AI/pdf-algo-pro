@@ -370,7 +370,7 @@ manager and keyboard shortcuts.
 - *FR-STORE-006.* Given a trial that ends tomorrow, when that day comes, then the user is reminded by notification (if allowed) or on next launch, with the date and a link to Manage Subscription. Given the trial was cancelled, refunded or became paid before then, then no reminder is pending.
 - *FR-STORE-007.* Given a purchase that completes, when the entitlement grants Pro, then the confirmation shows in the same presentation as the paywall, with the trial end date only during a trial. Given a purchase that is pending approval or was cancelled, then the paywall stays and no confirmation or error shows. Given the confirmation is closed, then no rating request follows.
 
-**Apple-first:** `SubscriptionStoreView`; Family Sharing decision recorded in the pricing strategy before the products are created (OQ-5);
+**Apple-first:** `SubscriptionStoreView`; Family Sharing on for the annual plan only ([PAP-050](decision-register.md));
 App Store Server Notifications V2 (after the relay exists).
 
 ### Settings, privacy and support (FR-SET)
@@ -447,7 +447,7 @@ or the release checklist in [release management](release-management.md).
 | OQ-2 | The two free-tier allowance numbers: scans saved and on-device intelligence requests per day (shape decided in [PAP-044](decision-register.md)) | Product | Pricing strategy and research R5 |
 | OQ-3 | Does Private Cloud Compute need its own consent step under Guideline 5.1.2(i)? Apple's text covers third-party AI; treat it as needing consent until Apple says otherwise | Product | App Review guidance; compliance roadmap |
 | OQ-4 | Document identity across renames and iCloud moves | Architecture | Document-identity spike |
-| OQ-5 | Family Sharing for the subscription | Product | Pricing strategy |
+| OQ-5 | Family Sharing for the subscription. Answered: on for the annual plan, off for the weekly plan ([PAP-050](decision-register.md)) | Product | Pricing strategy |
 
 ## Traceability
 
