@@ -35,6 +35,20 @@ final class SettingsUITests: UITestCase {
   /// The live AI evaluation, in Debug and Staging builds only (bar item B6).
   ///
   /// UI tests use the scripted model, so this checks the screen, not the scores.
+  /// "Show first run again", in Debug and Staging builds only: testers see what a new install sees
+  /// without deleting the app.
+  func testFirstRunCanBeShownAgainInInternalBuilds() throws {
+    let app = launch(["-skip-onboarding", "-store", "unavailable"])
+    tap(app.buttons["library.sidebar.settings"], until: app.descendants(matching: .any)["settings.hideAI"].firstMatch)
+    let replay = app.buttons["internal.replayFirstRun"]
+    for _ in 0..<8 where !replay.isHittable { app.swipeUp() }
+    leave(by: replay, for: app.buttons["onboarding.continue"])
+    XCTAssertTrue(app.buttons["onboarding.skip"].exists, "The introduction shows from its first page")
+    try audit(app)
+    // With no plans to show, leaving it ends on Home, as first run does.
+    leave(by: app.buttons["onboarding.skip"], for: app.buttons["library.sidebar.settings"])
+  }
+
   func testTheAIEvaluationRunsInInternalBuilds() throws {
     let app = launch(["-skip-onboarding"])
     tap(app.buttons["library.sidebar.settings"], until: app.descendants(matching: .any)["settings.hideAI"].firstMatch)

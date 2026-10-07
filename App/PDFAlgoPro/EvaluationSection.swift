@@ -7,11 +7,14 @@
 
   /// The internal testing section in Settings, in Debug and Staging builds only.
   ///
-  /// One row opens the live AI evaluation. The text is English only: App Store builds do not contain it.
+  /// A switch for Pro without a purchase, a row that shows first run again, and a row that opens the
+  /// live AI evaluation. The text is English only: App Store builds do not contain it.
   struct EvaluationSection: View {
     let intelligence: any DocumentIntelligence
     /// Reads the entitlement again, after the switch below changed what it is.
     let onEntitlementOverride: () -> Void
+    /// Closes Settings and shows the introduction, and the offer after it, as a new install sees them.
+    let onReplayFirstRun: () -> Void
     @State private var hasPro = UserDefaults.standard.bool(forKey: InternalEntitlementOverride.key)
 
     var body: some View {
@@ -24,6 +27,10 @@
           UserDefaults.standard.set(hasPro, forKey: InternalEntitlementOverride.key)
           onEntitlementOverride()
         }
+        Button(action: onReplayFirstRun) {
+          TileLabel(Text(verbatim: "Show first run again"), systemImage: "arrow.counterclockwise", tone: .quiet)
+        }
+        .accessibilityIdentifier("internal.replayFirstRun")
         NavigationLink {
           EvaluationView(intelligence: intelligence)
         } label: {
@@ -35,7 +42,7 @@
       } footer: {
         Text(
           verbatim:
-            "Off, this build follows the sandbox store: the offer, the daily limits and locked features show as they will to customers."
+            "Off, this build follows the sandbox store: the offer, the daily limits and locked features show as they will to customers. First run again shows the introduction, and the offer after it when the store has its plans; your documents and settings stay."
         )
         .foregroundStyle(Color.ds.labelSecondary)
       }

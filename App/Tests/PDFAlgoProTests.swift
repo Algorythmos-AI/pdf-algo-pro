@@ -58,6 +58,25 @@ struct AppTests {
     return app.sheet == sheet
   }
 
+  @Test("First run can be shown again in internal builds: the introduction from its first page, nothing else lost")
+  func replayFirstRun() async {
+    let app = makeApp()
+    let first = app.onboarding
+    await first.advance()
+    app.navigate(to: .settings)
+    var kept = app.container.settings.load()
+    kept.isIntelligenceHidden = true
+    app.container.settings.save(kept)
+    app.replayFirstRun()
+    #expect(!app.settings.hasCompletedOnboarding && !app.container.settings.load().hasCompletedOnboarding)
+    #expect(app.sheet == nil, "Settings closes, so the introduction is what shows")
+    #expect(app.onboarding !== first && !app.onboarding.isLastPage, "A fresh introduction, on its first page")
+    #expect(app.container.settings.load().isIntelligenceHidden, "Every other setting stays")
+    // Leaving it again ends first run, as on a new install.
+    await app.onboarding.skip()
+    #expect(app.settings.hasCompletedOnboarding)
+  }
+
   @Test("Every route navigates and none acts by itself (ADR-0004)")
   func routes() async throws {
     let app = makeApp()
