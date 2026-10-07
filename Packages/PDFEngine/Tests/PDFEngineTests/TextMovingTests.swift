@@ -88,6 +88,9 @@ struct TextMovingTests {
   @Test("In the open document, a line is moved without picking it, stays on the page, and undo puts it back")
   func movedInTheDocument() async throws {
     let controller = try PDFDocumentController(data: TextEditFixtures.invoice())
+    // Not a test of the time limits; see `open` in the controller tests.
+    controller.textFindLimit = .seconds(600)
+    controller.textEditLimit = .seconds(600)
     controller.setEditingText(true)
     let regions = await controller.pageText(onPage: 0).regions
     let region = try #require(regions.first { $0.text.contains("John Smith") })

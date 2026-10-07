@@ -122,13 +122,13 @@ struct TextEditLayer: View {
             onSubmit: { Task { await model.commitTextEdit(draft.text) } }
           )
           .padding(.horizontal, 2)
-          .frame(width: max(frame.width + 24, geometry.size.width - frame.minX - Spacing.s200), height: frame.height)
+          .frame(width: Self.fieldSpan(over: frame, in: geometry.size.width).width, height: frame.height)
           // The field covers the old words while new ones are typed, in a colour the text shows on.
           .background(Self.isLight(selection.region) ? Color.black : Color.white)
           .overlay(alignment: .bottom) { Rectangle().fill(Color.ds.selection).frame(height: 1.5) }
           // The caret too: in the app's red it would read as a mistake in the text.
           .tint(Color.ds.selection)
-          .offset(x: frame.minX - 2, y: frame.minY)
+          .offset(x: Self.fieldSpan(over: frame, in: geometry.size.width).x, y: frame.minY)
         }
       }
     }
@@ -145,6 +145,24 @@ struct TextEditLayer: View {
       draft.isInPlace = Self.fitsInPlace(selection, frame: measured, within: height > 0 ? height : nil)
     }
     .accessibilityElement(children: .contain)
+  }
+
+  /// The narrowest the field is, so there is always room to see a few words being typed.
+  static let minimumFieldWidth: CGFloat = 140
+
+  /// Where the field starts and how wide it is: from the start of the text to the edge of the
+  /// reader, and never past it.
+  ///
+  /// A small line is zoomed in to be read, and may then be wider than the screen. A field as wide
+  /// as the line ran off the screen with the end of the sentence in it, where the caret could not
+  /// be seen or reached (the owner's report, 2026-10-07). Kept on screen, the field scrolls its
+  /// own text as the caret moves, as any text field does.
+  static func fieldSpan(over frame: CGRect, in width: CGFloat) -> (x: CGFloat, width: CGFloat) {
+    let edge = width - Spacing.s100
+    let span = min(max(minimumFieldWidth, edge - (frame.minX - 2)), max(0, edge - Spacing.s100))
+    // Text that starts close to the right edge: the field keeps its width and starts further left.
+    let x = max(Spacing.s100, min(frame.minX - 2, edge - span))
+    return (x, span)
   }
 
   /// Whether the region's text is light, so it needs a dark field to be seen while it is typed.

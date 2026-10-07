@@ -73,9 +73,10 @@ enum LineSweep {
     await withTaskGroup(of: (LineEnding, String).self) { group in
       var waiting = text.regions[...]
       var running = 0
-      // A proof draws the page three times, so only a few are made at once.
+      // A proof draws the page three times, so only a few are made at once: more than that
+      // starved the suite's timed tests on a slow machine (CI, 2026-10-07).
       while running > 0 || !waiting.isEmpty {
-        while running < 6, let region = waiting.popFirst() {
+        while running < 3, let region = waiting.popFirst() {
           group.addTask { await ending(of: region, on: snapshot, with: editor) }
           running += 1
         }
@@ -127,10 +128,12 @@ struct TextEditingGuaranteeTests {
     #expect(documents.count == TextEditCorpus.count && Set(documents.map(\.name)).count == documents.count)
   }
 
-  // One test per document, so that they run side by side and a slow machine times out one page's
-  // worth of work, not the whole corpus.
+  // One test per document, so that a slow machine times out one page's worth of work, not the
+  // whole corpus; and one document at a time, so that the corpus does not crowd out the rest of
+  // the suite.
   @Test(
-    "On every line of every kind of document, an edit ends as changed words", arguments: 0..<TextEditCorpus.count)
+    "On every line of every kind of document, an edit ends as changed words", .serialized,
+    .timeLimit(.minutes(10)), arguments: 0..<TextEditCorpus.count)
   func noDeadEnds(_ index: Int) async throws {
     let document = try TextEditCorpus.documents()[index]
     let pdf = try #require(PDFDocument(data: document.data), "\(document.name)")

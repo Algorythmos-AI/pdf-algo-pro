@@ -24,7 +24,13 @@ private func open(
 {
   let url = try folder().appendingPathComponent("doc.pdf")
   try data.write(to: url)
-  return (try PDFDocumentController(url: url, textEditor: editor), url)
+  let controller = try PDFDocumentController(url: url, textEditor: editor)
+  // The time limits are for a person waiting at a phone. A test machine running many suites at
+  // once can take longer than that over an ordinary edit, which says nothing about the edit; the
+  // tests that are about the limits set their own.
+  controller.textFindLimit = .seconds(600)
+  controller.textEditLimit = .seconds(600)
+  return (controller, url)
 }
 
 /// Gives finding and editing text time enough that no limit is reached, however slow the machine.
