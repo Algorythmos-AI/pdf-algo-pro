@@ -12,7 +12,9 @@ struct PrivacyReportView: View {
     Form {
       Section {
         LabeledContent {
+          // The system draws a row's value in a grey just under 4.5:1 on this background.
           Text("\(model.activity?.documentsSentToCloud ?? 0)").font(.title2.bold()).monospacedDigit()
+            .foregroundStyle(Color.ds.labelSecondary)
         } label: {
           Text("Documents sent to cloud AI", bundle: .module)
         }
@@ -41,7 +43,7 @@ struct PrivacyReportView: View {
 
   private func row(_ label: Text, _ tier: IntelligenceTier) -> some View {
     LabeledContent {
-      Text("\(model.activity?.requests[tier] ?? 0)").monospacedDigit()
+      Text("\(model.activity?.requests[tier] ?? 0)").monospacedDigit().foregroundStyle(Color.ds.labelSecondary)
     } label: {
       label
     }

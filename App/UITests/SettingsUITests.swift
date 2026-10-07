@@ -22,6 +22,16 @@ final class SettingsUITests: UITestCase {
     }
   }
 
+  /// The privacy report (FR-SET-005): its counts are text, and are audited like any other.
+  func testThePrivacyReportOpensAndPassesTheAudit() throws {
+    let app = launch(["-skip-onboarding"])
+    tap(app.buttons["library.sidebar.settings"], until: app.descendants(matching: .any)["settings.hideAI"].firstMatch)
+    let report = app.descendants(matching: .any)["settings.privacyReport"].firstMatch
+    for _ in 0..<6 where !report.isHittable { app.swipeUp() }
+    tap(report, until: app.descendants(matching: .any)["privacy.sentToCloud"].firstMatch)
+    try audit(app, onSheet: true)
+  }
+
   /// The live AI evaluation, in Debug and Staging builds only (bar item B6).
   ///
   /// UI tests use the scripted model, so this checks the screen, not the scores.
