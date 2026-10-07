@@ -47,11 +47,16 @@ final class AppModel {
   /// Asks for a rating after real successes, at a calm moment (plan §6).
   let reviews: ReviewPrompter
   @ObservationIgnored private var reader: (selection: DocumentSelection, model: ReaderModel)?
-  @ObservationIgnored private(set) lazy var onboarding = OnboardingModel(
-    settings: container.settings, intelligence: container.intelligence, telemetry: container.telemetry
-  ) { [weak self] in
-    self?.settings = $0
-    self?.offerAfterFirstRun()
+  @ObservationIgnored private(set) lazy var onboarding = makeOnboarding()
+
+  /// The introduction, from its first page.
+  private func makeOnboarding() -> OnboardingModel {
+    OnboardingModel(
+      settings: container.settings, intelligence: container.intelligence, telemetry: container.telemetry
+    ) { [weak self] in
+      self?.settings = $0
+      self?.offerAfterFirstRun()
+    }
   }
 
   init(container: AppContainer) {
@@ -102,14 +107,34 @@ final class AppModel {
     Task { await container.migrateSpotlightIfNeeded() }
     // Purchases are followed from launch, so one approved or renewed while the app was closed is seen.
     container.entitlements.start()
-    if !settings.hasCompletedOnboarding {
-      Task { [weak self, container] in
-        let available = await container.store.productsAreAvailable(container.catalog.ordered)
-        self?.plansAreAvailable = available
-      }
-    }
+    if !settings.hasCompletedOnboarding { askWhetherPlansAreAvailable() }
     // Text recognition the app was stopped in the middle of goes on from where it was (P8).
     Task { await container.recognition.resumePending() }
+  }
+
+  /// Asks the App Store whether the plans can be shown, so that the end of first run never waits for it.
+  private func askWhetherPlansAreAvailable() {
+    Task { [weak self, container] in
+      let available = await container.store.productsAreAvailable(container.catalog.ordered)
+      self?.plansAreAvailable = available
+    }
+  }
+
+  /// Shows first run again, from the first page of the introduction.
+  ///
+  /// Only the internal testing section of Settings calls it, and that section is in Debug and Staging
+  /// builds alone. It is what a new install sees, the subscription offer after it included when the
+  /// store has its plans, without deleting the app and the documents in it. Documents and every other
+  /// setting stay.
+  func replayFirstRun() {
+    var current = container.settings.load()
+    current.hasCompletedOnboarding = false
+    container.settings.save(current)
+    plansAreAvailable = false
+    onboarding = makeOnboarding()
+    sheet = nil
+    settings = current
+    askWhetherPlansAreAvailable()
   }
 
   /// The password of the `-seed-library locked` document (a test fixture).
@@ -272,13 +297,15 @@ final class AppModel {
     }
   }
 
-  /// The internal tools section in Settings: the live AI evaluation, in Debug and Staging builds only.
+  /// The internal tools section in Settings (Pro without a purchase, first run again, the live AI
+  /// evaluation), in Debug and Staging builds only.
   var internalTools: AnyView? {
     #if INTERNAL_TOOLS
       AnyView(
-        EvaluationSection(intelligence: container.intelligence) { [container] in
-          Task { await container.entitlements.refresh() }
-        })
+        EvaluationSection(
+          intelligence: container.intelligence,
+          onEntitlementOverride: { [container] in Task { await container.entitlements.refresh() } },
+          onReplayFirstRun: { [weak self] in self?.replayFirstRun() }))
     #else
       nil
     #endif
