@@ -66,8 +66,9 @@ Pro is offered as weekly and annual auto-renewing subscriptions through StoreKit
 on the annual plan and none on the weekly plan ([PAP-049](decision-register.md)). The trial's length
 and both prices are set in App Store Connect and recorded in the confidential edition. The offer
 lists the annual plan first and marks it "Best Value" with its saving against paying weekly for a
-year, worked out on the device from StoreKit's prices for the person's storefront and rounded down. Family Sharing is decided before the products are created, because it
-cannot be turned off afterwards ([PAP-032](decision-register.md)). Offers
+year, worked out on the device from StoreKit's prices for the person's storefront and rounded down. Family Sharing is on for the annual plan and off for the weekly plan; it
+cannot be turned off afterwards ([PAP-050](decision-register.md)). The Staging app's products are set
+up and tested before the production app's. Offers
 (introductory, win-back) are used sparingly and only after baseline conversion is known. Price
 changes are recorded in the decision register with their evidence.
 

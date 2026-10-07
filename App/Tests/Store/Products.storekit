@@ -55,7 +55,7 @@
           "adHocOffers" : [],
           "codeOffers" : [],
           "displayPrice" : "10.00",
-          "familyShareable" : false,
+          "familyShareable" : true,
           "groupNumber" : 1,
           "internalID" : "6700000002",
           "introductoryOffer" : {
