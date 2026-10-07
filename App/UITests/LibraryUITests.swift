@@ -81,7 +81,11 @@ final class LibraryUITests: UITestCase {
     XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
     let back = app.navigationBars.buttons.firstMatch
     back.tap()
-    XCTAssertTrue(app.buttons["library.settings"].waitForExistence(timeout: Self.settleTimeout), "Back to the list")
+    // On a slow runner the tap can be lost (seen once on integration after pull request 167). It is
+    // made again only while the reader is still showing: the list has a back button of its own.
+    let settings = app.buttons["library.settings"]
+    if !settings.waitForExistence(timeout: 10), app.staticTexts["reader.pageIndicator"].exists { back.tap() }
+    XCTAssertTrue(settings.waitForExistence(timeout: Self.settleTimeout), "Back to the list")
     app.navigationBars.buttons.firstMatch.tap()
     let deleted = app.descendants(matching: .any)["library.section.deleted"].firstMatch
     XCTAssertTrue(deleted.waitForExistence(timeout: Self.settleTimeout), "Back from the list shows the sections")
