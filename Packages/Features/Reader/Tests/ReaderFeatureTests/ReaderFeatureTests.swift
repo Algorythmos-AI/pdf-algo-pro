@@ -1607,6 +1607,27 @@ struct ReaderTextEditingTests {
     await reader.undoCoverInstead()
     #expect(controller.annotationCount(onPage: 0) == 0)
   }
+
+  @Test("The field over a line never runs off the screen, however long the line is when zoomed in")
+  func fieldStaysOnScreen() {
+    let screen: CGFloat = 393
+    // A small line, zoomed in to be read: three times as wide as the screen.
+    let long = TextEditLayer.fieldSpan(over: CGRect(x: 20, y: 300, width: 1200, height: 24), in: screen)
+    #expect(long.x == 18 && long.x + long.width <= screen, "\(long)")
+    #expect(long.width > 300, "It uses the room there is")
+    // An ordinary line: from its start to the edge, with room to type more.
+    let short = TextEditLayer.fieldSpan(over: CGRect(x: 40, y: 300, width: 120, height: 20), in: screen)
+    #expect(short.x == 38 && short.x + short.width <= screen && short.width > 300)
+    // A line that starts near the right edge keeps a usable width by starting further left.
+    let late = TextEditLayer.fieldSpan(over: CGRect(x: 340, y: 300, width: 40, height: 20), in: screen)
+    #expect(late.width >= TextEditLayer.minimumFieldWidth && late.x + late.width <= screen && late.x < 340)
+    // And one that starts off the left of the screen starts at the screen's edge.
+    let before = TextEditLayer.fieldSpan(over: CGRect(x: -200, y: 300, width: 900, height: 24), in: screen)
+    #expect(before.x >= 0 && before.x + before.width <= screen)
+    // A very narrow reader still gets a field that fits it.
+    let narrow = TextEditLayer.fieldSpan(over: CGRect(x: 10, y: 0, width: 500, height: 20), in: 120)
+    #expect(narrow.x >= 0 && narrow.x + narrow.width <= 120 && narrow.width > 0)
+  }
 }
 
 private enum Failure: Error { case unexpected }
