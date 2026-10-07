@@ -530,6 +530,9 @@ extension GoldenCorpusTests {
     ]
     for (name, data, target, replacement, expected) in cases {
       let (controller, url) = try open(data)
+      // What is exported is the edited file, so the edit must not be given up on at a slow runner's
+      // pace: on one, finding and editing three documents passed the limits and nothing was edited.
+      allowTimeEnough(controller)
       #expect(try await edit(controller, containing: target, to: replacement).isEdited)
       try controller.save(to: url)
       #expect(CGPDFDocument(url as CFURL)?.numberOfPages == controller.pageCount)
