@@ -38,7 +38,7 @@ struct ProductCatalogTests {
     let staging = ProductCatalog(bundleIdentifier: "com.example.app.staging")
     #expect(production.weekly == "com.example.app.pro.weekly")
     #expect(production.yearly == "com.example.app.pro.yearly")
-    #expect(production.ordered == [production.weekly, production.yearly])
+    #expect(production.ordered == [production.yearly, production.weekly])
     #expect(production.productIDs == [production.weekly, production.yearly])
     #expect(production.productIDs.isDisjoint(with: staging.productIDs))
   }

@@ -664,7 +664,11 @@ home screen and the order of tools; it never gates anything.
   swiping the sheet down does the same.
 - **Our words carry no numbers.** The header and the list of what Pro adds never state a price, a
   period or a trial. StoreKit's plan options do, so they follow the storefront and whether the
-  person is eligible for the introductory offer.
+  person is eligible for the introductory offer. The one exception sits just above the plans:
+  "Best Value" over the annual plan's saving against paying weekly for a year ("Pro Yearly: save
+  N% compared to paying weekly." and "That's X saved per year."), worked out on the device from
+  StoreKit's prices for the same storefront, the percentage rounded down, and left out when either
+  plan does not load ([PAP-049](decision-register.md)).
 - **When the store cannot be reached** after the person asked for the paywall, it shows a short
   message and Close, never an empty store.
 - **Honest by construction.** Outcome-first header ("Unlimited answers with page citations"), the

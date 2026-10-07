@@ -1,6 +1,16 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Best Value" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Meilleure offre"
+          }
+        }
+      }
+    },
     "Change the words already in a PDF." : {
       "localizations" : {
         "fr" : {
@@ -131,6 +141,16 @@
         }
       }
     },
+    "Pro Yearly: save %@ compared to paying weekly." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pro annuel : économisez %@ par rapport à la formule hebdomadaire."
+          }
+        }
+      }
+    },
     "Pro, payment problem" : {
       "localizations" : {
         "fr" : {
@@ -227,6 +247,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Résumés, réponses et extraction sur cet appareil, sans limite quotidienne."
+          }
+        }
+      }
+    },
+    "That’s %@ saved per year." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Soit %@ d’économie par an."
           }
         }
       }
