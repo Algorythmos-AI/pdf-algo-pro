@@ -1,7 +1,7 @@
 Internal build of PDF Algo Pro (Staging). Use test documents, not real ones. Please try:
 
 First run and plans (new)
-- Settings > Internal testing: turn "Pro without a purchase" off, then tap "Show first run again".
+- A new build opens on the introduction once. To see it again: Settings > Internal testing > "Show first run again", with "Pro without a purchase" off.
 - Three pages with a picture each, then the plans: yearly first with its free trial, weekly beside it. Close leads to Home.
 - Start the yearly trial (TestFlight charges nothing): "Welcome to Pro" follows. Try Restore purchases.
 
