@@ -153,6 +153,7 @@ blocks implementation today?
 | [Text editing device test](process/text-editing-device-test.md) | Quality and PDF engine | whenever the editor's supported cases change, and before the release flag is removed |
 | [Localisation](process/localization.md) | Product and Design | each milestone, and whenever a language is added |
 | [App Store submission](process/runbooks/app-store-submission.md) | Release | after each release |
+| [App Store Connect subscriptions](process/runbooks/app-store-connect-subscriptions.md) | Release | after each change to a subscription product, and before the first release |
 | [iOS hotfix](process/runbooks/ios-hotfix.md) | Release | after each hotfix |
 | [Incident response](process/runbooks/incident-response.md) | Operations | after every SEV1 or SEV2, and each milestone |
 | [Kill switch](process/runbooks/kill-switch.md) | Operations | each milestone, and after every use |
