@@ -265,8 +265,10 @@ final class TextEditingUITests: UITestCase {
       "Undo puts the line back")
   }
 
-  /// The owner's report, 2026-10-08: a line longer than the screen was cut off at its edge, with
-  /// the caret and the rest of the sentence out of sight. The whole line is now always in view.
+  /// A line longer than the screen is wholly in view while it is edited, and both ends can be edited.
+  ///
+  /// The owner's report, 2026-10-08: such a line was cut off at the screen's edge, with the caret and
+  /// the rest of the sentence out of sight.
   func testALongLineIsWhollyInViewAndBothEndsCanBeEdited() throws {
     let app = launch([
       "-skip-onboarding", "-seed-library", "sample", "-text-editing", "available", "-text-edit-geometry",
