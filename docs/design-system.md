@@ -656,35 +656,44 @@ home screen and the order of tools; it never gates anything.
 
 ### Paywall
 
-- Built on `SubscriptionStoreView`, which shows localised names, descriptions and prices, a purchase
-  button, a Close button, and links to the terms and privacy policy submitted in App Store Connect
-  ([SubscriptionStoreView](https://developer.apple.com/documentation/storekit/subscriptionstoreview)).
-- **Layout** ([PAP-052](decision-register.md)). From the top: the headline in the brand tint, one
-  line under it, the scanning picture (`DeviceMockup`, gone at accessibility text sizes), what Pro
-  adds, the saving, the promise that documents never need Pro, and two quiet links, Restore
-  Purchases and Redeem Code. Both plans and the purchase button stay at the foot of the screen
-  while the rest scrolls (the compact picker in the bottom bar), so a price is on screen from the
-  first frame. The two links are the app's own because StoreKit's are full-width buttons.
+- The app's own screen over StoreKit 2 ([ADR-0027](adr/0027-own-paywall-over-storekit-2.md),
+  [PAP-054](decision-register.md)). It answers three questions in order: what do I get, why is it
+  worth it, what am I paying.
+- **Layout.** Scrolling: the headline in the brand tint, one line under it, the scanning picture
+  (`DeviceMockup`, gone at accessibility text sizes), what Pro adds, and the promise that documents
+  never need Pro. Fixed at the foot of the screen: two plan cards side by side, the terms for the
+  selected plan, one `PrimaryButton`, and four quiet links (Restore purchases, Redeem a code,
+  Terms, Privacy). At accessibility text sizes the cards stack and everything scrolls together.
+- **Plan card.** The plan's name, its price with its period, and one line under it: the free trial
+  this account can have, or on the annual plan its saving. The annual plan carries a "Best Value"
+  badge and is selected when the offer opens. Selection shows as a check mark and a brand border,
+  never by colour alone.
+- **Terms under the cards.** With a trial: its length, what is due today, and the price and period
+  that follow, in one line. Without: the price and period. Then: it renews until cancelled, and
+  how to cancel. A trial is shown only when StoreKit says the account is eligible; its length is
+  StoreKit's.
+- **Button.** "Start free trial" or "Subscribe", by the selected plan; a spinner while the App
+  Store's sheet is on its way. For someone who has Pro: a note that says so, "Continue", and
+  "Manage subscription"; nothing is sold.
+- **States.** Loading: a spinner where the cards will be. Plans not loaded: a short message, "Try
+  again" and Close. Cancelled: nothing changes. Pending or failed: an alert that says nothing was
+  charged.
 - **When it appears.** Once at the end of the first-run introduction ([PAP-042](decision-register.md)),
   and only if the products have loaded and the person does not have Pro; with no connection, first
   run ends on Home. After that: when the user taps a Pro feature (marked with a "Pro" badge), when
   the day's free allowance is used, and from Settings. Never at a later launch.
 - **Close.** A Close button is in the toolbar from the first frame and closes in one action;
   swiping the sheet down does the same.
-- **Our words carry no numbers.** The header and the list of what Pro adds never state a price, a
-  period or a trial. StoreKit's plan options do, so they follow the storefront and whether the
-  person is eligible for the introductory offer. The one exception sits just above the plans:
-  "Best Value" over the annual plan's saving against paying weekly for a year ("Pro Yearly: save
-  N% compared to paying weekly." and "That's X saved per year."), worked out on the device from
-  StoreKit's prices for the same storefront, the percentage rounded down, and left out when either
-  plan does not load ([PAP-049](decision-register.md)).
+- **Every number is StoreKit's.** Names, prices, periods and the trial's length are formatted from
+  StoreKit's values for the storefront. The one figure the app works out is the annual plan's
+  saving against paying weekly for a year, from StoreKit's two prices, the percentage rounded down
+  and left out when either plan does not load ([PAP-049](decision-register.md)).
 - **When the store cannot be reached** after the person asked for the paywall, it shows a short
   message and Close, never an empty store.
 - **Honest by construction.** Outcome-first header ("Unlimited answers with page citations"), the
   full renewal price as the most prominent price, trial length and the price after the trial, a
   plain statement that the plan renews until cancelled, and how to cancel. No countdown timers, no
-  delayed Close button, no struck-through price, both plans always visible, and StoreKit's default
-  plan selection is not overridden. The full
+  delayed Close button, no struck-through price, no urgency, and both plans always visible. The full
   disclosure checklist is in [App Store strategy](app-store-strategy.md).
 - The Manage Subscription row in Settings opens the system sheet (`manageSubscriptionsSheet`).
   Settings has a subscription section straight after the AI switch, which stays first so that it is

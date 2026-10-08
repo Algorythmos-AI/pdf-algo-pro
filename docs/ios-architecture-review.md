@@ -502,7 +502,7 @@ spike, with our own accessibility layer where needed.
   reaches us: V1 and V1.1 qualify; the V2 relay and opt-in telemetry change it
   ([privacy architecture](privacy-architecture.md)); any telemetry is minimal, aggregated, disclosed,
   and consented where required ([analytics strategy](analytics-strategy.md)).
-- Subscriptions through StoreKit 2 (`SubscriptionStoreView`) with clear price, period, trial terms,
+- Subscriptions through StoreKit 2 (the app's own offer screen over `Product.purchase()`, ADR-0027) with clear price, period, trial terms,
   restore and manage links (Guidelines 3.1.1 and 3.1.2).
 - Third-party AI: consent screen naming the provider and data (Guideline 5.1.2(i)).
 - No account required, so no account-deletion obligation (Guideline 5.1.1(v)) unless accounts are
