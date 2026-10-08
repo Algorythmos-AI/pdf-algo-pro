@@ -25,28 +25,31 @@ struct OCRAccuracyTests {
     var report = [
       "# OCR accuracy", "", "| Language | Condition | Pages | CER | WER | Gate |", "|---|---|---|---|---|---|",
     ]
-    let recognizer = VisionTextRecognizer()
-    for language in OCRCorpus.Language.allCases {
-      for condition in OCRCorpus.Condition.allCases {
-        let pages = OCRCorpus.pages(language, condition, count: counts[condition] ?? 0, seed: 2026)
-        var score = RecognitionScore()
-        for page in pages {
-          let lines = try await recognizer.recognizeText(in: page.image)
-          score = score + RecognitionScore(recognised: lines.map(\.text).joined(separator: "\n"), truth: page.truth)
-        }
-        let gate = try #require(Self.gates[condition])
-        let passes = score.characterErrorRate <= gate.cer && (gate.wer.map { score.wordErrorRate <= $0 } ?? true)
-        report.append(
-          "| \(language.rawValue) | \(condition.rawValue) | \(pages.count) | "
-            + String(format: "%.2f%% | %.2f%% | ", score.characterErrorRate * 100, score.wordErrorRate * 100)
-            + (passes ? "pass" : "FAIL") + " |")
-        #expect(
-          score.characterErrorRate <= gate.cer,
-          "\(language.rawValue) \(condition.rawValue): CER \(score.characterErrorRate) above \(gate.cer)")
-        if let wer = gate.wer {
+    // The same gates for English and French alone and among the wider set of languages: adding
+    // languages must not make the first two worse.
+    for (name, recognizer) in [("", VisionTextRecognizer()), (" (wider set)", VisionTextRecognizer.wider)] {
+      for language in OCRCorpus.Language.allCases {
+        for condition in OCRCorpus.Condition.allCases {
+          let pages = OCRCorpus.pages(language, condition, count: counts[condition] ?? 0, seed: 2026)
+          var score = RecognitionScore()
+          for page in pages {
+            let lines = try await recognizer.recognizeText(in: page.image)
+            score = score + RecognitionScore(recognised: lines.map(\.text).joined(separator: "\n"), truth: page.truth)
+          }
+          let gate = try #require(Self.gates[condition])
+          let passes = score.characterErrorRate <= gate.cer && (gate.wer.map { score.wordErrorRate <= $0 } ?? true)
+          report.append(
+            "| \(language.rawValue)\(name) | \(condition.rawValue) | \(pages.count) | "
+              + String(format: "%.2f%% | %.2f%% | ", score.characterErrorRate * 100, score.wordErrorRate * 100)
+              + (passes ? "pass" : "FAIL") + " |")
           #expect(
-            score.wordErrorRate <= wer,
-            "\(language.rawValue) \(condition.rawValue): WER \(score.wordErrorRate) above \(wer)")
+            score.characterErrorRate <= gate.cer,
+            "\(language.rawValue)\(name) \(condition.rawValue): CER \(score.characterErrorRate) above \(gate.cer)")
+          if let wer = gate.wer {
+            #expect(
+              score.wordErrorRate <= wer,
+              "\(language.rawValue)\(name) \(condition.rawValue): WER \(score.wordErrorRate) above \(wer)")
+          }
         }
       }
     }

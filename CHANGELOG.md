@@ -19,10 +19,17 @@ Store notes (see the changelog strategy).
   only ever means a red annotation or Delete.
 
 ### Fixed
+- Scanning: the hidden text of a scanned page now sits exactly over the printed words. Before,
+  it could be narrower or wider than the line, so a selection did not match what you dragged
+  over, and a long line squeezed into a narrow space could be found only in pieces.
 - The plans screen now says how much the yearly plan saves; with the App Store's own plans the
   line was missing.
 
 ### Added
+- Scanning (internal builds): text is recognised in more languages, among them German, Spanish,
+  Italian, Portuguese, Dutch, Polish, Russian and Ukrainian, without choosing one first.
+- Scanning (internal builds): on a scan you can now select a single word; before, the selection
+  could only follow whole lines loosely.
 - Reading (internal builds): a strip of small pages along the bottom of a document. Tap a small
   page to go to it; the strip steps aside while you edit or mark up, and Layout › Page strip
   puts it away.

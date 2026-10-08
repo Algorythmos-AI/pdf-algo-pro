@@ -362,7 +362,7 @@ final class AppModel {
   func makeScan() -> ScanModel {
     ScanModel(
       intake: container.intake, builder: container.builder, telemetry: container.telemetry,
-      recognizer: VisionTextRecognizer()
+      recognizer: AppContainer.recognizer
     ) {
       [weak self] document in
       guard let self else { return }
