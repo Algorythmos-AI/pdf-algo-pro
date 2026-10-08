@@ -12,7 +12,8 @@ public enum TelemetryEvent {
     "activation.first_document.opened", "activation.first_value.reached", "task.core.completed",
     "intelligence.request.completed", "intelligence.answer.kept", "intelligence.consent.changed",
     "commerce.paywall.viewed", "commerce.paywall.closed", "commerce.trial.started", "commerce.purchase.completed",
-    "commerce.purchase.restored", "commerce.restore.failed", "share.document.exported",
+    "commerce.purchase.restored", "commerce.restore.failed", "commerce.plan.selected", "commerce.purchase.started",
+    "commerce.purchase.failed", "share.document.exported",
     "engagement.week.recorded", "quality.operation.failed",
   ]
 

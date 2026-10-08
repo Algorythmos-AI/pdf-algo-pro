@@ -43,6 +43,12 @@ struct LaunchEnvironment {
   let allowanceExhausted: Bool
   /// Make the store unable to load its products (`-store unavailable`), as without a connection.
   let storeUnavailable: Bool
+  /// How a purchase ends in a UI test (`-purchase cancelled`, `failed` or `pending`); it succeeds
+  /// unless a test says otherwise.
+  let purchaseOutcome: PurchaseOutcome
+  /// Whether the annual plan offers its free trial in a UI test: it does unless a test says the
+  /// account is not eligible (`-trial ineligible`) or the plan has none (`-trial none`).
+  let offersTrial: Bool
   /// Whether the reader's newer controls are on (`-reading-controls off` shows the reader without
   /// them, as a Release build has it until the flag is on there); `nil` leaves it to the build.
   let readingControls: Bool?
@@ -94,6 +100,20 @@ struct LaunchEnvironment {
         arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil
       }
       storeUnavailable = store == "unavailable"
+      let purchase = arguments.firstIndex(of: "-purchase").flatMap {
+        arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil
+      }
+      purchaseOutcome =
+        switch purchase {
+        case "cancelled": .cancelled
+        case "failed": .failed
+        case "pending": .pending
+        default: .purchased
+        }
+      let trial = arguments.firstIndex(of: "-trial").flatMap {
+        arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil
+      }
+      offersTrial = trial != "ineligible" && trial != "none"
       let reading = arguments.firstIndex(of: "-reading-controls").flatMap {
         arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil
       }
@@ -117,6 +137,8 @@ struct LaunchEnvironment {
       entitlement = nil
       allowanceExhausted = false
       storeUnavailable = false
+      purchaseOutcome = .purchased
+      offersTrial = true
       readingControls = nil
     #endif
   }
@@ -170,6 +192,11 @@ final class AppContainer {
   ///
   /// UI tests never ask the App Store: their store has its products unless a test says otherwise.
   let store: any StoreAccessing
+  /// The plans on sale and the way to buy one (ADR-0027).
+  ///
+  /// UI tests sell two made-up plans, and a purchase there ends as the test asked and, when it
+  /// succeeds, grants the entitlement a real one would.
+  let offering: any StoreOffering
   /// What edits existing text: the native editor, or under test one that cannot prove an edit.
   var textEditor: any PDFTextEditing {
     #if DEBUG
@@ -239,12 +266,20 @@ final class AppContainer {
     let catalog = ProductCatalog(bundleIdentifier: Bundle.main.bundleIdentifier ?? "com.algorythmos.pdfalgopro")
     self.catalog = catalog
     let provider: any EntitlementProviding
-    if let fixed = environment.entitlement {
-      provider = FixedEntitlements(fixed)
-    } else if environment.isUITesting {
-      // A UI test never asks the App Store: without an argument, nobody is entitled.
-      provider = FixedEntitlements(.none)
+    if environment.isUITesting || environment.entitlement != nil {
+      // A UI test never asks the App Store: without an argument, nobody is entitled, and a scripted
+      // purchase is what changes that.
+      let scripted = ScriptedEntitlements(environment.entitlement ?? .none)
+      provider = scripted
+      let trial = environment.offersTrial ? TrialOffer(length: 3, unit: .day) : nil
+      let plans = FixedStoreOffering.fixturePlans(yearlyID: catalog.yearly, weeklyID: catalog.weekly, trial: trial)
+      offering = FixedStoreOffering(
+        plans: environment.storeUnavailable ? nil : plans, outcome: environment.purchaseOutcome
+      ) { plan in
+        scripted.set(plan.trial == nil ? .subscribed : .trial(endsAt: Date().addingTimeInterval(3 * 24 * 60 * 60)))
+      }
     } else {
+      offering = StoreKitOffering()
       let store = StoreKitEntitlements(productIDs: catalog.productIDs)
       #if INTERNAL_TOOLS
         provider = InternalEntitlementOverride(base: store)

@@ -251,7 +251,8 @@ final class AppModel {
     return PaywallModel(
       trigger: paywallTrigger, productIDs: container.catalog.ordered, benefits: paywallBenefits,
       termsOfUse: AppLinks.termsOfUse.url(languageCode: language),
-      privacyPolicy: AppLinks.privacyPolicy.url(languageCode: language), entitlements: container.entitlements,
+      privacyPolicy: AppLinks.privacyPolicy.url(languageCode: language), offering: container.offering,
+      entitlements: container.entitlements,
       telemetry: container.telemetry,
       setReminder: { [container] isOn, trialEndsAt in await container.reminders.set(isOn, trialEndsAt: trialEndsAt) },
       onClose: { [weak self] in

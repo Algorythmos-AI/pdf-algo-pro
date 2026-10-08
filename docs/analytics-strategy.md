@@ -241,6 +241,9 @@ outside buckets and identifiers are rejected by the schema.
 | `intelligence.consent.changed` | Cloud-tier consent is granted or revoked | `tier`, `state` (`granted`, `revoked`) | Consent rates (AI governance) |
 | `commerce.paywall.viewed` | The paywall appears | `trigger` | Paywall reach |
 | `commerce.paywall.closed` | The paywall goes away with no purchase made | `trigger` | Paywall reach against trial starts |
+| `commerce.plan.selected` | A different plan is chosen on the paywall | `plan` | Plan mix before purchase |
+| `commerce.purchase.started` | The paywall's button is tapped and the App Store's sheet is asked for | `plan` | Paywall to purchase sheet |
+| `commerce.purchase.failed` | A purchase could not be made or verified (not a cancellation) | — | Reliability of buying ([operations](operations.md)) |
 | `commerce.trial.started` | A free-trial transaction completes on the device | `plan` | Trial start rate (cross-check) |
 | `commerce.purchase.completed` | A paid purchase without a trial completes | `plan` | Paid conversion (cross-check) |
 | `commerce.purchase.restored` | Restore Purchases brings Pro back | — | Restores (support) |
