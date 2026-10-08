@@ -63,11 +63,9 @@ struct ReadingControlsTests {
     let controller = try PDFDocumentController(url: url)
     let view = PDFReaderHostView()
     view.frame = CGRect(x: 0, y: 0, width: 393, height: 700)
-    // In a window, so PDFKit lays out its own scroller as it does on screen.
-    let window = UIWindow(frame: view.frame)
-    window.addSubview(view)
+    let container = UIView(frame: view.frame)
+    container.addSubview(view)
     view.configure(for: controller)
-    window.layoutIfNeeded()
     view.layoutIfNeeded()
     #expect(view.autoScales)
     let zoom = view.scaleFactor
