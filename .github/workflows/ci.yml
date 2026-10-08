@@ -225,6 +225,38 @@ jobs:
           export TEST_RUNNER_SNAPSHOT_TESTING_RECORD="${{ inputs.record_snapshots && 'all' || 'never' }}"
           TEST_RUNNER_REPORTS_DIR="$GITHUB_WORKSPACE/reports" xcodebuild test-without-building -scheme "$SCHEME" \
             -testPlan "$TEST_PLAN" -destination "id=$SIM" -enableCodeCoverage YES -resultBundlePath Tests.xcresult
+      - name: Name each failed test and why
+        # The log is too long to read a failure's message from its tail; an annotation per failed
+        # test puts it on the run's summary. Diagnostic only: the Tests step already failed the job.
+        if: ${{ failure() && hashFiles('Tests.xcresult/Info.plist') != '' }}
+        continue-on-error: true
+        run: |
+          xcrun xcresulttool get test-results tests --path Tests.xcresult > test-results.json
+          python3 - test-results.json <<'PY'
+          import json, sys
+
+          GROUPS = ("Test Suite", "Unit test bundle", "UI test bundle")
+
+          def escape(text, extra=()):
+              text = text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+              for char, code in extra:
+                  text = text.replace(char, code)
+              return text
+
+          def walk(node, trail):
+              name, kind = node.get("name", ""), node.get("nodeType")
+              if kind == "Test Case" and node.get("result") == "Failed":
+                  reasons = [c.get("name", "") for c in node.get("children", [])
+                             if c.get("nodeType") == "Failure Message"] or ["no message recorded"]
+                  title = escape("/".join(trail + [name]), ((":", "%3A"), (",", "%2C")))
+                  for reason in reasons:
+                      print(f"::error title={title}::{escape(reason)}")
+              for child in node.get("children", []):
+                  walk(child, trail + [name] if kind in GROUPS else trail)
+
+          for root in json.load(open(sys.argv[1])).get("testNodes", []):
+              walk(root, [])
+          PY
       - name: Coverage gate (80% overall and per module)
         # Runs even when a test failed, so one run reports every problem. A test bundle that crashed
         # records no coverage, so its module can look low until the crash is fixed.

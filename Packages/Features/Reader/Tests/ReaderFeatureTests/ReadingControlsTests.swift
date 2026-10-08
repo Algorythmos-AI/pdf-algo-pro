@@ -77,7 +77,9 @@ struct ReadingControlsTests {
     controller.selectTextRegion(first, onPage: 0)
     let anchor = try #require(controller.textEditAnchor, "The page view says where the line is")
     // The page is not zoomed: every line of it stays on screen, as before the line was picked.
-    #expect(view.scaleFactor == zoom && view.autoScales && anchor.scale == zoom)
+    #expect(abs(view.scaleFactor - zoom) < 0.001, "Zoom \(zoom) became \(view.scaleFactor)")
+    #expect(view.autoScales, "The page stopped fitting the screen")
+    #expect(abs(anchor.scale - zoom) < 0.001, "The anchor's zoom is \(anchor.scale), the page's \(zoom)")
     #expect(anchor.selection.region == first)
     // The field may grow to the right edge of the page's text, not further.
     #expect(abs(anchor.columnFrame.minX - anchor.lineFrame.minX) < 0.5, "\(anchor)")
@@ -86,22 +88,27 @@ struct ReadingControlsTests {
 
     // Scrolling the page for the keyboard moves the line, and the anchor with it, even where the
     // page has no more to scroll and room is made under it.
-    let scroller = try #require(view.pageScroller)
+    let scroller = try #require(view.pageScroller, "PDFKit's page scroller was not found")
+    scroller.layoutIfNeeded()
     let inset = scroller.contentInset
+    let scrollerState = "content \(scroller.contentSize), bounds \(scroller.bounds), inset \(inset)"
     let before = anchor.lineFrame.minY
     view.scrollPickedText(by: 120, animated: false)
     view.layoutIfNeeded()
     view.publishTextEditAnchor()
     let moved = try #require(controller.textEditAnchor)
     let shift = before - moved.lineFrame.minY
-    #expect(shift > 60 && shift < 121, "The line moved up by \(shift) points: \(before) → \(moved.lineFrame.minY)")
+    #expect(
+      shift > 60 && shift < 121,
+      "The line moved up by \(shift) points: \(before) → \(moved.lineFrame.minY); \(scrollerState)")
 
     // Letting go stops following the line and takes the room away again.
     controller.clearTextRegionSelection()
-    #expect(controller.textEditAnchor == nil)
-    #expect(scroller.contentInset == inset)
+    #expect(controller.textEditAnchor == nil, "The anchor outlived the selection")
+    #expect(scroller.contentInset == inset, "Inset \(inset) became \(scroller.contentInset)")
     controller.setEditingText(false)
-    #expect(view.autoScales && view.scaleFactor == zoom)
+    #expect(view.autoScales, "The page stopped fitting the screen after editing")
+    #expect(abs(view.scaleFactor - zoom) < 0.001, "Zoom \(zoom) became \(view.scaleFactor) after editing")
   }
 
   @Test("The next and previous page commands stop at the ends of the document")
