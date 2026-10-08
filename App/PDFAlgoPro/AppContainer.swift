@@ -43,6 +43,9 @@ struct LaunchEnvironment {
   let allowanceExhausted: Bool
   /// Make the store unable to load its products (`-store unavailable`), as without a connection.
   let storeUnavailable: Bool
+  /// Whether the reader's newer controls are on (`-reading-controls off` shows the reader without
+  /// them, as a Release build has it until the flag is on there); `nil` leaves it to the build.
+  let readingControls: Bool?
 
   init(arguments: [String] = ProcessInfo.processInfo.arguments) {
     #if DEBUG
@@ -91,6 +94,15 @@ struct LaunchEnvironment {
         arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil
       }
       storeUnavailable = store == "unavailable"
+      let reading = arguments.firstIndex(of: "-reading-controls").flatMap {
+        arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil
+      }
+      readingControls =
+        switch reading {
+        case "on": true
+        case "off": false
+        default: nil
+        }
     #else
       isUITesting = false
       skipsOnboarding = false
@@ -105,6 +117,7 @@ struct LaunchEnvironment {
       entitlement = nil
       allowanceExhausted = false
       storeUnavailable = false
+      readingControls = nil
     #endif
   }
 }
@@ -163,6 +176,11 @@ final class AppContainer {
       if environment.refusesTextEdits { return UnprovableTextEditor() }
     #endif
     return ContentStreamTextEditor()
+  }
+  /// Whether the reader's newer controls are part of this build: on in internal builds, the
+  /// compiled default (off) in a Release build, and whatever a UI test asks for.
+  var offersReadingControls: Bool {
+    environment.readingControls ?? (AppTextEditingAccess.isInternalBuild || ReleaseFlag.readingControls.compiledDefault)
   }
   /// Counts about the last look at a page's text, for "Report a problem"; in memory only.
   let textEditingDiagnostics = TextEditingDiagnosticsLog()

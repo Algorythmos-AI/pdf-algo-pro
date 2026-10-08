@@ -18,6 +18,8 @@ public struct AppSettings: Hashable, Codable, Sendable {
   public var isIntelligenceHidden: Bool
   /// The reader's page layout.
   public var readerDisplayMode: ReaderDisplayMode
+  /// Whether the reader shows a strip of small pages to move through the document.
+  public var showsPageStrip: Bool
   /// The library's sort order.
   public var librarySort: LibrarySort
   /// Whether document text goes to system Spotlight as well as titles and tags (FR-LIB-005, T-11).
@@ -36,6 +38,7 @@ public struct AppSettings: Hashable, Codable, Sendable {
     intents: [OnboardingIntent] = [],
     isIntelligenceHidden: Bool = false,
     readerDisplayMode: ReaderDisplayMode = .continuous,
+    showsPageStrip: Bool = true,
     librarySort: LibrarySort = .recentlyOpened,
     isSpotlightTextIncluded: Bool = true,
     isAppLockEnabled: Bool = false,
@@ -45,6 +48,7 @@ public struct AppSettings: Hashable, Codable, Sendable {
     self.intents = intents
     self.isIntelligenceHidden = isIntelligenceHidden
     self.readerDisplayMode = readerDisplayMode
+    self.showsPageStrip = showsPageStrip
     self.librarySort = librarySort
     self.isSpotlightTextIncluded = isSpotlightTextIncluded
     self.isAppLockEnabled = isAppLockEnabled
@@ -56,7 +60,7 @@ public struct AppSettings: Hashable, Codable, Sendable {
 
   private enum CodingKeys: String, CodingKey {
     case hasCompletedOnboarding, intents, isIntelligenceHidden, readerDisplayMode, librarySort, isSpotlightTextIncluded
-    case isAppLockEnabled, includesDiagnostics
+    case isAppLockEnabled, includesDiagnostics, showsPageStrip
   }
 
   /// Decodes leniently, so settings survive updates in both directions.
@@ -75,6 +79,7 @@ public struct AppSettings: Hashable, Codable, Sendable {
     isIntelligenceHidden = value(Bool.self, .isIntelligenceHidden) ?? defaults.isIntelligenceHidden
     readerDisplayMode =
       value(String.self, .readerDisplayMode).flatMap(ReaderDisplayMode.init(rawValue:)) ?? defaults.readerDisplayMode
+    showsPageStrip = value(Bool.self, .showsPageStrip) ?? defaults.showsPageStrip
     librarySort = value(String.self, .librarySort).flatMap(LibrarySort.init(rawValue:)) ?? defaults.librarySort
     isSpotlightTextIncluded = value(Bool.self, .isSpotlightTextIncluded) ?? defaults.isSpotlightTextIncluded
     isAppLockEnabled = value(Bool.self, .isAppLockEnabled) ?? defaults.isAppLockEnabled

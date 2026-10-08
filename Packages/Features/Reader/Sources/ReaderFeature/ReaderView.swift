@@ -460,8 +460,39 @@ public struct ReaderView<Assistant: View>: View {
         .background(.regularMaterial, in: Capsule())
         .accessibilityLabel(Text("Page \(model.pageLabel)", bundle: .module))
         .accessibilityIdentifier("reader.pageIndicator")
+      if model.showsPageStrip {
+        PageStrip(model: model)
+      }
     }
     .padding(Spacing.s200)
+    .background { keyboardCommands }
+  }
+
+  /// Keys for a hardware keyboard: the arrows turn the page, and Command with plus, minus and
+  /// zero zooms, as in Preview.
+  @ViewBuilder private var keyboardCommands: some View {
+    if model.offersReadingControls, let controller = model.controller, model.selectedTextRegion == nil {
+      Group {
+        Button(action: controller.showNextPage) { Text("Next page", bundle: .module) }
+          .keyboardShortcut(.rightArrow, modifiers: [])
+        Button(action: controller.showPreviousPage) { Text("Previous page", bundle: .module) }
+          .keyboardShortcut(.leftArrow, modifiers: [])
+        Button(action: controller.zoomIn) { Text("Zoom in", bundle: .module) }
+          .keyboardShortcut("+")
+        Button(action: controller.zoomIn) { Text("Zoom in", bundle: .module) }
+          .keyboardShortcut("=")
+        Button(action: controller.zoomOut) { Text("Zoom out", bundle: .module) }
+          .keyboardShortcut("-")
+        Button(action: controller.zoomToFit) { Text("Fit the page", bundle: .module) }
+          .keyboardShortcut("0")
+      }
+      // Present for their keys only: no size, nothing drawn, and not in the accessibility tree.
+      .frame(width: 0, height: 0)
+      .clipped()
+      .opacity(0)
+      .allowsHitTesting(false)
+      .accessibilityHidden(true)
+    }
   }
 
 }

@@ -15,6 +15,13 @@ Store notes (see the changelog strategy).
   only ever means a red annotation or Delete.
 
 ### Added
+- Reading (internal builds): a strip of small pages along the bottom of a document. Tap a small
+  page to go to it; the strip steps aside while you edit or mark up, and Layout › Page strip
+  puts it away.
+- Reading (internal builds): pinching out now stops at the whole page instead of leaving a small
+  page adrift.
+- Reading (internal builds): with a keyboard, the left and right arrows turn the page, and
+  Command with plus, minus and zero zooms in, out and back to the whole page.
 - A short introduction the first time you open the app: three pages on what it does, with Skip on
   every one.
 - PDF Algo Pro now has a Pro subscription. The app stays free to use, with a daily limit on new

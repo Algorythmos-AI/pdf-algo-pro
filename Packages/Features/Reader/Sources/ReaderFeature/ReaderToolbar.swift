@@ -399,19 +399,7 @@ struct ReaderToolbar: ToolbarContent {
               Image(systemName: "lock.doc")
             }
           }
-          Picker(
-            selection: Binding(get: { model.controller?.displayMode ?? .continuous }, set: { model.setDisplayMode($0) })
-          ) {
-            Text("Continuous", bundle: .module).tag(ReaderDisplayMode.continuous)
-            Text("Single page", bundle: .module).tag(ReaderDisplayMode.singlePage)
-          } label: {
-            Label {
-              Text("Layout", bundle: .module)
-            } icon: {
-              Image(systemName: "rectangle.split.1x2")
-            }
-          }
-          .pickerStyle(.menu)
+          LayoutMenu(model: model)
           Button {
             model.toggleReadAloud()
           } label: {
@@ -579,5 +567,45 @@ struct UndoRedoButtons: View {
     .disabled(!model.canRedo)
     .keyboardShortcut("z", modifiers: [.command, .shift])
     .accessibilityIdentifier("\(prefix).redo")
+  }
+}
+
+/// The reader's layout choices: how pages are laid out and, where the build has it, the page strip.
+struct LayoutMenu: View {
+  let model: ReaderModel
+
+  var body: some View {
+    if model.offersReadingControls {
+      // A menu around the choice, because a switch cannot sit among a picker's options.
+      Menu {
+        layout.pickerStyle(.inline)
+        Toggle(isOn: Binding(get: { model.wantsPageStrip }, set: { model.setWantsPageStrip($0) })) {
+          Text("Page strip", bundle: .module)
+        }
+      } label: {
+        title
+      }
+    } else {
+      layout.pickerStyle(.menu)
+    }
+  }
+
+  private var title: some View {
+    Label {
+      Text("Layout", bundle: .module)
+    } icon: {
+      Image(systemName: "rectangle.split.1x2")
+    }
+  }
+
+  private var layout: some View {
+    Picker(
+      selection: Binding(get: { model.controller?.displayMode ?? .continuous }, set: { model.setDisplayMode($0) })
+    ) {
+      Text("Continuous", bundle: .module).tag(ReaderDisplayMode.continuous)
+      Text("Single page", bundle: .module).tag(ReaderDisplayMode.singlePage)
+    } label: {
+      title
+    }
   }
 }

@@ -102,6 +102,13 @@ final class PDFReaderHostView: PDFView {
   /// Safe to call again with another controller: a reader that loads its document a second time
   /// makes a new controller, and the view on screen must follow it, or everything the controller
   /// asks of the view (text editing, drawing, going to a page) would go nowhere.
+  /// What the zoom limits were last worked out for.
+  struct ZoomKey: Equatable {
+    var size: CGSize
+    var mode: PDFDisplayMode
+  }
+  private var zoomFittedFor: ZoomKey?
+
   func configure(for controller: PDFDocumentController) {
     guard self.controller !== controller else { return }
     if let previous = self.controller {
@@ -184,7 +191,56 @@ final class PDFReaderHostView: PDFView {
     }
   #endif
 
+  /// How far past the whole page the reader zooms in.
+  ///
+  /// `Assumption:` ten times is enough to read 4-point print on a phone; text editing zooms small
+  /// print to 15 points on screen and must stay inside this (`bringTextRegionIntoView()`).
+  static let largestZoom: CGFloat = 10
+
+  /// Works the zoom limits out again from the size of the view and the page.
+  func zoomLimitsChanged() {
+    zoomFittedFor = nil
+    #if canImport(UIKit)
+      setNeedsLayout()
+    #else
+      needsLayout = true
+    #endif
+  }
+
+  /// Keeps zooming between the whole page and `largestZoom` times that.
+  ///
+  /// PDFKit's own smallest zoom is well below the whole page, so a pinch leaves a small page
+  /// adrift in the middle of the reader.
+  private func limitZoom() {
+    guard let controller, controller.limitsZoom, document != nil, bounds.width > 0, bounds.height > 0 else { return }
+    let key = ZoomKey(size: bounds.size, mode: displayMode)
+    guard zoomFittedFor != key else { return }
+    let fit = scaleFactorForSizeToFit
+    guard fit > 0, fit.isFinite else { return }
+    zoomFittedFor = key
+    // Setting a limit turns PDFKit's fitting off, so it is turned back on if it was on.
+    let fits = autoScales
+    // The upper limit first: a lower limit above the old upper one would be refused.
+    maxScaleFactor = fit * Self.largestZoom
+    // A hair under the fit, so fitting the page is never itself out of bounds.
+    minScaleFactor = fit * 0.999
+    if fits, !autoScales { autoScales = true }
+  }
+
+  /// Zooms by a factor, inside the limits.
+  func zoom(by factor: CGFloat) {
+    scaleFactor = min(maxScaleFactor, max(minScaleFactor, scaleFactor * factor))
+  }
+
+  #if canImport(UIKit)
+    override func layoutSubviews() {
+      super.layoutSubviews()
+      limitZoom()
+    }
+  #endif
+
   func apply(_ mode: ReaderDisplayMode) {
+    zoomLimitsChanged()
     switch mode {
     case .continuous:
       displayMode = .singlePageContinuous
