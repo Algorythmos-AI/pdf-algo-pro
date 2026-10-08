@@ -286,11 +286,15 @@ final class TextEditingUITests: UITestCase {
     assertWhollyInView(field, in: app)
 
     // The start of the line is in view: a tap there puts the caret there.
+    let tapped = field.frame
+    let hittable = field.isHittable
     field.coordinate(withNormalizedOffset: CGVector(dx: 0.01, dy: 0.1)).tap()
     field.typeText("Z")
     let start = try XCTUnwrap(field.value as? String)
     let place = try XCTUnwrap(start.firstIndex(of: "Z"), "The letter was typed")
-    XCTAssertLessThan(start.distance(from: start.startIndex, to: place), 3, "It went in at the start of the line")
+    XCTAssertLessThan(
+      start.distance(from: start.startIndex, to: place), 3,
+      "It went in at the start of the line; the field was at \(tapped), hittable \(hittable)")
 
     // And so is the end: a tap after the last word puts the caret after it.
     field.coordinate(withNormalizedOffset: CGVector(dx: 0.99, dy: 0.98)).tap()
@@ -315,6 +319,10 @@ final class TextEditingUITests: UITestCase {
     let screen = app.windows.firstMatch.frame
     let frame = field.frame
     XCTAssertTrue(screen.contains(frame), "\(frame) is inside \(screen)", file: file, line: line)
+    let top = app.navigationBars.firstMatch
+    if top.exists {
+      XCTAssertGreaterThanOrEqual(frame.minY, top.frame.maxY - 1, "Below the top bar", file: file, line: line)
+    }
     let bar = app.descendants(matching: .any)["reader.textEdit.actionBar"].firstMatch
     // Text the field cannot sit over is typed in the bar itself.
     if bar.exists, !bar.textViews["reader.textEdit.field"].exists {

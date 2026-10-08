@@ -265,15 +265,30 @@
     /// page, and taken away again when the text is let go of.
     func scrollPickedText(by distance: CGFloat, animated: Bool = true) {
       guard distance != 0, let scroller = pageScroller else { return }
+      let before = pickedLineFrame?.minY
       let inset = scroller.adjustedContentInset
-      let lowest = -inset.top
       let highest = scroller.contentSize.height + inset.bottom - scroller.bounds.height
-      let target = max(lowest, scroller.contentOffset.y + distance)
-      if target > highest {
+      let wanted = scroller.contentOffset.y + distance
+      var moved: CGFloat = 0
+      if wanted > highest {
         if textOverlays.insetBeforeEditing == nil { textOverlays.insetBeforeEditing = scroller.contentInset }
-        scroller.contentInset.bottom += target - highest
+        scroller.contentInset.bottom += wanted - highest
+        // Making room can move the page by itself: PDFKit centres a page shorter than the view, and
+        // stops once there is room under it. What it moved counts towards the distance.
+        scroller.layoutIfNeeded()
+        layoutIfNeeded()
+        if let before, let after = pickedLineFrame?.minY { moved = before - after }
       }
+      let target = max(-scroller.adjustedContentInset.top, scroller.contentOffset.y + distance - moved)
       scroller.setContentOffset(CGPoint(x: scroller.contentOffset.x, y: target), animated: animated)
+    }
+
+    /// Where the picked line is on screen, in this view's space.
+    private var pickedLineFrame: CGRect? {
+      guard let selection = controller?.selectedTextRegion, let page = document?.page(at: selection.pageIndex) else {
+        return nil
+      }
+      return convert(selection.region.bounds, from: page)
     }
 
     /// PDFKit's own scroller for the pages, the first scroll view inside the page view.
