@@ -11,7 +11,8 @@ public enum TelemetryEvent {
     "onboarding.flow.started", "onboarding.intent.selected", "onboarding.flow.skipped", "onboarding.flow.completed",
     "activation.first_document.opened", "activation.first_value.reached", "task.core.completed",
     "intelligence.request.completed", "intelligence.answer.kept", "intelligence.consent.changed",
-    "commerce.paywall.viewed", "commerce.trial.started", "commerce.purchase.completed", "share.document.exported",
+    "commerce.paywall.viewed", "commerce.paywall.closed", "commerce.trial.started", "commerce.purchase.completed",
+    "commerce.purchase.restored", "commerce.restore.failed", "share.document.exported",
     "engagement.week.recorded", "quality.operation.failed",
   ]
 
