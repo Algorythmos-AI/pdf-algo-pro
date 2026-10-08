@@ -70,10 +70,10 @@ final class AppModel {
   init(container: AppContainer) {
     self.container = container
     #if INTERNAL_TOOLS
-      // A new internal build shows first run again, once (PAP-053). Tests choose their own start.
-      if !container.environment.isUITesting {
-        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""
-        InternalFirstRunReplay(defaults: .standard, build: build).apply(to: container.settings)
+      // A new internal build replays first run, the offer included (PAP-053, PAP-055). A UI test has
+      // a replay only when it names the build it is pretending to be.
+      if let replay = Self.firstRunReplay(container) {
+        isReplayingFirstRun = replay.begin(with: container.settings)
       }
     #endif
     settings = container.settings.load()
@@ -153,6 +153,34 @@ final class AppModel {
     }
   }
 
+  #if INTERNAL_TOOLS
+    /// Whether this launch replays first run for an internal build: the offer then follows the
+    /// introduction whatever the person is entitled to, and says the truth about it.
+    @ObservationIgnored private(set) var isReplayingFirstRun = false
+
+    /// The replay for this build; `nil` in a UI test that has not asked for one.
+    private static func firstRunReplay(_ container: AppContainer) -> InternalFirstRunReplay? {
+      let environment = container.environment
+      if environment.isUITesting, environment.firstRunBuild == nil { return nil }
+      let build = environment.firstRunBuild ?? Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""
+      return InternalFirstRunReplay(defaults: container.defaults, build: build)
+    }
+
+    /// Forgets which build completed first run, so that the next launch replays it.
+    func resetFirstRunReplay() {
+      Self.firstRunReplay(container)?.reset()
+    }
+  #endif
+
+  /// A sheet went away. When it was the offer that ends a replayed first run, this build is done.
+  func sheetClosed(_ closed: Sheet?) {
+    #if INTERNAL_TOOLS
+      guard closed == .paywall, isReplayingFirstRun, settings.hasCompletedOnboarding else { return }
+      isReplayingFirstRun = false
+      Self.firstRunReplay(container)?.complete()
+    #endif
+  }
+
   /// Shows first run again, from the first page of the introduction.
   ///
   /// Only the internal testing section of Settings calls it, and that section is in Debug and Staging
@@ -167,6 +195,10 @@ final class AppModel {
     onboarding = makeOnboarding()
     sheet = nil
     settings = current
+    #if INTERNAL_TOOLS
+      // As on a new build: the offer follows whatever the person is entitled to.
+      isReplayingFirstRun = true
+    #endif
     askWhetherPlansAreAvailable()
   }
 
@@ -199,6 +231,14 @@ final class AppModel {
   /// or when the App Store has not answered within `storePatience`, first run simply ends on Home.
   /// Nothing is stored, so the offer cannot come back at a later launch.
   func offerAfterFirstRun() {
+    #if INTERNAL_TOOLS
+      // A replay is for seeing the journey: the offer shows even without plans or with Pro, and
+      // says which of those is the case. Nothing about the person's purchases is touched.
+      if isReplayingFirstRun {
+        presentPaywall(.onboarding)
+        return
+      }
+    #endif
     guard plansAreAvailable == true, let entitlement = container.entitlements.entitlement,
       !entitlement.grantsPro(at: Date())
     else { return }
@@ -343,7 +383,8 @@ final class AppModel {
           intelligence: container.intelligence,
           onEntitlementOverride: { [container] in Task { await container.entitlements.refresh() } },
           onReplayFirstRun: { [weak self] in self?.replayFirstRun() },
-          onShowOffer: { [weak self] in self?.presentPaywall(.settings) }))
+          onShowOffer: { [weak self] in self?.presentPaywall(.settings) },
+          onResetReplay: { [weak self] in self?.resetFirstRunReplay() }))
     #else
       nil
     #endif

@@ -49,6 +49,12 @@ struct LaunchEnvironment {
   /// Whether the annual plan offers its free trial in a UI test: it does unless a test says the
   /// account is not eligible (`-trial ineligible`) or the plan has none (`-trial none`).
   let offersTrial: Bool
+  /// The build number first run's replay sees in a UI test (`-first-run-build 24`); without it a UI
+  /// test has no replay, and starts where its other arguments say.
+  let firstRunBuild: String?
+  /// A name under which a UI test's settings survive a relaunch (`-keep-state <name>`), so one test
+  /// can open the app as two builds of the same install. Without it every launch starts afresh.
+  let keptState: String?
   /// Whether the reader's newer controls are on (`-reading-controls off` shows the reader without
   /// them, as a Release build has it until the flag is on there); `nil` leaves it to the build.
   let readingControls: Bool?
@@ -114,6 +120,12 @@ struct LaunchEnvironment {
         arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil
       }
       offersTrial = trial != "ineligible" && trial != "none"
+      firstRunBuild = arguments.firstIndex(of: "-first-run-build").flatMap {
+        arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil
+      }
+      keptState = arguments.firstIndex(of: "-keep-state").flatMap {
+        arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil
+      }
       let reading = arguments.firstIndex(of: "-reading-controls").flatMap {
         arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil
       }
@@ -139,6 +151,8 @@ struct LaunchEnvironment {
       storeUnavailable = false
       purchaseOutcome = .purchased
       offersTrial = true
+      firstRunBuild = nil
+      keptState = nil
       readingControls = nil
     #endif
   }
@@ -150,6 +164,8 @@ struct LaunchEnvironment {
 @MainActor
 final class AppContainer {
   let settings: any SettingsStoring
+  /// Where the app keeps small things beside its settings; a UI test's own, never the real one.
+  let defaults: UserDefaults
   let library: any DocumentLibrary
   let index: LocalSearchIndex
   let intake: DocumentIntake
@@ -218,11 +234,14 @@ final class AppContainer {
     self.environment = environment
     let folders = Folders(isUITesting: environment.isUITesting)
     let settings: any SettingsStoring
-    if environment.isUITesting, let defaults = UserDefaults(suiteName: "ui-testing-\(UUID().uuidString)") {
+    let suite = environment.keptState.map { "ui-testing-kept-\($0)" } ?? "ui-testing-\(UUID().uuidString)"
+    if environment.isUITesting, let defaults = UserDefaults(suiteName: suite) {
       settings = UserDefaultsSettingsStore(defaults: defaults)
       if environment.skipsOnboarding { settings.save(AppSettings(hasCompletedOnboarding: true)) }
+      self.defaults = defaults
     } else {
       settings = UserDefaultsSettingsStore()
+      defaults = .standard
     }
     self.settings = settings
 
