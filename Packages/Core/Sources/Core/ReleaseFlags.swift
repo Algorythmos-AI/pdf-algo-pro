@@ -13,6 +13,8 @@ public enum ReleaseFlag: String, CaseIterable, Sendable {
   case textEditing
   /// The strip of small pages, the zoom limits and the keyboard commands in the reader (FR-READ-002).
   case readingControls
+  /// Dragging a document out of the library into another app (ADR-0022).
+  case documentDragging
 
   /// The value in a build that does not turn the flag on.
   ///
@@ -24,6 +26,7 @@ public enum ReleaseFlag: String, CaseIterable, Sendable {
     switch self {
     case .textEditing: "PDF engine"
     case .readingControls: "Reader"
+    case .documentDragging: "Library"
     }
   }
 
@@ -32,6 +35,7 @@ public enum ReleaseFlag: String, CaseIterable, Sendable {
     switch self {
     case .textEditing: "1.1.0"
     case .readingControls: "1.1.0"
+    case .documentDragging: "1.1.0"
     }
   }
 
