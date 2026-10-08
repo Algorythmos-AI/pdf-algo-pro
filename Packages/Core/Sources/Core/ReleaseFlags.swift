@@ -19,6 +19,8 @@ public enum ReleaseFlag: String, CaseIterable, Sendable {
   /// Finding a word in another of its forms, in library search and in the pages chosen for a
   /// question (FR-LIB-004, FR-AI-001).
   case baseFormMatching
+  /// Dragging a document out of the library into another app (ADR-0022).
+  case documentDragging
   /// Reading a scanned page as a document, paragraph by paragraph, so columns and tables come in
   /// the order they are read (FR-SCAN-004, ADR-0008).
   case documentRecognition
@@ -35,6 +37,7 @@ public enum ReleaseFlag: String, CaseIterable, Sendable {
     case .readingControls: "Reader"
     case .widerRecognition: "PDF engine"
     case .baseFormMatching: "Intelligence"
+    case .documentDragging: "Library"
     case .documentRecognition: "PDF engine"
     }
   }
@@ -46,6 +49,7 @@ public enum ReleaseFlag: String, CaseIterable, Sendable {
     case .readingControls: "1.1.0"
     case .widerRecognition: "1.1.0"
     case .baseFormMatching: "1.1.0"
+    case .documentDragging: "1.1.0"
     case .documentRecognition: "1.1.0"
     }
   }

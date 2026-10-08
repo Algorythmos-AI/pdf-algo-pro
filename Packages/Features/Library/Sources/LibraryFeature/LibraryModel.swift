@@ -1,9 +1,11 @@
 import Core
 import CoreGraphics
+import CoreTransferable
 import Foundation
 import ImageIO
 import Observation
 import PDFEngine
+import UniformTypeIdentifiers
 
 /// What the library shows next to a document: where to open it, and an optional assistant task.
 public struct DocumentSelection: Hashable, Sendable {
@@ -105,8 +107,9 @@ public final class LibraryModel {
   public init(
     library: any DocumentLibrary, intake: DocumentIntake, index: any DocumentIndexing, settings: any SettingsStoring,
     telemetry: any TelemetryRecording, thumbnails: ThumbnailCache = ThumbnailCache(),
-    now: @escaping () -> Date = { Date() }
+    now: @escaping () -> Date = { Date() }, offersDragging: Bool = false
   ) {
+    self.offersDragging = offersDragging
     self.library = library
     self.intake = intake
     self.index = index
@@ -468,6 +471,21 @@ public final class LibraryModel {
     }
   }
 
+  // MARK: - Dragging out
+
+  /// Whether a document can be dragged out of the library (`ReleaseFlag.documentDragging`).
+  public let offersDragging: Bool
+
+  /// A document as something to drag into another app: its PDF file, under its title.
+  ///
+  /// The file is asked for only when the drag is dropped, and the other app gets a copy, so
+  /// nothing it does reaches the document in the library.
+  public func dragged(_ document: Core.Document) -> DraggedDocument {
+    let library = library
+    let id = document.id
+    return DraggedDocument(title: document.title) { try await library.fileURL(for: id) }
+  }
+
   // MARK: - Thumbnails
 
   /// The first-page thumbnail of a document, rendered off the main actor and cached.
@@ -496,5 +514,21 @@ public final class LibraryModel {
     case .fileAccessFailed, .none:
       String(localized: "That didn't work, and your documents haven't changed. Try again.", bundle: .module)
     }
+  }
+}
+
+/// A document being dragged out of the library: its PDF file.
+public struct DraggedDocument: Transferable, Sendable {
+  /// The document's title, which names the file where it is dropped.
+  public let title: String
+  /// Where the document's file is, asked for when the drag is dropped.
+  let file: @Sendable () async throws -> URL
+
+  /// What another app receives: a copy of the PDF.
+  public static var transferRepresentation: some TransferRepresentation {
+    FileRepresentation(exportedContentType: .pdf) { item in
+      SentTransferredFile(try await item.file(), allowAccessingOriginalFile: false)
+    }
+    .suggestedFileName { $0.title }
   }
 }

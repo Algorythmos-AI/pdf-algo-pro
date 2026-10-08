@@ -1,11 +1,13 @@
 import Core
 import CoreTestSupport
+import CoreTransferable
 import Foundation
 import ImageIO
 import PDFEngine
 import SwiftUI
 import Testing
 import UIKit
+import UniformTypeIdentifiers
 
 @testable import LibraryFeature
 
@@ -64,6 +66,23 @@ struct LibraryModelTests {
     #expect(harness.model.errorMessage?.contains("1 file") == true)
     #expect(await harness.telemetry.events == ["quality.operation.failed"])
     #expect(!harness.model.isImporting)
+  }
+
+  @Test("A document dragged out is its PDF, byte for byte, under its title; dragging is off unless the build has it")
+  func draggingOut() async throws {
+    let harness = Harness()
+    await harness.model.load()
+    #expect(!harness.model.offersDragging, "Off unless the build turns it on")
+    let bytes = Data("%PDF-1.7 lease, as it is in the library".utf8)
+    await harness.model.importFiles([try harness.file("Lease.pdf", data: bytes)])
+    let document = try #require(harness.model.documents.first)
+
+    let dragged = harness.model.dragged(document)
+    #expect(dragged.title == document.title)
+    #expect(try await dragged.exported(as: .pdf) == bytes)
+    #expect(dragged.suggestedFilename?.hasPrefix(document.title) == true)
+    // The original is still where it was: the other app got a copy.
+    #expect(try Data(contentsOf: await harness.library.fileURL(for: document.id)) == bytes)
   }
 
   @Test("Opening a file from the library's folder opens the existing document")

@@ -90,7 +90,8 @@ final class AppModel {
     }
     library = LibraryModel(
       library: container.library, intake: container.intake, index: container.index, settings: container.settings,
-      telemetry: container.telemetry, thumbnails: container.thumbnails)
+      telemetry: container.telemetry, thumbnails: container.thumbnails,
+      offersDragging: AppTextEditingAccess.isInternalBuild || ReleaseFlag.documentDragging.compiledDefault)
     IntentRouter.shared.attach(
       library: container.library, intelligence: container.meteredIntelligence, index: container.index
     ) { [weak self] route in self?.navigate(to: route) }
