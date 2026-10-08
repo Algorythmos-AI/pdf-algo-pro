@@ -6,7 +6,8 @@ import Observation
 /// each, skippable from every page, and never an account or a permission request.
 ///
 /// The model knows nothing of the store. What follows the introduction (the subscription offer,
-/// then Home) is the app's to decide, once `onFinish` has run.
+/// then Home) is the app's to decide in `onFinish`, and the last page stays up, its buttons at
+/// rest, until `onFinish` returns.
 @MainActor
 @Observable
 public final class OnboardingModel {
@@ -17,16 +18,20 @@ public final class OnboardingModel {
   public private(set) var pages: [OnboardingPage] = [.scan, .sign, .organize]
   /// Which page is showing.
   public private(set) var index = 0
+  /// Whether the person has finished or skipped and the app is deciding what follows; the page
+  /// shows that it is working, and a second tap does nothing.
+  public private(set) var isFinishing = false
 
   private let settings: any SettingsStoring
   private let intelligence: any DocumentIntelligence
   private let telemetry: any TelemetryRecording
-  private let onFinish: (AppSettings) -> Void
+  private let onFinish: (AppSettings) async -> Void
 
-  /// Creates the model; `onFinish` receives the saved settings when the person finishes or skips.
+  /// Creates the model; `onFinish` receives the saved settings when the person finishes or skips,
+  /// and may take a moment over what it shows next.
   public init(
     settings: any SettingsStoring, intelligence: any DocumentIntelligence, telemetry: any TelemetryRecording,
-    onFinish: @escaping (AppSettings) -> Void
+    onFinish: @escaping (AppSettings) async -> Void
   ) {
     self.settings = settings
     self.intelligence = intelligence
@@ -50,6 +55,7 @@ public final class OnboardingModel {
 
   /// Goes to the next page, or finishes on the last.
   public func advance() async {
+    guard !isFinishing else { return }
     if isLastPage {
       await finish()
     } else {
@@ -70,10 +76,13 @@ public final class OnboardingModel {
   /// Marks first run as done before anything else is shown, so that leaving the app at whatever
   /// comes next (the subscription offer) leads to Home the next time.
   private func complete(recording event: String) async {
+    guard !isFinishing else { return }
+    isFinishing = true
     var current = settings.load()
     current.hasCompletedOnboarding = true
     settings.save(current)
     await telemetry.record(event)
-    onFinish(current)
+    await onFinish(current)
+    isFinishing = false
   }
 }

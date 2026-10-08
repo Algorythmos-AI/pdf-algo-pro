@@ -1,6 +1,11 @@
 Internal build of PDF Algo Pro (Staging). Use test documents, not real ones. Please try:
 
-Home, Settings and About (new)
+First run and plans (new)
+- Settings > Internal testing: turn "Pro without a purchase" off, then tap "Show first run again".
+- Three pages with a picture each, then the plans: yearly first with its free trial, weekly beside it. Close leads to Home.
+- Start the yearly trial (TestFlight charges nothing): "Welcome to Pro" follows. Try Restore purchases.
+
+Home, Settings and About
 - The app now opens on Home. Tap Import and Scan, open a document under Continue reading, then go back.
 - Open each section from Home: its count matches the documents listed.
 - Settings: every row has a symbol. Open About and try each link and Share.

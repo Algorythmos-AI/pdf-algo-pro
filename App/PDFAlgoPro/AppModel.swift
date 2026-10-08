@@ -35,9 +35,14 @@ final class AppModel {
   private(set) var paywallTrigger: PaywallTrigger = .settings
   /// The end of a trial to tell the person about now, in the app, because no notification will.
   var trialNotice: Date?
-  /// Whether the plans had loaded by the time first run ended; asked for when first run starts, so
-  /// its end never waits on the App Store.
-  @ObservationIgnored private var plansAreAvailable = false
+  /// Whether the plans can be shown; `nil` until the App Store has answered.
+  ///
+  /// Asked for when first run starts, so that its end seldom has to wait.
+  @ObservationIgnored private var plansAreAvailable: Bool?
+  /// How long the end of first run waits for the App Store's answers before going on to Home.
+  ///
+  /// Long enough for a slow connection, short enough not to feel stuck.
+  @ObservationIgnored var storePatience: Duration = .seconds(3)
   let container: AppContainer
   let library: LibraryModel
   /// App Lock (FR-SET-002).
@@ -54,6 +59,9 @@ final class AppModel {
     OnboardingModel(
       settings: container.settings, intelligence: container.intelligence, telemetry: container.telemetry
     ) { [weak self] in
+      // The last page stays up while the App Store answers, so the offer never arrives over Home a
+      // moment after Home did.
+      await self?.waitForTheStore()
       self?.settings = $0
       self?.offerAfterFirstRun()
     }
@@ -112,11 +120,29 @@ final class AppModel {
     Task { await container.recognition.resumePending() }
   }
 
-  /// Asks the App Store whether the plans can be shown, so that the end of first run never waits for it.
+  /// Asks the App Store whether the plans can be shown, ahead of the end of first run.
   private func askWhetherPlansAreAvailable() {
     Task { [weak self, container] in
       let available = await container.store.productsAreAvailable(container.catalog.ordered)
       self?.plansAreAvailable = available
+    }
+  }
+
+  /// Waits, for no longer than `storePatience`, until the App Store has said whether the plans can be
+  /// shown and what the person is entitled to.
+  ///
+  /// Both were asked for at launch, and on most connections both are known long before the last
+  /// page. Without a connection the App Store answers "no" at once, so nothing is waited for then.
+  func waitForTheStore() async {
+    // The entitlement is followed from launch; this asks once more in case nothing has arrived yet.
+    Task { [entitlements = container.entitlements] in _ = await entitlements.resolved() }
+    let clock = ContinuousClock()
+    let deadline = clock.now.advanced(by: storePatience)
+    while clock.now < deadline {
+      // Without plans there is no offer, whatever the entitlement turns out to be.
+      if plansAreAvailable == false { return }
+      if plansAreAvailable == true, container.entitlements.entitlement != nil { return }
+      try? await Task.sleep(for: .milliseconds(50))
     }
   }
 
@@ -130,7 +156,7 @@ final class AppModel {
     var current = container.settings.load()
     current.hasCompletedOnboarding = false
     container.settings.save(current)
-    plansAreAvailable = false
+    plansAreAvailable = nil
     onboarding = makeOnboarding()
     sheet = nil
     settings = current
@@ -163,10 +189,10 @@ final class AppModel {
   /// Shows the subscription offer once, as first run ends (FR-ONB-004).
   ///
   /// Only when the plans have loaded and the person is known not to have Pro: without a connection,
-  /// or before the App Store has answered, first run simply ends on Home. Nothing is waited for
-  /// here, and nothing is stored, so the offer cannot come back at a later launch.
+  /// or when the App Store has not answered within `storePatience`, first run simply ends on Home.
+  /// Nothing is stored, so the offer cannot come back at a later launch.
   func offerAfterFirstRun() {
-    guard plansAreAvailable, let entitlement = container.entitlements.entitlement,
+    guard plansAreAvailable == true, let entitlement = container.entitlements.entitlement,
       !entitlement.grantsPro(at: Date())
     else { return }
     presentPaywall(.onboarding)

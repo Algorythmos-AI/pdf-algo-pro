@@ -63,6 +63,26 @@ extension AppTests {
       #expect(app.settings.hasCompletedOnboarding && app.sheet == nil)
     }
 
+    @Test("First run ends on the offer even when its end comes before the App Store's answers")
+    func waitsForTheStore() async {
+      let app = makeApp()
+      // Straight after launch, with nothing settled: the last page waits for the answers.
+      await app.onboarding.skip()
+      #expect(app.settings.hasCompletedOnboarding)
+      #expect(app.sheet == .paywall && app.paywallTrigger == .onboarding)
+    }
+
+    @Test("Without plans to show nothing is waited for, however patient first run is")
+    func noWaitWithoutPlans() async {
+      let app = makeApp(["-store", "unavailable"])
+      app.storePatience = .seconds(600)
+      let clock = ContinuousClock()
+      let started = clock.now
+      await app.onboarding.skip()
+      #expect(app.settings.hasCompletedOnboarding && app.sheet == nil)
+      #expect(clock.now - started < .seconds(60), "The store's no is an answer; first run goes on to Home")
+    }
+
     @Test("Asked before the App Store has answered, there is no offer, and none shows later")
     func beforeTheStoreAnswers() async {
       let app = makeApp()

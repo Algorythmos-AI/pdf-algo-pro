@@ -1,3 +1,4 @@
+import DesignSystem
 import LibraryFeature
 import OnboardingFeature
 import ScanFeature
@@ -60,7 +61,12 @@ extension AppTests {
     @Test func onboarding() async {
       let app = app([])
       await app.onboarding.load()
-      check(OnboardingView(model: app.onboarding))
+      check(introduction(app))
+    }
+
+    /// The introduction with its pictures held still, so a reference never catches a line mid-sweep.
+    private func introduction(_ app: AppModel) -> some View {
+      OnboardingView(model: app.onboarding).environment(\.playsDecorativeMotion, false)
     }
 
     /// Its third page, about asking a document: the scripted intelligence is available.
@@ -69,7 +75,7 @@ extension AppTests {
       await app.onboarding.load()
       await app.onboarding.advance()
       await app.onboarding.advance()
-      check(OnboardingView(model: app.onboarding))
+      check(introduction(app))
     }
 
     /// Home, the screen the app opens on, with nothing in the library yet.

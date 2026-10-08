@@ -264,6 +264,16 @@ public enum Motion {
   public static func standard(reduceMotion: Bool) -> Animation? {
     reduceMotion ? nil : .smooth(duration: 0.25)
   }
+
+  /// A picture's own movement, from its start to its end again and again; none when it is to be still.
+  public static func loop(duration: Double, isStill: Bool) -> Animation? {
+    isStill ? nil : .linear(duration: duration).repeatForever(autoreverses: false)
+  }
+
+  /// A picture's own movement, once: a signature that draws itself; none when it is to be still.
+  public static func once(duration: Double, isStill: Bool) -> Animation? {
+    isStill ? nil : .easeInOut(duration: duration)
+  }
 }
 
 extension View {

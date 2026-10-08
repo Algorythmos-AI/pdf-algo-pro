@@ -597,8 +597,8 @@ AI answers are the product's differentiator, so their design carries the trust r
 
 ### First-run introduction
 
-Three pages on first launch, one capability each ([PAP-045](decision-register.md)); this spec is
-ahead of the code until the flow ships.
+Three pages on first launch, one capability each ([PAP-045](decision-register.md),
+[PAP-052](decision-register.md)).
 
 | Page | Shows | Where on-device intelligence is unavailable |
 |---|---|---|
@@ -606,16 +606,20 @@ ahead of the code until the flow ships.
 | 2 | Sign and mark up | Same |
 | 3 | Ask your document, on this iPhone | Organise and protect (merge, passwords) |
 
-- Each page is an illustration drawn in SwiftUI over a synthetic document, a Title headline of at
-  most two lines, one sentence in Body, and one `PrimaryButton` ("Continue") in the bottom bar, in
-  the same place on every page. At accessibility text sizes the illustration shrinks, then goes.
+- Each page is a phone drawn in SwiftUI (`DeviceMockup`) showing the app's own screen for that
+  capability over a synthetic document, with its lower edge fading into the page; then a Large
+  Title headline of at most two lines, one sentence in Body, and one `PrimaryButton` ("Continue")
+  in the bottom bar, in the same place on every page. Nothing in the picture is a screenshot, and
+  it carries no words, so it needs no translation. At accessibility text sizes the picture goes.
 - **Skip** is in the toolbar on every page. Pages can be reached with VoiceOver without a swipe
   gesture, and the page indicator is never the only sign of progress.
 - Which third page shows is decided before it is on screen; it never changes while shown.
 - Pages name only what the installed build does (FR-ONB-007), and no permission is asked here.
-- Motion goes through `Motion`; with Reduce Motion the illustrations are still.
+- Motion goes through `Motion`: the scan line sweeps and the signature draws itself once. With
+  Reduce Motion, and in UI tests, the pictures are still.
 - After the last page, or Skip, first run is marked complete, then the subscription offer may show
-  once (see Paywall); closing it leads to Home.
+  once (see Paywall); closing it leads to Home. While the App Store has not yet said whether the
+  plans can be shown, the page waits up to three seconds with a spinner in place of "Continue".
 
 ### Home's first-use hint
 
@@ -655,7 +659,12 @@ home screen and the order of tools; it never gates anything.
 - Built on `SubscriptionStoreView`, which shows localised names, descriptions and prices, a purchase
   button, a Close button, and links to the terms and privacy policy submitted in App Store Connect
   ([SubscriptionStoreView](https://developer.apple.com/documentation/storekit/subscriptionstoreview)).
-  `storeButton(_:for:)` shows Restore Purchases and Redeem Code.
+- **Layout** ([PAP-052](decision-register.md)). From the top: the headline in the brand tint, one
+  line under it, the scanning picture (`DeviceMockup`, gone at accessibility text sizes), what Pro
+  adds, the saving, the promise that documents never need Pro, and two quiet links, Restore
+  Purchases and Redeem Code. Both plans and the purchase button stay at the foot of the screen
+  while the rest scrolls (the compact picker in the bottom bar), so a price is on screen from the
+  first frame. The two links are the app's own because StoreKit's are full-width buttons.
 - **When it appears.** Once at the end of the first-run introduction ([PAP-042](decision-register.md)),
   and only if the products have loaded and the person does not have Pro; with no connection, first
   run ends on Home. After that: when the user taps a Pro feature (marked with a "Pro" badge), when
@@ -685,8 +694,9 @@ home screen and the order of tools; it never gates anything.
 ### Purchase confirmation
 
 Shown in the same presentation as the paywall when the entitlement changes to one that grants Pro
-(FR-STORE-007): a check mark with the `motion.emphasis` symbol effect and the success haptic,
-"Welcome to Pro", three short lines of what is now available, and one `PrimaryButton` ("Start").
+(FR-STORE-007): a check mark on a brand-filled circle with the `motion.emphasis` symbol effect and
+the success haptic, "Welcome to Pro" in the brand tint, what is now available side by side (a list
+at accessibility text sizes), and one `PrimaryButton` ("Start").
 During a trial it also shows the date the trial ends and a "Remind me before the trial ends"
 switch, which is the only place the app asks for notification permission; without permission the
 reminder is an in-app notice. A pending or cancelled purchase shows nothing here, and closing this

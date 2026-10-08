@@ -1,5 +1,6 @@
 import AssistantFeature
 import CoreSpotlight
+import DesignSystem
 import LibraryFeature
 import OSLog
 import OnboardingFeature
@@ -75,9 +76,11 @@ struct RootView: View {
         SettingsView(
           model: app.makeSettings(), version: app.container.version, internalTools: app.internalTools,
           subscription: app.subscriptionSection)
-      case .paywall: PaywallFlowView(model: app.makePaywall())
+      case .paywall: PaywallFlowView(model: app.makePaywall(), store: app.container.store)
       }
     }
+    // The introduction's and the offer's pictures hold still where animations are off (UI tests).
+    .environment(\.playsDecorativeMotion, !app.container.environment.disablesAnimations)
     .background(LockWindowPresenter(lock: app.lock, method: app.lockMethod))
     .onChange(of: scenePhase, initial: true) { _, phase in
       Task { await app.lock.scenePhaseChanged(to: phase) }

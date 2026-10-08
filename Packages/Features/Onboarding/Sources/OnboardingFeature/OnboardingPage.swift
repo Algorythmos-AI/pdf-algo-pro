@@ -38,17 +38,4 @@ public enum OnboardingPage: String, Sendable, CaseIterable, Identifiable {
       Text("Merge documents, reorder pages and add a password. Your documents stay on this device.", bundle: .module)
     }
   }
-
-  /// The symbol on the page's illustration.
-  var symbol: String {
-    switch self {
-    case .scan: "doc.viewfinder"
-    case .sign: "signature"
-    case .ask: "sparkles"
-    case .organize: "lock.doc"
-    }
-  }
-
-  /// Whether the page is about the intelligence layer, which has its own colour.
-  var usesIntelligence: Bool { self == .ask }
 }
