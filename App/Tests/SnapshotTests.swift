@@ -70,6 +70,23 @@ extension AppTests {
       OnboardingView(model: app.onboarding).environment(\.playsDecorativeMotion, false)
     }
 
+    /// Its second page, about signing, marking up and putting pages in order.
+    @Test func onboardingSign() async {
+      let app = app([])
+      await app.onboarding.load()
+      await app.onboarding.advance()
+      check(introduction(app))
+    }
+
+    /// Its third page where on-device intelligence is unavailable: merging, shrinking and finding.
+    @Test func onboardingOrganize() async {
+      let app = app(["-intelligence-unavailable"])
+      await app.onboarding.load()
+      await app.onboarding.advance()
+      await app.onboarding.advance()
+      check(introduction(app))
+    }
+
     /// Its third page, about asking a document: the scripted intelligence is available.
     @Test func onboardingAsk() async {
       let app = app([])

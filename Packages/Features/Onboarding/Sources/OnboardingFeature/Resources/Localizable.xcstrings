@@ -1,12 +1,22 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "Ask your document" : {
+    "Add your signature, highlight, write notes, reorder pages and lock files with a password." : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Interrogez votre document"
+            "value" : "Signez, surlignez, annotez, réorganisez les pages et protégez vos fichiers par mot de passe."
+          }
+        }
+      }
+    },
+    "Ask your documents" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Interrogez vos documents"
           }
         }
       }
@@ -21,42 +31,32 @@
         }
       }
     },
-    "Fill in forms, add your signature, highlight and add notes." : {
+    "Do more with every file" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Remplissez des formulaires, ajoutez votre signature, surlignez et ajoutez des notes."
+            "value" : "Tirez plus de chaque fichier"
           }
         }
       }
     },
-    "Get summaries and answers with page citations. It runs on this device, and nothing is sent anywhere." : {
+    "Edit, sign and organise" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Obtenez des résumés et des réponses avec les pages citées. Tout se fait sur cet appareil, et rien n’est envoyé."
+            "value" : "Modifiez, signez, organisez"
           }
         }
       }
     },
-    "Merge documents, reorder pages and add a password. Your documents stay on this device." : {
+    "Merge documents, make them smaller and find any word. Everything stays on this device." : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Fusionnez des documents, réorganisez les pages et ajoutez un mot de passe. Vos documents restent sur cet appareil."
-          }
-        }
-      }
-    },
-    "Organise and protect" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Organiser et protéger"
+            "value" : "Fusionnez des documents, allégez-les et retrouvez n’importe quel mot. Tout reste sur cet appareil."
           }
         }
       }
@@ -71,22 +71,22 @@
         }
       }
     },
-    "Scan to PDF" : {
+    "Point the camera at paper and get a clean, searchable PDF in seconds." : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Numériser en PDF"
+            "value" : "Visez un papier avec l’appareil photo et obtenez en quelques secondes un PDF net, avec recherche."
           }
         }
       }
     },
-    "Sign and mark up" : {
+    "Scan anything to PDF" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Signer et annoter"
+            "value" : "Numérisez tout en PDF"
           }
         }
       }
@@ -101,12 +101,12 @@
         }
       }
     },
-    "Turn paper into searchable PDFs with the camera. Text is recognised on this device." : {
+    "Summaries and answers that show the pages they come from. It all runs on this device." : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Transformez vos papiers en PDF avec recherche grâce à l’appareil photo. Le texte est reconnu sur cet appareil."
+            "value" : "Des résumés et des réponses qui citent leurs pages. Tout se fait sur cet appareil."
           }
         }
       }

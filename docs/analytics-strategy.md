@@ -231,6 +231,7 @@ outside buckets and identifiers are rejected by the schema.
 |---|---|---|---|
 | `onboarding.flow.started` | The first onboarding screen appears | — | Onboarding completion |
 | `onboarding.intent.selected` | An intent is chosen | `intent` | Intent mix |
+| `onboarding.page.viewed` | An introduction page comes on screen, forwards or back | `page` | Where the introduction is left |
 | `onboarding.flow.skipped` | Skip is tapped | — | Onboarding completion |
 | `onboarding.flow.completed` | Onboarding finishes | — | Onboarding completion |
 | `activation.first_document.opened` | The first document after install opens (once) | `source` | First document opened |

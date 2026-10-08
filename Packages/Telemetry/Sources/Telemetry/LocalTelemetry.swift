@@ -8,7 +8,8 @@ import OSLog
 public enum TelemetryEvent {
   /// Every event the app may record.
   public static let catalogue: Set<String> = [
-    "onboarding.flow.started", "onboarding.intent.selected", "onboarding.flow.skipped", "onboarding.flow.completed",
+    "onboarding.flow.started", "onboarding.page.viewed", "onboarding.intent.selected", "onboarding.flow.skipped",
+    "onboarding.flow.completed",
     "activation.first_document.opened", "activation.first_value.reached", "task.core.completed",
     "intelligence.request.completed", "intelligence.answer.kept", "intelligence.consent.changed",
     "commerce.paywall.viewed", "commerce.paywall.closed", "commerce.trial.started", "commerce.purchase.completed",
