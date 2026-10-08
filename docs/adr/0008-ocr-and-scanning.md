@@ -14,6 +14,6 @@
 
 **References.** [RecognizeDocumentsRequest](https://developer.apple.com/documentation/vision/recognizedocumentsrequest) · [VNDocumentCameraViewController](https://developer.apple.com/documentation/visionkit/vndocumentcameraviewcontroller)
 
-**Addendum, 2026-10-08 (PAP-053).** As built, recognition uses Vision's `RecognizeTextRequest`, not yet `RecognizeDocumentsRequest`. Behind `ReleaseFlag.widerRecognition` it recognises the Latin- and Cyrillic-script languages Vision supports with automatic language detection, and the text layer is placed word by word. Moving to `RecognizeDocumentsRequest` for paragraphs, tables and lists remains the decision; the current recogniser stays as its fallback.
+**Addendum, 2026-10-08 (PAP-054).** As built, recognition uses Vision's `RecognizeTextRequest`, not yet `RecognizeDocumentsRequest`. Behind `ReleaseFlag.widerRecognition` it recognises the Latin- and Cyrillic-script languages Vision supports with automatic language detection, and the text layer is placed word by word. Moving to `RecognizeDocumentsRequest` for paragraphs, tables and lists remains the decision; the current recogniser stays as its fallback.
 
-**Addendum, 2026-10-08 (PAP-055).** Behind `ReleaseFlag.documentRecognition`, recognition now uses `RecognizeDocumentsRequest` and takes its lines in paragraph order, with `RecognizeTextRequest` as the fallback. Tables reach the text layer row by row; passing them to extraction as tables is still to do.
+**Addendum, 2026-10-08 (PAP-056).** Behind `ReleaseFlag.documentRecognition`, recognition now uses `RecognizeDocumentsRequest` and takes its lines in paragraph order, with `RecognizeTextRequest` as the fallback. Tables reach the text layer row by row; passing them to extraction as tables is still to do.

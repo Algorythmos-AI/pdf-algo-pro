@@ -42,7 +42,7 @@
       } footer: {
         Text(
           verbatim:
-            "Off, this build follows the sandbox store: the offer, the daily limits and locked features show as they will to customers. First run again shows the introduction, and the offer after it when the store has its plans; your documents and settings stay."
+            "Off, this build follows the sandbox store: the offer, the daily limits and locked features show as they will to customers. Each new internal build shows first run once by itself. First run again shows the introduction, and the offer after it when the store has its plans; your documents and settings stay."
         )
         .foregroundStyle(Color.ds.labelSecondary)
       }

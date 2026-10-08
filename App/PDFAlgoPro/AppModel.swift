@@ -69,6 +69,13 @@ final class AppModel {
 
   init(container: AppContainer) {
     self.container = container
+    #if INTERNAL_TOOLS
+      // A new internal build shows first run again, once (PAP-053). Tests choose their own start.
+      if !container.environment.isUITesting {
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""
+        InternalFirstRunReplay(defaults: .standard, build: build).apply(to: container.settings)
+      }
+    #endif
     settings = container.settings.load()
     let store = container.settings
     lock = AppLock(authenticator: container.authenticator) { store.load().isAppLockEnabled }
