@@ -272,7 +272,8 @@ struct TextEditLayer: View {
     // The field covers the old words while new ones are typed, in a colour the text shows on, and
     // stands a little off the page, so it reads as a field being typed into.
     .background(Self.isLight(selection.region) ? Color.black : Color.white)
-    .overlay { Rectangle().strokeBorder(Color.ds.selection, lineWidth: 1) }
+    // Drawn only: a touch on the edge of the field reaches the text, not the line around it.
+    .overlay { Rectangle().strokeBorder(Color.ds.selection, lineWidth: 1).allowsHitTesting(false) }
     .compositingGroup()
     .shadow(color: .black.opacity(0.15), radius: 3, y: 1)
     // The caret too: in the app's red it would read as a mistake in the text.

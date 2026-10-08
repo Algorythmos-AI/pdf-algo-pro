@@ -286,7 +286,7 @@ final class TextEditingUITests: UITestCase {
     assertWhollyInView(field, in: app)
 
     // The start of the line is in view: a tap there puts the caret there.
-    field.coordinate(withNormalizedOffset: CGVector(dx: 0.01, dy: 0.02)).tap()
+    field.coordinate(withNormalizedOffset: CGVector(dx: 0.01, dy: 0.1)).tap()
     field.typeText("Z")
     let start = try XCTUnwrap(field.value as? String)
     let place = try XCTUnwrap(start.firstIndex(of: "Z"), "The letter was typed")

@@ -98,12 +98,16 @@ struct TextEditPlacementTests {
       asked.append(width)
       return 14 * 3
     }
-    #expect(editor == CGRect(x: 18, y: 440, width: 357, height: 42))
-    #expect(asked == [357], "Measured at the width it is shown at")
-    // The keyboard and its bar leave 460 points: the page scrolls up just enough.
+    // On the line, out to the page's text edge, three lines tall.
+    #expect(abs(editor.minX - 18) < 0.001 && abs(editor.minY - 440) < 0.001, "\(editor)")
+    #expect(abs(editor.width - 357) < 0.001 && abs(editor.height - 42) < 0.001, "\(editor)")
+    #expect(asked.count == 1 && abs((asked.first ?? 0) - 357) < 0.001, "Measured at the width it is shown at: \(asked)")
+    // The keyboard and its bar leave 460 points: the page scrolls up just enough for the editor's
+    // bottom (482) to clear the room's bottom (460 less the 8-point margin).
     let visible = CGRect(x: 0, y: 0, width: 393, height: 460)
     let distance = TextEditPlacement.scrollDistance(for: editor, in: visible, margin: 8)
-    #expect(distance == 440 + 42 - 452)
+    let expected: CGFloat = 30
+    #expect(abs(distance - expected) < 0.001, "\(distance)")
   }
 
   @Test("No room at all asks for no scrolling")

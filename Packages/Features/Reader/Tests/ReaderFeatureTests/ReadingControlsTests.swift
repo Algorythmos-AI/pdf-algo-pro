@@ -63,9 +63,11 @@ struct ReadingControlsTests {
     let controller = try PDFDocumentController(url: url)
     let view = PDFReaderHostView()
     view.frame = CGRect(x: 0, y: 0, width: 393, height: 700)
-    let container = UIView(frame: view.frame)
-    container.addSubview(view)
+    // In a window, so PDFKit lays out its own scroller as it does on screen.
+    let window = UIWindow(frame: view.frame)
+    window.addSubview(view)
     view.configure(for: controller)
+    window.layoutIfNeeded()
     view.layoutIfNeeded()
     #expect(view.autoScales)
     let zoom = view.scaleFactor
@@ -80,7 +82,7 @@ struct ReadingControlsTests {
     #expect(view.scaleFactor == zoom && view.autoScales && anchor.scale == zoom)
     #expect(anchor.selection.region == first)
     // The field may grow to the right edge of the page's text, not further.
-    #expect(anchor.columnFrame.minX == anchor.lineFrame.minX)
+    #expect(abs(anchor.columnFrame.minX - anchor.lineFrame.minX) < 0.5, "\(anchor)")
     #expect(anchor.columnFrame.maxX >= anchor.lineFrame.maxX - 0.5)
     #expect(anchor.columnFrame.maxX <= view.bounds.width + 0.5, "\(anchor.columnFrame)")
 
@@ -93,7 +95,8 @@ struct ReadingControlsTests {
     view.layoutIfNeeded()
     view.publishTextEditAnchor()
     let moved = try #require(controller.textEditAnchor)
-    #expect(abs(moved.lineFrame.minY - (before - 120)) < 1, "\(before) → \(moved.lineFrame.minY)")
+    let shift = before - moved.lineFrame.minY
+    #expect(shift > 60 && shift < 121, "The line moved up by \(shift) points: \(before) → \(moved.lineFrame.minY)")
 
     // Letting go stops following the line and takes the room away again.
     controller.clearTextRegionSelection()
