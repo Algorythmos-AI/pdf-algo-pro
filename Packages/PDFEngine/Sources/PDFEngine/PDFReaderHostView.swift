@@ -645,8 +645,11 @@ final class PDFReaderHostView: PDFView {
       // While text is being edited, scrolling and zooming wait to see whether a touch is a press
       // on a line: once a line is lifted the page stays still under it. A drag fails the press
       // within a few points, so scrolling starts as it always did.
+      // With a line picked nothing can be lifted (`liftableText(at:)`), so nothing waits: the page
+      // scrolls and zooms under the open editor at once, even for a slow drag.
       MainActor.assumeIsolated {
-        guard host?.controller?.isEditingText == true else { return false }
+        guard let controller = host?.controller, controller.isEditingText, controller.selectedTextRegion == nil
+        else { return false }
         return otherGestureRecognizer is UIPanGestureRecognizer || otherGestureRecognizer is UIPinchGestureRecognizer
       }
     }

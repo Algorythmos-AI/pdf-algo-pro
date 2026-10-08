@@ -208,18 +208,34 @@ tested for every supported screen size, both orientations and three keyboard hei
    typed (a fixed PDF page cannot reflow; the engine's fit rules decide what Done accepts).
 4. **The page stays free.** Nothing but the field takes touches: the page scrolls and zooms while
    the field is open, and the field moves with its line. A tap elsewhere does nothing until the
-   edit is finished or cancelled.
-5. **Keyboard.** When the field opens, grows a line, or the keyboard or screen changes, the page
-   scrolls under the field so it sits above the bar with Cancel and Done, as in Notes
-   (`TextEditPlacement.scrollDistance`, `PDFDocumentController.scrollPickedText(by:)`). Near the end
-   of the document, room is added under the last page and taken away when the text is let go of.
-6. **Caret.** The caret starts after the last letter and is kept in view.
+   edit is finished or cancelled. With a line open nothing can be lifted, so the page's scrolling
+   and zooming do not wait for the hold-to-move press (`LiftGestureDelegate`).
+5. **Keyboard.** The page is moved for the field only on something the person did to the text:
+   when the field opens, when the visible area gets shorter (the keyboard coming up, the bar
+   growing, the screen turning), and when a letter is typed. Never because the field moved or grew
+   with the page, and never while the person is moving the page (a finger on it, a pinch, a glide):
+   the editor that made room whenever the field's height changed pulled the page back under the
+   finger on every pinch, so it felt locked (the owner's report, 2026-10-08). The page scrolls under
+   the field so it sits above the bar with Cancel and Done, as in Notes
+   (`TextEditPlacement.scrollDistance`, `PDFDocumentController.scrollPickedText(by:across:)`). Near
+   the end of the document, room is added under the last page and taken away when the text is let
+   go of. The keyboard button in the bar puts the keyboard away to look over the page, and brings
+   it back, with the line still open.
+6. **Caret.** The caret starts after the last letter. Each letter typed scrolls the page, up, down
+   or (on a zoomed page) across, so the caret is in view, as Notes does even after the note was
+   scrolled away (`TextEditPlacement.revealDistance`).
+7. **Leaving.** When the text is let go of, the room under the last page is taken away, and the
+   page goes back to where it was before the line was picked if only the editor moved it. Where the
+   person scrolled or zoomed while editing, the page stays where they took it.
 
 This replaces an editor that zoomed small print in, held the page still and moved itself above the
 keyboard, away from its line: the page's own lines ran off the screen and the editor lay over other
 text (the owner's reports, 2026-10-07 and 2026-10-08). Debug builds launched with
 `-text-edit-geometry` draw the line, the visible area, the editor, the text view and its laid-out
-text in five colours, and log the numbers (no document text) under `text-edit.geometry`.
+text in five colours, and log the numbers (no document text) under `text-edit.geometry`. Launched
+with `-text-edit-touches`, they log, while a line is open, which view each touch lands on and every
+state the page's scroll, zoom and own gestures pass through, under `text-edit.touches`
+(`TextEditTouchLog`): a page that will not move is then told apart from one that is moved back.
 
 ## Covering text that cannot be edited
 

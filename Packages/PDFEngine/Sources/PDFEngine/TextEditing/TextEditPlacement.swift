@@ -48,6 +48,30 @@ public enum TextEditPlacement {
     if editor.maxY > room.maxY { return editor.maxY - room.maxY }
     return 0
   }
+
+  /// How far to scroll the page, up and across, so the caret's line is in the part of the screen
+  /// that can be seen, as Notes keeps the caret in view while the person types.
+  ///
+  /// Across matters once the page is zoomed in: the field is as wide as the page's text, which is
+  /// then wider than the screen, and a wrapped line can end out of sight to the right.
+  /// - Parameters:
+  ///   - caret: The caret, or the end of the selection, on screen.
+  ///   - visible: The part of the screen that is not under bars or the keyboard.
+  ///   - margin: The space kept clear around the caret.
+  /// - Returns: The distance, in screen points: positive `dy` scrolls the page up, positive `dx`
+  ///   scrolls it to the left (bringing what is on the right into view).
+  public static func revealDistance(for caret: CGRect, in visible: CGRect, margin: CGFloat) -> CGVector {
+    let room = visible.insetBy(dx: margin, dy: margin)
+    guard room.width > 0, room.height > 0, !caret.isNull, !caret.isInfinite else { return .zero }
+    func distance(_ low: CGFloat, _ high: CGFloat, within lower: CGFloat, _ upper: CGFloat) -> CGFloat {
+      if high - low > upper - lower || low < lower { return low - lower }
+      if high > upper { return high - upper }
+      return 0
+    }
+    return CGVector(
+      dx: distance(caret.minX, caret.maxX, within: room.minX, room.maxX),
+      dy: distance(caret.minY, caret.maxY, within: room.minY, room.maxY))
+  }
 }
 
 /// Where the picked line is on screen, and at what zoom, as the page view last showed it.

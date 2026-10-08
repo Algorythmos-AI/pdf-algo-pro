@@ -110,6 +110,41 @@ struct TextEditPlacementTests {
     #expect(abs(distance - expected) < 0.001, "\(distance)")
   }
 
+  @Test("Scrolling by the reveal distance brings the caret into view, across a zoomed page too")
+  func caretIsRevealed() {
+    for screen in Self.screens {
+      for keyboard in Self.keyboards {
+        let visible = CGRect(x: 0, y: 64, width: screen.width, height: screen.height * (1 - keyboard) - 64)
+        let room = visible.insetBy(dx: Self.margin, dy: Self.margin)
+        guard room.height > 30 else { continue }
+        // Above the top bar, in view, under the keyboard, off past either edge of a zoomed page.
+        let ys: [CGFloat] = [-400, 10, visible.midY, visible.maxY + 5, screen.height + 300]
+        let xs: [CGFloat] = [-250, 20, visible.midX, visible.maxX - 2, screen.width * 3]
+        for y in ys {
+          for x in xs {
+            let caret = CGRect(x: x, y: y, width: 2, height: 22)
+            let distance = TextEditPlacement.revealDistance(for: caret, in: visible, margin: Self.margin)
+            let after = caret.offsetBy(dx: -distance.dx, dy: -distance.dy)
+            #expect(
+              room.insetBy(dx: -0.001, dy: -0.001).contains(after),
+              "\(screen) keyboard \(keyboard): \(caret) went to \(after)")
+            // A caret already in view does not move the page.
+            if room.contains(caret) { #expect(distance == .zero) }
+          }
+        }
+      }
+    }
+  }
+
+  @Test("A caret on a page that is not zoomed is only ever scrolled up or down")
+  func caretOnAFittedPage() {
+    let visible = CGRect(x: 0, y: 100, width: 393, height: 360)
+    let caret = CGRect(x: 300, y: 520, width: 2, height: 17)
+    let distance = TextEditPlacement.revealDistance(for: caret, in: visible, margin: 8)
+    #expect(distance.dx == 0)
+    #expect(abs(distance.dy - (537 - 452)) < 0.001, "\(distance)")
+  }
+
   @Test("No room at all asks for no scrolling")
   func noRoom() {
     let editor = CGRect(x: 0, y: 100, width: 100, height: 20)
@@ -117,5 +152,7 @@ struct TextEditPlacementTests {
     let tall = CGRect(x: 0, y: 0, width: 100, height: 500)
     #expect(TextEditPlacement.scrollDistance(for: editor, in: short, margin: 8) == 0)
     #expect(TextEditPlacement.scrollDistance(for: .zero, in: tall, margin: 8) == 0)
+    #expect(TextEditPlacement.revealDistance(for: editor, in: short, margin: 8) == .zero)
+    #expect(TextEditPlacement.revealDistance(for: .null, in: tall, margin: 8) == .zero)
   }
 }

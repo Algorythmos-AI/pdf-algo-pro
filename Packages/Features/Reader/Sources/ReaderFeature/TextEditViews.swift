@@ -20,6 +20,23 @@ final class TextEditDraft {
   /// The bar sits just above the keyboard, so the field over the page stays above the bar and is
   /// never under the keyboard, wherever the keyboard is or however tall it is.
   var barFrame: CGRect?
+  /// Whether the field has the keyboard.
+  ///
+  /// The person can put the keyboard away to look over the page, as in Notes, and tap the field (or
+  /// the keyboard button in the bar) to type again; the text in hand stays open either way.
+  var isTyping = false
+  /// The field on screen, so the bar can hand it the keyboard again.
+  @ObservationIgnored weak var field: UITextView?
+
+  /// Puts the keyboard away, keeping the text in hand.
+  func hideKeyboard() {
+    field?.resignFirstResponder()
+  }
+
+  /// Brings the keyboard back to the field, with the caret where it was.
+  func showKeyboard() {
+    field?.becomeFirstResponder()
+  }
 }
 
 /// A text field for editing existing text: the document's own font and colour, and none of the
@@ -36,6 +53,9 @@ struct TextEditField: UIViewRepresentable {
   /// The most lines shown before the field scrolls; `nil` for as many as the space it is given.
   var maximumLines: Int?
   var onSubmit: () -> Void
+  /// Told where the caret is, in the window's space, after each change the person types, so the page
+  /// can be scrolled to keep it in view; `nil` where the field keeps its caret in view by itself.
+  var onCaretMoved: ((CGRect) -> Void)?
 
   func makeUIView(context: Context) -> TextEditTextView {
     let field = TextEditTextView()
@@ -52,6 +72,7 @@ struct TextEditField: UIViewRepresentable {
     field.font = resolvedFont
     field.accessibilityIdentifier = "reader.textEdit.field"
     field.accessibilityLabel = String(localized: "Text to change", bundle: .module)
+    draft.field = field
     return field
   }
 
@@ -108,6 +129,20 @@ struct TextEditField: UIViewRepresentable {
       // The field grows with its text; the caret stays in view where it is held to a height.
       textView.invalidateIntrinsicContentSize()
       (textView as? TextEditTextView)?.revealSelection()
+      // And the page is scrolled to keep it in view, as Notes does, even after the person scrolled
+      // the page away. The caret's place inside the field is right already, before the field is
+      // laid out again at its new height: the field grows down from its top, which stays where it is.
+      if let onCaretMoved = parent.onCaretMoved, let end = textView.selectedTextRange?.end {
+        onCaretMoved(textView.convert(textView.caretRect(for: end), to: nil))
+      }
+    }
+
+    func textViewDidBeginEditing(_ textView: UITextView) {
+      parent.draft.isTyping = true
+    }
+
+    func textViewDidEndEditing(_ textView: UITextView) {
+      parent.draft.isTyping = false
     }
 
     func textViewDidChangeSelection(_ textView: UITextView) {
@@ -193,12 +228,21 @@ extension UITextView {
 /// its line. What is typed beyond the line wraps down, to the width of the page's text
 /// (`TextEditPlacement`), and the page scrolls under the field to keep it clear of the keyboard, as
 /// in Notes.
+///
+/// The page is moved for the field only when something the person did to the text asks for it: the
+/// field opening, the keyboard or the screen changing, or a letter typed. Never because the field
+/// moved or grew with the page: an earlier layer made room whenever the field's height changed,
+/// which a pinch changes on every frame and a scroll can change by a pixel, and pulled the page back
+/// under the person's finger, so it could be neither scrolled nor zoomed away from the line (the
+/// owner's report, 2026-10-08).
 struct TextEditLayer: View {
   let model: ReaderModel
   let selection: TextRegionSelection
   let draft: TextEditDraft
   /// Where the field is in the layer, as last laid out.
   @State private var fieldFrame: CGRect?
+  /// Whether room was made for the field when it first appeared.
+  @State private var madeRoomOnOpen = false
 
   /// The name of the layer's own space, in which the line, the visible area and the field are placed.
   nonisolated static let space = "reader.textEdit.layer"
@@ -222,20 +266,26 @@ struct TextEditLayer: View {
       ZStack(alignment: .topLeading) {
         if draft.isInPlace == true, let anchor = model.controller?.textEditAnchor, anchor.selection == selection {
           let visible = Self.visibleArea(in: geometry, below: draft.barFrame)
+          let origin = geometry.frame(in: .global).origin
           TextEditPlacementLayout(line: anchor.lineFrame, column: anchor.columnFrame) {
-            field(scale: anchor.scale)
-              .onGeometryChange(for: CGRect.self) {
-                $0.frame(in: .named(Self.space))
-              } action: {
-                fieldFrame = $0
+            field(scale: anchor.scale) { caret in
+              // The caret, from the window's space into the layer's.
+              reveal(caret.offsetBy(dx: -origin.x, dy: -origin.y), in: visible)
+            }
+            .onGeometryChange(for: CGRect.self) {
+              $0.frame(in: .named(Self.space))
+            } action: {
+              fieldFrame = $0
+              if !madeRoomOnOpen {
+                madeRoomOnOpen = true
+                makeRoom(for: $0, in: visible)
               }
+            }
           }
-          // Room for the field is made when it opens, when it grows a line, and when the keyboard
-          // or the screen changes; never while the person scrolls the page.
-          .onChange(of: RoomKey(height: fieldFrame?.height ?? 0, bottom: visible.maxY), initial: true) {
-            guard let fieldFrame else { return }
-            let distance = TextEditPlacement.scrollDistance(for: fieldFrame, in: visible, margin: Spacing.s100)
-            if abs(distance) > Self.scrollTolerance { model.controller?.scrollPickedText(by: distance) }
+          // The keyboard coming up, the bar growing, or the screen turning: what can be seen got
+          // shorter and may now be over the field. Putting the keyboard away moves nothing.
+          .onChange(of: visible.maxY) { before, after in
+            if after < before, let fieldFrame { makeRoom(for: fieldFrame, in: visible) }
           }
           #if DEBUG
             TextEditGeometryOverlay(line: anchor.lineFrame, visible: visible, scale: anchor.scale)
@@ -251,19 +301,27 @@ struct TextEditLayer: View {
   /// Distances smaller than this are rounding, not a field out of view.
   private static let scrollTolerance: CGFloat = 0.5
 
-  /// What, when it changes, may leave the field without room: its height and the bottom of what
-  /// can be seen.
-  private struct RoomKey: Equatable {
-    var height: CGFloat
-    var bottom: CGFloat
+  /// Scrolls the page so the whole field is above the bar and the keyboard, or its top where it is
+  /// taller than the room there is.
+  private func makeRoom(for field: CGRect, in visible: CGRect) {
+    let distance = TextEditPlacement.scrollDistance(for: field, in: visible, margin: Spacing.s100)
+    if abs(distance) > Self.scrollTolerance { model.controller?.scrollPickedText(by: distance) }
+  }
+
+  /// Scrolls the page so the caret is in view, up and down and, on a zoomed page, across.
+  private func reveal(_ caret: CGRect, in visible: CGRect) {
+    let distance = TextEditPlacement.revealDistance(for: caret, in: visible, margin: Spacing.s100)
+    guard abs(distance.dx) > Self.scrollTolerance || abs(distance.dy) > Self.scrollTolerance else { return }
+    model.controller?.scrollPickedText(by: distance.dy, across: distance.dx)
   }
 
   /// The field, and its cover over the old words.
-  private func field(scale: CGFloat) -> some View {
+  private func field(scale: CGFloat, onCaretMoved: @escaping (CGRect) -> Void) -> some View {
     TextEditField(
       draft: draft, font: Self.font(for: selection.region, scale: scale),
       color: Self.color(for: selection.region),
-      onSubmit: { Task { await model.commitTextEdit(draft.text) } }
+      onSubmit: { Task { await model.commitTextEdit(draft.text) } },
+      onCaretMoved: onCaretMoved
     )
     #if DEBUG
       .modifier(TextEditGeometryOverlay.Measure(role: .textView))
@@ -392,6 +450,7 @@ struct TextEditBar: View {
             .background(Color.ds.backgroundSecondary, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         } else {
           Spacer(minLength: 0)
+          if !isDeadEnd { keyboardButton }
         }
         if model.isCommittingTextEdit {
           ProgressView().accessibilityLabel(Text("Changing the text…", bundle: .module))
@@ -412,6 +471,31 @@ struct TextEditBar: View {
     .padding(.bottom, Spacing.s100)
     .accessibilityElement(children: .contain)
     .accessibilityIdentifier("reader.textEdit.actionBar")
+  }
+
+  /// Puts the keyboard away to look over the page, or brings it back, as the button in Notes does;
+  /// the text in hand stays open.
+  private var keyboardButton: some View {
+    Button {
+      if draft.isTyping { draft.hideKeyboard() } else { draft.showKeyboard() }
+    } label: {
+      if draft.isTyping {
+        Label {
+          Text("Hide keyboard", bundle: .module)
+        } icon: {
+          Image(systemName: "keyboard.chevron.compact.down")
+        }
+      } else {
+        Label {
+          Text("Show keyboard", bundle: .module)
+        } icon: {
+          Image(systemName: "keyboard")
+        }
+      }
+    }
+    .labelStyle(.iconOnly)
+    .minimumTarget()
+    .accessibilityIdentifier("reader.textEdit.keyboard")
   }
 
   private func commit() {
