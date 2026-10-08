@@ -43,6 +43,10 @@ that does nothing.**
 | N3 | A line with the words "first", "office" or "file" in a book-style typeface. Change another word on that line | The words change in the page (not "your text covers"), and the editor shows ordinary letters |
 | N4 | A letter or form laid out in boxes or a table (a medical or bank letter). Tap Edit | Every line has its own outline; no outline is bigger than a line |
 | N5 | Zoom in, then pick the lowest line on the last page and type | What is typed can be seen the whole time: over the line, or in the bar above the keyboard |
+| N5a | Pick a line that runs right across the page (a footer or a long sentence), on an iPhone SE-sized and a Pro Max-sized phone | The whole line is in view from its first letter to its last: it fits the screen, or it wraps onto more lines in the editor. The caret is after the last letter. Nothing is cut off at the screen's edge (the defect of 2026-10-08) |
+| N5b | With that line open, turn the phone on its side and back; hide the keyboard and tap the field again | The editor stays wholly in view and above the keyboard; the caret stays in view; the text is unchanged |
+| N5c | Zoom in by hand, pick a line, then tap Done and leave Edit | The page is back at the zoom and place it had before editing |
+| N5d | Read the size of the edited text on screen | Comfortable to type into. This checks the assumptions that 13 points is the smallest such size and 15 the size small print is zoomed to (`TextEditPlacement`), and that four lines keep the bar usable in landscape |
 | N6 | Pick five lines in a row on a document in a typeface the iPhone lacks | "The font will be matched…" shows for the first only |
 | N7 | After any refusal, Settings › Report a problem | A line "Text editing proof: …" names the check, and "Text editing session: made, covered, refused" counts what happened. Send that, never the document |
 

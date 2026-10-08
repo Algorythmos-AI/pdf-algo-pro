@@ -11,22 +11,34 @@ final class TextEditDraft {
   var text = ""
   /// Whether the field sits over the text on the page.
   ///
-  /// `nil` until the page has settled and the layer has measured where the text is. The layer
-  /// decides once, and the bar follows.
+  /// `nil` while nothing is picked. It is decided once, when the text is picked and the page view
+  /// has put it on screen (`ReaderView`), so the field never moves between the page and the bar
+  /// while it is typed into.
   var isInPlace: Bool?
+  /// Where the bar with Cancel and Done is on screen, in the window's space.
+  ///
+  /// The bar sits just above the keyboard, so the field over the page stays above the bar and is
+  /// never under the keyboard, wherever the keyboard is or however tall it is.
+  var barFrame: CGRect?
 }
 
-/// A plain text field for editing existing text: the document's own font and colour, and none of
-/// the keyboard's rewriting, so what is typed is what goes on the page.
+/// A text field for editing existing text: the document's own font and colour, and none of the
+/// keyboard's rewriting, so what is typed is what goes on the page.
+///
+/// It is as tall as its text at the width it is given, so none of the text is ever out of view:
+/// a line longer than the width wraps onto more lines instead of running past the edge. Only where
+/// it is given less height than its text, or held to `maximumLines`, does it scroll up and down.
 struct TextEditField: UIViewRepresentable {
   @Bindable var draft: TextEditDraft
   /// The font to show the text in, when the field sits over the text on the page.
   var font: UIFont?
   var color: UIColor?
+  /// The most lines shown before the field scrolls; `nil` for as many as the space it is given.
+  var maximumLines: Int?
   var onSubmit: () -> Void
 
-  func makeUIView(context: Context) -> SingleLineTextView {
-    let field = SingleLineTextView()
+  func makeUIView(context: Context) -> TextEditTextView {
+    let field = TextEditTextView()
     field.delegate = context.coordinator
     // Smart quotes, dashes and corrections would change what the person typed after they typed it.
     field.autocorrectionType = .no
@@ -37,25 +49,48 @@ struct TextEditField: UIViewRepresentable {
     field.spellCheckingType = .no
     field.returnKeyType = .done
     field.adjustsFontForContentSizeCategory = font == nil
+    field.font = resolvedFont
     field.accessibilityIdentifier = "reader.textEdit.field"
     field.accessibilityLabel = String(localized: "Text to change", bundle: .module)
-    field.setContentHuggingPriority(.defaultLow, for: .horizontal)
-    field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
     return field
   }
 
-  func updateUIView(_ field: SingleLineTextView, context: Context) {
+  func updateUIView(_ field: TextEditTextView, context: Context) {
     context.coordinator.parent = self
-    if field.text != draft.text { field.show(draft.text) }
-    field.font = font ?? UIFont.preferredFont(forTextStyle: .body)
+    if field.text != draft.text {
+      field.text = draft.text
+      field.invalidateIntrinsicContentSize()
+    }
+    if field.font != resolvedFont {
+      field.font = resolvedFont
+      field.invalidateIntrinsicContentSize()
+    }
     field.textColor = color ?? .label
-    field.setNeedsLayout()
     if !context.coordinator.hasFocused {
       context.coordinator.hasFocused = true
       // After this update, so the field is in a window when it asks for the keyboard.
-      Task { @MainActor in field.becomeFirstResponder() }
+      Task { @MainActor in
+        field.becomeFirstResponder()
+        // The caret starts after the last letter, and is shown there.
+        field.selectedRange = NSRange(location: (field.text ?? "").utf16.count, length: 0)
+        field.revealSelection()
+      }
     }
   }
+
+  /// As wide as offered, and as tall as the text at that width: the field is never smaller than
+  /// what it holds, except where it is held to fewer lines or less height, where it scrolls.
+  func sizeThatFits(_ proposal: ProposedViewSize, uiView field: TextEditTextView, context: Context) -> CGSize? {
+    guard let width = proposal.width, width.isFinite, width > 0 else { return nil }
+    var height = field.fittingHeight(for: width)
+    if let maximumLines, let font = field.font {
+      height = min(height, ceil(font.lineHeight * CGFloat(maximumLines)))
+    }
+    if let limit = proposal.height, limit.isFinite { height = min(height, limit) }
+    return CGSize(width: width, height: height)
+  }
+
+  private var resolvedFont: UIFont { font ?? UIFont.preferredFont(forTextStyle: .body) }
 
   func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -70,16 +105,19 @@ struct TextEditField: UIViewRepresentable {
 
     func textViewDidChange(_ textView: UITextView) {
       parent.draft.text = textView.text ?? ""
-      // Typing does not go through `text`, so the scrolling area is fitted here, and the caret is
-      // kept in view at the end of a line that has grown.
-      (textView as? SingleLineTextView)?.fitLine()
-      textView.scrollRangeToVisible(textView.selectedRange)
+      // The field grows with its text; the caret stays in view where it is held to a height.
+      textView.invalidateIntrinsicContentSize()
+      (textView as? TextEditTextView)?.revealSelection()
+    }
+
+    func textViewDidChangeSelection(_ textView: UITextView) {
+      (textView as? TextEditTextView)?.revealSelection()
     }
 
     func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
       guard text.contains(where: \.isNewline) else { return true }
-      // Return is Done. A line that is pasted in with line breaks is one line here: the breaks
-      // become spaces.
+      // Return is Done: the text is one line on the page, however many it wraps onto here. A line
+      // that is pasted in with line breaks is one line here: the breaks become spaces.
       if text.allSatisfy(\.isNewline) {
         parent.onSubmit()
       } else if let replaced = textView.textRange(from: range) {
@@ -90,107 +128,50 @@ struct TextEditField: UIViewRepresentable {
   }
 }
 
-/// One line of text to type into, which scrolls sideways under a finger when it is longer than
-/// the field.
+/// The text view behind `TextEditField`: the system's own text view, wrapping its text to its
+/// width, with nothing around the text so the letters sit where the page's letters are.
 ///
-/// A text field shows a long line only around its caret, and cannot be swiped: a line of small
-/// print, zoomed in to be read, is several screens wide, and its start could not be got back to
-/// (the owner's reports, 2026-10-07). This is a text view kept to one line, so it scrolls like any
-/// scrolling text and still follows the caret.
-final class SingleLineTextView: UITextView {
+/// It replaces a text view held to one unbroken line, which showed a long line only as far as the
+/// edge of the screen and hid the rest, and the caret with it, behind a sideways scroll (the
+/// owner's report, 2026-10-08).
+final class TextEditTextView: UITextView {
+  private var laidOutSize = CGSize.zero
+
   init() {
-    // The text system is put together here, not left to the view: left to itself the view makes
-    // a container as wide as it is, and the line would be cut off at the field's edge.
-    let storage = NSTextStorage()
-    let layout = NSLayoutManager()
-    // The line is as long as its words; the view is a window onto it.
-    let container = NSTextContainer(
-      size: CGSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude))
-    container.widthTracksTextView = false
-    container.heightTracksTextView = false
-    container.lineFragmentPadding = 0
-    container.maximumNumberOfLines = 1
-    container.lineBreakMode = .byClipping
-    layout.addTextContainer(container)
-    storage.addLayoutManager(layout)
-    super.init(frame: .zero, textContainer: container)
+    super.init(frame: .zero, textContainer: nil)
     backgroundColor = .clear
     textContainerInset = .zero
+    textContainer.lineFragmentPadding = 0
+    textContainer.widthTracksTextView = true
     isScrollEnabled = true
-    alwaysBounceHorizontal = true
     alwaysBounceVertical = false
+    alwaysBounceHorizontal = false
     showsHorizontalScrollIndicator = false
-    showsVerticalScrollIndicator = false
-    isDirectionalLockEnabled = true
     contentInsetAdjustmentBehavior = .never
-    isBuilt = true
   }
 
   @available(*, unavailable)
   required init?(coder: NSCoder) { nil }
 
-  /// False while the text view is still being put together, when its text container is not there yet.
-  private var isBuilt = false
-
-  /// How wide the line of text is, laid out.
-  var lineWidth: CGFloat {
-    keepLineUnbroken()
-    layoutManager.ensureLayout(for: textContainer)
-    return ceil(layoutManager.usedRect(for: textContainer).width)
+  /// How tall all of the text is when it is laid out at a width.
+  func fittingHeight(for width: CGFloat) -> CGFloat {
+    ceil(sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude)).height)
   }
 
-  /// Puts the container back to "as wide as the words".
-  ///
-  /// A scrolling text view sets its container to its own width whenever it lays out, whatever the
-  /// container was told, so this is said again each time.
-  private func keepLineUnbroken() {
-    if textContainer.widthTracksTextView { textContainer.widthTracksTextView = false }
-    if textContainer.size.width < 100_000 {
-      textContainer.size = CGSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
-    }
+  /// Scrolls the caret, or the end of the selection, into view.
+  func revealSelection() {
+    scrollRangeToVisible(selectedRange)
   }
 
+  /// A new size (a rotation, the keyboard, a wrap onto another line) keeps the caret in view.
   override func layoutSubviews() {
     super.layoutSubviews()
-    fitLine()
-  }
-
-  /// Shows a line of text, and fits the scrolling area to it.
-  func show(_ line: String) {
-    text = line
-    fitLine()
-  }
-
-  /// Sizes the scrolling area to the one line of text, and centres the line in the field's height.
-  ///
-  /// Called on every layout and every change to the text, because the text view does not always
-  /// lay itself out again when its text changes.
-  func fitLine() {
-    guard isBuilt else { return }
-    keepLineUnbroken()
-    layoutManager.ensureLayout(for: textContainer)
-    let used = layoutManager.usedRect(for: textContainer)
-    // The line sits in the middle of the field's height, as a text field's does.
-    let top = max(0, (bounds.height - used.height) / 2)
-    if abs(textContainerInset.top - top) > 0.5 {
-      textContainerInset = UIEdgeInsets(top: top, left: 0, bottom: 0, right: 0)
-    }
-    let size = scrollSize
-    if super.contentSize != size { super.contentSize = size }
-    if contentOffset.y != 0 { contentOffset.y = 0 }
-  }
-
-  /// Wide enough to scroll to either end, with room for the caret after the last letter; never
-  /// tall enough to scroll up and down.
-  private var scrollSize: CGSize {
-    CGSize(width: max(bounds.width, lineWidth + 6), height: bounds.height)
-  }
-
-  /// The text view works out its own scrolling size whenever the text changes, from a line as wide
-  /// as itself; whatever it asks for, it gets the size of the one unbroken line.
-  override var contentSize: CGSize {
-    get { super.contentSize }
-    set { super.contentSize = isBuilt ? scrollSize : newValue }
+    #if DEBUG
+      TextEditGeometryLog.textView(self)
+    #endif
+    guard bounds.size != laidOutSize else { return }
+    laidOutSize = bounds.size
+    if isFirstResponder { revealSelection() }
   }
 }
 
@@ -207,31 +188,29 @@ extension UITextView {
 /// The editor for a piece of existing text, laid over the page.
 ///
 /// It takes every touch, so the page stays still while the text is being changed, and for upright
-/// text it puts the field exactly over the line, in the line's own font, so the text is edited
-/// where it is.
+/// text it puts the field over the line, in the line's own font, so the text is edited where it
+/// is. The field is placed from what it holds (`TextEditPlacement`): it starts where the line
+/// starts, is as tall as its text, wraps a line wider than the screen, and stays above the bar
+/// and the keyboard.
 struct TextEditLayer: View {
   let model: ReaderModel
   let selection: TextRegionSelection
   let draft: TextEditDraft
-  @State private var frame: CGRect?
-  @State private var height: CGFloat = 0
 
-  /// The share of the reader's height, from the top, that stays clear of the keyboard and the
-  /// editor's bar while text is being typed.
-  ///
-  /// Assumption: the keyboard with its bar takes a little over half of an iPhone's height; checked
-  /// in the device test plan.
-  static let clearShare = 0.45
+  /// The name of the layer's own space, in which the line, the visible area and the field are placed.
+  static let space = "reader.textEdit.layer"
 
-  /// Whether the field can sit over the text: upright, big enough on screen to read, and where it
-  /// can be seen while it is typed into.
+  /// How far the field's cover reaches past the start of the line, so the old letters' edges are
+  /// covered: as far as the outline drawn around each line (`TextRegionOverlayView`).
+  static let coverOutset: CGFloat = 2
+
+  /// Whether the field can sit over the text: the page view has the text on screen, the text is
+  /// upright, and it is big enough on screen to type over.
   ///
-  /// Text that the page could not scroll clear of the keyboard is edited in the bar instead, which
-  /// is always in view.
-  static func fitsInPlace(_ selection: TextRegionSelection, frame: CGRect?, within height: CGFloat? = nil) -> Bool {
-    guard let frame, selection.region.isUpright else { return false }
-    if let height, frame.maxY > height * clearShare { return false }
-    return frame.height >= 12 && frame.minX >= 0 && frame.minY >= 0
+  /// Other text is edited in the bar, which is always in view.
+  static func fitsInPlace(_ selection: TextRegionSelection, anchor: TextEditAnchor?) -> Bool {
+    guard let anchor, anchor.selection == selection, selection.region.isUpright else { return false }
+    return anchor.lineFrame.height >= TextEditPlacement.minimumInPlaceHeight
   }
 
   var body: some View {
@@ -239,56 +218,53 @@ struct TextEditLayer: View {
       ZStack(alignment: .topLeading) {
         // Nearly clear, so it is hit-tested: touches stop here while the editor is open.
         Color.black.opacity(0.001)
-        if let frame, draft.isInPlace == true {
-          let scale = model.controller?.selectedTextRegionScale ?? 1
-          TextEditField(
-            draft: draft, font: Self.font(for: selection.region, scale: scale),
-            color: Self.color(for: selection.region),
-            onSubmit: { Task { await model.commitTextEdit(draft.text) } }
-          )
-          .padding(.horizontal, 2)
-          .frame(width: Self.fieldSpan(over: frame, in: geometry.size.width).width, height: frame.height)
-          // The field covers the old words while new ones are typed, in a colour the text shows on.
-          .background(Self.isLight(selection.region) ? Color.black : Color.white)
-          .overlay(alignment: .bottom) { Rectangle().fill(Color.ds.selection).frame(height: 1.5) }
-          // The caret too: in the app's red it would read as a mistake in the text.
-          .tint(Color.ds.selection)
-          .offset(x: Self.fieldSpan(over: frame, in: geometry.size.width).x, y: frame.minY)
+        if draft.isInPlace == true, let anchor = model.controller?.textEditAnchor, anchor.selection == selection {
+          let visible = Self.visibleArea(in: geometry, below: draft.barFrame)
+          TextEditPlacementLayout(line: anchor.lineFrame, visible: visible, margin: Spacing.s100) {
+            field(scale: anchor.scale)
+          }
+          #if DEBUG
+            TextEditGeometryOverlay(line: anchor.lineFrame, visible: visible, scale: anchor.scale)
+          #endif
         }
       }
-    }
-    .onGeometryChange(for: CGFloat.self) {
-      $0.size.height
-    } action: {
-      height = $0
-    }
-    .task(id: selection) {
-      // The page has just scrolled the text clear of the keyboard; read where it ended up.
-      try? await Task.sleep(for: .milliseconds(80))
-      let measured = model.controller?.selectedTextRegionFrame
-      frame = measured
-      draft.isInPlace = Self.fitsInPlace(selection, frame: measured, within: height > 0 ? height : nil)
+      .coordinateSpace(.named(Self.space))
     }
     .accessibilityElement(children: .contain)
   }
 
-  /// The narrowest the field is, so there is always room to see a few words being typed.
-  static let minimumFieldWidth: CGFloat = 140
+  /// The field, its cover over the old words, and the line under it.
+  private func field(scale: CGFloat) -> some View {
+    TextEditField(
+      draft: draft, font: Self.font(for: selection.region, scale: scale),
+      color: Self.color(for: selection.region),
+      onSubmit: { Task { await model.commitTextEdit(draft.text) } }
+    )
+    #if DEBUG
+      .modifier(TextEditGeometryOverlay.Measure(role: .textView))
+    #endif
+    .padding(.leading, Self.coverOutset)
+    // The text keeps clear of the screen's edge; the cover runs to it.
+    .padding(.trailing, Spacing.s100)
+    // The field covers the old words while new ones are typed, in a colour the text shows on.
+    .background(Self.isLight(selection.region) ? Color.black : Color.white)
+    .overlay(alignment: .bottom) { Rectangle().fill(Color.ds.selection).frame(height: 1.5) }
+    // The caret too: in the app's red it would read as a mistake in the text.
+    .tint(Color.ds.selection)
+    #if DEBUG
+      .modifier(TextEditGeometryOverlay.Measure(role: .editor))
+    #endif
+  }
 
-  /// Where the field starts and how wide it is: from the start of the text to the edge of the
-  /// reader, and never past it.
-  ///
-  /// A small line is zoomed in to be read, and may then be wider than the screen. A field as wide
-  /// as the line ran off the screen with the end of the sentence in it, where the caret could not
-  /// be seen or reached (the owner's report, 2026-10-07). Kept on screen, the field scrolls its
-  /// own text as the caret moves, as any text field does.
-  static func fieldSpan(over frame: CGRect, in width: CGFloat) -> (x: CGFloat, width: CGFloat) {
-    // Right to the edge: a strip of page left beside the field shows the old words there.
-    let edge = width
-    let span = min(max(minimumFieldWidth, edge - (frame.minX - 2)), max(0, edge - Spacing.s100))
-    // Text that starts close to the right edge: the field keeps its width and starts further left.
-    let x = max(Spacing.s100, min(frame.minX - 2, edge - span))
-    return (x, span)
+  /// The part of the layer that is not under the bars at its top or the bar and keyboard below.
+  static func visibleArea(in geometry: GeometryProxy, below bar: CGRect?) -> CGRect {
+    let top = geometry.safeAreaInsets.top
+    var bottom = geometry.size.height
+    if let bar {
+      // The bar is outside the layer; both are measured in the window's space.
+      bottom = min(bottom, bar.minY - geometry.frame(in: .global).minY)
+    }
+    return CGRect(x: 0, y: top, width: geometry.size.width, height: max(0, bottom - top))
   }
 
   /// Whether the region's text is light, so it needs a dark field to be seen while it is typed.
@@ -318,12 +294,48 @@ struct TextEditLayer: View {
   }
 }
 
+/// Puts the editor where `TextEditPlacement` says, after asking it how tall its text is.
+///
+/// The text is measured first and the place worked out from that, in one layout pass, so the
+/// editor is never drawn smaller than its text and then corrected.
+struct TextEditPlacementLayout: Layout {
+  /// Where the line is, in the layer's space.
+  var line: CGRect
+  /// The part of the layer that can be seen.
+  var visible: CGRect
+  /// The space kept clear at the visible area's edges.
+  var margin: CGFloat
+
+  func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+    proposal.replacingUnspecifiedDimensions()
+  }
+
+  func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+    guard let editor = subviews.first else { return }
+    let outset = TextEditLayer.coverOutset
+    // The editor's cover starts a little before the text; the place is worked out for the text.
+    let placed = TextEditPlacement.editor(over: line, in: visible, margin: margin) { width in
+      editor.sizeThatFits(ProposedViewSize(width: width + outset, height: nil)).height
+    }
+    editor.place(
+      at: CGPoint(x: bounds.minX + placed.frame.minX - outset, y: bounds.minY + placed.frame.minY),
+      anchor: .topLeading,
+      proposal: ProposedViewSize(width: placed.frame.width + outset, height: placed.frame.height))
+  }
+}
+
 /// Cancel and Done for the text in hand, above the keyboard, with anything the person needs to know.
 ///
 /// For text the field cannot sit over (rotated, or tiny on screen) the field is here instead.
 struct TextEditBar: View {
   let model: ReaderModel
   let draft: TextEditDraft
+
+  /// The most lines of text the field in the bar shows before it scrolls.
+  ///
+  /// `Assumption:` four lines keep Cancel and Done and part of the page in view above the keyboard
+  /// on the smallest supported iPhone in landscape; checked in the device test plan.
+  static let maximumLines = 4
 
   /// The field is here when the layer found it cannot sit over the text.
   private var showsField: Bool { draft.isInPlace == false }
@@ -346,7 +358,7 @@ struct TextEditBar: View {
         .keyboardShortcut(.cancelAction)
         .accessibilityIdentifier("reader.textEdit.cancel")
         if showsField {
-          TextEditField(draft: draft, onSubmit: commit)
+          TextEditField(draft: draft, maximumLines: Self.maximumLines, onSubmit: commit)
             .padding(.horizontal, Spacing.s100)
             .frame(minHeight: Sizes.targetMinimum)
             .background(Color.ds.backgroundSecondary, in: RoundedRectangle(cornerRadius: 8, style: .continuous))

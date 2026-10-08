@@ -188,6 +188,37 @@ text to Times New Roman, anything else to Helvetica, in the same weight and slan
 **Page boxes.** PDFKit moves a page's box to the origin when it copies it. Regions are reported in
 the live page's space, and annotations are shifted with the page when it is swapped.
 
+## Editor layout
+
+The editor for a picked line is placed from what it holds, never from a frame chosen before the
+text is measured. The geometry is one pure function, `TextEditPlacement` (PDFEngine), tested for
+every supported screen size, both orientations, five zoom levels and three keyboard heights
+(`TextEditPlacementTests`).
+
+1. **Zoom.** The page view zooms small print to 15 points on screen, as before. A line still wider
+   than the view is then zoomed out to fit, but never below 13 points (`TextEditPlacement.scale`).
+   Both sizes are labelled `Assumption:` in the code and checked in the device test plan.
+2. **Anchor.** While text is picked, the page view publishes where the line is on screen
+   (`PDFDocumentController.textEditAnchor`) on every frame where it changed, the way the annotation
+   outline follows its annotation. A zoom, a scroll, a rotation or a new window size moves the
+   editor with the line; nothing is measured once after a delay.
+3. **Editor.** The field is the system text view, wrapping at its width, with nothing around the
+   text. A SwiftUI `Layout` asks it how tall its text is at the width it will have, then places it.
+   It starts where the line starts and lies over it when the whole line is in view. When the line is
+   wider than the view, the field starts at the margin and wraps. It stays above the bar with Cancel
+   and Done, which itself stays above the keyboard, and it scrolls only when its text is taller than
+   all of that space. Return still means Done, because the text is one line on the page.
+4. **Caret.** The caret starts after the last letter and is scrolled into view when the field gets
+   focus, whenever the selection changes and whenever the field changes size.
+5. **Zoom back.** The zoom and position from before editing first zoomed the page come back when
+   editing ends.
+
+This replaces a field held to one unbroken line that stopped at the screen's edge. On a page
+zoomed by print size alone, a line wider than the screen was cut off there, with the caret out of
+sight (the owner's reports, 2026-10-07 and 2026-10-08). Debug builds launched with
+`-text-edit-geometry` draw the line, the visible area, the editor, the text view and its laid-out
+text in five colours, and log the numbers (no document text) under `text-edit.geometry`.
+
 ## Covering text that cannot be edited
 
 For "covered only" text the reader can place a filled rectangle and a text box over it. This is

@@ -56,6 +56,38 @@ struct ReadingControlsTests {
     #expect(plain.minScaleFactor == before.min && plain.maxScaleFactor == before.max)
   }
 
+  @Test("A picked line is followed on screen, readable and fitted to the width, and the zoom comes back after")
+  func editingFollowsTheLine() async throws {
+    let url = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).pdf")
+    try TextEditFixtures.invoice().write(to: url)
+    let controller = try PDFDocumentController(url: url)
+    let view = PDFReaderHostView()
+    view.frame = CGRect(x: 0, y: 0, width: 393, height: 700)
+    let container = UIView(frame: view.frame)
+    container.addSubview(view)
+    view.configure(for: controller)
+    view.layoutIfNeeded()
+    #expect(view.autoScales)
+
+    controller.setEditingText(true)
+    let regions = await controller.pageText(onPage: 0).regions
+    let widest = try #require(regions.filter(\.isUpright).max { $0.bounds.width < $1.bounds.width })
+    controller.selectTextRegion(widest, onPage: 0)
+    let anchor = try #require(controller.textEditAnchor, "The page view says where the line is")
+    #expect(anchor.selection.region == widest && anchor.scale == view.scaleFactor)
+    let onScreen = widest.style.pointSize * anchor.scale
+    #expect(onScreen >= TextEditPlacement.legibleMinimum - 0.01 || anchor.scale == view.maxScaleFactor)
+    // The whole line fits the view, unless that would make it too small to read; then it wraps.
+    let readableSmallest = abs(onScreen - TextEditPlacement.legibleMinimum) < 0.01
+    #expect(anchor.lineFrame.width <= view.bounds.width + 0.5 || readableSmallest, "\(anchor.lineFrame)")
+
+    // Letting go stops following the line, and leaving puts the page back as it was.
+    controller.clearTextRegionSelection()
+    #expect(controller.textEditAnchor == nil)
+    controller.setEditingText(false)
+    #expect(view.autoScales, "The page fits the reader again")
+  }
+
   @Test("The next and previous page commands stop at the ends of the document")
   func paging() throws {
     let (controller, _) = try hosted()

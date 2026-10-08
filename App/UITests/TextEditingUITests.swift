@@ -265,34 +265,71 @@ final class TextEditingUITests: UITestCase {
       "Undo puts the line back")
   }
 
-  func testALineLongerThanTheFieldCanBeReachedAtBothEnds() throws {
-    let app = launch(["-skip-onboarding", "-seed-library", "sample", "-text-editing", "available"])
+  /// The owner's report, 2026-10-08: a line longer than the screen was cut off at its edge, with
+  /// the caret and the rest of the sentence out of sight. The whole line is now always in view.
+  func testALongLineIsWhollyInViewAndBothEndsCanBeEdited() throws {
+    let app = launch([
+      "-skip-onboarding", "-seed-library", "sample", "-text-editing", "available", "-text-edit-geometry",
+    ])
     XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
     tap(app.buttons["reader.edit"], until: app.buttons["reader.doneEditingText"])
     let field = app.textViews["reader.textEdit.field"]
     tap(line(containing: "Try these", in: app), until: field)
 
-    // Far more words than the field has room for: the caret, at the end, stays in view.
-    let tail = " and then a good many more words than any field on a phone has the room to show at once"
+    // Far more words than one line of a phone has room for, as in the owner's screenshot.
+    let tail = " Detected card numbers, IDs and contact details are masked, and a good many more words after that"
     field.typeText(tail)
     XCTAssertEqual(field.value as? String, "Try these:" + tail)
+    attach(app, named: "Long line, keyboard up")
+    assertWhollyInView(field, in: app)
 
-    // Swiping the field brings the start of the line back, where a tap puts the caret.
-    for _ in 0..<4 { field.swipeRight(velocity: .fast) }
-    field.coordinate(withNormalizedOffset: CGVector(dx: 0.04, dy: 0.5)).tap()
+    // The start of the line is in view: a tap there puts the caret there.
+    field.coordinate(withNormalizedOffset: CGVector(dx: 0.01, dy: 0.02)).tap()
     field.typeText("Z")
     let start = try XCTUnwrap(field.value as? String)
     let place = try XCTUnwrap(start.firstIndex(of: "Z"), "The letter was typed")
-    XCTAssertLessThan(start.distance(from: start.startIndex, to: place), 12, "It went in at the start of the line")
+    XCTAssertLessThan(start.distance(from: start.startIndex, to: place), 3, "It went in at the start of the line")
 
-    // And swiping the other way brings the end back.
-    for _ in 0..<4 { field.swipeLeft(velocity: .fast) }
-    field.coordinate(withNormalizedOffset: CGVector(dx: 0.96, dy: 0.5)).tap()
+    // And so is the end: a tap after the last word puts the caret after it.
+    field.coordinate(withNormalizedOffset: CGVector(dx: 0.99, dy: 0.98)).tap()
     field.typeText("Q")
-    let end = try XCTUnwrap(field.value as? String)
-    let last = try XCTUnwrap(end.firstIndex(of: "Q"), "The letter was typed")
-    XCTAssertLessThan(end.distance(from: last, to: end.endIndex), 12, "It went in at the end of the line")
+    XCTAssertEqual((field.value as? String)?.last, "Q", "It went in at the end of the line")
+
+    // Turned on its side, with less room, the field is still wholly in view.
+    XCUIDevice.shared.orientation = .landscapeLeft
+    defer { XCUIDevice.shared.orientation = .portrait }
+    XCTAssertTrue(field.waitForExistence(timeout: 5))
+    attach(app, named: "Long line, landscape")
+    assertWhollyInView(field, in: app)
+    XCUIDevice.shared.orientation = .portrait
+    assertWhollyInView(field, in: app)
     app.buttons["reader.textEdit.cancel"].tap()
+  }
+
+  /// The field is on screen, above the bar and the keyboard, with none of it cut off.
+  private func assertWhollyInView(
+    _ field: XCUIElement, in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line
+  ) {
+    let screen = app.windows.firstMatch.frame
+    let frame = field.frame
+    XCTAssertTrue(screen.contains(frame), "\(frame) is inside \(screen)", file: file, line: line)
+    let bar = app.descendants(matching: .any)["reader.textEdit.actionBar"].firstMatch
+    // Text the field cannot sit over is typed in the bar itself.
+    if bar.exists, !bar.textViews["reader.textEdit.field"].exists {
+      XCTAssertLessThanOrEqual(frame.maxY, bar.frame.minY + 1, "Above the bar", file: file, line: line)
+    }
+    if app.keyboards.firstMatch.exists {
+      XCTAssertLessThanOrEqual(
+        frame.maxY, app.keyboards.firstMatch.frame.minY + 1, "Above the keyboard", file: file, line: line)
+    }
+  }
+
+  /// A screenshot for the test report, with the editor's geometry drawn over it.
+  private func attach(_ app: XCUIApplication, named name: String) {
+    let shot = XCTAttachment(screenshot: app.screenshot())
+    shot.name = name
+    shot.lifetime = .keepAlways
+    add(shot)
   }
 
   func testEditingIsLockedWithoutProAndAbsentWhenTheBuildDoesNotHaveIt() throws {

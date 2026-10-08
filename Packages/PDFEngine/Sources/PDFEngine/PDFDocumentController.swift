@@ -58,7 +58,18 @@ public final class PDFDocumentController {
   /// The existing text the person picked to edit, if any.
   ///
   /// Separate from `selection`, which is for annotations.
-  public internal(set) var selectedTextRegion: TextRegionSelection?
+  public internal(set) var selectedTextRegion: TextRegionSelection? {
+    didSet {
+      guard selectedTextRegion != oldValue else { return }
+      if textEditAnchor?.selection != selectedTextRegion { textEditAnchor = nil }
+      #if canImport(UIKit)
+        view?.textRegionSelectionChanged()
+      #endif
+    }
+  }
+  /// Where the picked text is on screen and at what zoom, kept up to date by the page view while
+  /// text is picked; `nil` when nothing is picked or the page view is not on screen.
+  public internal(set) var textEditAnchor: TextEditAnchor?
   /// A link to outside the document that the person tapped, waiting for them to confirm (T-02).
   public var tappedLink: DocumentLink?
   /// The selected annotation itself; PDFKit objects stay out of `selection`.
