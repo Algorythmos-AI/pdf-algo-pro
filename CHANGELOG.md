@@ -10,6 +10,10 @@ Store notes (see the changelog strategy).
 ## [Unreleased]
 
 ### Changed
+- The plans screen is redrawn: the two plans side by side with the yearly plan marked Best Value,
+  what you pay today and afterwards in one line, and one button. A free trial is shown only when
+  your Apple Account can have it. If a purchase can't be made, or is waiting for approval, the
+  app now says so.
 - A new look: red on white. Buttons, tiles and the app icon are now red, and screens stay white
   (or dark in Dark Mode). On a document, what you select is outlined in blue, so that red there
   only ever means a red annotation or Delete.

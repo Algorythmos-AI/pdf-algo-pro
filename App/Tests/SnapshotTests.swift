@@ -1,6 +1,7 @@
 import DesignSystem
 import LibraryFeature
 import OnboardingFeature
+import PaywallFeature
 import ScanFeature
 import SettingsFeature
 import SnapshotTesting
@@ -76,6 +77,39 @@ extension AppTests {
       await app.onboarding.advance()
       await app.onboarding.advance()
       check(introduction(app))
+    }
+
+    /// The offer for an app's state, with its plans loaded and its picture held still.
+    private func offer(_ app: AppModel, buying: Bool = false) async -> some View {
+      let model = app.makePaywall()
+      await model.appeared()
+      if buying { await model.purchase() }
+      return PaywallFlowView(model: model, store: app.container.store).environment(\.playsDecorativeMotion, false)
+    }
+
+    /// The offer as an eligible account sees it: the annual plan selected, with its trial.
+    @Test func paywall() async {
+      check(await offer(app(["-skip-onboarding"])))
+    }
+
+    /// The offer for an account with no trial to take.
+    @Test func paywallWithoutTrial() async {
+      check(await offer(app(["-skip-onboarding", "-trial", "none"])))
+    }
+
+    /// The offer when the plans cannot be loaded.
+    @Test func paywallUnavailable() async {
+      check(await offer(app(["-skip-onboarding", "-store", "unavailable"])))
+    }
+
+    /// The offer for someone who has Pro already.
+    @Test func paywallAlreadyPro() async {
+      check(await offer(app(["-skip-onboarding", "-entitlement", "subscribed"])))
+    }
+
+    /// The confirmation after a purchase that started a trial.
+    @Test func welcome() async {
+      check(await offer(app(["-skip-onboarding"]), buying: true))
     }
 
     /// Home, the screen the app opens on, with nothing in the library yet.

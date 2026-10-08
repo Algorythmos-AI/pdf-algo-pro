@@ -320,21 +320,21 @@ Guideline text from the [App Review Guidelines](https://developer.apple.com/app-
 ## Subscription disclosure
 
 Requirements from Apple's [auto-renewable subscriptions](https://developer.apple.com/app-store/subscriptions/)
-page and Guideline 3.1.2, and how the paywall meets them. `SubscriptionStoreView` shows localised
-names, descriptions and prices, a Close button, and the terms and privacy policy links submitted in
-App Store Connect ([SubscriptionStoreView](https://developer.apple.com/documentation/storekit/subscriptionstoreview)).
+page and Guideline 3.1.2, and how the paywall meets them. The paywall is the app's own screen over
+StoreKit 2, and every figure on it is StoreKit's for the storefront and the account
+([ADR-0027](adr/0027-own-paywall-over-storekit-2.md)).
 
 | Requirement | Where it appears |
 |---|---|
-| Subscription name and duration, and what is provided during the period | Plan options in `SubscriptionStoreView`; a "What Pro includes" list above them |
-| Full renewal price, clear and prominent, localised | Provided by StoreKit; the billed amount is the most prominent price (an annual plan shows the annual amount, not only a monthly equivalent) |
-| Free trial: how long it lasts and the price charged when it ends | Shown by StoreKit under the plan that carries it, and only to people eligible for it; the app's own text never mentions a trial; wording reviewed in English and French |
+| Subscription name and duration, and what is provided during the period | Each plan card (StoreKit's name, price and period); the list of what Pro adds above them |
+| Full renewal price, clear and prominent, localised | StoreKit's price on each plan card, as the card's largest text, and again in the terms under the cards (an annual plan shows the annual amount, never only a weekly equivalent) |
+| Free trial: how long it lasts and the price charged when it ends | On the plan card and in the terms under the cards: the trial's length, what is due today, and the price and period that follow. Shown only when StoreKit says the account is eligible, with StoreKit's length; wording reviewed in English and French |
 | Auto-renewal terms | A plain statement that the plan renews automatically until cancelled, and that it can be cancelled any time in Settings |
-| Terms of Use (EULA) and Privacy Policy links, in the app and in the App Store metadata | Policy buttons on the paywall; links in Settings; Privacy Policy URL and Terms of Use link in App Store Connect |
-| Restore purchases | Restore button on the paywall (`storeButton` with `restorePurchases`) and in Settings |
+| Terms of Use (EULA) and Privacy Policy links, in the app and in the App Store metadata | Terms and Privacy links on the paywall; links in Settings; Privacy Policy URL and Terms of Use link in App Store Connect |
+| Restore purchases | Restore purchases link on the paywall and row in Settings |
 | The offer can be declined | A Close button from the first frame, including when the offer follows the first-run introduction ([ADR-0026](adr/0026-first-run-subscription-offer-and-plans.md)) |
 | Manage and cancel | Settings row opening the system sheet (`manageSubscriptionsSheet`), as Apple recommends making the system management page easy to reach |
-| Offer codes | Redeem Code button (`redeemCode`) |
+| Offer codes | Redeem a code link on the paywall and row in Settings (`offerCodeRedemption`) |
 | Billing problems | Billing Grace Period enabled in App Store Connect, as Apple recommends |
 
 Prices, trial lengths and offers are set in App Store Connect from the confidential pricing strategy;

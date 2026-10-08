@@ -57,7 +57,6 @@ public struct PaywallFlowView: View {
     )
     .background(alignment: .top) { BrandGlow().frame(height: 420).ignoresSafeArea() }
     .background(Color.ds.backgroundPrimary)
-    .accessibilityIdentifier("paywall.offer")
     .offerCodeRedemption(isPresented: $redeemsCode)
     .manageSubscriptionsSheet(isPresented: $managesSubscription)
     .alert(Text("Restore purchases", bundle: .module), isPresented: $model.restoreFailed) {

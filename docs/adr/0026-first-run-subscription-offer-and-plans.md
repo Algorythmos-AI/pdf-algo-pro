@@ -1,6 +1,6 @@
 # ADR-0026: A closable subscription offer at the end of first run, weekly and annual plans, and a free allowance
 
-**Status:** accepted (2026-10-07); decisions 2 and 4 amended by [PAP-049](../decision-register.md) (2026-10-07), decision 1 by [PAP-052](../decision-register.md) (2026-10-08)
+**Status:** accepted (2026-10-07); decisions 2 and 4 amended by [PAP-049](../decision-register.md) (2026-10-07), decision 1 by [PAP-052](../decision-register.md) (2026-10-08); decisions 2, 3 (default plan selection and no plan picker) and 5 superseded by [ADR-0027](0027-own-paywall-over-storekit-2.md) (2026-10-08)
 
 **Context.** [ADR-0011](0011-storekit-2-monetisation.md) chose StoreKit 2 with `SubscriptionStoreView`, monthly and annual plans, and no paywall before the user's first successful task. On 2026-10-07 the owner reviewed the first run of a competing PDF app on a phone (three introduction pages, then a subscription offer with a trial on a weekly plan, then a confirmation screen) and decided to move to that shape ([PAP-042 to PAP-045](../decision-register.md)). Three facts in the code bear on how:
 

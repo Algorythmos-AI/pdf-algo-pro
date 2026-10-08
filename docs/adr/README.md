@@ -35,7 +35,8 @@ Owner: Architecture · Reviewed: when a decision changes
 | [ADR-0023](0023-ios-26-floor-built-with-xcode-27.md) | iOS 26 floor, built with the Xcode 27 SDK (supersedes the floor in ADR-0001) | accepted |
 | [ADR-0024](0024-remote-configuration-package.md) | Remote configuration in its own package, read from the CloudKit public database | accepted |
 | [ADR-0025](0025-native-text-editing-for-the-safe-subset.md) | Native text editing for the documents where it is safe, behind our own boundary | accepted |
-| [ADR-0026](0026-first-run-subscription-offer-and-plans.md) | A closable subscription offer at the end of first run, weekly and annual plans, and a free allowance (supersedes the plans and paywall placement in ADR-0011) | accepted; amended by PAP-049 and PAP-052 |
+| [ADR-0026](0026-first-run-subscription-offer-and-plans.md) | A closable subscription offer at the end of first run, weekly and annual plans, and a free allowance (supersedes the plans and paywall placement in ADR-0011) | accepted; amended by PAP-049 and PAP-052; decisions 2, 3 (default selection, no plan picker) and 5 superseded by ADR-0027 |
+| [ADR-0027](0027-own-paywall-over-storekit-2.md) | The app's own paywall over StoreKit 2 purchases: plan cards, trial shown only when the account is eligible, every purchase outcome handled | accepted |
 
 ## Writing one
 
