@@ -177,11 +177,17 @@ final class AppContainer {
     #endif
     return ContentStreamTextEditor()
   }
-  /// What recognises text in scans: the wider set of languages with words in internal builds, and
-  /// English and French as before in a Release build until `ReleaseFlag.widerRecognition` is on.
-  static var recognizer: VisionTextRecognizer {
-    AppTextEditingAccess.isInternalBuild || ReleaseFlag.widerRecognition.compiledDefault
+  /// What recognises text in scans.
+  ///
+  /// In internal builds: the page read as a document, in the wider set of languages, with words.
+  /// In a Release build each part waits for its flag (`ReleaseFlag.documentRecognition`,
+  /// `ReleaseFlag.widerRecognition`); with both off it is English and French, line by line, as before.
+  static var recognizer: any TextRecognizing {
+    let lines: VisionTextRecognizer =
+      AppTextEditingAccess.isInternalBuild || ReleaseFlag.widerRecognition.compiledDefault
       ? .wider : VisionTextRecognizer()
+    return AppTextEditingAccess.isInternalBuild || ReleaseFlag.documentRecognition.compiledDefault
+      ? VisionDocumentRecognizer(fallback: lines) : lines
   }
 
   /// Whether the reader's newer controls are part of this build: on in internal builds, the

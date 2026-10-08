@@ -106,6 +106,21 @@ struct TextLayerTests {
     }
   }
 
+  @Test("The layer reads back in the order its lines are given, so two columns stay two columns")
+  func order() throws {
+    // Left column first, then the right, as document recognition gives them; side by side on the page.
+    let left = ["The tenant agrees", "to pay the rent"]
+    let right = ["The landlord agrees", "to maintain the roof"]
+    func column(_ texts: [String], x: CGFloat) -> [RecognizedLine] {
+      texts.enumerated().map {
+        RecognizedLine(
+          text: $1, bounds: CGRect(x: x, y: 0.8 - CGFloat($0) * 0.05, width: 0.35, height: 0.03), confidence: 0.9)
+      }
+    }
+    let read = squeezed(try page(column(left, x: 0.08) + column(right, x: 0.55)).string)
+    #expect(read == (left + right).joined(separator: " "))
+  }
+
   @Test("Lines kept by an earlier version, without words, still decode")
   func olderLines() throws {
     let older = #"[{"text":"Old line","bounds":[[0.1,0.5],[0.5,0.04]],"confidence":0.9}]"#

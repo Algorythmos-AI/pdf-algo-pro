@@ -63,26 +63,28 @@ public struct VisionTextRecognizer: TextRecognizing {
     request.recognitionLanguages = usable.isEmpty ? Self.firstLanguages : usable
     request.automaticallyDetectsLanguage = detectsLanguage
     let observations = try await request.perform(on: image)
+    return Self.lines(from: observations.compactMap { Self.line(from: $0, findsWords: findsWords) })
+  }
+
+  /// One recognised line from Vision's observation, with its words when asked for.
+  static func line(from observation: RecognizedTextObservation, findsWords: Bool) -> RecognizedLine? {
+    guard let candidate = observation.topCandidates(1).first else { return nil }
     let unit = CGSize(width: 1, height: 1)
-    return Self.lines(
-      from: observations.compactMap { observation in
-        guard let candidate = observation.topCandidates(1).first else { return nil }
-        let text = candidate.string
-        var words: [RecognizedWord]?
-        if findsWords {
-          // Every word must have a box, or the line is kept as one piece: a line with some
-          // words placed and some not would lose the others from the text layer.
-          let found = Self.wordRanges(in: text).map { range in
-            candidate.boundingBox(for: range).map {
-              RecognizedWord(text: String(text[range]), bounds: $0.boundingBox.toImageCoordinates(unit))
-            }
-          }
-          if !found.isEmpty, found.allSatisfy({ $0 != nil }) { words = found.compactMap { $0 } }
+    let text = candidate.string
+    var words: [RecognizedWord]?
+    if findsWords {
+      // Every word must have a box, or the line is kept as one piece: a line with some words
+      // placed and some not would lose the others from the text layer.
+      let found = wordRanges(in: text).map { range in
+        candidate.boundingBox(for: range).map {
+          RecognizedWord(text: String(text[range]), bounds: $0.boundingBox.toImageCoordinates(unit))
         }
-        return RecognizedLine(
-          text: text, bounds: observation.boundingBox.toImageCoordinates(unit),
-          confidence: Double(candidate.confidence), words: words)
-      })
+      }
+      if !found.isEmpty, found.allSatisfy({ $0 != nil }) { words = found.compactMap { $0 } }
+    }
+    return RecognizedLine(
+      text: text, bounds: observation.boundingBox.toImageCoordinates(unit), confidence: Double(candidate.confidence),
+      words: words)
   }
 
   /// The runs of a line between its spaces: words, each with the punctuation attached to it.
