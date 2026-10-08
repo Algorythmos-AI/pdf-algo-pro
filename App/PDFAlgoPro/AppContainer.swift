@@ -177,6 +177,12 @@ final class AppContainer {
     #endif
     return ContentStreamTextEditor()
   }
+  /// Whether a word also finds its other forms, in library search and in the pages chosen for a
+  /// question: on in internal builds, the compiled default (off) in a Release build.
+  static var matchesBaseForms: Bool {
+    AppTextEditingAccess.isInternalBuild || ReleaseFlag.baseFormMatching.compiledDefault
+  }
+
   /// Whether the reader's newer controls are part of this build: on in internal builds, the
   /// compiled default (off) in a Release build, and whatever a UI test asks for.
   var offersReadingControls: Bool {
@@ -207,7 +213,8 @@ final class AppContainer {
     self.library = library
     let spotlight: (any SpotlightIndexing)? =
       environment.isUITesting ? nil : SpotlightIndexer(includesText: { settings.load().indexesTextInSpotlight })
-    let index = LocalSearchIndex(folder: folders.searchIndex, spotlight: spotlight)
+    let index = LocalSearchIndex(
+      folder: folders.searchIndex, spotlight: spotlight, usesBaseForms: Self.matchesBaseForms)
     self.index = index
     intake = DocumentIntake(library: library, inspector: PDFKitInspector(), index: index)
     let isHidden: @Sendable () -> Bool = { settings.load().isIntelligenceHidden }
@@ -217,10 +224,14 @@ final class AppContainer {
       if environment.isUITesting {
         intelligence = ScriptedIntelligence(unavailable: environment.intelligenceUnavailable, isHidden: isHidden)
       } else {
-        intelligence = IntelligenceRouter(models: [OnDeviceModel()], isHidden: isHidden, activity: activity)
+        intelligence = IntelligenceRouter(
+          models: [OnDeviceModel()], isHidden: isHidden, activity: activity,
+          wordForms: Self.matchesBaseForms ? .base : .asWritten)
       }
     #else
-      intelligence = IntelligenceRouter(models: [OnDeviceModel()], isHidden: isHidden, activity: activity)
+      intelligence = IntelligenceRouter(
+        models: [OnDeviceModel()], isHidden: isHidden, activity: activity,
+        wordForms: Self.matchesBaseForms ? .base : .asWritten)
     #endif
     builder = SearchablePDFBuilder(recognizer: VisionTextRecognizer())
     telemetry = LocalTelemetry()

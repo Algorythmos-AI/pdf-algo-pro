@@ -13,3 +13,5 @@
 **Pillars served.** PIL-1, PIL-6, PIL-7
 
 **References.** [Core Spotlight](https://developer.apple.com/documentation/corespotlight)
+
+**Addendum, 2026-10-08 (PAP-054).** As built, in-app search uses the app's own on-device index, which this ADR names as the fallback, and Core Spotlight is written to so that documents are found from the system. That stays: the app's index is exercised by tests and gives the same answer on every device. Behind `ReleaseFlag.baseFormMatching`, a searched word also matches in its base form, from NaturalLanguage.

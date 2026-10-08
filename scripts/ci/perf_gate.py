@@ -36,6 +36,9 @@ TESTS = {
     "EnginePerformanceTests/testSearchA1000DocumentLibrary()": "Search across a 1,000-document library (index warm)",
     "EnginePerformanceTests/testScanTenPagesToASearchablePDF()": "Scan → searchable PDF, 10 pages",
     "RetrievalPerformanceTests/testRetrievalOver500Pages()": "Retrieval over a 500-page PDF (chunks for an answer)",
+    "RetrievalPerformanceTests/testRetrievalOver500PagesWithBaseForms()": (
+        "Retrieval over a 500-page PDF (chunks for an answer)"
+    ),
 }
 # The metric each kind of test reports; the first one present is used.
 METRICS = ("com.apple.dt.XCTMetric_Clock.time.monotonic", "com.apple.dt.XCTMetric_ApplicationLaunch-AppLaunch.duration")

@@ -8,6 +8,8 @@ import Foundation
 /// tiers are opt-in and join the list only after consent; this build ships the on-device tier.
 public struct IntelligenceRouter: DocumentIntelligence {
   private let models: [any LanguageModelDriving]
+  /// How a question's words are compared with a page's when pages are found for it.
+  private let wordForms: WordForms
   private let isHidden: @Sendable () -> Bool
   /// Counts each answered request by tier, for the privacy report (FR-SET-005).
   private let activity: (any AIActivityRecording)?
@@ -18,10 +20,12 @@ public struct IntelligenceRouter: DocumentIntelligence {
   ///   - models: The tiers, most preferred first; the on-device tier leads.
   ///   - isHidden: Whether the user hid AI features (FR-AI-009); hidden means unavailable.
   ///   - activity: Counts answered requests by tier for the privacy report (FR-SET-005).
+  ///   - wordForms: How a question's words are compared with a page's when pages are found for it.
   public init(
     models: [any LanguageModelDriving], isHidden: @escaping @Sendable () -> Bool = { false },
-    activity: (any AIActivityRecording)? = nil
+    activity: (any AIActivityRecording)? = nil, wordForms: WordForms = .asWritten
   ) {
+    self.wordForms = wordForms
     self.models = models
     self.isHidden = isHidden
     self.activity = activity
@@ -76,7 +80,7 @@ public struct IntelligenceRouter: DocumentIntelligence {
     do {
       let retrieval = Signposts.begin("AI.Retrieve")
       defer { retrieval.end() }
-      let ranked = Grounding.rank(pages, for: question)
+      let ranked = Grounding.rank(pages, for: question, forms: wordForms)
       let candidates = ranked.isEmpty ? pages : ranked + pages.filter { page in !ranked.contains(page) }
       let questionTokens = await model.tokenCount(question)
       chosen = try await fit(candidates, into: await model.promptBudget() - questionTokens, model: model)
@@ -120,7 +124,7 @@ public struct IntelligenceRouter: DocumentIntelligence {
       let retrieval = Signposts.begin("AI.Retrieve")
       defer { retrieval.end() }
       let cited = Set(last.answer.citations.map(\.pageIndex))
-      let ranked = Grounding.rank(pages, for: "\(question) \(last.question)")
+      let ranked = Grounding.rank(pages, for: "\(question) \(last.question)", forms: wordForms)
       let first = pages.filter { cited.contains($0.pageIndex) }
       let candidates =
         first + ranked.filter { !first.contains($0) }
