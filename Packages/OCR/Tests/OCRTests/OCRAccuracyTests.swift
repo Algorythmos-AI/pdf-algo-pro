@@ -1,3 +1,4 @@
+import Core
 import CoreTestSupport
 import Foundation
 import Testing
@@ -27,7 +28,11 @@ struct OCRAccuracyTests {
     ]
     // The same gates for English and French alone and among the wider set of languages: adding
     // languages must not make the first two worse.
-    for (name, recognizer) in [("", VisionTextRecognizer()), (" (wider set)", VisionTextRecognizer.wider)] {
+    let recognizers: [(String, any TextRecognizing)] = [
+      ("", VisionTextRecognizer()), (" (wider set)", VisionTextRecognizer.wider),
+      (" (as a document)", VisionDocumentRecognizer()),
+    ]
+    for (name, recognizer) in recognizers {
       for language in OCRCorpus.Language.allCases {
         for condition in OCRCorpus.Condition.allCases {
           let pages = OCRCorpus.pages(language, condition, count: counts[condition] ?? 0, seed: 2026)

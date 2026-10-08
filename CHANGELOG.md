@@ -22,6 +22,9 @@ Store notes (see the changelog strategy).
   line was missing.
 
 ### Added
+- Scanning (internal builds): a page set in columns is now read one column after the other, and a
+  table row by row, so searching for a phrase and asking about a scan work on the text as you
+  would read it.
 - Scanning (internal builds): text is recognised in more languages, among them German, Spanish,
   Italian, Portuguese, Dutch, Polish, Russian and Ukrainian, without choosing one first.
 - Scanning (internal builds): on a scan you can now select a single word; before, the selection
