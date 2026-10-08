@@ -1,5 +1,6 @@
 import Core
 import Foundation
+import NaturalLanguage
 import Testing
 
 @testable import Intelligence
@@ -82,6 +83,89 @@ struct GroundingTests {
     #expect(Grounding.rank(invoicePages, for: "the of and").isEmpty)
     let french = [PageText(pageIndex: 0, text: "Échéance du loyer"), PageText(pageIndex: 1, text: "Autre chose")]
     #expect(Grounding.rank(french, for: "echeance").map(\.pageIndex) == [0])
+  }
+
+  /// Questions whose words are on the answering page in another form, with a page that shares
+  /// only an everyday word with the question.
+  private static let otherForms: [(language: NLLanguage, question: String, pages: [String], answer: Int)] = [
+    (
+      .english, "When was the invoice paid?",
+      ["The office opens when the season starts.", "We pay each invoice within a week."], 1
+    ),
+    (
+      .english, "Who were the children with?",
+      ["Who signs the form is noted here.", "Each child stays with a guardian."], 1
+    ),
+    (
+      .english, "What did the tenant choose?", ["What follows is the schedule.", "The tenant chose the longer lease."],
+      1
+    ),
+    (
+      .english, "Which companies bought shares?",
+      ["Which page to sign is marked.", "One company buys a share each year."], 1
+    ),
+    (
+      .french, "Quand les factures ont-elles été payées ?",
+      ["Quand le bureau ouvre le matin.", "Nous allons payer chaque facture."], 1
+    ),
+    (
+      .french, "Quels locataires ont reçu le courrier ?",
+      ["Quels jours sont fériés ici.", "Le locataire va recevoir un courrier."], 1
+    ),
+  ]
+
+  @Test(
+    "Matched in their base forms, a question finds the page that answers it in another form of its words",
+    arguments: [NLLanguage.english, .french])
+  func baseForms(_ language: NLLanguage) throws {
+    // Whether the system has base forms in a language differs by device; without them there is nothing to check.
+    guard BaseForms.has(language) else { return }
+    let items = Self.otherForms.filter { $0.language == language }
+    var found = (asWritten: 0, base: 0)
+    for item in items {
+      let pages = item.pages.enumerated().map { PageText(pageIndex: $0, text: $1) }
+      if Grounding.rank(pages, for: item.question).first?.pageIndex == item.answer { found.asWritten += 1 }
+      let ranked = Grounding.rank(pages, for: item.question, forms: .base)
+      #expect(ranked.first?.pageIndex == item.answer, "\(item.question)")
+      if ranked.first?.pageIndex == item.answer { found.base += 1 }
+    }
+    #expect(found.base == items.count && found.base > found.asWritten, "\(found)")
+  }
+
+  @Test("Base forms change nothing that was found before, and never decide whether a page supports a claim")
+  func baseFormsKeepWhatWorked() {
+    let question = "What is the TOTAL due on the invoice?"
+    #expect(
+      Grounding.rank(invoicePages, for: question, forms: .base).map(\.pageIndex)
+        == Grounding.rank(invoicePages, for: question).map(\.pageIndex))
+    #expect(Grounding.rank(invoicePages, for: "the of and is was", forms: .base).isEmpty)
+    let page = [PageText(pageIndex: 0, text: "We pay each invoice within a week.")]
+    #expect(
+      !Grounding.pages(page, support: "The invoices were paid late last year.", minimumShare: Grounding.supportShare))
+    // With no language, or a language the system has nothing for, words are as they always were.
+    let text = "The invoices were paid. INV-2026-0042 totals 120"
+    #expect(Grounding.baseWords(text, in: nil) == Grounding.words(text))
+    #expect(BaseForms.of("paid", in: nil) == nil)
+    // A text in neither language has no language to offer.
+    #expect(BaseForms.language(of: "Rechnung über zwölf Stühle für das Büro in Berlin") == nil)
+  }
+
+  @Test("Base forms: verbs and plurals; names and numbers are left alone")
+  func baseFormLookup() {
+    if BaseForms.has(.english) {
+      #expect(BaseForms.language(of: "When was the invoice paid?") == .english)
+      #expect(BaseForms.of("paid", in: .english) == "pay" && BaseForms.of("Companies", in: .english) == "company")
+      #expect(BaseForms.of("pay", in: .english) == nil, "A word that is its own base form has none to offer")
+      #expect(BaseForms.of("120.00", in: .english) == nil && BaseForms.of("a", in: .english) == nil)
+      #expect(Grounding.baseWords("The invoices were paid.", in: .english) == ["invoice", "pay"])
+      #expect(
+        Grounding.baseWords("INV-2026-0042 totals 120", in: .english) == ["inv", "2026", "0042", "total", "120"])
+    }
+    if BaseForms.has(.french) {
+      #expect(BaseForms.language(of: "Quand les factures ont-elles été payées ?") == .french)
+      #expect(BaseForms.of("payées", in: .french) == "payer" && BaseForms.of("sociétés", in: .french) == "société")
+      #expect(Grounding.baseWords("Les factures ont été payées.", in: .french) == ["facture", "payer"])
+    }
   }
 
   @Test("An uncited answer is repaired from word overlap, or becomes not-found")

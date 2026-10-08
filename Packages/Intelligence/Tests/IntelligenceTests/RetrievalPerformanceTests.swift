@@ -23,4 +23,18 @@ final class RetrievalPerformanceTests: XCTestCase {
       _ = Grounding.rank(pages, for: "What is the notice period for termination?")
     }
   }
+
+  /// The same budget with words matched in their base forms, as internal builds do.
+  func testRetrievalOver500PagesWithBaseForms() {
+    let pages = (0..<500).map {
+      PageText(
+        pageIndex: $0,
+        text: "Page \($0 + 1). Clause \($0) sets out the payment terms, the notice period and the fees due.")
+    }
+    let options = XCTMeasureOptions()
+    options.iterationCount = 3
+    measure(metrics: [XCTClockMetric()], options: options) {
+      _ = Grounding.rank(pages, for: "What is the notice period for termination?", forms: .base)
+    }
+  }
 }
