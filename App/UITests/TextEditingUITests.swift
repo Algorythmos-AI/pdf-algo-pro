@@ -285,20 +285,24 @@ final class TextEditingUITests: UITestCase {
     attach(app, named: "Long line, keyboard up")
     assertWhollyInView(field, in: app)
 
-    // The start of the line is in view: a tap there puts the caret there.
-    // Inside the first line and the last, not on the field's edges.
+    // The start of the line is in view: holding a finger there puts the caret there.
+    //
+    // A hold, not a tap: a tap waits to be sure it is not a double tap before it moves the caret,
+    // and the test types sooner than a person would; on CI the letter went in where the caret had been
+    // (2026-10-08), most likely for that reason, with the field still holding the keyboard.
+    // Holding moves the caret under the finger while it is down, inside the first line and the last.
     let tapped = field.frame
-    field.coordinate(withNormalizedOffset: CGVector(dx: 0.01, dy: 0.25)).tap()
+    field.coordinate(withNormalizedOffset: CGVector(dx: 0.01, dy: 0.25)).press(forDuration: Self.hold)
     let focused = (field.value(forKey: "hasKeyboardFocus") as? Bool) ?? false
     field.typeText("Z")
     let start = try XCTUnwrap(field.value as? String)
     let place = try XCTUnwrap(start.firstIndex(of: "Z"), "The letter was typed")
     XCTAssertLessThan(
       start.distance(from: start.startIndex, to: place), 3,
-      "It went in at the start of the line; the field was at \(tapped), focused after the tap \(focused)")
+      "It went in at the start of the line; the field was at \(tapped), focused after the hold \(focused)")
 
-    // And so is the end: a tap after the last word puts the caret after it.
-    field.coordinate(withNormalizedOffset: CGVector(dx: 0.99, dy: 0.75)).tap()
+    // And so is the end: holding after the last word puts the caret after it.
+    field.coordinate(withNormalizedOffset: CGVector(dx: 0.99, dy: 0.75)).press(forDuration: Self.hold)
     field.typeText("Q")
     XCTAssertEqual((field.value as? String)?.last, "Q", "It went in at the end of the line")
 
@@ -312,6 +316,11 @@ final class TextEditingUITests: UITestCase {
     assertWhollyInView(field, in: app)
     app.buttons["reader.textEdit.cancel"].tap()
   }
+
+  /// How long a finger is held on text to put the caret under it.
+  ///
+  /// `Assumption:` the system's hold to move the caret begins well within a second.
+  private static let hold: TimeInterval = 1
 
   /// The field is on screen, above the bar and the keyboard, with none of it cut off.
   private func assertWhollyInView(
