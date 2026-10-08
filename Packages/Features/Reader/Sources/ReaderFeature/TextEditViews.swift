@@ -198,11 +198,11 @@ struct TextEditLayer: View {
   let draft: TextEditDraft
 
   /// The name of the layer's own space, in which the line, the visible area and the field are placed.
-  static let space = "reader.textEdit.layer"
+  nonisolated static let space = "reader.textEdit.layer"
 
   /// How far the field's cover reaches past the start of the line, so the old letters' edges are
   /// covered: as far as the outline drawn around each line (`TextRegionOverlayView`).
-  static let coverOutset: CGFloat = 2
+  nonisolated static let coverOutset: CGFloat = 2
 
   /// Whether the field can sit over the text: the page view has the text on screen, the text is
   /// upright, and it is big enough on screen to type over.
