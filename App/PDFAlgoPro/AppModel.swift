@@ -262,7 +262,9 @@ final class AppModel {
   /// The subscription section at the top of Settings.
   var subscriptionSection: AnyView {
     AnyView(
-      SubscriptionSection(entitlements: container.entitlements, store: container.store) { [weak self] in
+      SubscriptionSection(
+        entitlements: container.entitlements, store: container.store, telemetry: container.telemetry
+      ) { [weak self] in
         self?.presentPaywall(.settings)
       })
   }
@@ -317,7 +319,7 @@ final class AppModel {
   func makeScan() -> ScanModel {
     ScanModel(
       intake: container.intake, builder: container.builder, telemetry: container.telemetry,
-      recognizer: VisionTextRecognizer()
+      recognizer: AppContainer.recognizer
     ) {
       [weak self] document in
       guard let self else { return }
@@ -339,7 +341,8 @@ final class AppModel {
         EvaluationSection(
           intelligence: container.intelligence,
           onEntitlementOverride: { [container] in Task { await container.entitlements.refresh() } },
-          onReplayFirstRun: { [weak self] in self?.replayFirstRun() }))
+          onReplayFirstRun: { [weak self] in self?.replayFirstRun() },
+          onShowOffer: { [weak self] in self?.presentPaywall(.settings) }))
     #else
       nil
     #endif

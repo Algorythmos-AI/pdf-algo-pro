@@ -1,4 +1,5 @@
 import Commerce
+import Core
 import DesignSystem
 import StoreKit
 import SwiftUI
@@ -10,19 +11,22 @@ import SwiftUI
 public struct SubscriptionSection: View {
   private let entitlements: EntitlementStore
   private let store: any StoreAccessing
+  private let telemetry: (any TelemetryRecording)?
   private let now: @Sendable () -> Date
   private let onSeePlans: () -> Void
   @State private var managesSubscription = false
   @State private var redeemsCode = false
   @State private var restoreFailed = false
 
-  /// Creates the section; `onSeePlans` opens the subscription offer.
+  /// Creates the section; `onSeePlans` opens the subscription offer, and `telemetry` hears of a
+  /// restore that brought Pro back or could not be made.
   public init(
-    entitlements: EntitlementStore, store: any StoreAccessing, now: @escaping @Sendable () -> Date = { Date() },
-    onSeePlans: @escaping () -> Void
+    entitlements: EntitlementStore, store: any StoreAccessing, telemetry: (any TelemetryRecording)? = nil,
+    now: @escaping @Sendable () -> Date = { Date() }, onSeePlans: @escaping () -> Void
   ) {
     self.entitlements = entitlements
     self.store = store
+    self.telemetry = telemetry
     self.now = now
     self.onSeePlans = onSeePlans
   }
@@ -84,9 +88,19 @@ public struct SubscriptionSection: View {
 
   /// Asks the App Store again, then reads the entitlement that results.
   private func restore() async -> Bool {
+    let hadPro = entitlements.grantsPro
     let answered = await store.restorePurchases()
     await entitlements.refresh()
+    if let event = Self.event(answered: answered, hadPro: hadPro, hasPro: entitlements.grantsPro) {
+      await telemetry?.record(event)
+    }
     return answered
+  }
+
+  /// What a restore is recorded as; `nil` when it changed nothing worth counting.
+  static func event(answered: Bool, hadPro: Bool, hasPro: Bool) -> String? {
+    if !answered { return "commerce.restore.failed" }
+    return !hadPro && hasPro ? "commerce.purchase.restored" : nil
   }
 
   /// The plan in words.

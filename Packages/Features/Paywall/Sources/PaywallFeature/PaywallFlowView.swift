@@ -47,6 +47,7 @@ public struct PaywallFlowView: View {
     }
     .task { await model.appeared() }
     .onChange(of: model.grantsPro) { Task { await model.entitlementChanged() } }
+    .onDisappear { Task { await model.dismissed() } }
   }
 
   private var offer: some View {

@@ -13,6 +13,9 @@ public enum ReleaseFlag: String, CaseIterable, Sendable {
   case textEditing
   /// The strip of small pages, the zoom limits and the keyboard commands in the reader (FR-READ-002).
   case readingControls
+  /// Recognition in more languages, found automatically, and a text layer placed word by word
+  /// (FR-SCAN-002, ADR-0008).
+  case widerRecognition
   /// Finding a word in another of its forms, in library search and in the pages chosen for a
   /// question (FR-LIB-004, FR-AI-001).
   case baseFormMatching
@@ -27,6 +30,7 @@ public enum ReleaseFlag: String, CaseIterable, Sendable {
     switch self {
     case .textEditing: "PDF engine"
     case .readingControls: "Reader"
+    case .widerRecognition: "PDF engine"
     case .baseFormMatching: "Intelligence"
     }
   }
@@ -36,6 +40,7 @@ public enum ReleaseFlag: String, CaseIterable, Sendable {
     switch self {
     case .textEditing: "1.1.0"
     case .readingControls: "1.1.0"
+    case .widerRecognition: "1.1.0"
     case .baseFormMatching: "1.1.0"
     }
   }
