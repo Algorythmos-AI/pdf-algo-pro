@@ -11,12 +11,19 @@ import Foundation
 public actor LocalSearchIndex: DocumentIndexing {
   private let folder: URL
   private let spotlight: (any SpotlightIndexing)?
+  private let usesBaseForms: Bool
   private var cache: [DocumentID: [PageText]] = [:]
 
   /// Creates an index in a folder, optionally mirroring documents into Spotlight (FR-LIB-005).
   ///
   /// If the folder cannot be created, writes fail with an error and search still works from memory.
-  public init(folder: URL, spotlight: (any SpotlightIndexing)? = nil) {
+  ///
+  /// - Parameters:
+  ///   - folder: Where the page texts are kept.
+  ///   - spotlight: The system index to mirror documents into, if any.
+  ///   - usesBaseForms: Whether a searched word also finds its base form ("invoices" finds "invoice").
+  public init(folder: URL, spotlight: (any SpotlightIndexing)? = nil, usesBaseForms: Bool = false) {
+    self.usesBaseForms = usesBaseForms
     self.folder = folder
     self.spotlight = spotlight
     try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -83,7 +90,7 @@ public actor LocalSearchIndex: DocumentIndexing {
   public func search(_ query: String, in documents: [Document]) async throws -> [SearchHit] {
     let interval = Signposts.begin("Search.Query")
     defer { interval.end() }
-    let terms = SearchText.terms(query)
+    let terms = SearchText.terms(query, baseForms: usesBaseForms)
     guard !terms.isEmpty else { return [] }
     var scored: [(hit: SearchHit, score: Int, title: String)] = []
     for document in documents {
@@ -92,8 +99,8 @@ public actor LocalSearchIndex: DocumentIndexing {
       let pages = (try? await pages(of: document.id)) ?? []
       let folded = pages.map { SearchText.fold($0.text) }
       let everything = title + " " + folded.joined(separator: " ")
-      guard terms.allSatisfy(everything.contains) else { continue }
-      let titleMatches = terms.filter(title.contains).count
+      guard terms.allSatisfy({ $0.isFound(in: everything) }) else { continue }
+      let titleMatches = terms.filter { $0.isFound(in: title) }.count
       if titleMatches == terms.count {
         scored.append(
           (SearchHit(documentID: document.id, pageIndex: nil, snippet: nil), 1000 + titleMatches, document.title))
@@ -123,15 +130,39 @@ enum SearchText {
     text.folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive], locale: nil)
   }
 
-  /// The query's words, folded; every word must match.
-  static func terms(_ query: String) -> [String] {
-    fold(query).split { $0.isWhitespace || $0.isPunctuation && $0 != "-" }.map(String.init).filter { !$0.isEmpty }
+  /// One word of a query: as typed, and in its base form when that is asked for and differs.
+  struct Term: Equatable {
+    /// The word as typed, folded.
+    let typed: String
+    /// The word's base form, folded ("invoices" gives "invoice"), when it has one that differs.
+    let base: String?
+
+    /// The forms to look for, the typed one first.
+    var forms: [String] { [typed] + (base.map { [$0] } ?? []) }
+
+    /// Whether either form is in some folded text.
+    func isFound(in folded: String) -> Bool { forms.contains(where: folded.contains) }
+  }
+
+  /// The query's words, folded; every word must match, in the form typed or, with `baseForms`,
+  /// in its base form.
+  static func terms(_ query: String, baseForms: Bool = false) -> [Term] {
+    // The language is told from the whole query; a single word is too little to tell it from.
+    let language = baseForms ? BaseForms.language(of: query) : nil
+    return query.split { $0.isWhitespace || $0.isPunctuation && $0 != "-" }.compactMap { piece in
+      let typed = fold(String(piece))
+      guard !typed.isEmpty else { return nil }
+      let base = BaseForms.of(String(piece), in: language).map(fold)
+      return Term(typed: typed, base: base == typed ? nil : base)
+    }
   }
 
   /// About 120 characters of text around the first matching term.
-  static func snippet(_ text: String, around terms: [String]) -> String? {
+  static func snippet(_ text: String, around terms: [Term]) -> String? {
     let folded = fold(text)
-    guard let term = terms.first(where: folded.contains), let range = folded.range(of: term) else { return nil }
+    guard let term = terms.flatMap(\.forms).first(where: folded.contains), let range = folded.range(of: term) else {
+      return nil
+    }
     let offset = folded.distance(from: folded.startIndex, to: range.lowerBound)
     let characters = Array(text)
     guard offset < characters.count else { return nil }
@@ -144,7 +175,8 @@ enum SearchText {
 }
 
 extension String {
-  fileprivate func matchCount(of terms: [String]) -> Int {
-    terms.reduce(0) { count, term in count + components(separatedBy: term).count - 1 }
+  /// How often the query's words are in this text; a word counts in whichever form is there more.
+  fileprivate func matchCount(of terms: [SearchText.Term]) -> Int {
+    terms.reduce(0) { count, term in count + (term.forms.map { components(separatedBy: $0).count - 1 }.max() ?? 0) }
   }
 }
