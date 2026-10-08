@@ -240,8 +240,11 @@ outside buckets and identifiers are rejected by the schema.
 | `intelligence.answer.kept` | An answer or summary is kept | `feature`, `action` | Answer kept rate |
 | `intelligence.consent.changed` | Cloud-tier consent is granted or revoked | `tier`, `state` (`granted`, `revoked`) | Consent rates (AI governance) |
 | `commerce.paywall.viewed` | The paywall appears | `trigger` | Paywall reach |
+| `commerce.paywall.closed` | The paywall goes away with no purchase made | `trigger` | Paywall reach against trial starts |
 | `commerce.trial.started` | A free-trial transaction completes on the device | `plan` | Trial start rate (cross-check) |
 | `commerce.purchase.completed` | A paid purchase without a trial completes | `plan` | Paid conversion (cross-check) |
+| `commerce.purchase.restored` | Restore Purchases brings Pro back | — | Restores (support) |
+| `commerce.restore.failed` | Restore Purchases could not be made, or was cancelled | — | Reliability of restoring ([operations](operations.md)) |
 | `share.document.exported` | A document is shared or exported | `format` | Shares |
 | `engagement.week.recorded` | Once per ISO week, if the app was used | `opened_document`, `north_star` | Weekly active users; north star |
 | `quality.operation.failed` | An operation fails | `operation`, `error_domain` | Reliability ([operations](operations.md)) |
