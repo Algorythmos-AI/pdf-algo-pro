@@ -113,8 +113,9 @@ Localisations:
 On an iPhone with the Staging build from TestFlight (never the Debug scheme). A TestFlight build
 buys with the tester's own Apple Account and charges nothing
 ([Testing subscriptions and In-App Purchases in TestFlight](https://developer.apple.com/help/app-store-connect/test-a-beta-version/testing-subscriptions-and-in-app-purchases-in-testflight));
-sandbox testers are for builds run from Xcode. Someone who has already finished first run sees it
-again from Settings › Internal testing › Show first run again, with "Pro without a purchase" off:
+sandbox testers are for builds run from Xcode. Each new Staging build shows first run once by
+itself (PAP-053); Settings › Internal testing › Show first run again repeats it. The offer follows
+only with "Pro without a purchase" off:
 
 - The annual plan is listed first, marked "Best Value", with a saving that matches the two prices.
   The app works it out as 52 weekly payments against one annual payment, rounded down (PAP-049).
