@@ -109,6 +109,13 @@ public final class ReaderModel {
   private let intake: DocumentIntake
   private let index: any DocumentIndexing
   private let settings: any SettingsStoring
+  /// Whether the reader's newer controls are part of this build.
+  ///
+  /// They are the strip of small pages, the zoom limits and the keyboard commands
+  /// (`ReleaseFlag.readingControls`). Off, the reader is as it was before them.
+  public let offersReadingControls: Bool
+  /// Whether the person wants the strip of small pages; whether it shows is `showsPageStrip`.
+  public private(set) var wantsPageStrip = true
   private let telemetry: any TelemetryRecording
   private let recognition: RecognitionCoordinator
   private let signatures: any SignatureStoring
@@ -130,8 +137,9 @@ public final class ReaderModel {
     recognition: RecognitionCoordinator, signatures: any SignatureStoring, speech: SpeechReader = SpeechReader(),
     textEditing: any TextEditingAccessProviding = FixedTextEditingAccess(.hidden),
     textEditingDiagnostics: TextEditingDiagnosticsLog? = nil,
-    textEditor: any PDFTextEditing = ContentStreamTextEditor()
+    textEditor: any PDFTextEditing = ContentStreamTextEditor(), readingControls: Bool = false
   ) {
+    offersReadingControls = readingControls
     self.textEditor = textEditor
     self.textEditing = textEditing
     self.textEditingDiagnostics = textEditingDiagnostics
@@ -170,7 +178,12 @@ public final class ReaderModel {
       let controller = try PDFDocumentController(url: url, textEditor: textEditor)
       knownVersion = try? FileVersion(url)
       watch(url)
-      controller.displayMode = settings.load().readerDisplayMode
+      let stored = settings.load()
+      controller.displayMode = stored.readerDisplayMode
+      if offersReadingControls {
+        controller.limitsZoom = true
+        wantsPageStrip = stored.showsPageStrip
+      }
       controller.onAnnotationTransformed = { [weak self] in
         Task { await self?.annotationTransformed() }
       }
@@ -226,6 +239,24 @@ public final class ReaderModel {
     var current = settings.load()
     current.readerDisplayMode = mode
     settings.save(current)
+  }
+
+  /// Shows or hides the strip of small pages, and remembers it.
+  public func setWantsPageStrip(_ isWanted: Bool) {
+    guard offersReadingControls else { return }
+    wantsPageStrip = isWanted
+    var current = settings.load()
+    current.showsPageStrip = isWanted
+    settings.save(current)
+  }
+
+  /// Whether the strip of small pages is on screen now.
+  ///
+  /// Only while reading: with a tool in hand, text being edited or something selected, the bottom
+  /// of the reader belongs to that. A one-page document has nowhere to go.
+  public var showsPageStrip: Bool {
+    guard offersReadingControls, wantsPageStrip, let controller, controller.pageCount > 1 else { return false }
+    return !controller.isDrawing && markupTool == nil && !controller.isEditingText && selection == nil
   }
 
   /// Goes to the page a person typed, counting from 1 (FR-READ-002); says so when there is no such page.

@@ -260,6 +260,14 @@ struct SettingsTests {
     #expect(decodedNewer == AppSettings(hasCompletedOnboarding: true, intents: [.scan]))
     let roundTrip = try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(decodedNewer))
     #expect(roundTrip == decodedNewer)
+    // The page strip is on until switched off; the choice is kept, and a value that is not a
+    // yes or no keeps the default.
+    #expect(decodedOlder.showsPageStrip)
+    let hidden = try JSONDecoder().decode(
+      AppSettings.self, from: JSONEncoder().encode(AppSettings(showsPageStrip: false)))
+    #expect(!hidden.showsPageStrip)
+    let odd = try JSONDecoder().decode(AppSettings.self, from: Data(#"{"showsPageStrip":"sometimes"}"#.utf8))
+    #expect(odd.showsPageStrip)
     // A build from before the diagnostics choice was stored gets the default, on (PAP-041); a stored
     // "off" is kept.
     #expect(decodedOlder.includesDiagnostics && AppSettings().includesDiagnostics)

@@ -39,6 +39,61 @@ final class ReaderUITests: UITestCase {
     waitForExpectations(timeout: Self.settleTimeout)
   }
 
+  func testThePageStripMovesThroughTheDocumentAndStepsAsideForEditing() throws {
+    let app = launch(["-skip-onboarding", "-seed-library", "sample", "-text-editing", "available"])
+    let indicator = app.staticTexts["reader.pageIndicator"]
+    XCTAssertTrue(indicator.waitForExistence(timeout: 15))
+    let strip = app.descendants(matching: .any)["reader.pageStrip"].firstMatch
+    XCTAssertTrue(strip.waitForExistence(timeout: Self.settleTimeout), "A document of several pages has a page strip")
+    try audit(app)
+
+    // A tap on a small page shows that page, and again, back to the first.
+    app.buttons["reader.pageStrip.3"].tap()
+    expectation(for: NSPredicate(format: "label CONTAINS %@", "3 of 3"), evaluatedWith: indicator)
+    waitForExpectations(timeout: Self.settleTimeout)
+    XCTAssertTrue(app.buttons["reader.pageStrip.3"].isSelected, "The strip marks the page in view")
+    app.buttons["reader.pageStrip.1"].tap()
+    expectation(for: NSPredicate(format: "label CONTAINS %@", "1 of 3"), evaluatedWith: indicator)
+    waitForExpectations(timeout: Self.settleTimeout)
+    app.buttons["reader.pageStrip.2"].tap()
+    expectation(for: NSPredicate(format: "label CONTAINS %@", "2 of 3"), evaluatedWith: indicator)
+    waitForExpectations(timeout: Self.settleTimeout)
+
+    // The strip steps aside while text is edited, and comes back after.
+    let done = app.buttons["reader.doneEditingText"]
+    tap(app.buttons["reader.edit"], until: done)
+    XCTAssertFalse(strip.exists, "The strip leaves the bottom of the reader to the editor")
+    let line = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Try these")).firstMatch
+    let field = app.textViews["reader.textEdit.field"]
+    tap(line, until: field)
+    XCTAssertEqual(field.value as? String, "Try these:")
+    app.buttons["reader.textEdit.cancel"].tap()
+    done.tap()
+    XCTAssertTrue(strip.waitForExistence(timeout: Self.settleTimeout), "The strip is back")
+
+    // The strip can be put away.
+    app.buttons["reader.more"].tap()
+    let layout = app.buttons["Layout"]
+    XCTAssertTrue(layout.waitForExistence(timeout: 5))
+    layout.tap()
+    let stripSwitch = app.buttons["Page strip"]
+    XCTAssertTrue(stripSwitch.waitForExistence(timeout: 5))
+    stripSwitch.tap()
+    XCTAssertFalse(strip.waitForExistence(timeout: 2), "Switched off, the strip is gone")
+  }
+
+  func testWithoutTheReadingControlsTheReaderIsAsItWas() throws {
+    let app = launch(["-skip-onboarding", "-seed-library", "sample", "-reading-controls", "off"])
+    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
+    XCTAssertFalse(app.descendants(matching: .any)["reader.pageStrip"].firstMatch.exists, "No page strip")
+    app.buttons["reader.more"].tap()
+    let layout = app.buttons["Layout"]
+    XCTAssertTrue(layout.waitForExistence(timeout: 5))
+    layout.tap()
+    XCTAssertTrue(app.buttons["Single page"].waitForExistence(timeout: 5))
+    XCTAssertFalse(app.buttons["Page strip"].exists, "No strip to switch")
+  }
+
   func testDrawingAddsInkThatCanBeUndone() throws {
     let app = launch(["-skip-onboarding", "-seed-library", "sample"])
     XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))

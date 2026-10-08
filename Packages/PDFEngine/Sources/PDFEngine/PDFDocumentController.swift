@@ -69,6 +69,12 @@ public final class PDFDocumentController {
   public var displayMode: ReaderDisplayMode = .continuous {
     didSet { view?.apply(displayMode) }
   }
+  /// Whether zooming stops at the whole page one way and at a fixed enlargement the other.
+  ///
+  /// Off, the page view keeps PDFKit's own limits.
+  public var limitsZoom = false {
+    didSet { view?.zoomLimitsChanged() }
+  }
 
   @ObservationIgnored let document: PDFDocument
   @ObservationIgnored weak var view: PDFReaderHostView?
@@ -253,6 +259,31 @@ public final class PDFDocumentController {
     return true
   }
 
+  /// Makes the page larger, as far as the largest zoom.
+  public func zoomIn() {
+    view?.zoom(by: 1.25)
+  }
+
+  /// Makes the page smaller, as far as the whole page.
+  public func zoomOut() {
+    view?.zoom(by: 0.8)
+  }
+
+  /// Fits the page to the reader again.
+  public func zoomToFit() {
+    view?.autoScales = true
+  }
+
+  /// Shows the page after the one in view, if there is one.
+  public func showNextPage() {
+    if currentPageIndex + 1 < pageCount { goTo(pageIndex: currentPageIndex + 1) }
+  }
+
+  /// Shows the page before the one in view, if there is one.
+  public func showPreviousPage() {
+    if currentPageIndex > 0 { goTo(pageIndex: currentPageIndex - 1) }
+  }
+
   /// Shows the system find bar, which finds text and moves between matches (FR-READ-003).
   public func showFind() {
     view?.presentFind()
@@ -261,6 +292,7 @@ public final class PDFDocumentController {
   func attach(_ view: PDFReaderHostView) {
     self.view = view
     view.apply(displayMode)
+    view.zoomLimitsChanged()
     view.setDrawing(isDrawing, tool: drawingTool)
     if let pendingPageIndex, let page = document.page(at: pendingPageIndex) {
       view.show(page)

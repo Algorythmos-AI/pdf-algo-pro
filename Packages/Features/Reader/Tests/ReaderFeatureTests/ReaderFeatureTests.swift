@@ -35,14 +35,15 @@ private struct Harness {
   func reader(
     for document: Document, pageIndex: Int? = nil, task: AssistantTask? = nil,
     recognizer: any TextRecognizing = FakeRecognizer(), textEditing: TextEditingAccess = .available,
-    diagnostics: TextEditingDiagnosticsLog? = nil, editor: any PDFTextEditing = ContentStreamTextEditor()
+    diagnostics: TextEditingDiagnosticsLog? = nil, editor: any PDFTextEditing = ContentStreamTextEditor(),
+    readingControls: Bool = false
   ) -> ReaderModel {
     ReaderModel(
       selection: document.id, pageIndex: pageIndex, task: task, library: library,
       intake: intake, index: index, settings: settings, telemetry: telemetry,
       recognition: coordinator(recognizer: recognizer), signatures: signatures,
       speech: SpeechReader(engine: SilentSpeech()), textEditing: FixedTextEditingAccess(textEditing),
-      textEditingDiagnostics: diagnostics, textEditor: editor)
+      textEditingDiagnostics: diagnostics, textEditor: editor, readingControls: readingControls)
   }
 
   func seed(
@@ -757,6 +758,38 @@ struct ReaderModelTests {
     reader.setDisplayMode(.singlePage)
     #expect(reader.controller?.displayMode == .singlePage)
     #expect(harness.settings.load().readerDisplayMode == .singlePage)
+  }
+
+  @Test("The strip shows while reading a document of several pages, and the choice to hide it is kept")
+  func stripInTheReader() async throws {
+    let harness = Harness()
+    let reader = harness.reader(for: await harness.seed(try SyntheticPDF.makeSample()), readingControls: true)
+    await reader.load()
+    #expect(reader.showsPageStrip && reader.controller?.limitsZoom == true)
+    // A tool in hand, or text being edited, has the bottom of the reader.
+    reader.setDrawing(!reader.isDrawing)
+    #expect(!reader.showsPageStrip)
+    reader.setDrawing(!reader.isDrawing)
+    #expect(reader.showsPageStrip)
+    reader.setWantsPageStrip(false)
+    #expect(!reader.showsPageStrip && !harness.settings.load().showsPageStrip)
+    // Opened again, it stays hidden.
+    let again = harness.reader(for: await harness.seed(try SyntheticPDF.makeSample()), readingControls: true)
+    await again.load()
+    #expect(!again.showsPageStrip)
+
+    // One page has nowhere to go.
+    let single = harness.reader(for: await harness.seed(try SyntheticPDF.make(pages: ["One"])), readingControls: true)
+    harness.settings.save(AppSettings())
+    await single.load()
+    #expect(!single.showsPageStrip)
+
+    // Without the flag there is no strip, no limit, and nothing is stored.
+    let plain = harness.reader(for: await harness.seed(try SyntheticPDF.makeSample()))
+    await plain.load()
+    #expect(!plain.showsPageStrip && plain.controller?.limitsZoom == false)
+    plain.setWantsPageStrip(false)
+    #expect(harness.settings.load().showsPageStrip)
   }
 
   @Test("Image-only documents gain searchable text on device (FR-SCAN-003)")

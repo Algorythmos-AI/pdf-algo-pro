@@ -11,6 +11,8 @@ import Foundation
 public enum ReleaseFlag: String, CaseIterable, Sendable {
   /// Editing the existing text of a PDF (FR-EDIT-001, ADR-0025).
   case textEditing
+  /// The strip of small pages, the zoom limits and the keyboard commands in the reader (FR-READ-002).
+  case readingControls
 
   /// The value in a build that does not turn the flag on.
   ///
@@ -21,6 +23,7 @@ public enum ReleaseFlag: String, CaseIterable, Sendable {
   public var owner: String {
     switch self {
     case .textEditing: "PDF engine"
+    case .readingControls: "Reader"
     }
   }
 
@@ -28,6 +31,7 @@ public enum ReleaseFlag: String, CaseIterable, Sendable {
   public var removeBy: String {
     switch self {
     case .textEditing: "1.1.0"
+    case .readingControls: "1.1.0"
     }
   }
 

@@ -260,7 +260,8 @@ final class AppModel {
       selection: selection.id, pageIndex: selection.pageIndex, task: selection.task, library: container.library,
       intake: container.intake, index: container.index, settings: container.settings, telemetry: container.telemetry,
       recognition: container.recognition, signatures: container.signatures, textEditing: container.textEditing,
-      textEditingDiagnostics: container.textEditingDiagnostics, textEditor: container.textEditor)
+      textEditingDiagnostics: container.textEditingDiagnostics, textEditor: container.textEditor,
+      readingControls: container.offersReadingControls)
     model.onSeePlans = { [weak self] in self?.presentPaywall(.lockedFeature) }
     model.onAllowanceUsed = { [weak self] in self?.presentPaywall(.allowanceReached) }
     reader = (selection, model)
