@@ -13,3 +13,5 @@
 **Pillars served.** PIL-3, PIL-5, PIL-6
 
 **References.** [RecognizeDocumentsRequest](https://developer.apple.com/documentation/vision/recognizedocumentsrequest) · [VNDocumentCameraViewController](https://developer.apple.com/documentation/visionkit/vndocumentcameraviewcontroller)
+
+**Addendum, 2026-10-08 (PAP-053).** As built, recognition uses Vision's `RecognizeTextRequest`, not yet `RecognizeDocumentsRequest`. Behind `ReleaseFlag.widerRecognition` it recognises the Latin- and Cyrillic-script languages Vision supports with automatic language detection, and the text layer is placed word by word. Moving to `RecognizeDocumentsRequest` for paragraphs, tables and lists remains the decision; the current recogniser stays as its fallback.
