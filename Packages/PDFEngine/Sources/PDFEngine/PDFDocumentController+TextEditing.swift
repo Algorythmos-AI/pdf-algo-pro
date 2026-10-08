@@ -537,6 +537,25 @@ extension PDFDocumentController {
     #endif
   }
 
+  /// The right edge of a page's text, in page space, from the text already found on it; `nil`
+  /// before the page's text is found.
+  ///
+  /// The editor for a line may grow to it, so typed words wrap where the page's own lines end.
+  func textColumnMaxX(onPage pageIndex: Int) -> CGFloat? {
+    guard let page = document.page(at: pageIndex), let found = textPages[ObjectIdentifier(page)], found.page === page
+    else { return nil }
+    return found.text.regions.filter(\.isUpright).map(\.bounds.maxX).max()
+  }
+
+  #if canImport(UIKit)
+    /// Scrolls the page under the picked text by a distance in screen points: up for a positive
+    /// distance, down for a negative one. The editor stays on its line and moves with it.
+    public func scrollPickedText(by distance: CGFloat) {
+      guard selectedTextRegion != nil else { return }
+      view?.scrollPickedText(by: distance)
+    }
+  #endif
+
   /// Lets go of the picked text without changing it.
   public func clearTextRegionSelection() {
     selectedTextRegion = nil

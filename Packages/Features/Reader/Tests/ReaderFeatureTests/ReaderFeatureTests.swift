@@ -1257,11 +1257,10 @@ struct ReaderTextEditingTests {
     let layer = TextEditLayer(model: reader, selection: selection, draft: draft).frame(width: 390, height: 700)
     #expect(ImageRenderer(content: layer).uiImage != nil)
     #expect(!TextEditLayer.fitsInPlace(selection, anchor: nil))
-    let readable = TextEditAnchor(
-      selection: selection, lineFrame: CGRect(x: 40, y: 200, width: 200, height: 18), scale: 1)
-    #expect(TextEditLayer.fitsInPlace(selection, anchor: readable))
-    let tiny = TextEditAnchor(selection: selection, lineFrame: CGRect(x: 40, y: 200, width: 200, height: 6), scale: 1)
-    #expect(!TextEditLayer.fitsInPlace(selection, anchor: tiny))
+    // Small print is edited in place too, at its own size: the person zooms the page if they want.
+    let line = CGRect(x: 40, y: 200, width: 200, height: 6)
+    let tiny = TextEditAnchor(selection: selection, lineFrame: line, columnFrame: line, scale: 1)
+    #expect(TextEditLayer.fitsInPlace(selection, anchor: tiny))
     #expect(!TextEditLayer.isLight(selection.region))
     #expect(TextEditLayer.font(for: selection.region, scale: 1.5).fontName == "Georgia")
     #expect(TextEditLayer.color(for: selection.region).cgColor.components?.prefix(3).allSatisfy { $0 < 0.01 } == true)
@@ -1575,7 +1574,8 @@ struct ReaderTextEditingTests {
     let (reader, _) = try await editing(try TextEditFixtures.invoice(), in: harness, picking: "John Smith")
     let selection = try #require(reader.selectedTextRegion)
     // Low on the screen is no longer a reason for the bar: the editor is placed above the keyboard.
-    let low = TextEditAnchor(selection: selection, lineFrame: CGRect(x: 40, y: 560, width: 200, height: 20), scale: 1)
+    let lowLine = CGRect(x: 40, y: 560, width: 200, height: 20)
+    let low = TextEditAnchor(selection: selection, lineFrame: lowLine, columnFrame: lowLine, scale: 1)
     #expect(TextEditLayer.fitsInPlace(selection, anchor: low))
     // An anchor left from other text is not this text's.
     let other = TextRegionSelection(pageIndex: selection.pageIndex + 1, region: selection.region)

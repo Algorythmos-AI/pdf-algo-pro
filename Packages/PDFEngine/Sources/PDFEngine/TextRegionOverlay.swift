@@ -81,11 +81,13 @@
   @MainActor
   final class TextOverlayProvider: NSObject, @MainActor PDFPageOverlayViewProvider {
     weak var host: PDFReaderHostView?
-    /// How the page view was showing the document before text editing first zoomed it, to show it
-    /// that way again when editing ends.
-    var viewBeforeZoom: ViewBeforeZoom?
     /// Keeps the editor's anchor on the picked line, every frame, while text is picked.
     var anchorLink: CADisplayLink?
+    /// The right edge of the picked line's page's text, in page space, worked out once per pick.
+    var columnMaxX: CGFloat?
+    /// The page scroller's inset before the editor made room under the last line; put back when
+    /// the text is let go of.
+    var insetBeforeEditing: UIEdgeInsets?
     /// Every overlay PDFKit was given and still holds.
     ///
     /// Held weakly and never taken out by hand: PDFKit may stop showing an overlay and show the
@@ -176,10 +178,6 @@
         apply(isEditing ? .continuous : .singlePage)
         if let page { go(to: page) }
       }
-      if !isEditing, let before = textOverlays.viewBeforeZoom {
-        textOverlays.viewBeforeZoom = nil
-        restore(before)
-      }
       textOverlays.refreshAll()
     }
 
@@ -197,44 +195,45 @@
       textOverlays.refreshAll()
     }
 
-    /// Scrolls the picked text to the upper part of the view, clear of the keyboard, and zooms so
-    /// that it is readable and, where the print stays readable, so that the whole line fits the view.
+    /// Brings the picked text into view when it is not, at the zoom the person chose.
+    ///
+    /// The zoom never changes: the page keeps fitting the screen (or the person's own zoom), so no
+    /// line of the document is pushed off its edge, and the line is edited where it is, at its own
+    /// size, as in Preview. Room above the keyboard is made by scrolling (`scrollPickedText(by:)`).
     func bringTextRegionIntoView() {
       guard let selection = controller?.selectedTextRegion, let page = document?.page(at: selection.pageIndex) else {
         return
       }
       let rect = selection.region.bounds
-      let current = max(scaleFactor, .leastNonzeroMagnitude)
-      // The line's width as it is drawn at a zoom of 1, so a rotated page is measured as it is seen.
-      let lineWidth = convert(rect, from: page).width / current
-      let usable = bounds.width - layoutMargins.left - layoutMargins.right
-      let range = minScaleFactor <= maxScaleFactor ? minScaleFactor...maxScaleFactor : current...current
-      let scale = TextEditPlacement.scale(
-        pointSize: selection.region.style.pointSize, lineWidth: lineWidth, current: current, range: range,
-        width: usable)
-      if scale != scaleFactor {
-        if textOverlays.viewBeforeZoom == nil { textOverlays.viewBeforeZoom = viewNow() }
-        // Setting the zoom turns PDFKit's fitting off; it is turned back on when editing ends.
-        scaleFactor = scale
+      if !bounds.contains(convert(rect, from: page)) {
+        let box = page.bounds(for: displayBox)
+        let zoom = max(scaleFactor, .leastNonzeroMagnitude)
+        let top = min(box.maxY, rect.maxY + bounds.height / zoom * TextEditPlacement.lineDepth)
+        // Only up and down: the person's place across the page stays where it was.
+        let left = min(max(box.minX, convert(bounds.origin, to: page).x), box.maxX)
+        go(to: PDFDestination(page: page, at: CGPoint(x: left, y: top)))
+        layoutIfNeeded()
       }
-      let box = page.bounds(for: displayBox)
-      let zoom = max(scaleFactor, .leastNonzeroMagnitude)
-      let top = min(box.maxY, rect.maxY + bounds.height / zoom * TextEditPlacement.lineDepth)
-      let left = max(box.minX, rect.minX - layoutMargins.left / zoom)
-      go(to: PDFDestination(page: page, at: CGPoint(x: left, y: top)))
-      layoutIfNeeded()
       publishTextEditAnchor()
     }
 
     /// Starts or stops following the picked line, as text is picked or let go of.
     func textRegionSelectionChanged() {
-      if controller?.selectedTextRegion == nil {
+      if let selection = controller?.selectedTextRegion {
+        textOverlays.columnMaxX = controller?.textColumnMaxX(onPage: selection.pageIndex)
+        if textOverlays.anchorLink == nil {
+          let link = CADisplayLink(target: TextAnchorTicker(host: self), selector: #selector(TextAnchorTicker.tick))
+          link.add(to: .main, forMode: .common)
+          textOverlays.anchorLink = link
+        }
+      } else {
         textOverlays.anchorLink?.invalidate()
         textOverlays.anchorLink = nil
-      } else if textOverlays.anchorLink == nil {
-        let link = CADisplayLink(target: TextAnchorTicker(host: self), selector: #selector(TextAnchorTicker.tick))
-        link.add(to: .main, forMode: .common)
-        textOverlays.anchorLink = link
+        textOverlays.columnMaxX = nil
+        if let inset = textOverlays.insetBeforeEditing, let scroller = pageScroller {
+          scroller.contentInset = inset
+        }
+        textOverlays.insetBeforeEditing = nil
       }
       publishTextEditAnchor()
     }
@@ -242,49 +241,51 @@
     /// Tells the controller where the picked line is on screen now, when that has changed.
     ///
     /// It runs on every frame while text is picked, the way the annotation outline does, so the
-    /// editor is never placed from a measurement taken before a zoom, a scroll or a rotation ended.
+    /// editor stays on its line while the page scrolls, zooms or turns.
     func publishTextEditAnchor() {
       guard let controller else { return }
       guard let selection = controller.selectedTextRegion, let page = document?.page(at: selection.pageIndex) else {
         if controller.textEditAnchor != nil { controller.textEditAnchor = nil }
         return
       }
+      let line = selection.region.bounds
+      // The line widened to the right edge of the page's text: as wide as the field may grow.
+      let columnRight = max(line.maxX, textOverlays.columnMaxX ?? line.maxX)
+      let column = CGRect(x: line.minX, y: line.minY, width: columnRight - line.minX, height: line.height)
       let anchor = TextEditAnchor(
-        selection: selection, lineFrame: convert(selection.region.bounds, from: page), scale: scaleFactor)
+        selection: selection, lineFrame: convert(line, from: page), columnFrame: convert(column, from: page),
+        scale: scaleFactor)
       if controller.textEditAnchor != anchor { controller.textEditAnchor = anchor }
     }
 
-    /// The zoom and the place on screen now.
-    private func viewNow() -> ViewBeforeZoom {
-      let page = currentPage
-      let index = page.flatMap { document?.index(for: $0) }
-      return ViewBeforeZoom(
-        scale: scaleFactor, autoScales: autoScales, pageIndex: index == NSNotFound ? nil : index,
-        point: page.map { convert(CGPoint(x: bounds.minX, y: bounds.minY), to: $0) })
-    }
-
-    /// Shows the document again as it was before text editing zoomed it.
+    /// Scrolls the page up (or down, for a negative distance) under the picked text, so its editor
+    /// is clear of the keyboard, as Notes does; the editor stays on its line.
     ///
-    /// The page is found again by its number: an edit replaces the page object.
-    private func restore(_ before: ViewBeforeZoom) {
-      if before.autoScales {
-        autoScales = true
-      } else {
-        scaleFactor = before.scale
+    /// Near the end of the document there is nothing left to scroll, so room is made under the last
+    /// page, and taken away again when the text is let go of.
+    func scrollPickedText(by distance: CGFloat, animated: Bool = true) {
+      guard distance != 0, let scroller = pageScroller else { return }
+      let inset = scroller.adjustedContentInset
+      let lowest = -inset.top
+      let highest = scroller.contentSize.height + inset.bottom - scroller.bounds.height
+      let target = max(lowest, scroller.contentOffset.y + distance)
+      if target > highest {
+        if textOverlays.insetBeforeEditing == nil { textOverlays.insetBeforeEditing = scroller.contentInset }
+        scroller.contentInset.bottom += target - highest
       }
-      if let index = before.pageIndex, let point = before.point, let page = document?.page(at: index) {
-        go(to: PDFDestination(page: page, at: point))
-      }
+      scroller.setContentOffset(CGPoint(x: scroller.contentOffset.x, y: target), animated: animated)
     }
-  }
 
-  /// How the page view showed the document before text editing zoomed it.
-  struct ViewBeforeZoom {
-    var scale: CGFloat
-    var autoScales: Bool
-    var pageIndex: Int?
-    /// The page point at the top left of the view.
-    var point: CGPoint?
+    /// PDFKit's own scroller for the pages, the first scroll view inside the page view.
+    var pageScroller: UIScrollView? {
+      var views: [UIView] = subviews
+      while !views.isEmpty {
+        let view = views.removeFirst()
+        if let scroller = view as? UIScrollView { return scroller }
+        views.append(contentsOf: view.subviews)
+      }
+      return nil
+    }
   }
 
   /// Publishes the picked line's place on each screen refresh without keeping the view alive.

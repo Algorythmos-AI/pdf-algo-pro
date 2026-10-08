@@ -56,7 +56,7 @@ struct ReadingControlsTests {
     #expect(plain.minScaleFactor == before.min && plain.maxScaleFactor == before.max)
   }
 
-  @Test("A picked line is followed on screen, readable and fitted to the width, and the zoom comes back after")
+  @Test("A picked line is edited at the zoom the person chose, followed on screen, and scrolled clear of the keyboard")
   func editingFollowsTheLine() async throws {
     let url = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).pdf")
     try TextEditFixtures.invoice().write(to: url)
@@ -68,24 +68,39 @@ struct ReadingControlsTests {
     view.configure(for: controller)
     view.layoutIfNeeded()
     #expect(view.autoScales)
+    let zoom = view.scaleFactor
 
     controller.setEditingText(true)
     let regions = await controller.pageText(onPage: 0).regions
     let widest = try #require(regions.filter(\.isUpright).max { $0.bounds.width < $1.bounds.width })
-    controller.selectTextRegion(widest, onPage: 0)
+    let first = try #require(regions.first { $0.isUpright && $0.id != widest.id })
+    controller.selectTextRegion(first, onPage: 0)
     let anchor = try #require(controller.textEditAnchor, "The page view says where the line is")
-    #expect(anchor.selection.region == widest && anchor.scale == view.scaleFactor)
-    let onScreen = widest.style.pointSize * anchor.scale
-    #expect(onScreen >= TextEditPlacement.legibleMinimum - 0.01 || anchor.scale == view.maxScaleFactor)
-    // The whole line fits the view, unless that would make it too small to read; then it wraps.
-    let readableSmallest = abs(onScreen - TextEditPlacement.legibleMinimum) < 0.01
-    #expect(anchor.lineFrame.width <= view.bounds.width + 0.5 || readableSmallest, "\(anchor.lineFrame)")
+    // The page is not zoomed: every line of it stays on screen, as before the line was picked.
+    #expect(view.scaleFactor == zoom && view.autoScales && anchor.scale == zoom)
+    #expect(anchor.selection.region == first)
+    // The field may grow to the right edge of the page's text, not further.
+    #expect(anchor.columnFrame.minX == anchor.lineFrame.minX)
+    #expect(anchor.columnFrame.maxX >= anchor.lineFrame.maxX - 0.5)
+    #expect(anchor.columnFrame.maxX <= view.bounds.width + 0.5, "\(anchor.columnFrame)")
 
-    // Letting go stops following the line, and leaving puts the page back as it was.
+    // Scrolling the page for the keyboard moves the line, and the anchor with it, even where the
+    // page has no more to scroll and room is made under it.
+    let scroller = try #require(view.pageScroller)
+    let inset = scroller.contentInset
+    let before = anchor.lineFrame.minY
+    view.scrollPickedText(by: 120, animated: false)
+    view.layoutIfNeeded()
+    view.publishTextEditAnchor()
+    let moved = try #require(controller.textEditAnchor)
+    #expect(abs(moved.lineFrame.minY - (before - 120)) < 1, "\(before) → \(moved.lineFrame.minY)")
+
+    // Letting go stops following the line and takes the room away again.
     controller.clearTextRegionSelection()
     #expect(controller.textEditAnchor == nil)
+    #expect(scroller.contentInset == inset)
     controller.setEditingText(false)
-    #expect(view.autoScales, "The page fits the reader again")
+    #expect(view.autoScales && view.scaleFactor == zoom)
   }
 
   @Test("The next and previous page commands stop at the ends of the document")

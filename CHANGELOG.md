@@ -15,11 +15,11 @@ Store notes (see the changelog strategy).
   only ever means a red annotation or Delete.
 
 ### Fixed
-- Editing text (internal builds): a long line is now shown whole while you edit it. Before, a
-  line wider than the screen was cut off at its edge, with the end of the sentence and the caret
-  out of sight. The page now zooms so the line fits where the print stays readable; where it
-  cannot, the line wraps onto more lines in the editor, which stays above the keyboard. The page
-  goes back to the zoom you had when you finish editing.
+- Editing text (internal builds): a line is now edited right where it is, at the page's own size,
+  and nothing is cut off. Before, the page zoomed in so its lines ran off the screen, could not be
+  moved, and a long line was cut off at the screen's edge with the caret out of sight. Now the page
+  keeps its zoom and can be scrolled and zoomed while you type, the line wraps to the width of the
+  page's text, and the page scrolls to keep what you type above the keyboard.
 - Scanning: the hidden text of a scanned page now sits exactly over the printed words. Before,
   it could be narrower or wider than the line, so a selection did not match what you dragged
   over, and a long line squeezed into a narrow space could be found only in pieces.

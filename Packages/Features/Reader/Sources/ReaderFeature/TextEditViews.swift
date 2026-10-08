@@ -187,53 +187,78 @@ extension UITextView {
 
 /// The editor for a piece of existing text, laid over the page.
 ///
-/// It takes every touch, so the page stays still while the text is being changed, and for upright
-/// text it puts the field over the line, in the line's own font, so the text is edited where it
-/// is. The field is placed from what it holds (`TextEditPlacement`): it starts where the line
-/// starts, is as tall as its text, wraps a line wider than the screen, and stays above the bar
-/// and the keyboard.
+/// For upright text it puts the field on the line itself, in the line's own font at the page's own
+/// size, so the text is edited where it is, as in Preview. The page keeps the zoom the person chose
+/// and stays free: it can be scrolled and pinched while the field is open, and the field moves with
+/// its line. What is typed beyond the line wraps down, to the width of the page's text
+/// (`TextEditPlacement`), and the page scrolls under the field to keep it clear of the keyboard, as
+/// in Notes.
 struct TextEditLayer: View {
   let model: ReaderModel
   let selection: TextRegionSelection
   let draft: TextEditDraft
+  /// Where the field is in the layer, as last laid out.
+  @State private var fieldFrame: CGRect?
 
   /// The name of the layer's own space, in which the line, the visible area and the field are placed.
   nonisolated static let space = "reader.textEdit.layer"
 
-  /// How far the field's cover reaches past the start of the line, so the old letters' edges are
+  /// How far the field's cover reaches past either end of the line, so the old letters' edges are
   /// covered: as far as the outline drawn around each line (`TextRegionOverlayView`).
   nonisolated static let coverOutset: CGFloat = 2
 
-  /// Whether the field can sit over the text: the page view has the text on screen, the text is
-  /// upright, and it is big enough on screen to type over.
+  /// Whether the field can sit on the text: the page view has the text on screen, and the text is
+  /// upright.
   ///
-  /// Other text is edited in the bar, which is always in view.
+  /// Turned text is edited in the bar, which is always in view.
   static func fitsInPlace(_ selection: TextRegionSelection, anchor: TextEditAnchor?) -> Bool {
-    guard let anchor, anchor.selection == selection, selection.region.isUpright else { return false }
-    return anchor.lineFrame.height >= TextEditPlacement.minimumInPlaceHeight
+    guard let anchor, anchor.selection == selection else { return false }
+    return selection.region.isUpright
   }
 
   var body: some View {
     GeometryReader { geometry in
+      // Nothing here but the field takes touches: the page under it scrolls and zooms as usual.
       ZStack(alignment: .topLeading) {
-        // Nearly clear, so it is hit-tested: touches stop here while the editor is open.
-        Color.black.opacity(0.001)
         if draft.isInPlace == true, let anchor = model.controller?.textEditAnchor, anchor.selection == selection {
           let visible = Self.visibleArea(in: geometry, below: draft.barFrame)
-          TextEditPlacementLayout(line: anchor.lineFrame, visible: visible, margin: Spacing.s100) {
+          TextEditPlacementLayout(line: anchor.lineFrame, column: anchor.columnFrame) {
             field(scale: anchor.scale)
+              .onGeometryChange(for: CGRect.self) {
+                $0.frame(in: .named(Self.space))
+              } action: {
+                fieldFrame = $0
+              }
+          }
+          // Room for the field is made when it opens, when it grows a line, and when the keyboard
+          // or the screen changes; never while the person scrolls the page.
+          .onChange(of: RoomKey(height: fieldFrame?.height ?? 0, bottom: visible.maxY), initial: true) {
+            guard let fieldFrame else { return }
+            let distance = TextEditPlacement.scrollDistance(for: fieldFrame, in: visible, margin: Spacing.s100)
+            if abs(distance) > Self.scrollTolerance { model.controller?.scrollPickedText(by: distance) }
           }
           #if DEBUG
             TextEditGeometryOverlay(line: anchor.lineFrame, visible: visible, scale: anchor.scale)
           #endif
         }
       }
+      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
       .coordinateSpace(.named(Self.space))
     }
     .accessibilityElement(children: .contain)
   }
 
-  /// The field, its cover over the old words, and the line under it.
+  /// Distances smaller than this are rounding, not a field out of view.
+  private static let scrollTolerance: CGFloat = 0.5
+
+  /// What, when it changes, may leave the field without room: its height and the bottom of what
+  /// can be seen.
+  private struct RoomKey: Equatable {
+    var height: CGFloat
+    var bottom: CGFloat
+  }
+
+  /// The field, and its cover over the old words.
   private func field(scale: CGFloat) -> some View {
     TextEditField(
       draft: draft, font: Self.font(for: selection.region, scale: scale),
@@ -243,12 +268,13 @@ struct TextEditLayer: View {
     #if DEBUG
       .modifier(TextEditGeometryOverlay.Measure(role: .textView))
     #endif
-    .padding(.leading, Self.coverOutset)
-    // The text keeps clear of the screen's edge; the cover runs to it.
-    .padding(.trailing, Spacing.s100)
-    // The field covers the old words while new ones are typed, in a colour the text shows on.
+    .padding(.horizontal, Self.coverOutset)
+    // The field covers the old words while new ones are typed, in a colour the text shows on, and
+    // stands a little off the page, so it reads as a field being typed into.
     .background(Self.isLight(selection.region) ? Color.black : Color.white)
-    .overlay(alignment: .bottom) { Rectangle().fill(Color.ds.selection).frame(height: 1.5) }
+    .overlay { Rectangle().strokeBorder(Color.ds.selection, lineWidth: 1) }
+    .compositingGroup()
+    .shadow(color: .black.opacity(0.15), radius: 3, y: 1)
     // The caret too: in the app's red it would read as a mistake in the text.
     .tint(Color.ds.selection)
     #if DEBUG
@@ -275,7 +301,7 @@ struct TextEditLayer: View {
 
   /// The region's own font at its size on screen, or the closest the system has.
   static func font(for region: EditableTextRegion, scale: CGFloat) -> UIFont {
-    let size = max(8, region.style.pointSize * scale)
+    let size = max(1, region.style.pointSize * scale)
     if let exact = UIFont(name: region.style.fontName, size: size) { return exact }
     var traits: UIFontDescriptor.SymbolicTraits = []
     if region.style.isBold { traits.insert(.traitBold) }
@@ -294,17 +320,15 @@ struct TextEditLayer: View {
   }
 }
 
-/// Puts the editor where `TextEditPlacement` says, after asking it how tall its text is.
+/// Puts the editor on its line, after asking it how tall its text is.
 ///
 /// The text is measured first and the place worked out from that, in one layout pass, so the
 /// editor is never drawn smaller than its text and then corrected.
 struct TextEditPlacementLayout: Layout {
   /// Where the line is, in the layer's space.
   var line: CGRect
-  /// The part of the layer that can be seen.
-  var visible: CGRect
-  /// The space kept clear at the visible area's edges.
-  var margin: CGFloat
+  /// The line widened to the right edge of the page's text, in the layer's space.
+  var column: CGRect
 
   func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
     proposal.replacingUnspecifiedDimensions()
@@ -312,15 +336,15 @@ struct TextEditPlacementLayout: Layout {
 
   func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
     guard let editor = subviews.first else { return }
+    // The cover reaches a little past both ends of the text; the place is worked out for the text.
     let outset = TextEditLayer.coverOutset
-    // The editor's cover starts a little before the text; the place is worked out for the text.
-    let placed = TextEditPlacement.editor(over: line, in: visible, margin: margin) { width in
-      editor.sizeThatFits(ProposedViewSize(width: width + outset, height: nil)).height
+    let frame = TextEditPlacement.editor(over: line, column: column) { width in
+      editor.sizeThatFits(ProposedViewSize(width: width + 2 * outset, height: nil)).height
     }
     editor.place(
-      at: CGPoint(x: bounds.minX + placed.frame.minX - outset, y: bounds.minY + placed.frame.minY),
+      at: CGPoint(x: bounds.minX + frame.minX - outset, y: bounds.minY + frame.minY),
       anchor: .topLeading,
-      proposal: ProposedViewSize(width: placed.frame.width + outset, height: placed.frame.height))
+      proposal: ProposedViewSize(width: frame.width + 2 * outset, height: frame.height))
   }
 }
 
