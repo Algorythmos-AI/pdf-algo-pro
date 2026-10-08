@@ -662,7 +662,7 @@ home screen and the order of tools; it never gates anything.
 ### Paywall
 
 - The app's own screen over StoreKit 2 ([ADR-0027](adr/0027-own-paywall-over-storekit-2.md),
-  [PAP-056](decision-register.md)). It answers three questions in order: what do I get, why is it
+  [PAP-061](decision-register.md)). It answers three questions in order: what do I get, why is it
   worth it, what am I paying.
 - **Layout.** Scrolling: the headline in the brand tint, one line under it, the scanning picture
   (`DeviceMockup`, gone at accessibility text sizes), what Pro adds, and the promise that documents

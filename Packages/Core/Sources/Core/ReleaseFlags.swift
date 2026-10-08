@@ -21,6 +21,9 @@ public enum ReleaseFlag: String, CaseIterable, Sendable {
   case baseFormMatching
   /// Dragging a document out of the library into another app (ADR-0022).
   case documentDragging
+  /// Reading a scanned page as a document, paragraph by paragraph, so columns and tables come in
+  /// the order they are read (FR-SCAN-004, ADR-0008).
+  case documentRecognition
 
   /// The value in a build that does not turn the flag on.
   ///
@@ -35,6 +38,7 @@ public enum ReleaseFlag: String, CaseIterable, Sendable {
     case .widerRecognition: "PDF engine"
     case .baseFormMatching: "Intelligence"
     case .documentDragging: "Library"
+    case .documentRecognition: "PDF engine"
     }
   }
 
@@ -46,6 +50,7 @@ public enum ReleaseFlag: String, CaseIterable, Sendable {
     case .widerRecognition: "1.1.0"
     case .baseFormMatching: "1.1.0"
     case .documentDragging: "1.1.0"
+    case .documentRecognition: "1.1.0"
     }
   }
 
