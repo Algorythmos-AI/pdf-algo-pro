@@ -52,8 +52,10 @@ struct LaunchEnvironment {
   /// The build number first run's replay sees in a UI test (`-first-run-build 24`); without it a UI
   /// test has no replay, and starts where its other arguments say.
   let firstRunBuild: String?
-  /// A name under which a UI test's settings survive a relaunch (`-keep-state <name>`), so one test
-  /// can open the app as two builds of the same install. Without it every launch starts afresh.
+  /// A name under which a UI test's settings survive a relaunch (`-keep-state <name>`).
+  ///
+  /// With it one test can open the app as two builds of the same install; without it every launch
+  /// starts afresh.
   let keptState: String?
   /// Whether the reader's newer controls are on (`-reading-controls off` shows the reader without
   /// them, as a Release build has it until the flag is on there); `nil` leaves it to the build.
