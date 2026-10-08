@@ -1,42 +1,63 @@
-import Core
-import Foundation
+#if INTERNAL_TOOLS
+  import Core
+  import Foundation
 
-/// Shows first run again, once, the first time each new internal build is opened (PAP-053).
-///
-/// A TestFlight update keeps the app's settings, so someone who finished the introduction on one
-/// build opens every later build on Home, and a change to first run or to the subscription offer
-/// is never seen without going to Settings › Internal testing. Debug and Staging builds therefore
-/// mark first run as not done when the build number differs from the one that last ran. Documents
-/// and every other setting stay. App Store builds never call this: there, the introduction never
-/// returns uninvited (FR-ONB-002).
-struct InternalFirstRunReplay {
-  /// Where the build number that last ran is kept.
-  static let key = "internal.firstRun.build"
-
-  let defaults: UserDefaults
-  /// This build's number (`CFBundleVersion`).
-  let build: String
-
-  /// Marks first run as not done when this build has not run before, and remembers the build.
+  /// Shows the whole first-run journey again on every new internal build (PAP-053, PAP-060).
   ///
-  /// - Returns: Whether first run will show again.
-  @discardableResult
-  func apply(to settings: any SettingsStoring) -> Bool {
-    let last = defaults.string(forKey: Self.key)
-    defaults.set(build, forKey: Self.key)
-    var current = settings.load()
-    guard Self.replays(lastBuild: last, build: build, hasCompletedOnboarding: current.hasCompletedOnboarding)
-    else { return false }
-    current.hasCompletedOnboarding = false
-    settings.save(current)
-    return true
-  }
-
-  /// Whether first run shows again.
+  /// A TestFlight update keeps the app's settings, so without this an install that finished first run
+  /// on one build opens every later build on Home, and the introduction and the subscription offer
+  /// are never seen again. Debug and Staging builds therefore remember the last build whose first
+  /// run was **completed**, and present first run from its first page whenever the build that is
+  /// running is a different one.
   ///
-  /// It does for a build that has not run before, on an install that has already been through
-  /// first run. A new install shows first run anyway.
-  static func replays(lastBuild: String?, build: String, hasCompletedOnboarding: Bool) -> Bool {
-    hasCompletedOnboarding && lastBuild != build
+  /// This is presentation state and nothing else. It never reads, changes or pretends anything
+  /// about purchases: who has Pro, their transactions and their right to a trial stay the App
+  /// Store's. Documents and every other setting stay too.
+  ///
+  /// The type and every use of it are compiled only where `INTERNAL_TOOLS` is defined, which is the
+  /// Debug and Staging configurations (`project.yml`). An App Store build does not contain it, and
+  /// there the introduction never returns uninvited (FR-ONB-002); `scripts/ci/invariants.py` and a
+  /// check of the Release binary in CI hold that.
+  struct InternalFirstRunReplay {
+    /// Where the last build whose first run was completed is kept.
+    static let key = "internal.firstRun.build"
+
+    let defaults: UserDefaults
+    /// The build that is running (`CFBundleVersion`).
+    let build: String
+
+    /// Whether this build's first run is still to be completed.
+    var isDue: Bool { Self.isDue(lastCompletedBuild: defaults.string(forKey: Self.key), build: build) }
+
+    /// Starts this launch: when this build's first run is due, marks first run as not done so that
+    /// the introduction shows from its first page.
+    ///
+    /// - Returns: Whether this launch replays first run, the subscription offer included.
+    func begin(with settings: any SettingsStoring) -> Bool {
+      guard isDue else { return false }
+      var current = settings.load()
+      if current.hasCompletedOnboarding {
+        current.hasCompletedOnboarding = false
+        settings.save(current)
+      }
+      return true
+    }
+
+    /// Records this build as done.
+    ///
+    /// Called when the journey ends: the offer was closed, or a purchase led to the app.
+    func complete() {
+      defaults.set(build, forKey: Self.key)
+    }
+
+    /// Forgets which build was completed, so the next launch replays first run.
+    func reset() {
+      defaults.removeObject(forKey: Self.key)
+    }
+
+    /// Whether first run is due: no build has completed it here, or a different one did.
+    static func isDue(lastCompletedBuild: String?, build: String) -> Bool {
+      lastCompletedBuild != build
+    }
   }
-}
+#endif

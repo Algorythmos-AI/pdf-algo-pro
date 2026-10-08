@@ -346,7 +346,7 @@ manager and keyboard shortcuts.
 |---|---|---|---|---|
 | FR-STORE-001 | Free tier covers reading, annotation, form filling, signing, organising pages and passwords without limit, and a daily allowance of scans saved and of on-device intelligence requests ([PAP-044](decision-register.md)) | Must | V1 | PIL-7 |
 | FR-STORE-002 | Pro subscription (weekly and annual, with an introductory free trial on the annual plan) through StoreKit 2 ([PAP-043](decision-register.md), [PAP-049](decision-register.md)) | Must | V1 | PIL-7 |
-| FR-STORE-003 | The paywall states price, period, trial length and renewal terms through StoreKit's own views, shows both plans, links to Terms and Privacy, and can be closed in one action from the moment it appears; Restore Purchases and Manage Subscription are always available | Must | V1 | PIL-7 |
+| FR-STORE-003 | The paywall states price, period, trial length and renewal terms from StoreKit's own values for the storefront and account ([ADR-0027](adr/0027-own-paywall-over-storekit-2.md)), shows a trial only to an account eligible for it, shows both plans, links to Terms and Privacy, and can be closed in one action from the moment it appears; Restore Purchases and Manage Subscription are always available | Must | V1 | PIL-7 |
 | FR-STORE-004 | Losing Pro never locks the user out of their own documents or annotations | Must | V1 | PIL-5 |
 | FR-STORE-005 | One subscription across iPhone, iPad and Mac (universal purchase) | Must | V2 | PIL-7 |
 | FR-STORE-006 | A trial reminder one day before the trial ends: a local notification if the user allows it, otherwise an in-app notice | Must | V1 | PIL-7 |
@@ -370,7 +370,7 @@ manager and keyboard shortcuts.
 - *FR-STORE-006.* Given a trial that ends tomorrow, when that day comes, then the user is reminded by notification (if allowed) or on next launch, with the date and a link to Manage Subscription. Given the trial was cancelled, refunded or became paid before then, then no reminder is pending.
 - *FR-STORE-007.* Given a purchase that completes, when the entitlement grants Pro, then the confirmation shows in the same presentation as the paywall, with the trial end date only during a trial. Given a purchase that is pending approval or was cancelled, then the paywall stays and no confirmation or error shows. Given the confirmation is closed, then no rating request follows.
 
-**Apple-first:** `SubscriptionStoreView`; Family Sharing on for the annual plan only ([PAP-050](decision-register.md));
+**Apple-first:** StoreKit 2, with the app's own offer screen over it (ADR-0027); Family Sharing on for the annual plan only ([PAP-050](decision-register.md));
 App Store Server Notifications V2 (after the relay exists).
 
 ### Settings, privacy and support (FR-SET)

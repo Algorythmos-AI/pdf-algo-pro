@@ -5,14 +5,14 @@ import SwiftUI
 
 /// The subscription offer, and in the same presentation the confirmation after a purchase.
 ///
-/// The plans, their prices, the trial and the renewal terms are StoreKit's own view, so they are
-/// right for the person's storefront and for whether they can have the introductory offer. The app
-/// writes one comparison of its own, the annual plan's saving, and works it out from StoreKit's
-/// prices for the same storefront (ADR-0026, PAP-049).
+/// The offer is the app's own screen over StoreKit 2 (ADR-0027). Every figure on it, the plans'
+/// names, prices and periods and the trial, is the App Store's for the person's storefront and
+/// account; the purchase is confirmed in the App Store's own sheet; and who has Pro is read from
+/// the App Store's transactions, never from this screen.
 public struct PaywallFlowView: View {
   @State private var model: PaywallModel
-  @State private var saving: SavingLine?
   @State private var redeemsCode = false
+  @State private var managesSubscription = false
   private let store: any StoreAccessing
 
   /// Creates the presentation for a model; `store` is asked when the person restores purchases.
@@ -51,32 +51,14 @@ public struct PaywallFlowView: View {
   }
 
   private var offer: some View {
-    SubscriptionStoreView(productIDs: model.productIDs) {
-      VStack(spacing: 0) {
-        PaywallHeader(trigger: model.trigger, benefits: model.benefits, saving: saving)
-        StoreLinks(
-          onRestore: { Task { await model.restore(using: store) } }, onRedeem: { redeemsCode = true })
-      }
-    }
-    // Both plans and the button stay at the foot of the screen while the rest scrolls, and the
-    // button says in full what the chosen plan costs and when: StoreKit's words, for the person's
-    // storefront and their right to the trial.
-    .subscriptionStoreControlStyle(.compactPicker, placement: .bottomBar)
-    .subscriptionStoreButtonLabel(.multiline)
-    .containerBackground(for: .subscriptionStoreFullHeight) {
-      Color.ds.backgroundPrimary.overlay(alignment: .top) { BrandGlow().frame(height: 420) }.ignoresSafeArea()
-    }
-    .tint(Color.ds.brandFill)
-    // The toolbar's Close is the one way out, with one identifier; StoreKit's own would be a second.
-    .storeButton(.hidden, for: .cancellation)
-    // Restore and Redeem are the app's own quiet links under the header: StoreKit's are two more
-    // full-width buttons, which leave the plans no room.
-    .storeButton(.hidden, for: .restorePurchases, .redeemCode)
-    .storeButton(.visible, for: .policies)
-    .subscriptionStorePolicyDestination(url: model.termsOfUse, for: .termsOfService)
-    .subscriptionStorePolicyDestination(url: model.privacyPolicy, for: .privacyPolicy)
-    .accessibilityIdentifier("paywall.offer")
+    PaywallOfferView(
+      model: model, onRestore: { Task { await model.restore(using: store) } }, onRedeem: { redeemsCode = true },
+      onManage: { managesSubscription = true }
+    )
+    .background(alignment: .top) { BrandGlow().frame(height: 420).ignoresSafeArea() }
+    .background(Color.ds.backgroundPrimary)
     .offerCodeRedemption(isPresented: $redeemsCode)
+    .manageSubscriptionsSheet(isPresented: $managesSubscription)
     .alert(Text("Restore purchases", bundle: .module), isPresented: $model.restoreFailed) {
       Button {
       } label: {
@@ -87,47 +69,21 @@ public struct PaywallFlowView: View {
         "Nothing could be restored. Check that you are signed in to the App Store with the account that bought Pro.",
         bundle: .module)
     }
-    .task { saving = await SavingLine.load(model.productIDs) }
-  }
-}
-
-/// The annual plan's saving, ready to show: the percentage in the person's locale ("41%", "41 %") and the
-/// amount in the storefront's currency.
-struct SavingLine: Equatable {
-  let percent: String
-  let amount: String
-
-  /// How long a plan runs before it renews, as far as the saving is concerned.
-  enum Term: Equatable {
-    case week, year
-
-    /// The term of a subscription period; `nil` for any other length.
-    ///
-    /// The App Store gives a one-week plan as seven days, and may give a year as twelve months.
-    init?(unit: Product.SubscriptionPeriod.Unit, value: Int) {
-      switch (unit, value) {
-      case (.week, 1), (.day, 7): self = .week
-      case (.year, 1), (.month, 12): self = .year
-      default: return nil
+    .alert(item: $model.notice) { notice in
+      switch notice {
+      case .pending:
+        Alert(
+          title: Text("Waiting for approval", bundle: .module),
+          message: Text(
+            "The purchase will complete when it is approved. Nothing has been charged.", bundle: .module),
+          dismissButton: .default(Text("OK", bundle: .module)))
+      case .failed:
+        Alert(
+          title: Text("The purchase didn’t go through", bundle: .module),
+          message: Text("Nothing has been charged. You can try again.", bundle: .module),
+          dismissButton: .default(Text("OK", bundle: .module)))
       }
     }
-  }
-
-  /// The saving between the weekly and the annual plan among the products; `nil` when either does not
-  /// load or the annual plan saves nothing, and then the offer shows no saving at all.
-  static func load(_ productIDs: [String]) async -> SavingLine? {
-    guard let products = try? await Product.products(for: productIDs) else { return nil }
-    func plan(_ term: Term) -> Product? {
-      products.first { product in
-        guard let period = product.subscription?.subscriptionPeriod else { return false }
-        return Term(unit: period.unit, value: period.value) == term
-      }
-    }
-    guard let weekly = plan(.week), let yearly = plan(.year),
-      let saving = YearlySaving(weeklyPrice: weekly.price, yearlyPrice: yearly.price)
-    else { return nil }
-    let percent = (Double(saving.percent) / 100).formatted(.percent.precision(.fractionLength(0)))
-    return SavingLine(percent: percent, amount: saving.amount.formatted(yearly.priceFormatStyle))
   }
 }
 
@@ -136,7 +92,6 @@ struct SavingLine: Equatable {
 struct PaywallHeader: View {
   let trigger: PaywallTrigger
   let benefits: [PaywallBenefit]
-  var saving: SavingLine? = nil
   @Environment(\.dynamicTypeSize) private var typeSize
 
   var body: some View {
@@ -160,9 +115,6 @@ struct PaywallHeader: View {
         DeviceMockup(width: 216) { ScanMockupScreen() }.fadingBottom(height: 236)
       }
       BenefitList(benefits: benefits).cardStyle()
-      if let saving {
-        SavingNote(saving: saving)
-      }
       Label {
         Text(
           "Your documents are always yours: opening, reading, signing, sharing and exporting never need Pro.",
@@ -175,35 +127,6 @@ struct PaywallHeader: View {
     }
     .padding(Spacing.s300)
     .readableWidth()
-  }
-}
-
-/// "Best Value" over the annual plan's saving against paying weekly, just above the plans.
-struct SavingNote: View {
-  let saving: SavingLine
-
-  var body: some View {
-    VStack(spacing: Spacing.s100) {
-      Text("Best Value", bundle: .module)
-        .font(.caption.bold())
-        .foregroundStyle(Color.ds.brandOnFill)
-        .padding(.horizontal, Spacing.s150)
-        .padding(.vertical, Spacing.s050)
-        .background(Color.ds.brandFill, in: Capsule())
-      Text("Pro Yearly: save \(saving.percent) compared to paying weekly.", bundle: .module)
-        .font(.subheadline.bold())
-      Text("That’s \(saving.amount) saved per year.", bundle: .module)
-        .font(.subheadline)
-        .foregroundStyle(Color.ds.labelSecondary)
-    }
-    .multilineTextAlignment(.center)
-    .frame(maxWidth: .infinity)
-    .padding(Spacing.s200)
-    .background(
-      Color.ds.brandTint.opacity(Opacities.brandGlow), in: RoundedRectangle(cornerRadius: 16, style: .continuous)
-    )
-    .accessibilityElement(children: .combine)
-    .accessibilityIdentifier("paywall.saving")
   }
 }
 
@@ -227,35 +150,5 @@ struct BenefitList: View {
       }
     }
     .frame(maxWidth: .infinity, alignment: .leading)
-  }
-}
-
-/// Restore Purchases and Redeem Code, as two quiet links under the header.
-struct StoreLinks: View {
-  let onRestore: () -> Void
-  let onRedeem: () -> Void
-
-  var body: some View {
-    ViewThatFits(in: .horizontal) {
-      HStack(spacing: Spacing.s300) { links }
-      VStack(spacing: 0) { links }
-    }
-    // Plain, with their own colour: inside the store view a button is otherwise drawn filled.
-    .buttonStyle(.plain)
-    .font(.footnote.weight(.semibold))
-    .foregroundStyle(Color.ds.brandTint)
-    .padding(.horizontal, Spacing.s300)
-    .padding(.bottom, Spacing.s200)
-  }
-
-  @ViewBuilder private var links: some View {
-    Button(action: onRestore) {
-      Text("Restore purchases", bundle: .module).minimumTarget()
-    }
-    .accessibilityIdentifier("paywall.restore")
-    Button(action: onRedeem) {
-      Text("Redeem a code", bundle: .module).minimumTarget()
-    }
-    .accessibilityIdentifier("paywall.redeem")
   }
 }

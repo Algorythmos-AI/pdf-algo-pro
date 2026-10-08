@@ -1,14 +1,17 @@
 import SwiftUI
 
-/// One page of the first-run introduction: one thing the installed build does (FR-ONB-001, FR-ONB-007).
+/// One page of the first-run introduction: one benefit of what the installed build does.
+///
+/// Together the pages tell one story: make a PDF, work on it, get more from it (FR-ONB-001,
+/// FR-ONB-007).
 public enum OnboardingPage: String, Sendable, CaseIterable, Identifiable {
-  /// Scanning paper into a searchable PDF.
+  /// Create: scanning paper into a searchable PDF.
   case scan
-  /// Filling in, signing and marking up.
+  /// Work on it: signing, marking up, and putting pages in order.
   case sign
-  /// Asking the on-device intelligence about a document.
+  /// Get more from it: asking the on-device intelligence about a document.
   case ask
-  /// Merging, reordering and protecting documents: the third page where intelligence is unavailable.
+  /// Get more from it, where intelligence is unavailable: merging, shrinking and finding.
   case organize
 
   /// The page's name.
@@ -17,10 +20,10 @@ public enum OnboardingPage: String, Sendable, CaseIterable, Identifiable {
   /// The page's headline.
   var title: Text {
     switch self {
-    case .scan: Text("Scan to PDF", bundle: .module)
-    case .sign: Text("Sign and mark up", bundle: .module)
-    case .ask: Text("Ask your document", bundle: .module)
-    case .organize: Text("Organise and protect", bundle: .module)
+    case .scan: Text("Scan anything to PDF", bundle: .module)
+    case .sign: Text("Edit, sign and organise", bundle: .module)
+    case .ask: Text("Ask your documents", bundle: .module)
+    case .organize: Text("Do more with every file", bundle: .module)
     }
   }
 
@@ -28,14 +31,13 @@ public enum OnboardingPage: String, Sendable, CaseIterable, Identifiable {
   var detail: Text {
     switch self {
     case .scan:
-      Text("Turn paper into searchable PDFs with the camera. Text is recognised on this device.", bundle: .module)
-    case .sign: Text("Fill in forms, add your signature, highlight and add notes.", bundle: .module)
+      Text("Point the camera at paper and get a clean, searchable PDF in seconds.", bundle: .module)
+    case .sign:
+      Text("Add your signature, highlight, write notes, reorder pages and lock files with a password.", bundle: .module)
     case .ask:
-      Text(
-        "Get summaries and answers with page citations. It runs on this device, and nothing is sent anywhere.",
-        bundle: .module)
+      Text("Summaries and answers that show the pages they come from. It all runs on this device.", bundle: .module)
     case .organize:
-      Text("Merge documents, reorder pages and add a password. Your documents stay on this device.", bundle: .module)
+      Text("Merge documents, make them smaller and find any word. Everything stays on this device.", bundle: .module)
     }
   }
 }

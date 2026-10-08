@@ -90,3 +90,28 @@ def test_network_pattern_covers_cloudkit_and_the_allow_list_names_remote_config(
     assert invariants.NETWORK.search("let s = URLSession.shared")
     assert not invariants.NETWORK.search("import CloudKitten\n")
     assert "Packages/RemoteConfig/" in invariants.ALLOWED["network"]
+
+
+def test_the_replay_named_inside_internal_tools_passes():
+    text = "#if INTERNAL_TOOLS\n  let replay = InternalFirstRunReplay()\n#endif\n/// InternalFirstRunReplay in a comment\n"
+    assert invariants.outside_internal_tools(text) == []
+
+
+def test_the_replay_named_outside_internal_tools_is_reported():
+    assert invariants.outside_internal_tools("let replay = InternalFirstRunReplay()\n") == [1]
+    after_else = "#if INTERNAL_TOOLS\n#else\n  resetFirstRunReplay()\n#endif\n"
+    assert invariants.outside_internal_tools(after_else) == [3]
+    negated = "#if !INTERNAL_TOOLS\n  isReplayingFirstRun = true\n#endif\n"
+    assert invariants.outside_internal_tools(negated) == [2]
+    nested = "#if INTERNAL_TOOLS\n  #if DEBUG\n    firstRunReplay(container)\n  #endif\n#endif\nfirstRunReplay(container)\n"
+    assert invariants.outside_internal_tools(nested) == [6]
+
+
+def test_internal_tools_may_be_defined_for_debug_and_staging_only():
+    ok = "configs:\n  Debug:\n    SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) INTERNAL_TOOLS\n  Staging:\n    SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) INTERNAL_TOOLS\n"
+    assert invariants.internal_tools_config_problems(ok) == []
+    release = "configs:\n  Release:\n    SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) INTERNAL_TOOLS\n"
+    assert "under 'Release'" in invariants.internal_tools_config_problems(release)[0]
+    base = "settings:\n  base:\n    SWIFT_ACTIVE_COMPILATION_CONDITIONS: INTERNAL_TOOLS\n"
+    assert "under 'base'" in invariants.internal_tools_config_problems(base)[0]
+    assert invariants.internal_tools_config_problems("# INTERNAL_TOOLS in a comment\n") == []

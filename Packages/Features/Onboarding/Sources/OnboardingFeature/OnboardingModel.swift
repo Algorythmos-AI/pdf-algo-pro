@@ -48,6 +48,7 @@ public final class OnboardingModel {
   /// Finds out whether on-device intelligence works here, and shows its page third if so.
   public func load() async {
     await telemetry.record("onboarding.flow.started")
+    await telemetry.record("onboarding.page.viewed")
     let availability = await intelligence.availability()
     guard availability.isAvailable, !isLastPage else { return }
     pages[pages.count - 1] = .ask
@@ -60,7 +61,22 @@ public final class OnboardingModel {
       await finish()
     } else {
       index += 1
+      await telemetry.record("onboarding.page.viewed")
     }
+  }
+
+  /// Goes to the page after this one, as a swipe does; on the last page a swipe does nothing, since
+  /// only Continue ends the introduction.
+  public func goForward() async {
+    guard !isLastPage else { return }
+    await advance()
+  }
+
+  /// Goes back a page, as a swipe does; nothing on the first.
+  public func goBack() async {
+    guard !isFinishing, index > 0 else { return }
+    index -= 1
+    await telemetry.record("onboarding.page.viewed")
   }
 
   /// Finishes the introduction after its last page.

@@ -110,23 +110,59 @@ Localisations:
 
 ## Verify
 
-On an iPhone with the Staging build from TestFlight (never the Debug scheme). A TestFlight build
-buys with the tester's own Apple Account and charges nothing
-([Testing subscriptions and In-App Purchases in TestFlight](https://developer.apple.com/help/app-store-connect/test-a-beta-version/testing-subscriptions-and-in-app-purchases-in-testflight));
-sandbox testers are for builds run from Xcode. Each new Staging build shows first run once by
-itself (PAP-053); Settings › Internal testing › Show first run again repeats it. The offer follows
-only with "Pro without a purchase" off:
+Two environments, which answer different questions and are never reported as one another:
 
-- The annual plan is listed first, marked "Best Value", with a saving that matches the two prices.
-  The app works it out as 52 weekly payments against one annual payment, rounded down (PAP-049).
-- Buying the annual plan starts the trial; the weekly plan is charged with no trial.
-- Restore Purchases brings Pro back after reinstalling.
-- A family member gets Pro from the annual plan only.
+| Environment | What it is for | What it cannot show |
+|---|---|---|
+| **StoreKit Testing in Xcode and the simulator** (the test file under `App/Tests/Store`, and the fixture store the UI tests buy from) | The app's own journey and logic: every way a purchase can end, the trial shown or not, what the screens look like | Real prices, real eligibility, Apple's purchase sheet, a real transaction |
+| **TestFlight on an iPhone, Apple's sandbox** | The products as App Store Connect has them, the real trial offer and eligibility, Apple's purchase sheet with Face ID or the side button, a sandbox transaction, the entitlement, restoring, renewal and expiry | Nothing is charged; renewals run at the sandbox's own rate |
+
+### Every Staging build, on the iPhone
+
+Each new Staging build opens on first run by itself, with no reinstall: the three introduction
+pages, then the offer, whatever the account is entitled to (PAP-053, PAP-060). The build counts as
+done once the offer is closed or a purchase has led to the app; until then every launch starts the
+journey again. Settings › Internal testing can show it at any time, and can reset it for the next
+launch.
+
+1. Open the new build: the introduction appears. Go through its three pages, or Skip.
+2. The offer appears. The annual plan is selected and marked "Best Value", with a saving that
+   matches the two prices (52 weekly payments against one annual payment, rounded down, PAP-049).
+3. Select the weekly plan, then the annual plan: the selected card, the terms under the cards and
+   the button's words follow.
+4. With an account that can have the trial, the annual plan shows the trial's length, what is due
+   today and the price that follows. With an account that has used it, no trial is shown.
+5. Tap the button: Apple's purchase sheet appears. Confirm: "Welcome to Pro" follows, and Settings ›
+   Subscription names the plan.
+6. Also try: close Apple's sheet (the offer stays), Restore purchases, and Manage subscription.
+
+### When the account already has Pro
+
+The replay still shows the introduction and the offer. The offer then says "This Apple Account
+already has Pro", sells nothing, and gives Continue and Manage Subscription. The app never hides,
+ends or resets a subscription to make a purchase possible again: that is the App Store's.
+
+To buy again, or to have the trial again, use Apple's sandbox controls
+([Testing In-App Purchases with sandbox](https://developer.apple.com/documentation/storekit/testing-in-app-purchases-with-sandbox)):
+
+- A TestFlight build buys with the Apple Account signed in under Media & Purchases unless a
+  **Sandbox Apple Account** is signed in on the device. To use one with a TestFlight build, Apple's
+  page says to sign out under Settings › Apple Account › Media & Purchases, then sign in under
+  Settings › Developer › Sandbox Apple Account (Developer Mode must be on). Apple warns that signing
+  out of Media & Purchases can remove access to purchased content in other apps, and suggests a
+  device kept for testing.
+- With a Sandbox Apple Account, Settings › Developer › Sandbox Apple Account › Manage, and App Store
+  Connect › Users and Access › Sandbox, offer: **Clear purchase history** (after which, Apple says,
+  the account is eligible for introductory offers again), the **subscription renewal rate**, and
+  **interrupted purchases** for trying a purchase that does not complete.
+- Without a Sandbox Apple Account: cancel the test subscription (Settings › Internal testing ›
+  Manage test subscription) and wait for it to lapse, or use a second account.
+
+Introductory offers count per subscription group, so an account that took the old weekly trial is
+not offered the annual one until its purchase history is cleared. The prices shown are those of
+the account's storefront.
 
 Then run the store rows of the [device smoke test](../device-smoke-test.md).
-
-Introductory offers count per subscription group. An account that took the old weekly trial isn't
-offered the annual trial. The prices shown are those of the account's storefront.
 
 ## Record
 
@@ -141,5 +177,5 @@ Production), the step, and the result. Leave out any value from the list above.
 | 2026-10-08 | Staging | Pre-flight, TestFlight | Passed by date: the newest build was uploaded after #166 merged. App Store Connect does not show the commit a build was made from |
 | 2026-10-08 | Staging | Steps 2 to 5 | Done in the browser and read back after a reload: identifiers, durations and the shared level; the annual plan's prices from the new base with the United Kingdom and every euro storefront set by hand, its trial, and Family Sharing (already on); the weekly plan's Australian price set by hand and its trial removed; both localisations and the review notes. Apple's automatic prices did not give the plan's United Kingdom and euro figures, and two of the plan's figures are "additional" price points. Both plans read "Prepare for Submission", which is what the web page calls ready to submit. The review screenshot is still a placeholder |
 | 2026-10-08 | Staging | Verify, on the simulator | The offer loads the Staging plans from the App Store's sandbox in a Staging build: the annual plan first with its trial, the weekly plan without, and the saving line once the app recognised a week given as seven days (PAP-052). Buying, restoring and Family Sharing still need a device |
-| — | Staging | Step 6 | Not needed for TestFlight; sandbox testers are created only if a build is to be tested from Xcode |
+| — | Staging | Step 6 | Open: a Sandbox Apple Account is what gives Clear purchase history and the trial back between builds (see Verify). The owner creates it and sets its password |
 | — | Production | Steps 2 to 5 | Locked until Staging passes |

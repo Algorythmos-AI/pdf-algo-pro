@@ -5,10 +5,11 @@ import Observation
 
 /// The subscription offer and the confirmation that follows a purchase (FR-STORE-003, FR-STORE-007).
 ///
-/// The model never buys anything. StoreKit's own view does, and the purchase reaches the app the way
-/// every purchase does, as a change of entitlement (ADR-0026). When the entitlement comes to grant
-/// Pro while the offer is showing, the same presentation moves on to the confirmation. A purchase
-/// that is pending or cancelled changes nothing, so the offer simply stays.
+/// The model shows the plans the App Store has and asks it to sell one (ADR-0027). It never decides
+/// who has Pro: that is `EntitlementStore`'s, from the App Store's record of transactions. When the
+/// entitlement comes to grant Pro while the offer is showing, the same presentation moves on to the
+/// confirmation, whether the purchase was made here, approved later, or restored. A purchase that
+/// is pending or cancelled changes nothing, so the offer simply stays.
 @MainActor
 @Observable
 public final class PaywallModel {
@@ -20,8 +21,40 @@ public final class PaywallModel {
     case welcome
   }
 
+  /// The plans, as far as the App Store has answered.
+  public enum Plans: Sendable, Equatable {
+    /// Asked for, not yet answered.
+    case loading
+    /// The plans, in the order they are listed.
+    case loaded([PlanOffer])
+    /// They could not be loaded: no connection, or the App Store does not have them.
+    case unavailable
+  }
+
+  /// Something the person has to be told about a purchase.
+  public enum Notice: String, Sendable, Identifiable {
+    /// The purchase waits for approval; nothing has been charged.
+    case pending
+    /// The purchase could not be made; nothing has been charged.
+    case failed
+
+    /// The notice's name.
+    public var id: String { rawValue }
+  }
+
   /// What is showing.
   public private(set) var phase: Phase = .offer
+  /// The plans on offer.
+  public private(set) var plans: Plans = .loading
+  /// The plan the button would buy.
+  public private(set) var selectedPlanID: String?
+  /// Whether the App Store's own sheet is up, or about to be.
+  public private(set) var isPurchasing = false
+  /// What to tell the person about the last purchase, if anything.
+  public var notice: Notice?
+  /// Whether the person already had Pro when the offer appeared: the offer then says so, and its
+  /// button closes it and sells nothing.
+  public private(set) var alreadyHasPro = false
   /// Whether the trial reminder is asked for on the confirmation.
   public var wantsReminder = false
   /// Whether the last restore found nothing to bring back or could not be made.
@@ -38,6 +71,7 @@ public final class PaywallModel {
   /// The privacy policy.
   public let privacyPolicy: URL
 
+  @ObservationIgnored private let offering: any StoreOffering
   @ObservationIgnored private let entitlements: EntitlementStore
   @ObservationIgnored private let telemetry: any TelemetryRecording
   @ObservationIgnored private let now: @Sendable () -> Date
@@ -57,7 +91,7 @@ public final class PaywallModel {
   /// takes the presentation away.
   public init(
     trigger: PaywallTrigger, productIDs: [String], benefits: [PaywallBenefit], termsOfUse: URL, privacyPolicy: URL,
-    entitlements: EntitlementStore, telemetry: any TelemetryRecording,
+    offering: any StoreOffering, entitlements: EntitlementStore, telemetry: any TelemetryRecording,
     now: @escaping @Sendable () -> Date = { Date() },
     setReminder: @escaping (Bool, Date) async -> Bool = { _, _ in false }, onClose: @escaping () -> Void
   ) {
@@ -66,6 +100,7 @@ public final class PaywallModel {
     self.benefits = benefits
     self.termsOfUse = termsOfUse
     self.privacyPolicy = privacyPolicy
+    self.offering = offering
     self.entitlements = entitlements
     self.telemetry = telemetry
     self.now = now
@@ -85,8 +120,76 @@ public final class PaywallModel {
   /// The offer came on screen.
   public func appeared() async {
     guard hadPro == nil else { return }
-    hadPro = await entitlements.resolved().grantsPro(at: now())
+    let hasPro = await entitlements.resolved().grantsPro(at: now())
+    hadPro = hasPro
+    alreadyHasPro = hasPro
     await telemetry.record("commerce.paywall.viewed")
+    await loadPlans()
+  }
+
+  /// The plan that is selected, once the plans have loaded.
+  public var selectedPlan: PlanOffer? {
+    guard case .loaded(let offers) = plans else { return nil }
+    return offers.first { $0.id == selectedPlanID }
+  }
+
+  /// What the annual plan saves against paying weekly for a year, from the App Store's two prices;
+  /// `nil` until both plans have loaded, and when the annual plan saves nothing.
+  public var yearlySaving: YearlySaving? {
+    guard case .loaded(let offers) = plans, let weekly = offers.first(where: { $0.term == .week }),
+      let yearly = offers.first(where: { $0.term == .year })
+    else { return nil }
+    return YearlySaving(weeklyPrice: weekly.price, yearlyPrice: yearly.price)
+  }
+
+  /// Asks the App Store for the plans again, after they could not be loaded.
+  public func retry() async {
+    guard plans == .unavailable else { return }
+    await loadPlans()
+  }
+
+  /// The person chose a plan.
+  public func select(_ planID: String) async {
+    guard case .loaded(let offers) = plans, offers.contains(where: { $0.id == planID }), planID != selectedPlanID
+    else { return }
+    selectedPlanID = planID
+    await telemetry.record("commerce.plan.selected")
+  }
+
+  /// Asks the App Store to sell the selected plan, and acts on how that ends.
+  ///
+  /// The App Store confirms the purchase in its own sheet. A purchase that succeeds is read back
+  /// as an entitlement, and it is the entitlement that leads to the confirmation.
+  public func purchase() async {
+    guard phase == .offer, !alreadyHasPro, !isPurchasing, let planID = selectedPlanID else { return }
+    isPurchasing = true
+    defer { isPurchasing = false }
+    await telemetry.record("commerce.purchase.started")
+    switch await offering.purchase(planID) {
+    case .purchased:
+      await entitlements.refresh()
+      await entitlementChanged()
+    case .pending:
+      notice = .pending
+    case .cancelled:
+      break
+    case .failed:
+      notice = .failed
+      await telemetry.record("commerce.purchase.failed")
+    }
+  }
+
+  private func loadPlans() async {
+    plans = .loading
+    guard let offers = await offering.plans(for: productIDs), !offers.isEmpty else {
+      plans = .unavailable
+      return
+    }
+    plans = .loaded(offers)
+    // The annual plan is the recommended one; it stays selected across a reload when still on offer.
+    if !offers.contains(where: { $0.id == selectedPlanID }) {
+      selectedPlanID = (offers.first { $0.term == .year } ?? offers[0]).id
+    }
   }
 
   /// The entitlement changed while the presentation was up.

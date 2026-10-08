@@ -1,6 +1,56 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@ free" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ d’essai gratuit"
+          }
+        }
+      }
+    },
+    "%@ free. %@ due today, then %@ per week." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ d’essai gratuit. %2$@ à payer aujourd’hui, puis %3$@ par semaine."
+          }
+        }
+      }
+    },
+    "%@ free. %@ due today, then %@ per year." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ d’essai gratuit. %2$@ à payer aujourd’hui, puis %3$@ par an."
+          }
+        }
+      }
+    },
+    "%@ per week" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ par semaine"
+          }
+        }
+      }
+    },
+    "%@ per year" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ par an"
+          }
+        }
+      }
+    },
     "Best Value" : {
       "localizations" : {
         "fr" : {
@@ -21,12 +71,42 @@
         }
       }
     },
+    "Check your connection and try again." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vérifiez votre connexion, puis réessayez."
+          }
+        }
+      }
+    },
+    "Choose a plan" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisissez une formule"
+          }
+        }
+      }
+    },
     "Close" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Fermer"
+          }
+        }
+      }
+    },
+    "Continue" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continuer"
           }
         }
       }
@@ -81,6 +161,16 @@
         }
       }
     },
+    "Loading plans" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chargement des formules"
+          }
+        }
+      }
+    },
     "Manage subscription" : {
       "localizations" : {
         "fr" : {
@@ -97,6 +187,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Rien n’a pu être restauré. Vérifiez que vous êtes connecté à l’App Store avec le compte qui a acheté Pro."
+          }
+        }
+      }
+    },
+    "Nothing has been charged. You can try again." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rien n’a été débité. Vous pouvez réessayer."
           }
         }
       }
@@ -141,22 +241,22 @@
         }
       }
     },
+    "Privacy" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confidentialité"
+          }
+        }
+      }
+    },
     "Pro" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Pro"
-          }
-        }
-      }
-    },
-    "Pro Yearly: save %@ compared to paying weekly." : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pro annuel : économisez %@ par rapport à la formule hebdomadaire."
           }
         }
       }
@@ -211,12 +311,32 @@
         }
       }
     },
+    "Renews automatically until cancelled. Cancel at any time in Settings, under your Apple Account, at least a day before it renews." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Renouvellement automatique jusqu’à résiliation. Résiliez à tout moment dans Réglages, sous votre compte Apple, au moins un jour avant le renouvellement."
+          }
+        }
+      }
+    },
     "Restore purchases" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Restaurer les achats"
+          }
+        }
+      }
+    },
+    "Save %@" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Économisez %@"
           }
         }
       }
@@ -241,6 +361,26 @@
         }
       }
     },
+    "Start free trial" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Commencer l’essai gratuit"
+          }
+        }
+      }
+    },
+    "Subscribe" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "S’abonner"
+          }
+        }
+      }
+    },
     "Subscription" : {
       "localizations" : {
         "fr" : {
@@ -261,12 +401,12 @@
         }
       }
     },
-    "That’s %@ saved per year." : {
+    "Terms" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Soit %@ d’économie par an."
+            "value" : "Conditions"
           }
         }
       }
@@ -281,12 +421,62 @@
         }
       }
     },
+    "The plans can’t be loaded" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible de charger les formules"
+          }
+        }
+      }
+    },
+    "The purchase didn’t go through" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L’achat n’a pas abouti"
+          }
+        }
+      }
+    },
+    "The purchase will complete when it is approved. Nothing has been charged." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L’achat se terminera une fois approuvé. Rien n’a été débité."
+          }
+        }
+      }
+    },
+    "This Apple Account already has Pro." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce compte Apple a déjà Pro."
+          }
+        }
+      }
+    },
     "This needs Pro" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cette fonction fait partie de Pro"
+          }
+        }
+      }
+    },
+    "Try again" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Réessayer"
           }
         }
       }
@@ -317,6 +507,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Numérisations illimitées"
+          }
+        }
+      }
+    },
+    "Waiting for approval" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En attente d’approbation"
           }
         }
       }

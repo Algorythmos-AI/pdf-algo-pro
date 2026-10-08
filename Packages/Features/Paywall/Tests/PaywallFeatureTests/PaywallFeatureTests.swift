@@ -23,16 +23,21 @@ private final class Flags {
 @Suite("The subscription offer")
 struct PaywallModelTests {
   private func makeModel(
-    _ entitlement: Entitlement = .none, trigger: PaywallTrigger = .onboarding
+    _ entitlement: Entitlement = .none, trigger: PaywallTrigger = .onboarding,
+    plans: [PlanOffer]? = FixedStoreOffering.fixturePlans(), outcome: PurchaseOutcome = .purchased
   ) -> (PaywallModel, FakeEntitlements, EntitlementStore, RecordingTelemetry, Flags) {
     let fake = FakeEntitlements(entitlement)
+    // A purchase that succeeds grants what the App Store would: a trial where the plan has one.
+    let offering = FixedStoreOffering(plans: plans, outcome: outcome) { plan in
+      fake.set(plan.trial == nil ? .subscribed : .trial(endsAt: now.addingTimeInterval(3 * day)))
+    }
     let store = EntitlementStore(provider: fake) { now }
     let telemetry = RecordingTelemetry()
     let flags = Flags()
     let model = PaywallModel(
       trigger: trigger, productIDs: ["yearly", "weekly"], benefits: [.unlimitedScans, .unlimitedIntelligence],
       termsOfUse: URL(fileURLWithPath: "/terms"), privacyPolicy: URL(fileURLWithPath: "/privacy"),
-      entitlements: store, telemetry: telemetry, now: { now },
+      offering: offering, entitlements: store, telemetry: telemetry, now: { now },
       setReminder: { isOn, date in
         flags.reminders.append((isOn, date))
         return isOn && flags.reminderAnswer
@@ -189,6 +194,121 @@ struct PaywallModelTests {
     #expect(SubscriptionSection.event(answered: true, hadPro: false, hasPro: false) == nil)
   }
 
+  @Test("The plans load when the offer appears, with the annual plan selected")
+  func plansLoad() async {
+    let (model, _, _, _, _) = makeModel()
+    #expect(model.plans == .loading && model.selectedPlan == nil)
+    await model.appeared()
+    #expect(model.plans == .loaded(FixedStoreOffering.fixturePlans()))
+    #expect(model.selectedPlan?.term == .year && !model.alreadyHasPro)
+    #expect(model.yearlySaving?.percent == 61, "52 weeks at 1 against 20: 32 of 52, rounded down")
+  }
+
+  @Test("Choosing a plan selects it and is recorded once; choosing it again, or an unknown one, is not")
+  func selection() async {
+    let (model, _, _, telemetry, _) = makeModel()
+    await model.appeared()
+    await model.select("weekly")
+    #expect(model.selectedPlan?.term == .week)
+    await model.select("weekly")
+    await model.select("nothing")
+    #expect(model.selectedPlan?.term == .week)
+    await model.select("yearly")
+    #expect(model.selectedPlan?.term == .year)
+    #expect(
+      await telemetry.events == ["commerce.paywall.viewed", "commerce.plan.selected", "commerce.plan.selected"])
+  }
+
+  @Test("Without plans the offer says so, sells nothing, and asks again on Retry")
+  func unavailable() async {
+    let (model, _, _, telemetry, _) = makeModel(plans: nil)
+    await model.appeared()
+    #expect(model.plans == .unavailable && model.selectedPlan == nil && model.yearlySaving == nil)
+    await model.purchase()
+    await model.retry()
+    #expect(model.plans == .unavailable && model.phase == .offer)
+    #expect(await telemetry.events == ["commerce.paywall.viewed"], "Nothing was started")
+  }
+
+  @Test("Buying the annual plan with its trial leads to the confirmation as a trial (case A)")
+  func buyWithTrial() async {
+    let (model, _, _, telemetry, _) = makeModel()
+    await model.appeared()
+    #expect(model.selectedPlan?.trial == TrialOffer(length: 3, unit: .day))
+    await model.purchase()
+    #expect(model.phase == .welcome && model.trialEndsAt != nil && !model.isPurchasing)
+    #expect(
+      await telemetry.events == ["commerce.paywall.viewed", "commerce.purchase.started", "commerce.trial.started"])
+  }
+
+  @Test("Where the account has no trial to take, none is offered and the purchase is a purchase (cases B and C)")
+  func buyWithoutTrial() async {
+    let (model, _, _, telemetry, _) = makeModel(plans: FixedStoreOffering.fixturePlans(trial: nil))
+    await model.appeared()
+    #expect(model.selectedPlan?.trial == nil)
+    await model.purchase()
+    #expect(model.phase == .welcome && model.trialEndsAt == nil)
+    #expect(
+      await telemetry.events == [
+        "commerce.paywall.viewed", "commerce.purchase.started", "commerce.purchase.completed",
+      ])
+  }
+
+  @Test("Buying the weekly plan, once chosen, is a purchase without a trial")
+  func buyWeekly() async {
+    let (model, _, _, _, _) = makeModel()
+    await model.appeared()
+    await model.select("weekly")
+    await model.purchase()
+    #expect(model.phase == .welcome && model.trialEndsAt == nil)
+  }
+
+  @Test("A cancelled purchase leaves the offer as it was, with nothing to tell")
+  func cancelled() async {
+    let (model, _, _, telemetry, _) = makeModel(outcome: .cancelled)
+    await model.appeared()
+    await model.purchase()
+    #expect(model.phase == .offer && model.notice == nil && !model.isPurchasing && !model.grantsPro)
+    #expect(await telemetry.events == ["commerce.paywall.viewed", "commerce.purchase.started"])
+  }
+
+  @Test("A pending purchase is explained, and the offer stays")
+  func pending() async {
+    let (model, _, _, telemetry, _) = makeModel(outcome: .pending)
+    await model.appeared()
+    await model.purchase()
+    #expect(model.phase == .offer && model.notice == .pending && !model.grantsPro)
+    #expect(await telemetry.events == ["commerce.paywall.viewed", "commerce.purchase.started"])
+  }
+
+  @Test("A failed purchase is explained and recorded, and can be tried again")
+  func failed() async {
+    let (model, _, _, telemetry, _) = makeModel(outcome: .failed)
+    await model.appeared()
+    await model.purchase()
+    #expect(model.phase == .offer && model.notice == .failed && !model.grantsPro)
+    model.notice = nil
+    await model.purchase()
+    #expect(model.notice == .failed)
+    #expect(
+      await telemetry.events == [
+        "commerce.paywall.viewed", "commerce.purchase.started", "commerce.purchase.failed",
+        "commerce.purchase.started", "commerce.purchase.failed",
+      ])
+  }
+
+  @Test("Someone who has Pro is told so, and the offer sells them nothing")
+  func alreadyProBuysNothing() async {
+    let (model, _, _, telemetry, flags) = makeModel(.subscribed, trigger: .settings)
+    await model.appeared()
+    #expect(model.alreadyHasPro && model.plans == .loaded(FixedStoreOffering.fixturePlans()))
+    await model.purchase()
+    #expect(model.phase == .offer)
+    #expect(await telemetry.events == ["commerce.paywall.viewed"], "No purchase was started")
+    model.close()
+    #expect(flags.closed == 1)
+  }
+
   @Test("Every trigger has a headline and a line under it", arguments: PaywallTrigger.allCases)
   func triggerCopy(trigger: PaywallTrigger) {
     _ = trigger.headline
@@ -210,9 +330,23 @@ struct PaywallModelTests {
       #expect(ImageRenderer(content: header).uiImage != nil)
       #expect(ImageRenderer(content: header.dynamicTypeSize(.accessibility3)).uiImage != nil)
     }
-    #expect(ImageRenderer(content: StoreLinks(onRestore: {}, onRedeem: {}).frame(width: 390)).uiImage != nil)
-    let saving = SavingNote(saving: SavingLine(percent: "10%", amount: "1")).frame(width: 390)
-    #expect(ImageRenderer(content: saving).uiImage != nil)
+    let links = PaywallLinks(
+      termsOfUse: URL(fileURLWithPath: "/terms"), privacyPolicy: URL(fileURLWithPath: "/privacy"), onRestore: {},
+      onRedeem: {})
+    #expect(ImageRenderer(content: links.frame(width: 390)).uiImage != nil)
+    #expect(ImageRenderer(content: links.frame(width: 200)).uiImage != nil)
+    for view in [AnyView(AlreadyProNote()), AnyView(PlansUnavailable {})] {
+      #expect(ImageRenderer(content: view.frame(width: 390)).uiImage != nil)
+    }
+    let offers = FixedStoreOffering.fixturePlans()
+    let saving = YearlySaving(weeklyPrice: offers[1].price, yearlyPrice: offers[0].price)
+    for size in [DynamicTypeSize.large, .accessibility3] {
+      let picker = PlanPicker(offers: offers, selectedID: offers[0].id, saving: saving) { _ in }
+      #expect(ImageRenderer(content: picker.frame(width: 390).dynamicTypeSize(size)).uiImage != nil)
+    }
+    for offer in offers {
+      #expect(ImageRenderer(content: PurchaseTerms(plan: offer).frame(width: 390)).uiImage != nil)
+    }
     for count in 1...PaywallBenefit.allCases.count {
       let tiles = BenefitTiles(benefits: Array(PaywallBenefit.allCases.prefix(count))).frame(width: 390)
       #expect(ImageRenderer(content: tiles).uiImage != nil)
@@ -262,16 +396,6 @@ struct SubscriptionSectionTests {
 @MainActor
 @Suite("The annual plan's saving against paying weekly (PAP-049)")
 struct YearlySavingTests {
-  @Test("A week is a week whether the App Store calls it one week or seven days, and a year likewise")
-  func terms() {
-    #expect(SavingLine.Term(unit: .week, value: 1) == .week)
-    #expect(SavingLine.Term(unit: .day, value: 7) == .week, "As App Store Connect's one-week plan arrives")
-    #expect(SavingLine.Term(unit: .year, value: 1) == .year)
-    #expect(SavingLine.Term(unit: .month, value: 12) == .year)
-    #expect(SavingLine.Term(unit: .month, value: 1) == nil && SavingLine.Term(unit: .day, value: 3) == nil)
-    #expect(SavingLine.Term(unit: .week, value: 2) == nil)
-  }
-
   private func saving(weekly: String, yearly: String) throws -> YearlySaving? {
     YearlySaving(weeklyPrice: try #require(Decimal(string: weekly)), yearlyPrice: try #require(Decimal(string: yearly)))
   }
