@@ -531,10 +531,11 @@ struct TextEditBar: View {
           TextEditField(
             draft: draft, maximumLines: Self.maximumLines, onSubmit: commit,
             onCancel: { if !model.isCommittingTextEdit { model.cancelTextEdit() } },
-            isLocked: model.isCommittingTextEdit)
-            .padding(.horizontal, Spacing.s100)
-            .frame(minHeight: Sizes.targetMinimum)
-            .background(Color.ds.backgroundSecondary, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            isLocked: model.isCommittingTextEdit
+          )
+          .padding(.horizontal, Spacing.s100)
+          .frame(minHeight: Sizes.targetMinimum)
+          .background(Color.ds.backgroundSecondary, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         } else {
           Spacer(minLength: 0)
           if !isDeadEnd { keyboardButton }
