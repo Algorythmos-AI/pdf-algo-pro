@@ -64,6 +64,7 @@ The last ten, newest first; all decisions are in the [decision register](decisio
 
 | ID | Decision |
 |---|---|
+| PAP-055 | Every new Staging build replays first run and the offer without a reinstall; presentation state only, absent from App Store builds; the introduction tells one story with richer pictures |
 | PAP-054 | The offer is the app's own screen over StoreKit 2: plan cards, trial shown only when eligible, every purchase outcome handled (ADR-0027) |
 | PAP-053 | Debug and Staging builds show first run again, once, on each new build; App Store builds never do |
 | PAP-052 | First run and the offer redrawn inside ADR-0026: phone pictures drawn in code, both plans pinned at the foot of the offer, the last page waits up to three seconds for the App Store, and the saving line fixed for the real products |

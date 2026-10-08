@@ -597,26 +597,31 @@ AI answers are the product's differentiator, so their design carries the trust r
 
 ### First-run introduction
 
-Three pages on first launch, one capability each ([PAP-045](decision-register.md),
-[PAP-052](decision-register.md)).
+Three pages on first launch, one benefit each, telling one story: make a PDF, work on it, get more
+from it ([PAP-045](decision-register.md), [PAP-052](decision-register.md),
+[PAP-055](decision-register.md)).
 
-| Page | Shows | Where on-device intelligence is unavailable |
+| Page | Headline | Where on-device intelligence is unavailable |
 |---|---|---|
-| 1 | Scan to PDF | Same |
-| 2 | Sign and mark up | Same |
-| 3 | Ask your document, on this iPhone | Organise and protect (merge, passwords) |
+| 1 | Scan anything to PDF | Same |
+| 2 | Edit, sign and organise | Same |
+| 3 | Ask your documents | Do more with every file (merge, make smaller, find) |
 
 - Each page is a phone drawn in SwiftUI (`DeviceMockup`) showing the app's own screen for that
   capability over a synthetic document, with its lower edge fading into the page; then a Large
   Title headline of at most two lines, one sentence in Body, and one `PrimaryButton` ("Continue")
   in the bottom bar, in the same place on every page. Nothing in the picture is a screenshot, and
-  it carries no words, so it needs no translation. At accessibility text sizes the picture goes.
-- **Skip** is in the toolbar on every page. Pages can be reached with VoiceOver without a swipe
-  gesture, and the page indicator is never the only sign of progress.
+  it carries no words, so it needs no translation. A soft pool of the page's colour sits behind
+  the phone, and three tiles float beside it with the page's tools or results. At accessibility
+  text sizes the picture goes.
+- **Skip** is in the toolbar on every page. A swipe turns the page forwards and back; "Continue"
+  does the same for everyone, so no page needs a gesture, and only "Continue" on the last page
+  ends the introduction. The page indicator is never the only sign of progress.
 - Which third page shows is decided before it is on screen; it never changes while shown.
 - Pages name only what the installed build does (FR-ONB-007), and no permission is asked here.
-- Motion goes through `Motion`: the scan line sweeps and the signature draws itself once. With
-  Reduce Motion, and in UI tests, the pictures are still.
+- Motion goes through `Motion`: a new page enters from the side the person is moving towards, the
+  tiles arrive one after another, the scan line sweeps and the signature draws itself once. With
+  Reduce Motion, and in UI tests, the pictures are still and pages change at once.
 - After the last page, or Skip, first run is marked complete, then the subscription offer may show
   once (see Paywall); closing it leads to Home. While the App Store has not yet said whether the
   plans can be shown, the page waits up to three seconds with a spinner in place of "Continue".

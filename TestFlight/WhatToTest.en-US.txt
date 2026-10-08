@@ -1,9 +1,10 @@
 Internal build of PDF Algo Pro (Staging). Use test documents, not real ones. Please try:
 
 First run and plans (new)
-- A new build opens on the introduction once. To see it again: Settings > Internal testing > "Show first run again", with "Pro without a purchase" off.
-- Three pages with a picture each, then the plans: yearly first with its free trial, weekly beside it. Close leads to Home.
-- Start the yearly trial (TestFlight charges nothing): "Welcome to Pro" follows. Try Restore purchases.
+- Every new build opens on the introduction by itself, then the plans. Nothing to reinstall.
+- Swipe or tap Continue through three pages. On the plans, tap Weekly then Yearly: the price line and the button follow.
+- Start the yearly trial (nothing is charged in TestFlight): Apple's sheet, then "Welcome to Pro". Also try closing Apple's sheet, and Restore purchases.
+- If the plans say this Apple Account already has Pro, that is correct: tap Continue.
 
 Home, Settings and About
 - The app now opens on Home. Tap Import and Scan, open a document under Continue reading, then go back.
