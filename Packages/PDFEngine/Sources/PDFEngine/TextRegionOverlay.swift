@@ -215,7 +215,13 @@
         return
       }
       let rect = selection.region.bounds
-      if !bounds.contains(convert(rect, from: page)) {
+      if !bounds.contains(convert(rect, from: page)), !page.rotation.isMultiple(of: 360) {
+        // On a turned page, up the page is not up the screen, and the place worked out below would
+        // scroll the wrong way; PDFKit turns the line's box itself.
+        go(to: rect, on: page)
+        layoutIfNeeded()
+        textOverlays.offsetSetByEditor = pageScroller?.contentOffset
+      } else if !bounds.contains(convert(rect, from: page)) {
         let box = page.bounds(for: displayBox)
         let zoom = max(scaleFactor, .leastNonzeroMagnitude)
         let top = min(box.maxY, rect.maxY + bounds.height / zoom * TextEditPlacement.lineDepth)
@@ -246,16 +252,35 @@
           }
         #endif
       } else {
-        textOverlays.anchorLink?.invalidate()
-        textOverlays.anchorLink = nil
-        textOverlays.columnMaxX = nil
-        #if DEBUG
-          textOverlays.touchLog?.stop()
-          textOverlays.touchLog = nil
-        #endif
+        stopFollowingPickedText()
         restorePlaceAfterEditing()
       }
       publishTextEditAnchor()
+    }
+
+    /// Stops following the picked line on each frame.
+    private func stopFollowingPickedText() {
+      textOverlays.anchorLink?.invalidate()
+      textOverlays.anchorLink = nil
+      textOverlays.columnMaxX = nil
+      #if DEBUG
+        textOverlays.touchLog?.stop()
+        textOverlays.touchLog = nil
+      #endif
+    }
+
+    /// Lets go of a line picked in the document this view showed before another controller's.
+    ///
+    /// Nothing else would: the old controller no longer reaches this view, so its text is never let
+    /// go of here, and the link would go on following a line on a page that is gone, and the room
+    /// made under that document's last page would stay under the new one's. The place is not put
+    /// back: it was a place in the other document.
+    func forgetPickedText() {
+      stopFollowingPickedText()
+      if let inset = textOverlays.insetBeforeEditing { pageScroller?.contentInset = inset }
+      textOverlays.insetBeforeEditing = nil
+      textOverlays.placeBeforeEditing = nil
+      textOverlays.offsetSetByEditor = nil
     }
 
     /// Takes away the room the editor made under the last page, and puts the page back where it was
@@ -301,7 +326,7 @@
       let column = CGRect(x: line.minX, y: line.minY, width: columnRight - line.minX, height: line.height)
       let anchor = TextEditAnchor(
         selection: selection, lineFrame: convert(line, from: page), columnFrame: convert(column, from: page),
-        scale: scaleFactor)
+        scale: scaleFactor, isPageTurned: !page.rotation.isMultiple(of: 360))
       if controller.textEditAnchor != anchor { controller.textEditAnchor = anchor }
     }
 
@@ -404,6 +429,8 @@
         link.invalidate()
         return
       }
+      // Off screen there is no line to follow; the link costs nothing until the view is back.
+      guard host.window != nil else { return }
       host.publishTextEditAnchor()
     }
   }

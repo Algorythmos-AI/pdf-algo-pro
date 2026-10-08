@@ -1261,7 +1261,23 @@ struct ReaderTextEditingTests {
     let line = CGRect(x: 40, y: 200, width: 200, height: 6)
     let tiny = TextEditAnchor(selection: selection, lineFrame: line, columnFrame: line, scale: 1)
     #expect(TextEditLayer.fitsInPlace(selection, anchor: tiny))
+    // On a turned page the line's frame is on its side: the field goes in the bar.
+    let turned = TextEditAnchor(selection: selection, lineFrame: line, columnFrame: line, scale: 1, isPageTurned: true)
+    #expect(!TextEditLayer.fitsInPlace(selection, anchor: turned))
     #expect(!TextEditLayer.isLight(selection.region))
+    // The cover is the one the text has more contrast against (WCAG 2): a mid grey that the raw
+    // values called dark is light, and gets a black cover.
+    func region(grey: Double) -> EditableTextRegion {
+      let old = selection.region
+      let style = TextStyle(
+        fontName: old.style.fontName, pointSize: old.style.pointSize, isBold: false, isItalic: false,
+        isMonospaced: false, color: TextColor(grey, grey, grey))
+      return EditableTextRegion(
+        id: old.id, text: old.text, bounds: old.bounds, angle: 0, style: style, capability: old.capability)
+    }
+    #expect(TextEditLayer.isLight(region(grey: 0.55)))
+    #expect(TextEditLayer.isLight(region(grey: 1)))
+    #expect(!TextEditLayer.isLight(region(grey: 0.4)))
     #expect(TextEditLayer.font(for: selection.region, scale: 1.5).fontName == "Georgia")
     #expect(TextEditLayer.color(for: selection.region).cgColor.components?.prefix(3).allSatisfy { $0 < 0.01 } == true)
     for message in [

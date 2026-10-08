@@ -87,12 +87,18 @@ public struct TextEditAnchor: Equatable, Sendable {
   public var columnFrame: CGRect
   /// View points per page point.
   public var scale: CGFloat
+  /// Whether the page is shown turned (its `/Rotate`), so that text upright on the page is not
+  /// upright on screen and the frames above are the line turned on its side.
+  public var isPageTurned: Bool
 
   /// Creates an anchor.
-  public init(selection: TextRegionSelection, lineFrame: CGRect, columnFrame: CGRect, scale: CGFloat) {
+  public init(
+    selection: TextRegionSelection, lineFrame: CGRect, columnFrame: CGRect, scale: CGFloat, isPageTurned: Bool = false
+  ) {
     self.selection = selection
     self.lineFrame = lineFrame
     self.columnFrame = columnFrame
     self.scale = scale
+    self.isPageTurned = isPageTurned
   }
 }

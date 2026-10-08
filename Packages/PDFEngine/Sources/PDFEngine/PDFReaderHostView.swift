@@ -114,6 +114,7 @@ final class PDFReaderHostView: PDFView {
     if let previous = self.controller {
       #if canImport(UIKit)
         if previous.isEditingText { setEditingText(false) }
+        forgetPickedText()
       #endif
       previous.detach(self)
     }

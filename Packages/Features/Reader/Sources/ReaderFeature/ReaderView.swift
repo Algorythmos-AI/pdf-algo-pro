@@ -263,6 +263,7 @@ public struct ReaderView<Assistant: View>: View {
       .onChange(of: model.selectedTextRegion) { _, selection in
         // The editor starts from the text as it is; what to say about it is worked out once.
         textDraft.text = selection?.region.text ?? ""
+        textDraft.isTyping = false
         // Where it is typed is decided once, here: the page view has already zoomed and scrolled to
         // the text and said where it is (`textEditAnchor`), before this runs.
         textDraft.isInPlace = selection.map {

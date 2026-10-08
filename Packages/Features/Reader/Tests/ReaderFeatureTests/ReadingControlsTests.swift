@@ -137,6 +137,27 @@ struct ReadingControlsTests {
     return (controller, view, scroller)
   }
 
+  @Test("Showing another document lets go of the line picked in the last one")
+  func anotherDocumentLetsGoOfTheLine() async throws {
+    let (_, view, scroller) = try await editingInvoice()
+    let inset = scroller.contentInset
+    // Far past the end of the page, so room is made under it.
+    view.scrollPickedText(by: 2000, animated: false)
+    #expect(view.textOverlays.anchorLink != nil, "The line is not being followed")
+    #expect(view.textOverlays.insetBeforeEditing != nil, "No room was made under the page")
+
+    let url = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).pdf")
+    try SyntheticPDF.make(pages: ["Other"]).write(to: url)
+    let other = try PDFDocumentController(url: url)
+    view.configure(for: other)
+    view.layoutIfNeeded()
+    #expect(view.textOverlays.anchorLink == nil, "The link went on following a line in the last document")
+    #expect(view.textOverlays.insetBeforeEditing == nil)
+    #expect(view.textOverlays.placeBeforeEditing == nil)
+    #expect(scroller.contentInset.bottom <= inset.bottom + 0.5, "The room made for the last document stayed")
+    #expect(other.textEditAnchor == nil)
+  }
+
   @Test("A page the person moved while editing stays where they took it when the text is let go of")
   func personsPlaceIsKept() async throws {
     let (controller, view, scroller) = try await editingInvoice()

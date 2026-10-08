@@ -24,6 +24,11 @@ Store notes (see the changelog strategy).
   as in Notes. Before, it was pulled back to the line under your finger, so it felt locked. Typing
   brings the caret back into view, a keyboard button in the bar puts the keyboard away and brings
   it back, and the page returns to where it was when you finish, unless you moved it yourself.
+- Editing text (internal builds): Done can no longer be undone halfway. While the change is being
+  made, Cancel is disabled and typing is held. Words still being composed in Chinese, Japanese or
+  Korean are accepted before the change, pasted text with line breaks no longer finishes the edit,
+  Escape on a keyboard cancels, and text on a turned page is edited in the bar. Light grey text now
+  gets a dark field to be typed on.
 - Scanning: the hidden text of a scanned page now sits exactly over the printed words. Before,
   it could be narrower or wider than the line, so a selection did not match what you dragged
   over, and a long line squeezed into a narrow space could be found only in pieces.

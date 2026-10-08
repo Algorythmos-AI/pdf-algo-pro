@@ -227,6 +227,22 @@ tested for every supported screen size, both orientations and three keyboard hei
 7. **Leaving.** When the text is let go of, the room under the last page is taken away, and the
    page goes back to where it was before the line was picked if only the editor moved it. Where the
    person scrolled or zoomed while editing, the page stays where they took it.
+8. **Done and Return.** Done in the bar and Return in either field finish the text the same way
+   (`TextEditCommit`). Words an input method is still composing (Pinyin, kana, Hangul) are
+   accepted first, so the raw letters are never put on the page. While the edit is being made,
+   typing is held and Cancel is disabled: either would be lost when the field closes, and the page
+   would still change. Only a single line break is Return; line breaks inside pasted or dictated
+   text become spaces, so a paste never finishes the edit by itself. Escape on a hardware keyboard
+   is Cancel, except while an input method is composing.
+9. **Turned pages.** Text on a page shown turned (its `/Rotate`) is upright on the page but not on
+   screen, so its field goes in the bar (`TextEditAnchor.isPageTurned`), and the page is brought to
+   the line by PDFKit, which turns the line's box itself.
+10. **Another document.** When the page view is given another document's controller, it stops
+    following the old line and takes away the room it made under the old document's last page.
+    Off screen, the frame-by-frame follow does nothing.
+
+The cover behind the field is black or white, whichever the text has more contrast against
+(WCAG 2 relative luminance). Cancel, Done and the keyboard button meet the minimum touch target.
 
 This replaces an editor that zoomed small print in, held the page still and moved itself above the
 keyboard, away from its line: the page's own lines ran off the screen and the editor lay over other
@@ -472,6 +488,14 @@ From TestFlight feedback on 2026-10-06 (a letter laid out in frames, on an iPhon
   shortened to its newest half.
 - **Accessibility tags.** PDFKit does not carry a tagged PDF's structure through any save, with or
   without an edit.
+- **Found by code review, not yet fixed or reproduced (2026-10-08).** The field wraps to the
+  width of the page's text, but the engine may still refuse a replacement as too long when Done is
+  tapped; the text typed is kept. Picking text that was covered before shows the old words, and a
+  second change stacks another cover. An empty replacement is refused with the message about
+  characters that cannot be used. The spoken "Text changed" is said when the edit is made, before
+  the file is saved. Suspected, not shown: a crop box offset from the media box, baseline drift
+  with substituted fonts, horizontal scaling (`Tz`) left out of the fit, and the floating iPad
+  keyboard. Scanned pages have no editing path; they offer recognition only.
 - **File size.** Each edited page gains a font subset (about 9 kB in the spike's invoice); further
   edits to the same page add a few hundred bytes.
 
