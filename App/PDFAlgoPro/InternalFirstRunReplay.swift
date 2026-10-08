@@ -2,7 +2,7 @@
   import Core
   import Foundation
 
-  /// Shows the whole first-run journey again on every new internal build (PAP-053, PAP-055).
+  /// Shows the whole first-run journey again on every new internal build (PAP-053, PAP-057).
   ///
   /// A TestFlight update keeps the app's settings, so without this an install that finished first run
   /// on one build opens every later build on Home, and the introduction and the subscription offer

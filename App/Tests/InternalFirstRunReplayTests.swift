@@ -6,7 +6,7 @@ import Testing
 @testable import PDFAlgoPro
 
 /// Every new internal build replays first run, the offer included, without touching purchases
-/// (PAP-053, PAP-055). The app under test is a Debug build, which has the replay.
+/// (PAP-053, PAP-057). The app under test is a Debug build, which has the replay.
 // Inside the App suite, which is serialised: every `AppModel` attaches the one App Intents router.
 extension AppTests {
   @MainActor

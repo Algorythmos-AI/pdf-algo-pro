@@ -299,6 +299,8 @@ struct PlansUnavailable: View {
     }
     .multilineTextAlignment(.center)
     .frame(maxWidth: .infinity)
+    // A container of its own, so that its name does not replace the button's.
+    .accessibilityElement(children: .contain)
     .accessibilityIdentifier("paywall.unavailable")
   }
 }

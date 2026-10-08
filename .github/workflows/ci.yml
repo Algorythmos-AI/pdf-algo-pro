@@ -219,7 +219,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
       - name: The App Store build contains no internal tools (Release binary)
         # The Staging first-run replay and the internal testing section are compiled only where
-        # INTERNAL_TOOLS is defined (PAP-055). This builds the Release configuration and looks in
+        # INTERNAL_TOOLS is defined (PAP-057). This builds the Release configuration and looks in
         # the binary; the Staging binary built above is the control that the search can find them.
         run: |
           marker='internal\.firstRun\.build'
@@ -235,7 +235,7 @@ jobs:
             echo "::error::The Staging binary no longer shows the replay's marker; this check has gone blind"; exit 1
           fi
           if strings -a "$(executable "$release")" | grep -E "$marker|InternalFirstRunReplay|Internal testing"; then
-            echo "::error::The Release binary contains internal tools; they must not ship (PAP-055)"; exit 1
+            echo "::error::The Release binary contains internal tools; they must not ship (PAP-057)"; exit 1
           fi
           echo "Release binary is free of the internal tools; the Staging binary has them."
       - name: Tests (unit, UI, accessibility audit, snapshots)

@@ -120,7 +120,7 @@ Two environments, which answer different questions and are never reported as one
 ### Every Staging build, on the iPhone
 
 Each new Staging build opens on first run by itself, with no reinstall: the three introduction
-pages, then the offer, whatever the account is entitled to (PAP-053, PAP-055). The build counts as
+pages, then the offer, whatever the account is entitled to (PAP-053, PAP-057). The build counts as
 done once the offer is closed or a purchase has led to the app; until then every launch starts the
 journey again. Settings › Internal testing can show it at any time, and can reset it for the next
 launch.

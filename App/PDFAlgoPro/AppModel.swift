@@ -70,7 +70,7 @@ final class AppModel {
   init(container: AppContainer) {
     self.container = container
     #if INTERNAL_TOOLS
-      // A new internal build replays first run, the offer included (PAP-053, PAP-055). A UI test has
+      // A new internal build replays first run, the offer included (PAP-053, PAP-057). A UI test has
       // a replay only when it names the build it is pretending to be.
       if let replay = Self.firstRunReplay(container) {
         isReplayingFirstRun = replay.begin(with: container.settings)

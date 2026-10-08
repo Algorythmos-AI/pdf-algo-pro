@@ -599,7 +599,7 @@ AI answers are the product's differentiator, so their design carries the trust r
 
 Three pages on first launch, one benefit each, telling one story: make a PDF, work on it, get more
 from it ([PAP-045](decision-register.md), [PAP-052](decision-register.md),
-[PAP-055](decision-register.md)).
+[PAP-057](decision-register.md)).
 
 | Page | Headline | Where on-device intelligence is unavailable |
 |---|---|---|
@@ -662,7 +662,7 @@ home screen and the order of tools; it never gates anything.
 ### Paywall
 
 - The app's own screen over StoreKit 2 ([ADR-0027](adr/0027-own-paywall-over-storekit-2.md),
-  [PAP-054](decision-register.md)). It answers three questions in order: what do I get, why is it
+  [PAP-056](decision-register.md)). It answers three questions in order: what do I get, why is it
   worth it, what am I paying.
 - **Layout.** Scrolling: the headline in the brand tint, one line under it, the scanning picture
   (`DeviceMockup`, gone at accessibility text sizes), what Pro adds, and the promise that documents

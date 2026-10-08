@@ -25,7 +25,7 @@ final class OnboardingUITests: UITestCase {
     XCTAssertTrue(app.buttons["library.home.sample"].exists, "The introduction ends on Home")
   }
 
-  /// Every new internal build replays the journey, with no reinstall (PAP-055): the same install is
+  /// Every new internal build replays the journey, with no reinstall (PAP-057): the same install is
   /// opened as build 24, as build 24 again, and as build 25.
   func testANewBuildReplaysFirstRunAndTheOfferWithoutReinstalling() throws {
     let install = ["-keep-state", UUID().uuidString]
