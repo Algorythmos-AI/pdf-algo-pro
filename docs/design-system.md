@@ -599,7 +599,7 @@ AI answers are the product's differentiator, so their design carries the trust r
 
 Three pages on first launch, one benefit each, telling one story: make a PDF, work on it, get more
 from it ([PAP-045](decision-register.md), [PAP-052](decision-register.md),
-[PAP-057](decision-register.md)).
+[PAP-060](decision-register.md)).
 
 | Page | Headline | Where on-device intelligence is unavailable |
 |---|---|---|

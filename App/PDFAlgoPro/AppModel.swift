@@ -70,7 +70,7 @@ final class AppModel {
   init(container: AppContainer) {
     self.container = container
     #if INTERNAL_TOOLS
-      // A new internal build replays first run, the offer included (PAP-053, PAP-057). A UI test has
+      // A new internal build replays first run, the offer included (PAP-053, PAP-060). A UI test has
       // a replay only when it names the build it is pretending to be.
       if let replay = Self.firstRunReplay(container) {
         isReplayingFirstRun = replay.begin(with: container.settings)
@@ -90,7 +90,8 @@ final class AppModel {
     }
     library = LibraryModel(
       library: container.library, intake: container.intake, index: container.index, settings: container.settings,
-      telemetry: container.telemetry, thumbnails: container.thumbnails)
+      telemetry: container.telemetry, thumbnails: container.thumbnails,
+      offersDragging: AppTextEditingAccess.isInternalBuild || ReleaseFlag.documentDragging.compiledDefault)
     IntentRouter.shared.attach(
       library: container.library, intelligence: container.meteredIntelligence, index: container.index
     ) { [weak self] route in self?.navigate(to: route) }

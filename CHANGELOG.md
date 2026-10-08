@@ -32,6 +32,8 @@ Store notes (see the changelog strategy).
   could only follow whole lines loosely.
 - Search (internal builds): a word also finds its simpler form, so "invoices" finds "invoice" and
   "paid" finds "pay". The assistant uses the same idea to pick the pages a question is about.
+- Library (internal builds): press and hold a document and drag it into another app, such as
+  Mail or Files, to put a copy of the PDF there.
 - Reading (internal builds): a strip of small pages along the bottom of a document. Tap a small
   page to go to it; the strip steps aside while you edit or mark up, and Layout › Page strip
   puts it away.

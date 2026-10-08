@@ -205,7 +205,7 @@ def internal_tools_config_problems(project: str) -> list[str]:
         if owner not in INTERNAL_CONFIGS:
             problems.append(
                 f"project.yml:{index + 1}: INTERNAL_TOOLS is defined under '{owner}'; only the Debug and Staging "
-                "configurations may define it, so an App Store build never contains the internal tools (PAP-057)")
+                "configurations may define it, so an App Store build never contains the internal tools (PAP-060)")
     return problems
 
 
@@ -244,7 +244,7 @@ def main() -> int:
                 for no in outside_internal_tools(text):
                     errors.append(
                         f"{rel}:{no}: the Staging first-run replay is named outside `#if INTERNAL_TOOLS`; "
-                        "an App Store build must not compile it (PAP-057)")
+                        "an App Store build must not compile it (PAP-060)")
                 for category, pattern in REQUIRED_REASON.items():
                     if pattern.search(text):
                         used_categories.add(category)
