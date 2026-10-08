@@ -124,8 +124,10 @@ extension AppTests {
       check(await offer(app(["-skip-onboarding", "-entitlement", "subscribed"])))
     }
 
-    /// The confirmation after a purchase. Without a trial, so that no date is in the picture: a
-    /// trial's end is three days from the day the test runs.
+    /// The confirmation after a purchase.
+    ///
+    /// Without a trial, so that no date is in the picture: a trial's end is three days from the day
+    /// the test runs.
     @Test func welcome() async {
       check(await offer(app(["-skip-onboarding", "-trial", "none"]), buying: true))
     }
