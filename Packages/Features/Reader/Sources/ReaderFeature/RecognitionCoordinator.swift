@@ -127,7 +127,8 @@ public final class RecognitionCoordinator {
       let previous = try await library.previousVersionURL(for: id)
       let version = try FileVersion(url)
       var done: [Int: [RecognizedLine]] = [:]
-      if await checkpoints.version(of: id) == version {
+      // Pages kept by an earlier version of the app are recognised again, not mixed with new ones.
+      if await checkpoints.version(of: id) == version, await checkpoints.isCurrentFormat(id) {
         done = await checkpoints.pages(of: id)
       } else {
         try await checkpoints.begin(id, version: version)
@@ -194,6 +195,16 @@ actor RecognitionCheckpoints {
     remove(id)
     try FileManager.default.createDirectory(at: folder(of: id), withIntermediateDirectories: true)
     try JSONEncoder().encode(version).write(to: folder(of: id).appendingPathComponent("version.json"))
+    try JSONEncoder().encode(Self.format).write(to: folder(of: id).appendingPathComponent("format.json"))
+  }
+
+  /// The shape of what a checkpoint keeps: 2 since lines can carry their words.
+  static let format = 2
+
+  /// Whether a document's checkpoint was written in the shape this version writes.
+  func isCurrentFormat(_ id: DocumentID) -> Bool {
+    (try? Data(contentsOf: folder(of: id).appendingPathComponent("format.json")))
+      .flatMap { try? JSONDecoder().decode(Int.self, from: $0) } == Self.format
   }
 
   /// The file version a document's checkpoint started from, if it has one.

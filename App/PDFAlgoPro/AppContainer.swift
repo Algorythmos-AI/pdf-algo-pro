@@ -177,6 +177,13 @@ final class AppContainer {
     #endif
     return ContentStreamTextEditor()
   }
+  /// What recognises text in scans: the wider set of languages with words in internal builds, and
+  /// English and French as before in a Release build until `ReleaseFlag.widerRecognition` is on.
+  static var recognizer: VisionTextRecognizer {
+    AppTextEditingAccess.isInternalBuild || ReleaseFlag.widerRecognition.compiledDefault
+      ? .wider : VisionTextRecognizer()
+  }
+
   /// Whether the reader's newer controls are part of this build: on in internal builds, the
   /// compiled default (off) in a Release build, and whatever a UI test asks for.
   var offersReadingControls: Bool {
@@ -222,7 +229,7 @@ final class AppContainer {
     #else
       intelligence = IntelligenceRouter(models: [OnDeviceModel()], isHidden: isHidden, activity: activity)
     #endif
-    builder = SearchablePDFBuilder(recognizer: VisionTextRecognizer())
+    builder = SearchablePDFBuilder(recognizer: Self.recognizer)
     telemetry = LocalTelemetry()
     // Recognition a person starts can go on with its progress in a Live Activity (P8b). The identifier
     // family is declared in Info.plist (BGTaskSchedulerPermittedIdentifiers).
