@@ -306,6 +306,7 @@
       }
     },
     "Changes since the last save are replaced. You can switch back the same way." : {
+      "extractionState" : "stale",
       "localizations" : {
         "fr" : {
           "stringUnit" : {
@@ -802,6 +803,16 @@
         }
       }
     },
+    "Fit the page" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajuster la page"
+          }
+        }
+      }
+    },
     "Go" : {
       "localizations" : {
         "fr" : {
@@ -818,6 +829,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Aller à la page"
+          }
+        }
+      }
+    },
+    "Go to page %lld" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aller à la page %lld"
           }
         }
       }
@@ -993,6 +1014,16 @@
         }
       }
     },
+    "Next page" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Page suivante"
+          }
+        }
+      }
+    },
     "No annotations yet" : {
       "localizations" : {
         "fr" : {
@@ -1134,6 +1165,16 @@
         }
       }
     },
+    "Page strip" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bande de pages"
+          }
+        }
+      }
+    },
     "Pages" : {
       "localizations" : {
         "fr" : {
@@ -1170,6 +1211,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "La place sur cette page"
+          }
+        }
+      }
+    },
+    "Previous page" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Page précédente"
           }
         }
       }
@@ -1315,6 +1366,7 @@
       }
     },
     "Restore the version before the last save?" : {
+      "extractionState" : "stale",
       "localizations" : {
         "fr" : {
           "stringUnit" : {
@@ -2129,36 +2181,6 @@
         }
       }
     },
-    "Page strip" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bande de pages"
-          }
-        }
-      }
-    },
-    "Next page" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Page suivante"
-          }
-        }
-      }
-    },
-    "Previous page" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Page précédente"
-          }
-        }
-      }
-    },
     "Zoom in" : {
       "localizations" : {
         "fr" : {
@@ -2175,26 +2197,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Réduire"
-          }
-        }
-      }
-    },
-    "Fit the page" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ajuster la page"
-          }
-        }
-      }
-    },
-    "Go to page %lld" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aller à la page %lld"
           }
         }
       }

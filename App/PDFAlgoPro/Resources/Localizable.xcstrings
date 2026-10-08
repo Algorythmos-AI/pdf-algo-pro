@@ -94,6 +94,7 @@
       }
     },
     "Page %lld" : {
+      "extractionState" : "stale",
       "localizations" : {
         "fr" : {
           "stringUnit" : {
@@ -234,11 +235,22 @@
       }
     },
     "Unlock your documents" : {
+      "comment" : "Why App Lock asks for Face ID",
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Déverrouiller vos documents"
+          }
+        }
+      }
+    },
+    "You’ve used today’s free summaries. They start again tomorrow, and Pro has no daily limit." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous avez utilisé les résumés gratuits du jour. Ils reprennent demain, et Pro n’a aucune limite quotidienne."
           }
         }
       }
@@ -289,16 +301,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Votre essai se termine demain"
-          }
-        }
-      }
-    },
-    "You’ve used today’s free summaries. They start again tomorrow, and Pro has no daily limit." : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vous avez utilisé les résumés gratuits du jour. Ils reprennent demain, et Pro n’a aucune limite quotidienne."
           }
         }
       }

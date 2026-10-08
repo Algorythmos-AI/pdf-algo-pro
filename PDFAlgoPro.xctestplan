@@ -17,6 +17,13 @@
   "testTargets": [
     {
       "target": {
+        "containerPath": "container:Packages/Commerce",
+        "identifier": "CommerceTests",
+        "name": "CommerceTests"
+      }
+    },
+    {
+      "target": {
         "containerPath": "container:Packages/Core",
         "identifier": "CoreTests",
         "name": "CoreTests"
@@ -55,6 +62,13 @@
         "containerPath": "container:Packages/Features/Onboarding",
         "identifier": "OnboardingFeatureTests",
         "name": "OnboardingFeatureTests"
+      }
+    },
+    {
+      "target": {
+        "containerPath": "container:Packages/Features/Paywall",
+        "identifier": "PaywallFeatureTests",
+        "name": "PaywallFeatureTests"
       }
     },
     {
@@ -100,6 +114,13 @@
         "containerPath": "container:Packages/PDFEngine",
         "identifier": "PDFEngineTests",
         "name": "PDFEngineTests"
+      }
+    },
+    {
+      "target": {
+        "containerPath": "container:Packages/RemoteConfig",
+        "identifier": "RemoteConfigTests",
+        "name": "RemoteConfigTests"
       }
     },
     {
