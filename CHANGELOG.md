@@ -30,6 +30,8 @@ Store notes (see the changelog strategy).
   Italian, Portuguese, Dutch, Polish, Russian and Ukrainian, without choosing one first.
 - Scanning (internal builds): on a scan you can now select a single word; before, the selection
   could only follow whole lines loosely.
+- Search (internal builds): a word also finds its simpler form, so "invoices" finds "invoice" and
+  "paid" finds "pay". The assistant uses the same idea to pick the pages a question is about.
 - Reading (internal builds): a strip of small pages along the bottom of a document. Tap a small
   page to go to it; the strip steps aside while you edit or mark up, and Layout › Page strip
   puts it away.

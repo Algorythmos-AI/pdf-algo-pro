@@ -134,15 +134,41 @@ struct LocalSearchIndexTests {
 
   @Test func snippetsAreShortAndMarkTruncation() {
     let text = String(repeating: "lorem ", count: 40) + "needle" + String(repeating: " ipsum", count: 40)
-    let snippet = SearchText.snippet(text, around: ["needle"])
+    let snippet = SearchText.snippet(text, around: SearchText.terms("needle"))
     #expect(snippet?.hasPrefix("…") == true && snippet?.hasSuffix("…") == true)
     #expect(snippet?.contains("needle") == true)
     #expect((snippet?.count ?? 0) <= 125)
-    #expect(SearchText.snippet("abc", around: ["zzz"]) == nil)
+    #expect(SearchText.snippet("abc", around: SearchText.terms("zzz")) == nil)
   }
 
   @Test func termsSplitOnSpacesAndPunctuation() {
-    #expect(SearchText.terms("  Tax, 2026!  e-mail ") == ["tax", "2026", "e-mail"])
+    #expect(SearchText.terms("  Tax, 2026!  e-mail ").map(\.typed) == ["tax", "2026", "e-mail"])
+    #expect(SearchText.terms("  Tax, 2026!  e-mail ").allSatisfy { $0.base == nil }, "No base forms unless asked")
+  }
+
+  @Test("With base forms on, a searched word also finds its base form; off, search is as it was")
+  func baseForms() async throws {
+    // Whether the system has base forms differs by device; without them there is nothing to check.
+    guard BaseForms.has(.english) else { return }
+    #expect(SearchText.terms("Invoices paid", baseForms: true).map(\.base) == ["invoice", "pay"])
+    #expect(SearchText.terms("résumé 2026", baseForms: true).map(\.typed) == ["resume", "2026"])
+    // A snippet is found around whichever form is in the text.
+    #expect(
+      SearchText.snippet("We will pay on Friday.", around: SearchText.terms("paid", baseForms: true))?.contains("pay")
+        == true)
+
+    func hits(_ query: String, baseForms: Bool) async throws -> Int {
+      let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+      let index = LocalSearchIndex(folder: folder, usesBaseForms: baseForms)
+      let document = Document(title: "Letter", fileName: "letter.pdf", addedAt: .now, tags: [])
+      try await index.index(document, pages: [PageText(pageIndex: 0, text: "Please pay the child care fee.")])
+      return try await index.search(query, in: [document]).count
+    }
+    #expect(try await hits("paid", baseForms: false) == 0)
+    #expect(try await hits("paid", baseForms: true) == 1)
+    #expect(try await hits("children fees", baseForms: true) == 1)
+    #expect(try await hits("pay fee", baseForms: false) == 1, "What was found before is still found")
+    #expect(try await hits("holiday", baseForms: true) == 0)
   }
 }
 
