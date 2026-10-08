@@ -172,7 +172,9 @@ final class AppModel {
     }
   #endif
 
-  /// A sheet went away. When it was the offer that ends a replayed first run, this build is done.
+  /// A sheet went away.
+  ///
+  /// When it was the offer that ends a replayed first run, this build's first run is completed.
   func sheetClosed(_ closed: Sheet?) {
     #if INTERNAL_TOOLS
       guard closed == .paywall, isReplayingFirstRun, settings.hasCompletedOnboarding else { return }

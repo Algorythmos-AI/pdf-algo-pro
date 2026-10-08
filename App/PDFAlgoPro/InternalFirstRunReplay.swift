@@ -43,7 +43,9 @@
       return true
     }
 
-    /// The journey ended: the offer was closed, or a purchase led to the app. This build is done.
+    /// Records this build as done.
+    ///
+    /// Called when the journey ends: the offer was closed, or a purchase led to the app.
     func complete() {
       defaults.set(build, forKey: Self.key)
     }
