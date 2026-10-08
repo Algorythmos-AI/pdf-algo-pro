@@ -316,37 +316,58 @@
     /// glide after a flick. Pulling the page back under their finger is what made the page feel
     /// locked while the editor was open (the owner's report, 2026-10-08).
     func scrollPickedText(by distance: CGFloat, across: CGFloat = 0, animated: Bool = true) {
-      guard distance != 0 || across != 0, let scroller = pageScroller, !Self.isBeingMoved(scroller) else { return }
-      let before = pickedLineFrame?.minY
-      let inset = scroller.adjustedContentInset
-      let highest = scroller.contentSize.height + inset.bottom - scroller.bounds.height
-      let wanted = scroller.contentOffset.y + distance
-      var moved: CGFloat = 0
-      if distance > 0, wanted > highest {
-        if textOverlays.insetBeforeEditing == nil { textOverlays.insetBeforeEditing = scroller.contentInset }
-        scroller.contentInset.bottom += wanted - highest
-        // Making room can move the page by itself: PDFKit centres a page shorter than the view, and
-        // stops once there is room under it. What it moved counts towards the distance.
-        scroller.layoutIfNeeded()
-        layoutIfNeeded()
-        if let before, let after = pickedLineFrame?.minY { moved = before - after }
+      guard distance != 0 || across != 0, let scroller = pageScroller, !Self.isBeingMoved(scroller),
+        let before = pickedLineFrame?.minY
+      else { return }
+      let pixel = 1 / max(1, traitCollection.displayScale)
+      let move: @MainActor () -> Void = {
+        // Scrolling can move the page by more than it was scrolled: PDFKit centres a page shorter
+        // than the view, and stops once the room made under it lets it scroll, which lifted the line
+        // half a page too far. So the line's move is measured, and what is left is scrolled again.
+        // The second pass scrolls a page PDFKit no longer centres, so it moves by what it is asked.
+        var moved: CGFloat = 0
+        for _ in 0..<2 where abs(distance - moved) >= pixel {
+          self.offsetPages(of: scroller, by: distance - moved)
+          scroller.layoutIfNeeded()
+          self.layoutIfNeeded()
+          moved = before - (self.pickedLineFrame?.minY ?? before)
+        }
+        // Across only when asked: PDFKit places a page narrower than the view itself.
+        if across != 0 {
+          let inset = scroller.adjustedContentInset
+          let rightmost = max(-inset.left, scroller.contentSize.width + inset.right - scroller.bounds.width)
+          scroller.contentOffset.x = min(max(-inset.left, scroller.contentOffset.x + across), rightmost)
+        }
+        // An animation sets the final place at once, so this is where the editor leaves the page.
+        self.textOverlays.offsetSetByEditor = scroller.contentOffset
       }
-      let adjusted = scroller.adjustedContentInset
-      var offset = scroller.contentOffset
-      offset.y = max(-adjusted.top, offset.y + distance - moved)
-      // Across only when asked: PDFKit places a page narrower than the view itself.
-      if across != 0 {
-        let rightmost = max(-adjusted.left, scroller.contentSize.width + adjusted.right - scroller.bounds.width)
-        offset.x = min(max(-adjusted.left, offset.x + across), rightmost)
+      if animated, !UIAccessibility.isReduceMotionEnabled {
+        // The system's own spring, which also says how long it takes.
+        let animator = UIViewPropertyAnimator(duration: 0, timingParameters: UISpringTimingParameters())
+        animator.addAnimations(move)
+        animator.startAnimation()
+      } else {
+        move()
       }
-      scroller.setContentOffset(offset, animated: animated)
-      textOverlays.offsetSetByEditor = offset
     }
 
     /// Whether the person is moving the page: a finger on it, a pinch, a bounce or a glide.
     static func isBeingMoved(_ scroller: UIScrollView) -> Bool {
       scroller.isTracking || scroller.isDragging || scroller.isDecelerating || scroller.isZooming
         || scroller.isZoomBouncing
+    }
+
+    /// Moves the pages up under the view by a distance, making room under the last page first when
+    /// there is nothing left to scroll.
+    private func offsetPages(of scroller: UIScrollView, by distance: CGFloat) {
+      let inset = scroller.adjustedContentInset
+      let highest = scroller.contentSize.height + inset.bottom - scroller.bounds.height
+      let target = max(-inset.top, scroller.contentOffset.y + distance)
+      if target > highest {
+        if textOverlays.insetBeforeEditing == nil { textOverlays.insetBeforeEditing = scroller.contentInset }
+        scroller.contentInset.bottom += target - highest
+      }
+      scroller.contentOffset.y = target
     }
 
     /// Where the picked line is on screen, in this view's space.

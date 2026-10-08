@@ -286,18 +286,19 @@ final class TextEditingUITests: UITestCase {
     assertWhollyInView(field, in: app)
 
     // The start of the line is in view: a tap there puts the caret there.
+    // Inside the first line and the last, not on the field's edges.
     let tapped = field.frame
-    let hittable = field.isHittable
-    field.coordinate(withNormalizedOffset: CGVector(dx: 0.01, dy: 0.1)).tap()
+    field.coordinate(withNormalizedOffset: CGVector(dx: 0.01, dy: 0.25)).tap()
+    let focused = (field.value(forKey: "hasKeyboardFocus") as? Bool) ?? false
     field.typeText("Z")
     let start = try XCTUnwrap(field.value as? String)
     let place = try XCTUnwrap(start.firstIndex(of: "Z"), "The letter was typed")
     XCTAssertLessThan(
       start.distance(from: start.startIndex, to: place), 3,
-      "It went in at the start of the line; the field was at \(tapped), hittable \(hittable)")
+      "It went in at the start of the line; the field was at \(tapped), focused after the tap \(focused)")
 
     // And so is the end: a tap after the last word puts the caret after it.
-    field.coordinate(withNormalizedOffset: CGVector(dx: 0.99, dy: 0.98)).tap()
+    field.coordinate(withNormalizedOffset: CGVector(dx: 0.99, dy: 0.75)).tap()
     field.typeText("Q")
     XCTAssertEqual((field.value as? String)?.last, "Q", "It went in at the end of the line")
 
