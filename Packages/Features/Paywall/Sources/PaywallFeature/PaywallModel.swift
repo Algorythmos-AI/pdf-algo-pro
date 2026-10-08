@@ -95,7 +95,7 @@ public final class PaywallModel {
     await telemetry.record(trialEndsAt == nil ? "commerce.purchase.completed" : "commerce.trial.started")
   }
 
-  /// Brings back purchases made elsewhere (Restore Purchases in Settings; the offer has StoreKit's own).
+  /// Brings back purchases made elsewhere (Restore Purchases on the offer).
   public func restore(using store: any StoreAccessing) async {
     restoreFailed = !(await store.restorePurchases())
     await entitlements.refresh()

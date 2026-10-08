@@ -2,8 +2,9 @@ import Core
 import DesignSystem
 import SwiftUI
 
-/// The first-run introduction: three pages, each with a picture, a headline, a sentence and one
-/// Continue button that stays in the same place (design system, "First-run introduction").
+/// The first-run introduction: three pages, each with a phone that shows the capability, a headline,
+/// a sentence and one Continue button that stays in the same place (design system, "First-run
+/// introduction").
 public struct OnboardingView: View {
   @State private var model: OnboardingModel
   @Environment(\.dynamicTypeSize) private var typeSize
@@ -26,9 +27,13 @@ public struct OnboardingView: View {
           Button {
             Task { await model.advance() }
           } label: {
+            // The words keep their place while the app decides what follows the last page.
             Text("Continue", bundle: .module)
+              .opacity(model.isFinishing ? 0 : 1)
+              .overlay { if model.isFinishing { ProgressView().tint(Color.ds.brandOnFill) } }
           }
           .buttonStyle(.primary)
+          .disabled(model.isFinishing)
           .accessibilityIdentifier("onboarding.continue")
         }
         .padding(Spacing.s200)
@@ -45,6 +50,7 @@ public struct OnboardingView: View {
           } label: {
             Text("Skip", bundle: .module)
           }
+          .disabled(model.isFinishing)
           .accessibilityIdentifier("onboarding.skip")
         }
       }
@@ -55,14 +61,14 @@ public struct OnboardingView: View {
   }
 
   private var pageContent: some View {
-    VStack(spacing: Spacing.s400) {
+    VStack(spacing: Spacing.s300) {
       // At the largest text sizes the words need the room; the picture says nothing they do not.
       if !typeSize.isAccessibilitySize {
         OnboardingIllustration(page: model.page)
       }
       VStack(spacing: Spacing.s150) {
         model.page.title
-          .font(.largeTitle.bold())
+          .font(.largeTitle.weight(.heavy))
           .multilineTextAlignment(.center)
           // As tall as its lines need: a headline that wraps at a large text size is never cut.
           .fixedSize(horizontal: false, vertical: true)

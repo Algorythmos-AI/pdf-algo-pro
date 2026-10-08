@@ -3,6 +3,7 @@ import CommerceTestSupport
 import Core
 import CoreTestSupport
 import Foundation
+import StoreKit
 import SwiftUI
 import Testing
 
@@ -166,6 +167,14 @@ struct PaywallModelTests {
     for trigger in PaywallTrigger.allCases {
       let header = PaywallHeader(trigger: trigger, benefits: PaywallBenefit.allCases).frame(width: 390)
       #expect(ImageRenderer(content: header).uiImage != nil)
+      #expect(ImageRenderer(content: header.dynamicTypeSize(.accessibility3)).uiImage != nil)
+    }
+    #expect(ImageRenderer(content: StoreLinks(onRestore: {}, onRedeem: {}).frame(width: 390)).uiImage != nil)
+    let saving = SavingNote(saving: SavingLine(percent: "10%", amount: "1")).frame(width: 390)
+    #expect(ImageRenderer(content: saving).uiImage != nil)
+    for count in 1...PaywallBenefit.allCases.count {
+      let tiles = BenefitTiles(benefits: Array(PaywallBenefit.allCases.prefix(count))).frame(width: 390)
+      #expect(ImageRenderer(content: tiles).uiImage != nil)
     }
     for entitlement in [Entitlement.subscribed, .trial(endsAt: now.addingTimeInterval(3 * day))] {
       let (model, fake, store, _, _) = makeModel()
@@ -175,7 +184,8 @@ struct PaywallModelTests {
       let welcome = WelcomeProView(model: model).frame(width: 390, height: 844)
       #expect(ImageRenderer(content: welcome).uiImage != nil)
       #expect(ImageRenderer(content: welcome.dynamicTypeSize(.accessibility3)).uiImage != nil)
-      #expect(ImageRenderer(content: PaywallFlowView(model: model).frame(width: 390, height: 844)).uiImage != nil)
+      let flow = PaywallFlowView(model: model, store: FixedStoreAccess(isAvailable: true))
+      #expect(ImageRenderer(content: flow.frame(width: 390, height: 844)).uiImage != nil)
     }
   }
 }
@@ -211,6 +221,16 @@ struct SubscriptionSectionTests {
 @MainActor
 @Suite("The annual plan's saving against paying weekly (PAP-049)")
 struct YearlySavingTests {
+  @Test("A week is a week whether the App Store calls it one week or seven days, and a year likewise")
+  func terms() {
+    #expect(SavingLine.Term(unit: .week, value: 1) == .week)
+    #expect(SavingLine.Term(unit: .day, value: 7) == .week, "As App Store Connect's one-week plan arrives")
+    #expect(SavingLine.Term(unit: .year, value: 1) == .year)
+    #expect(SavingLine.Term(unit: .month, value: 12) == .year)
+    #expect(SavingLine.Term(unit: .month, value: 1) == nil && SavingLine.Term(unit: .day, value: 3) == nil)
+    #expect(SavingLine.Term(unit: .week, value: 2) == nil)
+  }
+
   private func saving(weekly: String, yearly: String) throws -> YearlySaving? {
     YearlySaving(weeklyPrice: try #require(Decimal(string: weekly)), yearlyPrice: try #require(Decimal(string: yearly)))
   }

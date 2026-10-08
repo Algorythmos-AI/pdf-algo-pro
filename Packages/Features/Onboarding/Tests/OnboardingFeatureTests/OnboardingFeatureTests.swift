@@ -103,18 +103,40 @@ struct OnboardingModelTests {
     #expect(settings.load() == expected && finished.value == expected)
   }
 
-  @Test("Every page has a headline, a sentence and a symbol", arguments: OnboardingPage.allCases)
+  @Test("Every page has a headline and a sentence", arguments: OnboardingPage.allCases)
   func copy(page: OnboardingPage) {
-    #expect(!page.symbol.isEmpty)
     #expect(page.id == page.rawValue)
     _ = page.title
     _ = page.detail
-    #expect(page.usesIntelligence == (page == .ask))
+  }
+
+  @Test("While the app decides what follows, the last page is finishing and a second tap does nothing")
+  func finishing() async {
+    let settings = InMemorySettingsStore()
+    let telemetry = RecordingTelemetry()
+    var calls = 0
+    var model: OnboardingModel?
+    model = OnboardingModel(
+      settings: settings, intelligence: FakeIntelligence(availability: .available(.onDevice)), telemetry: telemetry
+    ) { _ in
+      calls += 1
+      #expect(model?.isFinishing == true, "The page shows that it is working")
+      // The person taps Continue and Skip again while the app is still deciding.
+      await model?.advance()
+      await model?.skip()
+    }
+    #expect(model?.isFinishing == false)
+    await model?.skip()
+    #expect(calls == 1, "What follows first run is decided once")
+    #expect(model?.isFinishing == false)
+    #expect(await telemetry.events == ["onboarding.flow.skipped"])
   }
 
   @Test("Each page renders, at the default and at an accessibility text size", arguments: OnboardingPage.allCases)
   func renders(page: OnboardingPage) {
     #expect(ImageRenderer(content: OnboardingIllustration(page: page)).uiImage != nil)
+    let still = OnboardingIllustration(page: page).environment(\.playsDecorativeMotion, false)
+    #expect(ImageRenderer(content: still).uiImage != nil)
     let (model, _, _, _) = makeModel()
     let screen = OnboardingView(model: model).frame(width: 390, height: 844)
     #expect(ImageRenderer(content: screen).uiImage != nil)

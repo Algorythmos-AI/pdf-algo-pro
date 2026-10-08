@@ -14,6 +14,10 @@ Store notes (see the changelog strategy).
   (or dark in Dark Mode). On a document, what you select is outlined in blue, so that red there
   only ever means a red annotation or Delete.
 
+### Fixed
+- The plans screen now says how much the yearly plan saves; with the App Store's own plans the
+  line was missing.
+
 ### Added
 - Reading (internal builds): a strip of small pages along the bottom of a document. Tap a small
   page to go to it; the strip steps aside while you edit or mark up, and Layout › Page strip
@@ -22,8 +26,8 @@ Store notes (see the changelog strategy).
   page adrift.
 - Reading (internal builds): with a keyboard, the left and right arrows turn the page, and
   Command with plus, minus and zero zooms in, out and back to the whole page.
-- A short introduction the first time you open the app: three pages on what it does, with Skip on
-  every one.
+- A short introduction the first time you open the app: three pages on what it does, each with a
+  picture of the app at work, and Skip on every one.
 - PDF Algo Pro now has a Pro subscription. The app stays free to use, with a daily limit on new
   scans and on summaries and answers; Pro removes it. Settings › Subscription shows your plan and lets you see the plans, manage
   or restore a subscription, and redeem a code. Opening, reading, signing, sharing and exporting

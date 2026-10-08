@@ -101,6 +101,16 @@
         }
       }
     },
+    "Now available to you" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Désormais à votre disposition"
+          }
+        }
+      }
+    },
     "OK" : {
       "localizations" : {
         "fr" : {

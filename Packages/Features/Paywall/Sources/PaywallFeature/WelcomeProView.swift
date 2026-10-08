@@ -6,6 +6,7 @@ import SwiftUI
 struct WelcomeProView: View {
   @Bindable var model: PaywallModel
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  @Environment(\.dynamicTypeSize) private var typeSize
   @State private var celebrates = false
 
   var body: some View {
@@ -25,7 +26,7 @@ struct WelcomeProView: View {
       .accessibilityElement(children: .contain)
       .accessibilityIdentifier("paywall.welcome.actionBar")
     }
-    .background(alignment: .top) { BrandGlow().frame(height: 360).ignoresSafeArea() }
+    .background(alignment: .top) { BrandGlow().frame(height: 460).ignoresSafeArea() }
     .background(Color.ds.backgroundPrimary)
     .sensoryFeedback(.success, trigger: celebrates)
     .onAppear { celebrates = true }
@@ -33,29 +34,49 @@ struct WelcomeProView: View {
 
   private var content: some View {
     VStack(spacing: Spacing.s300) {
-      Image(systemName: "checkmark.circle.fill")
-        .font(.system(size: 72))
-        .foregroundStyle(Color.ds.brandFill)
+      Image(systemName: "checkmark")
+        .font(.system(size: 46, weight: .bold))
+        .foregroundStyle(Color.ds.brandOnFill)
+        .frame(width: 108, height: 108)
+        .background(Color.ds.brandFill, in: Circle())
+        .shadow(color: Color.ds.brandFill.opacity(0.3), radius: 18, y: 8)
         .symbolEffect(.bounce, options: .nonRepeating, value: reduceMotion ? false : celebrates)
         .accessibilityHidden(true)
       VStack(spacing: Spacing.s100) {
         Text("Welcome to Pro", bundle: .module)
-          .font(.largeTitle.bold())
+          .font(.largeTitle.weight(.heavy))
+          .foregroundStyle(Color.ds.brandTint)
           .multilineTextAlignment(.center)
+          .fixedSize(horizontal: false, vertical: true)
           .accessibilityAddTraits(.isHeader)
           .accessibilityIdentifier("paywall.welcome")
         Text("Everything is ready for your next document.", bundle: .module)
           .font(.body)
           .foregroundStyle(Color.ds.labelSecondary)
           .multilineTextAlignment(.center)
+          .fixedSize(horizontal: false, vertical: true)
       }
-      BenefitList(benefits: model.benefits).cardStyle()
+      VStack(spacing: Spacing.s150) {
+        Text("Now available to you", bundle: .module)
+          .font(.subheadline)
+          .foregroundStyle(Color.ds.labelSecondary)
+        // Side by side while three fit and the text is of an ordinary size; a list otherwise.
+        if benefitsFitSideBySide {
+          BenefitTiles(benefits: model.benefits).cardStyle()
+        } else {
+          BenefitList(benefits: model.benefits).cardStyle()
+        }
+      }
       if let trialEndsAt = model.trialEndsAt {
         trial(endsAt: trialEndsAt)
       }
     }
     .padding(Spacing.s300)
     .readableWidth()
+  }
+
+  private var benefitsFitSideBySide: Bool {
+    !typeSize.isAccessibilitySize && (2...3).contains(model.benefits.count)
   }
 
   /// When the trial ends, and the one place the app asks to remind (and so for notifications).
@@ -74,5 +95,36 @@ struct WelcomeProView: View {
         .foregroundStyle(Color.ds.labelSecondary)
     }
     .cardStyle()
+  }
+}
+
+/// What Pro adds, side by side: a symbol over each name, with a hairline between.
+struct BenefitTiles: View {
+  let benefits: [PaywallBenefit]
+
+  var body: some View {
+    HStack(alignment: .top, spacing: 0) {
+      ForEach(benefits) { benefit in
+        VStack(spacing: Spacing.s100) {
+          Image(systemName: benefit.symbol)
+            .font(.title3.weight(.semibold))
+            .foregroundStyle(Color.ds.brandTint)
+            .accessibilityHidden(true)
+          benefit.title
+            .font(.subheadline.weight(.semibold))
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, Spacing.s050)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("paywall.benefit.\(benefit.rawValue)")
+        if benefit != benefits.last {
+          Divider()
+        }
+      }
+    }
+    // As tall as its names need: a divider alone would take all the height it is offered.
+    .fixedSize(horizontal: false, vertical: true)
   }
 }

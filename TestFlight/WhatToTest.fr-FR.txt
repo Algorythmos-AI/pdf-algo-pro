@@ -1,6 +1,11 @@
 Version interne de PDF Algo Pro (Staging). Utilisez des documents de test, pas de vrais documents. À essayer :
 
-Accueil, Réglages et À propos (nouveau)
+Premier lancement et formules (nouveau)
+- Réglages > Internal testing : désactivez « Pro without a purchase », puis touchez « Show first run again ».
+- Trois pages avec une image chacune, puis les formules : l’annuelle d’abord, avec son essai gratuit, l’hebdomadaire à côté. Fermer mène à l’accueil.
+- Démarrez l’essai annuel (TestFlight ne facture rien) : « Bienvenue dans Pro » suit. Essayez Restaurer les achats.
+
+Accueil, Réglages et À propos
 - L’app s’ouvre maintenant sur l’accueil. Touchez Importer et Numériser, ouvrez un document sous Reprendre la lecture, puis revenez.
 - Ouvrez chaque section depuis l’accueil : son nombre correspond aux documents affichés.
 - Réglages : chaque ligne a un symbole. Ouvrez À propos et essayez chaque lien, ainsi que Partager.

@@ -110,8 +110,11 @@ Localisations:
 
 ## Verify
 
-On an iPhone with the Staging build from TestFlight (never the Debug scheme), signed in with a
-sandbox tester:
+On an iPhone with the Staging build from TestFlight (never the Debug scheme). A TestFlight build
+buys with the tester's own Apple Account and charges nothing
+([Testing subscriptions and In-App Purchases in TestFlight](https://developer.apple.com/help/app-store-connect/test-a-beta-version/testing-subscriptions-and-in-app-purchases-in-testflight));
+sandbox testers are for builds run from Xcode. Someone who has already finished first run sees it
+again from Settings › Internal testing › Show first run again, with "Pro without a purchase" off:
 
 - The annual plan is listed first, marked "Best Value", with a saving that matches the two prices.
   The app works it out as 52 weekly payments against one annual payment, rounded down (PAP-049).
@@ -121,8 +124,8 @@ sandbox tester:
 
 Then run the store rows of the [device smoke test](../device-smoke-test.md).
 
-Introductory offers count per subscription group. A tester who took the old weekly trial isn't
-offered the annual trial: clear the tester's purchase history, or use a new tester.
+Introductory offers count per subscription group. An account that took the old weekly trial isn't
+offered the annual trial. The prices shown are those of the account's storefront.
 
 ## Record
 
@@ -134,6 +137,8 @@ Production), the step, and the result. Leave out any value from the list above.
 |---|---|---|---|
 | 2026-10-08 | — | Pre-flight, repository | Passed: the identifiers derive from the bundle identifier, and the annual plan is listed first. #166 merged 2026-10-07 13:11 UTC; the sandbox test needs a Staging build that includes it |
 | 2026-10-08 | — | Pre-flight, Business | Passed: the owner confirmed the agreements, banking and tax forms are active. One Business compliance item (Australia's Sharing Economy Reporting Regime) asks the owner for information. It doesn't block the subscription setup; the owner completes it |
-| 2026-10-08 | Staging | Pre-flight, TestFlight | Not yet checked: the newest Staging build against #166 |
-| — | Staging | Steps 2 to 6 | Not started |
+| 2026-10-08 | Staging | Pre-flight, TestFlight | Passed by date: the newest build was uploaded after #166 merged. App Store Connect does not show the commit a build was made from |
+| 2026-10-08 | Staging | Steps 2 to 5 | Done in the browser and read back after a reload: identifiers, durations and the shared level; the annual plan's prices from the new base with the United Kingdom and every euro storefront set by hand, its trial, and Family Sharing (already on); the weekly plan's Australian price set by hand and its trial removed; both localisations and the review notes. Apple's automatic prices did not give the plan's United Kingdom and euro figures, and two of the plan's figures are "additional" price points. Both plans read "Prepare for Submission", which is what the web page calls ready to submit. The review screenshot is still a placeholder |
+| 2026-10-08 | Staging | Verify, on the simulator | The offer loads the Staging plans from the App Store's sandbox in a Staging build: the annual plan first with its trial, the weekly plan without, and the saving line once the app recognised a week given as seven days (PAP-052). Buying, restoring and Family Sharing still need a device |
+| — | Staging | Step 6 | Not needed for TestFlight; sandbox testers are created only if a build is to be tested from Xcode |
 | — | Production | Steps 2 to 5 | Locked until Staging passes |
