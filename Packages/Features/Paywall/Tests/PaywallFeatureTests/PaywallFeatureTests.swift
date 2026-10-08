@@ -148,6 +148,47 @@ struct PaywallModelTests {
     #expect(model.grantsPro, "What the App Store now reports is read either way")
   }
 
+  @Test("A restore that brings Pro back is recorded as a restore, not as a purchase")
+  func restoredIsNotAPurchase() async {
+    let (model, fake, _, telemetry, _) = makeModel()
+    await model.appeared()
+    fake.set(.subscribed)
+    await model.restore(using: FixedStoreAccess(isAvailable: true))
+    await model.entitlementChanged()
+    #expect(model.phase == .welcome)
+    #expect(await telemetry.events == ["commerce.paywall.viewed", "commerce.purchase.restored"])
+    await model.dismissed()
+    #expect(await telemetry.events.count == 2, "The confirmation closing is not the offer closing")
+  }
+
+  @Test("A restore that could not be made is recorded, and the offer stays")
+  func restoreFailed() async {
+    let (model, _, _, telemetry, _) = makeModel()
+    await model.appeared()
+    await model.restore(using: FixedStoreAccess(isAvailable: false))
+    #expect(model.restoreFailed && model.phase == .offer)
+    #expect(await telemetry.events == ["commerce.paywall.viewed", "commerce.restore.failed"])
+  }
+
+  @Test("The offer going away without a purchase is recorded once, and not before it appeared")
+  func dismissed() async {
+    let (model, _, _, telemetry, _) = makeModel()
+    await model.dismissed()
+    #expect(await telemetry.events.isEmpty)
+    await model.appeared()
+    await model.dismissed()
+    await model.dismissed()
+    #expect(await telemetry.events == ["commerce.paywall.viewed", "commerce.paywall.closed"])
+  }
+
+  @Test("Restoring from Settings is counted only when it changed something or failed")
+  func settingsRestoreEvent() {
+    #expect(SubscriptionSection.event(answered: false, hadPro: false, hasPro: false) == "commerce.restore.failed")
+    #expect(SubscriptionSection.event(answered: true, hadPro: false, hasPro: true) == "commerce.purchase.restored")
+    #expect(SubscriptionSection.event(answered: true, hadPro: true, hasPro: true) == nil)
+    #expect(SubscriptionSection.event(answered: true, hadPro: false, hasPro: false) == nil)
+  }
+
   @Test("Every trigger has a headline and a line under it", arguments: PaywallTrigger.allCases)
   func triggerCopy(trigger: PaywallTrigger) {
     _ = trigger.headline

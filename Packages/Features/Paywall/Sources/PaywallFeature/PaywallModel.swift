@@ -45,6 +45,10 @@ public final class PaywallModel {
   @ObservationIgnored private let onClose: () -> Void
   /// Whether the person had Pro when the offer appeared; `nil` until it has appeared.
   @ObservationIgnored private var hadPro: Bool?
+  /// Whether Pro arrived through Restore Purchases, so that it is not recorded as a purchase.
+  @ObservationIgnored private var wasRestored = false
+  /// Whether the offer's going away has been recorded.
+  @ObservationIgnored private var hasRecordedClosing = false
 
   /// Creates the model.
   ///
@@ -92,13 +96,34 @@ public final class PaywallModel {
   public func entitlementChanged() async {
     guard phase == .offer, hadPro == false, grantsPro else { return }
     phase = .welcome
-    await telemetry.record(trialEndsAt == nil ? "commerce.purchase.completed" : "commerce.trial.started")
+    if wasRestored {
+      await telemetry.record("commerce.purchase.restored")
+    } else {
+      await telemetry.record(trialEndsAt == nil ? "commerce.purchase.completed" : "commerce.trial.started")
+    }
+  }
+
+  /// The presentation went away: by Close, by a swipe down, or because something replaced it.
+  ///
+  /// Recorded once, and only when the offer was still showing: after a purchase the confirmation
+  /// is what closes.
+  public func dismissed() async {
+    guard phase == .offer, hadPro != nil, !hasRecordedClosing else { return }
+    hasRecordedClosing = true
+    await telemetry.record("commerce.paywall.closed")
   }
 
   /// Brings back purchases made elsewhere (Restore Purchases on the offer).
   public func restore(using store: any StoreAccessing) async {
-    restoreFailed = !(await store.restorePurchases())
+    let answered = await store.restorePurchases()
+    restoreFailed = !answered
     await entitlements.refresh()
+    if !answered {
+      await telemetry.record("commerce.restore.failed")
+    } else if hadPro == false, grantsPro {
+      // The confirmation follows, as after a purchase; it is recorded there as a restore.
+      wasRestored = true
+    }
   }
 
   /// The person switched the trial reminder on or off; it stays off when permission is declined.
