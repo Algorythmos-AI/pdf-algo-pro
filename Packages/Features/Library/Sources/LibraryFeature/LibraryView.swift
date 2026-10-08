@@ -723,6 +723,7 @@ public struct LibraryView<Detail: View>: View {
     }
     .buttonStyle(.plain)
     .accessibilityIdentifier("library.document.\(document.title)")
+    .modifier(DragsOut(document: model.offersDragging && !document.isDeleted ? model.dragged(document) : nil))
     // A full swipe moves a document to Recently Deleted; deleting for good always asks first.
     .swipeActions(edge: .trailing, allowsFullSwipe: !document.isDeleted) {
       if document.isDeleted {
@@ -1016,4 +1017,17 @@ struct InfoSheet: Identifiable {
   let document: Document
   let details: DocumentDetails?
   var id: DocumentID { document.id }
+}
+
+/// Lets a row be dragged into another app as its PDF, when there is something to drag.
+private struct DragsOut: ViewModifier {
+  let document: DraggedDocument?
+
+  func body(content: Content) -> some View {
+    if let document {
+      content.draggable(document)
+    } else {
+      content
+    }
+  }
 }
