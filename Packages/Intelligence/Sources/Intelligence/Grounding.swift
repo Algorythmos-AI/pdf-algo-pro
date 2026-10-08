@@ -1,5 +1,14 @@
 import Core
 import Foundation
+import NaturalLanguage
+
+/// How words are compared when pages are found for a question.
+public enum WordForms: Sendable {
+  /// As written, with a plural "s" removed: how it has always been.
+  case asWritten
+  /// In their base forms where the system has one, so "paid" finds "pay" (`BaseForms`).
+  case base
+}
 
 /// Retrieval, citation parsing and grounding checks: the logic that keeps answers tied to pages.
 ///
@@ -19,11 +28,50 @@ enum Grounding {
       .split { !$0.isLetter && !$0.isNumber }
       .map(String.init)
       .filter { $0.count > 1 && !stopWords.contains($0) }
-      .map { $0.count > 3 && $0.hasSuffix("s") && !$0.hasSuffix("ss") ? String($0.dropLast()) : $0 }
+      .map(withoutPlural)
+  }
+
+  private static func withoutPlural(_ word: String) -> String {
+    word.count > 3 && word.hasSuffix("s") && !word.hasSuffix("ss") ? String(word.dropLast()) : word
+  }
+
+  /// Base forms that carry no meaning for matching: what "is", "was", "has", "est" and "ont" become.
+  static let stopBaseForms: Set<String> = ["be", "have", "do", "etre", "avoir"]
+
+  /// Folded content words of a text in their base forms, where the system has one in the text's
+  /// language ("paid" and "pays" both give "pay"); other words are as `words(_:)` gives them.
+  ///
+  /// For finding pages only. Whether a page supports a claim is still decided on the words as
+  /// written, so this cannot make an unsupported claim pass.
+  ///
+  /// - Parameters:
+  ///   - text: The text.
+  ///   - language: The language the text is in, from `BaseForms.language(of:)`; `nil` gives the
+  ///     words as `words(_:)` does.
+  /// - Returns: The content words, folded.
+  static func baseWords(_ text: String, in language: NLLanguage?) -> [String] {
+    guard let language else { return words(text) }
+    return text.split { !$0.isLetter && !$0.isNumber }.compactMap { piece -> String? in
+      let folded = String(piece).folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
+      guard folded.count > 1, !stopWords.contains(folded) else { return nil }
+      guard let base = BaseForms.of(String(piece), in: language) else { return withoutPlural(folded) }
+      let form = base.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
+      return stopBaseForms.contains(form) || stopWords.contains(form) ? nil : form
+    }
   }
 
   /// Pages ranked by BM25 relevance to a query, best first; pages with no matching word are left out.
-  static func rank(_ pages: [PageText], for query: String) -> [PageText] {
+  ///
+  /// - Parameters:
+  ///   - pages: The pages to rank.
+  ///   - query: The question.
+  ///   - forms: Whether words are matched as written or in their base forms.
+  /// - Returns: The pages that share a word with the question, best first.
+  static func rank(_ pages: [PageText], for query: String, forms: WordForms = .asWritten) -> [PageText] {
+    // One language for the question and the pages: the document's, which a short question is
+    // nearly always in, and which is told far more surely from pages than from a few words.
+    let language = forms == .base ? BaseForms.language(of: pages.prefix(3).map(\.text).joined(separator: " ")) : nil
+    func words(_ text: String) -> [String] { baseWords(text, in: language) }
     let terms = Set(words(query))
     guard !terms.isEmpty else { return [] }
     let documents = pages.map { words($0.text) }
