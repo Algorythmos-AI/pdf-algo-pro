@@ -27,9 +27,11 @@ struct PaywallOfferView: View {
         PaywallHeader(trigger: model.trigger, benefits: model.benefits)
       }
       .safeAreaInset(edge: .bottom, spacing: 0) {
-        // Named as the other screens' bottom bars are: what scrolls behind it is hidden by it.
+        // Opaque, with a hairline above: prices and terms are never read through what scrolls
+        // behind them. Named as the other screens' bottom bars are, since it hides what is behind.
         purchasePanel
-          .background(.bar)
+          .background(Color.ds.backgroundPrimary.ignoresSafeArea(edges: .bottom))
+          .overlay(alignment: .top) { Divider() }
           .accessibilityElement(children: .contain)
           .accessibilityIdentifier("paywall.actionBar")
       }
