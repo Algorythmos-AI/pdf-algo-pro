@@ -1865,6 +1865,30 @@ struct RecognitionCoordinatorTests {
     #expect(try #require(PDFDocument(url: url)).string?.contains("Kept from before") == false)
   }
 
+  @Test("Pages kept by an earlier version of the app are recognised again, not mixed with new ones")
+  func olderCheckpointsStartAgain() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.makeImageOnly(pages: ["One", "Two"]), textLayer: false)
+    let url = try await harness.library.fileURL(for: document.id)
+    let checkpoints = RecognitionCheckpoints(folder: harness.checkpoints)
+    try await checkpoints.begin(document.id, version: FileVersion(url))
+    await checkpoints.add(Self.kept, page: 0, for: document.id)
+    #expect(await checkpoints.isCurrentFormat(document.id))
+    // As an earlier version left it: the same file version, and no note of the shape.
+    try FileManager.default.removeItem(
+      at: harness.checkpoints.appendingPathComponent(document.id.description).appendingPathComponent("format.json"))
+    #expect(await !checkpoints.isCurrentFormat(document.id))
+    #expect(await checkpoints.pending() == [document.id], "It is still picked up again")
+    let recognizer = CountingRecognizer()
+    let coordinator = harness.coordinator(recognizer: recognizer)
+
+    await coordinator.resumePending()
+    await coordinator.finished(document.id)
+
+    #expect(await recognizer.count == 2, "Every page is recognised again")
+    #expect(try #require(PDFDocument(url: url)).string?.contains("Kept from before") == false)
+  }
+
   @Test("Each page is kept as soon as it is recognised, and stopping discards them")
   func pagesAreKeptAsTheyAreDone() async throws {
     let harness = Harness()

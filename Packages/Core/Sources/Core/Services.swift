@@ -187,6 +187,20 @@ public protocol DocumentIndexing: Sendable {
   func search(_ query: String, in documents: [Document]) async throws -> [SearchHit]
 }
 
+/// One word of a recognised line, with where it is.
+public struct RecognizedWord: Hashable, Codable, Sendable {
+  /// The word, with any punctuation attached to it.
+  public let text: String
+  /// The word's box, normalised to the image with the origin at the lower left.
+  public let bounds: CGRect
+
+  /// Creates a recognised word.
+  public init(text: String, bounds: CGRect) {
+    self.text = text
+    self.bounds = bounds
+  }
+}
+
 /// A line of recognised text; `bounds` are normalised (0...1) with a lower-left origin.
 public struct RecognizedLine: Hashable, Codable, Sendable {
   /// The recognised text.
@@ -195,12 +209,18 @@ public struct RecognizedLine: Hashable, Codable, Sendable {
   public let bounds: CGRect
   /// Recognition confidence from 0 to 1.
   public let confidence: Double
+  /// The line's words in order, each with its own box, when the recogniser found them.
+  ///
+  /// With them, the text layer of a scan places every word where it is, so one word can be
+  /// selected. Without them (`nil`, as in lines kept by an earlier version) the line is one piece.
+  public let words: [RecognizedWord]?
 
   /// Creates a recognised line.
-  public init(text: String, bounds: CGRect, confidence: Double) {
+  public init(text: String, bounds: CGRect, confidence: Double, words: [RecognizedWord]? = nil) {
     self.text = text
     self.bounds = bounds
     self.confidence = confidence
+    self.words = words
   }
 }
 

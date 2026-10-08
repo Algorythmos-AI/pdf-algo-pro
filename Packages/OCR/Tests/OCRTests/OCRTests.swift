@@ -40,6 +40,52 @@ struct VisionTextRecognizerTests {
     }
   }
 
+  @Test("With words asked for, every line comes with its words, each inside the line and in reading order")
+  func words() async throws {
+    let lines = try await VisionTextRecognizer.wider.recognizeText(
+      in: image(of: ["Invoice total is 120 dollars.", "Facture numéro 42"]))
+    #expect(lines.count == 2)
+    for line in lines {
+      let words = try #require(line.words, "The line has its words")
+      #expect(words.map(\.text).joined(separator: " ") == line.text, "Together the words are the line")
+      #expect(words.count >= 3)
+      for (word, next) in zip(words, words.dropFirst()) {
+        #expect(word.bounds.maxX <= next.bounds.minX + 0.01, "Left to right, without overlap")
+      }
+      for word in words {
+        #expect(word.bounds.minX >= line.bounds.minX - 0.01 && word.bounds.maxX <= line.bounds.maxX + 0.01)
+        #expect(word.bounds.width > 0 && word.bounds.height > 0)
+      }
+    }
+    // Punctuation stays with its word.
+    #expect(lines.first?.words?.last?.text.hasSuffix(".") == true)
+    // Without asking, lines are as they always were.
+    let plain = try await VisionTextRecognizer().recognizeText(in: image(of: ["Invoice total 120"]))
+    #expect(plain.first?.words == nil)
+  }
+
+  @Test("The wider set recognises other languages in Latin and Cyrillic letters, with their accents")
+  func otherLanguages() async throws {
+    let samples = [
+      "Rechnung über zwölf Stühle", "Factura número catorce del señor", "Fattura numero quindici",
+      "Счёт на оплату товара",
+    ]
+    for sample in samples {
+      let lines = try await VisionTextRecognizer.wider.recognizeText(in: image(of: [sample]))
+      #expect(lines.map(\.text).joined(separator: " ") == sample, "\(sample)")
+    }
+    #expect(VisionTextRecognizer.widerLanguages.prefix(2) == VisionTextRecognizer.firstLanguages[...])
+  }
+
+  @Test("A line is split at its spaces, however many, and a line of spaces has no words")
+  func wordRanges() {
+    func words(_ text: String) -> [String] { VisionTextRecognizer.wordRanges(in: text).map { String(text[$0]) } }
+    #expect(words("Total due: 120.00") == ["Total", "due:", "120.00"])
+    #expect(words("  two  spaces ") == ["two", "spaces"])
+    #expect(words("   ").isEmpty && words("").isEmpty)
+    #expect(words("l'été à 5 €") == ["l'été", "à", "5", "€"])
+  }
+
   @Test func blankPagesHaveNoLines() async throws {
     #expect(try await VisionTextRecognizer().recognizeText(in: image(of: [])).isEmpty)
   }
