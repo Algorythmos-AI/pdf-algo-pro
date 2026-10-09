@@ -3,7 +3,8 @@
 
     xcrun xcresulttool get test-results tests --path Tests.xcresult > tests.json
     python3 scripts/ci/xcresult_report.py tests.json [more.json ...] [--retries retry-tests.json ...] \
-        [--failed-ids failed.txt] [--retry-ids retry.txt] [--flaky-budget 3] [--summary "$GITHUB_STEP_SUMMARY"]
+        [--failed-ids failed.txt] [--retry-ids retry.txt] [--flaky-budget 3] [--flaky-out flaky.json] \
+        [--summary "$GITHUB_STEP_SUMMARY"]
 
 Reads the JSON that `xcresulttool get test-results tests` writes, from one result bundle or one per
 shard. A test's verdict is its last repetition when the run repeated it, its result in a --retries
@@ -18,6 +19,7 @@ second result bundle), and its own result otherwise:
 
 --failed-ids writes the failed tests' identifiers, one per line, for `xcresulttool export
 attachments --test-id`; --retry-ids writes them as `-only-testing` takes them (Target/Class/method).
+--flaky-out writes the flaky tests as JSON, [{"test": ..., "message": ...}], for flaky_issues.py.
 Exits 1 when a test failed, when more distinct tests were flaky than --flaky-budget allows, or when the input holds no test at all (a crash before any result).
 """
 from __future__ import annotations
@@ -205,6 +207,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--failed-ids", help="write the failed tests' identifiers here, one per line")
     ap.add_argument("--retry-ids", help="write the failed tests here as -only-testing takes them, one per line")
     ap.add_argument("--flaky-budget", type=int, help="fail when more distinct tests than this were flaky")
+    ap.add_argument("--flaky-out", help="write the flaky tests and their first failure's message here, as JSON")
     ap.add_argument("--summary", help="append a markdown summary here (e.g. $GITHUB_STEP_SUMMARY)")
     args = ap.parse_args(argv)
 
@@ -228,6 +231,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.retry_ids:
         with open(args.retry_ids, "w", encoding="utf-8") as f:
             f.writelines(f"{case.selector}\n" for case in all_cases if case.verdict == "failed")
+    if args.flaky_out:
+        with open(args.flaky_out, "w", encoding="utf-8") as f:
+            json.dump([{"test": case.title, "message": case.messages[0] if case.messages else ""}
+                       for case in all_cases if case.verdict == "flaky"], f, indent=2)
     if args.summary:
         with open(args.summary, "a", encoding="utf-8") as f:
             f.write(summary(all_cases, args.flaky_budget))

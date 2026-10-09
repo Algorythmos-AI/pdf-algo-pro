@@ -171,3 +171,13 @@ def test_a_failed_tests_quarantine_notes_are_not_named_as_its_failure(tmp_path, 
     summary = tmp_path / "summary.md"
     assert xcresult_report.main([results(tmp_path, known, name="known.json"), "--summary", str(summary)]) == 0
     assert "Quarantined flaky audit finding, issue #76" in summary.read_text()
+
+
+def test_the_flaky_tests_are_written_for_the_issue_job(tmp_path):
+    flaky = case("testOffer()", "Passed", repetition(1, "Failed", message("Audit found 1 issue")),
+                 repetition(2, "Passed"))
+    out = tmp_path / "flaky.json"
+    assert xcresult_report.main([results(tmp_path, flaky, case("testHome()", "Passed")),
+                                 "--flaky-out", str(out)]) == 0
+    assert json.loads(out.read_text()) == [
+        {"test": "PDFAlgoProUITests/PaywallUITests/testOffer()", "message": "Audit found 1 issue"}]
