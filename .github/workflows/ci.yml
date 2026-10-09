@@ -246,6 +246,15 @@ jobs:
           export TEST_RUNNER_SNAPSHOT_TESTING_RECORD="${{ inputs.record_snapshots && 'all' || 'never' }}"
           TEST_RUNNER_REPORTS_DIR="$GITHUB_WORKSPACE/reports" xcodebuild test-without-building -scheme "$SCHEME" \
             -testPlan "$TEST_PLAN" -destination "id=$SIM" -enableCodeCoverage YES -resultBundlePath Tests.xcresult
+      - name: Name each failed test and why
+        # The log is too long to read a failure's message from its tail: an annotation per failed test
+        # puts the message on the run's summary, with the slowest suites. The Tests step keeps the verdict.
+        if: ${{ !cancelled() && hashFiles('Tests.xcresult/Info.plist') != '' }}
+        continue-on-error: true
+        run: |
+          xcrun xcresulttool get test-results tests --path Tests.xcresult > test-results.json
+          python3 scripts/ci/xcresult_report.py test-results.json --failed-ids failed-tests.txt \
+            --summary "$GITHUB_STEP_SUMMARY"
       - name: Coverage gate (80% overall and per module)
         # Runs even when a test failed, so one run reports every problem. A test bundle that crashed
         # records no coverage, so its module can look low until the crash is fixed.
@@ -284,20 +293,8 @@ jobs:
         run: |
           # Every attachment of each failed test, not only those tied to the failure itself: on run
           # 37880998386 `--only-failures` found none for three failed UI tests, whose screenshots are
-          # kept on their activities.
-          xcrun xcresulttool get test-results tests --path Tests.xcresult > failed-tests.json
-          python3 - failed-tests.json > failed-tests.txt <<'PY'
-          import json, sys
-
-          def walk(node):
-              if node.get("nodeType") == "Test Case" and node.get("result") == "Failed":
-                  print(node["nodeIdentifier"])
-              for child in node.get("children", []):
-                  walk(child)
-
-          for root in json.load(open(sys.argv[1])).get("testNodes", []):
-              walk(root)
-          PY
+          # kept on their activities. The failed tests are the ones named in the step above.
+          [ -s failed-tests.txt ] || exit 0
           echo "### Attachments of failed tests" >> "$GITHUB_STEP_SUMMARY"
           echo "In the \`failed-attachments\` artifact of this run." >> "$GITHUB_STEP_SUMMARY"
           while read -r test; do
