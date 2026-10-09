@@ -125,10 +125,14 @@ and never shipped ([ADR-0018](adr/0018-snapshot-testing-test-only-dependency.md)
   sets `SNAPSHOT_TESTING_RECORD=never`, so a missing or changed reference fails instead of passing
   silently. References are recorded on the pinned CI simulator, because they depend on the exact
   runtime: run the `ci` workflow by hand on the branch with `record_snapshots` ticked
-  (`gh workflow run ci.yml --ref <branch> -f record_snapshots=true`), download the `snapshots`
-  artifact, and commit the images, which are reviewed in the pull request like code. The recording run
-  is red by design, because every snapshot assertion fails while recording (library documentation,
-  same source).
+  (`gh workflow run ci.yml --ref <branch> -f record_snapshots=true`). The run records only the app
+  tests the snapshots belong to, keeps the references as the `snapshots` artifact (`snapshots.tar`,
+  unpacked at the repository root), and its `publish-snapshots` job pushes any that changed to a
+  branch of their own, `snapshot-recordings/<run id>`, so they can be fetched with git where no Mac or
+  artifact download is at hand. Look at each image, commit them to the pull request, where they are
+  reviewed like code, and delete the recording branch. The recording run is red by design, because
+  every snapshot assertion fails while recording (library documentation, same source), so it can
+  never stand in for a passing `ios` check.
 - **What is covered today (B8).** Onboarding, the empty library, Settings and Scan, each in light,
   dark and an accessibility text size (`App/Tests/SnapshotTests.swift`). The reader and the assistant
   follow, with a fixed document and the scripted router.
