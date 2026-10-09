@@ -341,8 +341,9 @@ final class TextEditingUITests: UITestCase {
     // and stays where the page was taken, instead of being pulled back.
     let low = opened.maxY + 16
     let high = bar.frame.minY - 16
+    let fromY = max(low, (low + high) / 2)
     let from = app.coordinate(withNormalizedOffset: .zero).withOffset(
-      CGVector(dx: app.windows.firstMatch.frame.midX, dy: max(low, (low + high) / 2)))
+      CGVector(dx: app.windows.firstMatch.frame.midX, dy: fromY))
     from.press(forDuration: 0.05, thenDragTo: from.withOffset(CGVector(dx: 0, dy: -180)))
     let settled = NSPredicate { _, _ in field.frame.minY < opened.minY - 60 }
     let scrolled = XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: settled, object: nil)], timeout: 10)
@@ -360,12 +361,25 @@ final class TextEditingUITests: UITestCase {
     XCTAssertLessThan(field.frame.minY, opened.minY - 60, "The page was pulled back to the line: \(field.frame)")
     attach(app, named: "Scrolled with the line open")
     // Back down, so the pinch below keeps the line on screen: a pinch zooms about the fingers, and
-    // a line far from them leaves the screen, as it would in Notes.
-    from.press(forDuration: 0.05, thenDragTo: from.withOffset(CGVector(dx: 0, dy: 180)))
+    // a line far from them leaves the screen, as it would in Notes. By as far as the page went up,
+    // and more: the drag up lifts at speed, so the page flings on by a varying amount, and the same
+    // 180 points back left the field short of its line (at y 191.67) on run 37984144377. Overshooting
+    // only takes the line further down. The same quick drag as the one up: a slow drag held before it
+    // lifts did not move the page at all with a line open (run 37992985937, twice).
+    let up = opened.minY - field.frame.minY
+    let down = min(up + 40, app.windows.firstMatch.frame.maxY - 20 - fromY)
+    from.press(forDuration: 0.05, thenDragTo: from.withOffset(CGVector(dx: 0, dy: down)))
     let back = NSPredicate { _, _ in field.frame.minY > opened.minY - 30 }
+    let returned = XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: back, object: nil)], timeout: 10)
+    if returned != .completed {
+      keepEvidence(
+        app, named: "not back down",
+        notes: "field \(opened), up \(up) -> \(field.frame); dragged down \(down) from y \(fromY)")
+    }
     XCTAssertEqual(
-      XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: back, object: nil)], timeout: 10), .completed,
-      "The page did not scroll back down with the line open: the field is at \(field.frame)")
+      returned, .completed,
+      "The page did not scroll back down with the line open: it went up \(up), was dragged down \(down), "
+        + "and the field is at \(field.frame), opened at \(opened)")
 
     // The keyboard can be put away to look over the page, and the line stays open.
     let keyboardButton = app.buttons["reader.textEdit.keyboard"]
@@ -374,11 +388,18 @@ final class TextEditingUITests: UITestCase {
     XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: Self.settleTimeout), "The keyboard went")
     XCTAssertTrue(field.exists, "The line is still open")
 
-    // A pinch zooms the page, and the field grows with it.
+    // A pinch zooms the page, and the field grows with it. A synthesized pinch zooms less than it
+    // asks, part of it spent before the page takes it as a pinch: asked for 1.5 times, the page
+    // zoomed about 1.16 times on run 37989496789 (the field 321.67 wide, then 374, and 11 high,
+    // then 13, short of the 1.25 times the height was held to). So a clear growth of the width
+    // counts too; a page that does not zoom leaves the field as it was. Not a larger pinch: it
+    // zooms about the fingers, and would carry the line off the top of the screen.
     let before = field.frame
     let pages = app.descendants(matching: .any)["reader.pages"].firstMatch
     pages.pinch(withScale: 1.5, velocity: 1)
-    let zoomed = NSPredicate { _, _ in field.frame.height > before.height * 1.25 }
+    let zoomed = NSPredicate { _, _ in
+      field.frame.width > before.width * 1.05 || field.frame.height > before.height * 1.25
+    }
     let grew = XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: zoomed, object: nil)], timeout: 10)
     if grew != .completed {
       keepEvidence(app, named: "not zoomed", notes: "field \(before) -> \(field.frame); pages \(pages.frame)")

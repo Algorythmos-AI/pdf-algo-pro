@@ -23,7 +23,8 @@ Owner: Quality · Reviewed: each milestone, and with any change to a workflow, r
 
 | Check name | Workflow → job | Tool | Runs on | Required on `integration` | Required on `main` | Threshold or rule | State today |
 |---|---|---|---|---|---|---|---|
-| `pr-title` | `ci.yml` → `pr-title` | Shell pattern | Pull requests (opened, edited, synchronised, reopened) | Yes | Yes | Title is a Conventional Commit ([pattern](branching.md#pull-request-titles)) | Active |
+| `pr-title` | `pr-metadata.yml` → `pr-title` | Shell pattern | Pull requests (opened, edited, synchronised, reopened) | Yes | Yes | Title is a Conventional Commit ([pattern](branching.md#pull-request-titles)) | Active |
+| `privacy-impact` | `pr-metadata.yml` → `privacy-impact` | [`scripts/ci/privacy_impact.py`](../../scripts/ci/privacy_impact.py) | Pull requests (opened, edited, synchronised, reopened) | Not yet (until it is added to the rulesets; `invariants` runs the same gate meanwhile) | Not yet | A change the privacy policy describes states its policy impact in the description | Active |
 | `promotion-guard` | `ci.yml` → `promotion-guard` | Shell | Every pull request; can fail only when the base is `main` | No | Yes | Head is `integration` or `hotfix/*` | Active |
 | `secrets / Secret scan` | `ci.yml` → `secrets` (the organisation's shared security workflow, pinned by commit SHA, Semgrep off) | Organisation secret scanner | Pull requests, pushes, merge queue | Yes | Yes | No secret in the change | Active |
 | `docs` | `ci.yml` → `docs` | [`scripts/ci/check_docs.py`](../../scripts/ci/check_docs.py) | Pull requests, pushes | Yes | Yes | Relative links resolve; exactly one H1, first; no skipped heading levels; every document indexed once [`docs/README.md`](../README.md) exists | Active |
@@ -274,6 +275,7 @@ The checklist that collects this evidence is in [release management](../release-
 | Check or gate | What to do |
 |---|---|
 | `pr-title` | Edit the pull request title; the job re-runs on edit. |
+| `privacy-impact` | Add the `Privacy policy impact:` line to the description; the job re-runs on edit. The same gate in `invariants` reads the description when it runs: re-run that job. |
 | `promotion-guard` | Retarget the pull request to `integration`. If it is an urgent production fix, follow the [hotfix runbook](runbooks/ios-hotfix.md). |
 | `secrets / Secret scan` | Treat the secret as leaked, even on a branch: revoke and rotate it first, then remove it from the branch history before anything merges, and tell the Security hat. A false positive is recorded in the pull request and handled through the organisation workflow's allowlist, never by weakening the scan. |
 | `docs` | Fix the broken link or heading. A document that does not exist yet is referenced as inline code (`docs/…`), not as a link. |

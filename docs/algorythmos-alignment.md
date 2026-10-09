@@ -48,7 +48,7 @@ Status key: **Adopt** (used as the organisation does) · **Adapt** (used with a 
 | Organisation practice | PDF Algo Pro | Status |
 |---|---|---|
 | Reusable secret-scan workflow from the organisation's `.github` repository, pinned to a commit | Called from `ci.yml` as the `secrets` job | Adopt |
-| Workflows with read-only default permissions, pinned runners and timeouts | Same in all four workflows | Adopt |
+| Workflows with read-only default permissions, pinned runners and timeouts | Same in all five workflows | Adopt |
 | Third-party actions pinned to commit SHAs (applied unevenly across repositories) | Every action pinned to a SHA | Adopt, applied fully |
 | A `changes` job so required checks always report while macOS minutes are spent only when needed (meeting-notes app) | Same for the `ios` and `codeql (swift)` jobs | Adopt |
 | Pinned Xcode that fails when missing; pinned, checksum-verified XcodeGen; `Package.resolved` drift gate (meeting-notes app) | Same, for Xcode 27 and XcodeGen 2.46.0 | Adopt |
