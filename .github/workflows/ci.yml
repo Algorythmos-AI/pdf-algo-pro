@@ -273,7 +273,10 @@ jobs:
           python3 scripts/ci/coverage_gate.py coverage.json --min 80
       - name: Keep the suite reports
         # Golden corpus, OCR, AI evaluation and performance reports, written under reports/ by the tests.
+        # Diagnostic uploads never decide the check: one failed on a network error (ENOTFOUND) on run
+        # 37894865876, after every test had passed.
         if: ${{ !cancelled() }}
+        continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: reports
@@ -313,6 +316,7 @@ jobs:
           done < failed-tests.txt
       - name: Keep the failed tests' screenshots and attachments
         if: failure()
+        continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: failed-attachments
@@ -321,6 +325,7 @@ jobs:
           retention-days: 7
       - name: Keep the result bundle on failure
         if: failure()
+        continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: Tests.xcresult
