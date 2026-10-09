@@ -918,7 +918,10 @@ jobs:
     # The Performance test plan (P9): nightly and on request, never on pull requests. It compares each
     # measurement with docs/performance-budgets.md and reports it in the run summary and an artifact,
     # without blocking anything: simulator timings show trends, and device runs give the timings.
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    # Not on a manual recording or focused run, which only hold a macOS runner back from the PRs.
+    if: >-
+      ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch'
+      && !inputs.record_snapshots && !inputs.only_testing) }}
     runs-on: macos-26
     timeout-minutes: 60
     env:
