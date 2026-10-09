@@ -363,14 +363,12 @@ final class TextEditingUITests: UITestCase {
     // Back down, so the pinch below keeps the line on screen: a pinch zooms about the fingers, and
     // a line far from them leaves the screen, as it would in Notes. By as far as the page went up,
     // and more: the drag up lifts at speed, so the page flings on by a varying amount, and the same
-    // 180 points back left the field short of its line (at y 191.67) on run 37984144377. This drag
-    // holds before it lifts, so it does not fling, and the margin covers the points a scroll takes
-    // to start.
+    // 180 points back left the field short of its line (at y 191.67) on run 37984144377. Overshooting
+    // only takes the line further down. The same quick drag as the one up: a slow drag held before it
+    // lifts did not move the page at all with a line open (run 37992985937, twice).
     let up = opened.minY - field.frame.minY
     let down = min(up + 40, app.windows.firstMatch.frame.maxY - 20 - fromY)
-    from.press(
-      forDuration: 0.05, thenDragTo: from.withOffset(CGVector(dx: 0, dy: down)), withVelocity: .slow,
-      thenHoldForDuration: 0.5)
+    from.press(forDuration: 0.05, thenDragTo: from.withOffset(CGVector(dx: 0, dy: down)))
     let back = NSPredicate { _, _ in field.frame.minY > opened.minY - 30 }
     let returned = XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: back, object: nil)], timeout: 10)
     if returned != .completed {
