@@ -289,35 +289,32 @@ final class TextEditingUITests: UITestCase {
     //
     // Held inside the first line and the last, not on the field's edges. On CI (2026-10-08 and -09)
     // neither a tap nor a hold there moved the caret: the touch went to the page under the field,
-    // which now hands it on (`PDFReaderHostView.hitTest`). The message says which view took it.
-    let tapped = field.frame
+    // which now hands it on (`PDFReaderHostView.hitTest`).
+    let held = field.frame
     field.coordinate(withNormalizedOffset: CGVector(dx: 0.01, dy: 0.25)).press(forDuration: Self.hold)
-    let focused = (field.value(forKey: "hasKeyboardFocus") as? Bool) ?? false
-    // A hold the text view takes ends with its edit menu; one that went elsewhere does not.
-    let menu = app.menuItems.allElementsBoundByIndex.map(\.label)
-    // What the field did with the hold, in counts and caret places, from the geometry build.
-    let debug = app.descendants(matching: .any)["reader.textEdit.debug"].firstMatch
-    let afterHold = debug.exists ? debug.label : "not shown"
     field.typeText("Z")
     let start = try XCTUnwrap(field.value as? String)
     let place = try XCTUnwrap(start.firstIndex(of: "Z"), "The letter was typed")
     XCTAssertLessThan(
       start.distance(from: start.startIndex, to: place), 3,
-      "It went in at the start of the line; the field was at \(tapped), focused after the hold \(focused), "
-        + "menu \(menu); after the hold: \(afterHold); after typing: \(debug.exists ? debug.label : "not shown")")
+      "It went in at the start of the line; the field was at \(held)")
 
     // And so is the end: holding after the last word puts the caret after it.
     field.coordinate(withNormalizedOffset: CGVector(dx: 0.99, dy: 0.75)).press(forDuration: Self.hold)
     field.typeText("Q")
     XCTAssertEqual((field.value as? String)?.last, "Q", "It went in at the end of the line")
 
-    // Turned on its side, with less room, the field is still wholly in view.
+    // Turned on its side, with less room, the field is still wholly in view, once the page has
+    // settled: it lays out again over several frames, and room is made for the field after that.
     XCUIDevice.shared.orientation = .landscapeLeft
     defer { XCUIDevice.shared.orientation = .portrait }
     XCTAssertTrue(field.waitForExistence(timeout: 5))
+    waitUntilSteady(field)
     attach(app, named: "Long line, landscape")
     assertWhollyInView(field, in: app)
     XCUIDevice.shared.orientation = .portrait
+    waitUntilSteady(field)
+    attach(app, named: "Long line, upright again")
     assertWhollyInView(field, in: app)
     app.buttons["reader.textEdit.cancel"].tap()
   }
@@ -411,7 +408,9 @@ final class TextEditingUITests: UITestCase {
     XCTAssertTrue(screen.contains(frame), "\(frame) is inside \(screen)", file: file, line: line)
     let top = app.navigationBars.firstMatch
     if top.exists {
-      XCTAssertGreaterThanOrEqual(frame.minY, top.frame.maxY - 1, "Below the top bar", file: file, line: line)
+      XCTAssertGreaterThanOrEqual(
+        frame.minY, top.frame.maxY - 1, "Below the top bar: field \(frame), top bar \(top.frame), screen \(screen)",
+        file: file, line: line)
     }
     let bar = app.descendants(matching: .any)["reader.textEdit.actionBar"].firstMatch
     // Text the field cannot sit over is typed in the bar itself.
@@ -421,8 +420,10 @@ final class TextEditingUITests: UITestCase {
         file: file, line: line)
     }
     if app.keyboards.firstMatch.exists {
+      let keyboard = app.keyboards.firstMatch.frame
       XCTAssertLessThanOrEqual(
-        frame.maxY, app.keyboards.firstMatch.frame.minY + 1, "Above the keyboard", file: file, line: line)
+        frame.maxY, keyboard.minY + 1, "Above the keyboard: field \(frame), keyboard \(keyboard), screen \(screen)",
+        file: file, line: line)
     }
   }
 
