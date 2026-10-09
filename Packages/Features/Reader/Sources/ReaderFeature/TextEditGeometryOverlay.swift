@@ -55,6 +55,12 @@
         .onChange(of: [line, visible, log.editor ?? .null, log.textView ?? .null], initial: true) {
           log.layer(line: line, visible: visible, scale: scale)
         }
+        // What the field did, in numbers, for the UI tests to read and report.
+        Color.clear.frame(width: 1, height: 1)
+          .allowsHitTesting(false)
+          .accessibilityElement()
+          .accessibilityLabel(log.events.summary)
+          .accessibilityIdentifier("reader.textEdit.debug")
       }
     }
 
@@ -75,6 +81,8 @@
 
     var editor: CGRect?
     var textView: CGRect?
+    /// What happened to the field, as counts and caret places only.
+    var events = Events()
     @ObservationIgnored private var lastLayer = ""
     @ObservationIgnored private var lastTextView = ""
     private let logger = Logger(
@@ -123,6 +131,32 @@
         }()
       let inset = view.textContainerInset
       shape.path = used.isNull ? nil : UIBezierPath(rect: used.offsetBy(dx: inset.left, dy: inset.top)).cgPath
+    }
+
+    /// Counts of what happened to the field, and where its caret went, never what it holds.
+    struct Events {
+      /// Text views made for the field; more than one means the field was made again.
+      var made = 0
+      /// Times the field was handed the keyboard with the caret put after the last letter.
+      var focused = 0
+      /// Times the field's text was replaced from the draft.
+      var replaced = 0
+      /// Touches that reached the text view itself.
+      var touches = 0
+      /// The caret's place after each change of selection, oldest first, the last few only.
+      var carets: [Int] = []
+
+      var summary: String {
+        "made \(made) focused \(focused) replaced \(replaced) touches \(touches) "
+          + "carets \(carets.map(String.init).joined(separator: ","))"
+      }
+    }
+
+    /// Records a change to the field, where the app was launched to show the editor's geometry.
+    static func record(_ change: (inout Events) -> Void) {
+      guard isOn else { return }
+      change(&shared.events)
+      if shared.events.carets.count > 8 { shared.events.carets.removeFirst() }
     }
 
     private static func text(_ rect: CGRect) -> String {

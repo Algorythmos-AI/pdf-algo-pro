@@ -294,12 +294,16 @@ final class TextEditingUITests: UITestCase {
     let tapped = field.frame
     field.coordinate(withNormalizedOffset: CGVector(dx: 0.01, dy: 0.25)).press(forDuration: Self.hold)
     let focused = (field.value(forKey: "hasKeyboardFocus") as? Bool) ?? false
+    // What the field did with the hold, in counts and caret places, from the geometry build.
+    let debug = app.descendants(matching: .any)["reader.textEdit.debug"].firstMatch
+    let afterHold = debug.exists ? debug.label : "not shown"
     field.typeText("Z")
     let start = try XCTUnwrap(field.value as? String)
     let place = try XCTUnwrap(start.firstIndex(of: "Z"), "The letter was typed")
     XCTAssertLessThan(
       start.distance(from: start.startIndex, to: place), 3,
-      "It went in at the start of the line; the field was at \(tapped), focused after the hold \(focused)")
+      "It went in at the start of the line; the field was at \(tapped), focused after the hold \(focused); "
+        + "after the hold: \(afterHold); after typing: \(debug.exists ? debug.label : "not shown")")
 
     // And so is the end: holding after the last word puts the caret after it.
     field.coordinate(withNormalizedOffset: CGVector(dx: 0.99, dy: 0.75)).press(forDuration: Self.hold)

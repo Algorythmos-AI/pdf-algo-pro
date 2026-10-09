@@ -109,6 +109,9 @@ struct TextEditField: UIViewRepresentable {
     field.accessibilityIdentifier = "reader.textEdit.field"
     field.accessibilityLabel = String(localized: "Text to change", bundle: .module)
     draft.field = field
+    #if DEBUG
+      TextEditGeometryLog.record { $0.made += 1 }
+    #endif
     return field
   }
 
@@ -118,6 +121,9 @@ struct TextEditField: UIViewRepresentable {
     if field.text != draft.text {
       field.text = draft.text
       field.invalidateIntrinsicContentSize()
+      #if DEBUG
+        TextEditGeometryLog.record { $0.replaced += 1 }
+      #endif
     }
     if field.font != resolvedFont {
       field.font = resolvedFont
@@ -132,6 +138,9 @@ struct TextEditField: UIViewRepresentable {
         // The caret starts after the last letter, and is shown there.
         field.selectedRange = NSRange(location: (field.text ?? "").utf16.count, length: 0)
         field.revealSelection()
+        #if DEBUG
+          TextEditGeometryLog.record { $0.focused += 1 }
+        #endif
         // VoiceOver goes to the field that just opened, not to whatever it was reading.
         UIAccessibility.post(notification: .layoutChanged, argument: field)
       }
@@ -191,6 +200,9 @@ struct TextEditField: UIViewRepresentable {
 
     func textViewDidChangeSelection(_ textView: UITextView) {
       (textView as? TextEditTextView)?.revealSelection()
+      #if DEBUG
+        TextEditGeometryLog.record { $0.carets.append(textView.selectedRange.location) }
+      #endif
     }
 
     func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
@@ -252,6 +264,13 @@ final class TextEditTextView: UITextView {
   func revealSelection() {
     scrollRangeToVisible(selectedRange)
   }
+
+  #if DEBUG
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+      TextEditGeometryLog.record { $0.touches += 1 }
+      super.touchesBegan(touches, with: event)
+    }
+  #endif
 
   /// Escape cancels the text in hand, unless it is ending an input method's composition.
   override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
