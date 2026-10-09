@@ -566,6 +566,10 @@ extension PDFDocumentController {
       guard let scroller = view?.pageScroller else { return false }
       return scroller.isTracking || scroller.isZooming
     }
+
+    /// The page view's size now, to tell a line measured before the view last changed size
+    /// (`TextEditAnchor.isMeasured(at:)`); `nil` while no page view shows the document.
+    public var pageViewSize: CGSize? { view?.bounds.size }
   #endif
 
   /// Lets go of the picked text without changing it.

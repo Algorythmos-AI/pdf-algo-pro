@@ -155,4 +155,106 @@ struct TextEditPlacementTests {
     #expect(TextEditPlacement.revealDistance(for: editor, in: short, margin: 8) == .zero)
     #expect(TextEditPlacement.revealDistance(for: .null, in: tall, margin: 8) == .zero)
   }
+
+  // MARK: - Room after the screen turns
+
+  /// A line of the sample page.
+  private static let region = EditableTextRegion(
+    id: 0, text: "Try these:", bounds: .zero, angle: 0,
+    style: TextStyle(
+      fontName: "Helvetica", pointSize: 12, isBold: false, isItalic: false, isMonospaced: false, color: .black),
+    capability: .direct)
+  /// The line, picked for editing.
+  private static let selection = TextRegionSelection(pageIndex: 0, region: region)
+
+  private static let portrait = CGSize(width: 402, height: 874)
+  private static let landscape = CGSize(width: 874, height: 402)
+  /// Below the top bar and above the bar over the keyboard, on a phone turned to landscape, as on
+  /// CI (2026-10-09).
+  private static let landscapeVisible = CGRect(x: 0, y: 77, width: 874, height: 174 - 77)
+
+  /// The line where the page view measured it, at a size of the page view.
+  private static func anchor(_ line: CGRect, at size: CGSize, moving: Bool = false) -> TextEditAnchor {
+    TextEditAnchor(
+      selection: selection, lineFrame: line, columnFrame: line, scale: 1, viewSize: size, isPageMoving: moving)
+  }
+
+  /// The field as laid out on a line: over it, reaching 2 points past either end.
+  private static func field(on line: CGRect) -> CGRect {
+    line.insetBy(dx: -2, dy: 0)
+  }
+
+  /// The request's next step in landscape.
+  private static func step(
+    _ request: TextEditRoomRequest, _ anchor: TextEditAnchor, field: CGRect?, touched: Bool = false
+  ) -> TextEditRoomRequest.Step {
+    request.step(
+      anchor: anchor, field: field, visible: landscapeVisible, viewSize: landscape, margin: 8, isPageTouched: touched)
+  }
+
+  @Test("A line is measured for the page view's present size, or not at all")
+  func lineIsMeasuredAtSize() {
+    let line = CGRect(x: 40, y: 560, width: 200, height: 20)
+    #expect(Self.anchor(line, at: Self.portrait).isMeasured(at: Self.portrait))
+    #expect(!Self.anchor(line, at: Self.portrait).isMeasured(at: Self.landscape), "Left from before the turn")
+    #expect(Self.anchor(line, at: CGSize(width: 402.3, height: 874)).isMeasured(at: Self.portrait), "Rounding")
+  }
+
+  /// The field turned to landscape on CI (2026-10-09) was left under the bar: room was made once,
+  /// for a line not yet measured at the new size, or before PDFKit fitted the page to it.
+  @Test("After a turn, room is made once the page settles at its new size, until the field is in view")
+  func roomAfterTurning() {
+    var request = TextEditRoomRequest()
+    // Just after the turn the line is still where it was, measured in portrait.
+    let before = CGRect(x: 60, y: 300, width: 280, height: 18)
+    #expect(Self.step(request, Self.anchor(before, at: Self.portrait), field: Self.field(on: before)) == .wait)
+    // Measured at the new size while the page is still moving by itself: not yet.
+    let line = CGRect(x: 136, y: 164, width: 596, height: 39)
+    let moving = Self.anchor(line, at: Self.landscape, moving: true)
+    #expect(Self.step(request, moving, field: Self.field(on: line)) == .wait)
+    // At rest, but the field is not laid out yet, or is still where the line was: not yet.
+    let measured = Self.anchor(line, at: Self.landscape)
+    #expect(Self.step(request, measured, field: nil) == .wait)
+    #expect(Self.step(request, measured, field: Self.field(on: before)) == .wait)
+    // The field on the line ends 29 points under the bar's top; with the margin, up by 37.
+    #expect(Self.step(request, measured, field: Self.field(on: line)) == .scroll(37))
+    request.scrolled(for: measured)
+    #expect(request.scrolls == 1)
+    // Not twice for one place of the line: it is measured where the scroll left it first.
+    #expect(Self.step(request, measured, field: Self.field(on: line)) == .wait)
+    // PDFKit then fits the page to the new width, and the line comes down by 20: once more, after
+    // the field is laid out on it.
+    let refitted = line.offsetBy(dx: 0, dy: -17)
+    #expect(Self.step(request, Self.anchor(refitted, at: Self.landscape), field: Self.field(on: line)) == .wait)
+    #expect(
+      Self.step(request, Self.anchor(refitted, at: Self.landscape), field: Self.field(on: refitted)) == .scroll(20))
+    request.scrolled(for: Self.anchor(refitted, at: Self.landscape))
+    // In view at last, below the top bar and above the bar: the request is over.
+    let settled = refitted.offsetBy(dx: 0, dy: -20)
+    #expect(Self.step(request, Self.anchor(settled, at: Self.landscape), field: Self.field(on: settled)) == .done)
+  }
+
+  @Test("A finger on the page ends the request: the page stays where the person puts it")
+  func touchEndsRoom() {
+    let line = CGRect(x: 136, y: 164, width: 596, height: 39)
+    let request = TextEditRoomRequest()
+    let field = Self.field(on: line)
+    #expect(Self.step(request, Self.anchor(line, at: Self.landscape), field: field, touched: true) == .done)
+    // Even while the line is not measured at the new size yet.
+    #expect(Self.step(request, Self.anchor(line, at: Self.portrait), field: field, touched: true) == .done)
+  }
+
+  @Test("A page that will not settle is scrolled no more than a few times for one request")
+  func roomIsBounded() {
+    var request = TextEditRoomRequest()
+    var line = CGRect(x: 136, y: 164, width: 596, height: 39)
+    for _ in 0..<TextEditRoomRequest.maximumScrolls {
+      let anchor = Self.anchor(line, at: Self.landscape)
+      #expect(Self.step(request, anchor, field: Self.field(on: line)) == .scroll(37))
+      request.scrolled(for: anchor)
+      // The line comes back where it was, a hair to the side, as if the page had not scrolled.
+      line = line.offsetBy(dx: 0.001, dy: 0)
+    }
+    #expect(Self.step(request, Self.anchor(line, at: Self.landscape), field: Self.field(on: line)) == .done)
+  }
 }

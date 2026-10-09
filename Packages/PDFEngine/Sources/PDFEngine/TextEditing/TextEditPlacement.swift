@@ -116,3 +116,102 @@ public struct TextEditAnchor: Equatable, Sendable {
     self.isPageMoving = isPageMoving
   }
 }
+
+extension TextEditAnchor {
+  /// Whether the line was measured with the page view at a size: the size it has now, or the line
+  /// is still where it was before the view last changed size.
+  public func isMeasured(at size: CGSize) -> Bool {
+    abs(viewSize.width - size.width) <= TextEditRoomRequest.tolerance
+      && abs(viewSize.height - size.height) <= TextEditRoomRequest.tolerance
+  }
+}
+
+/// A wish to scroll the page so the whole editor is in view, kept until the page is ready for it.
+///
+/// Room is asked for when the editor opens, when the keyboard or the bar takes more of the screen,
+/// and when the page view changes size, as when the screen turns. A turn settles over several
+/// frames: the page view and the layer over it take their new size first, the line is measured at
+/// that size on the next frame, PDFKit fits the page to the new width after that, and the field
+/// wraps again at the new zoom a layout pass later. Room made once, at any one of those steps, was
+/// made for a line that then moved: on CI (2026-10-09) the field turned to landscape was left under
+/// the bar, or scrolled under the top bar. So the request lasts until the field is seen in view, and
+/// the page is scrolled for it only when the line was measured at the page view's present size, the
+/// page is at rest, and the field has been laid out on that line.
+///
+/// It is never met by moving a page the person is moving: a finger on the page ends it.
+///
+/// Pure, so each step of a turn can be tested without a screen (`TextEditPlacementTests`).
+public struct TextEditRoomRequest: Equatable, Sendable {
+  /// What to do about the request now.
+  public enum Step: Equatable, Sendable {
+    /// Nothing yet, until the next line or field is measured.
+    ///
+    /// The line has not been measured at the page view's size, the page is moving, the field is not
+    /// laid out on the line yet, or the line has not been measured since the last scroll.
+    case wait
+    /// Scroll the page by this distance, up for a positive one, and then record it with
+    /// `scrolled(for:)`.
+    case scroll(CGFloat)
+    /// The request is over: the field is in view, the person took the page, or the page was
+    /// scrolled as often as one request may scroll it.
+    case done
+  }
+
+  /// The most times one request scrolls the page: once, and again each time the page settles
+  /// somewhere else after it (PDFKit fitting the page after a turn, the field wrapping again).
+  ///
+  /// `Assumption:` a turn settles within two moves after the first scroll; checked by the long-line
+  /// UI test in landscape.
+  public static let maximumScrolls = 3
+
+  /// Distances and differences of size smaller than this are rounding.
+  public static let tolerance: CGFloat = 0.5
+
+  /// The line the page was last scrolled for, until the line is measured where the scroll left it.
+  public private(set) var scrolledFor: TextEditAnchor?
+
+  /// How many times the page has been scrolled for this request.
+  public private(set) var scrolls = 0
+
+  /// A request for room, not yet met.
+  public init() {}
+
+  /// What to do about the request now.
+  /// - Parameters:
+  ///   - anchor: Where the line is, as the page view last measured it.
+  ///   - field: Where the field is, as last laid out, in the same space; `nil` before it is.
+  ///   - visible: The part of that space not under the bars or the keyboard.
+  ///   - viewSize: The page view's size now; `nil` where there is no page view.
+  ///   - margin: The space kept clear above and below the field.
+  ///   - isPageTouched: Whether a finger is on the page, dragging or pinching it.
+  /// - Returns: The step to take.
+  public func step(
+    anchor: TextEditAnchor, field: CGRect?, visible: CGRect, viewSize: CGSize?, margin: CGFloat, isPageTouched: Bool
+  ) -> Step {
+    // The person is moving the page: it stays where they put it.
+    if isPageTouched { return .done }
+    guard let viewSize, anchor.isMeasured(at: viewSize), !anchor.isPageMoving, anchor != scrolledFor, let field,
+      Self.isLaidOut(field, on: anchor.lineFrame)
+    else { return .wait }
+    // The field is where its line is now.
+    let editor = CGRect(origin: CGPoint(x: field.minX, y: anchor.lineFrame.minY), size: field.size)
+    let distance = TextEditPlacement.scrollDistance(for: editor, in: visible, margin: margin)
+    if abs(distance) <= Self.tolerance || scrolls >= Self.maximumScrolls { return .done }
+    return .scroll(distance)
+  }
+
+  /// Records that the page was scrolled for the line where it was, so the next step waits for the
+  /// line measured where the scroll left it.
+  public mutating func scrolled(for anchor: TextEditAnchor) {
+    scrolledFor = anchor
+    scrolls += 1
+  }
+
+  /// Whether a field was laid out on a line, rather than where the line was before it moved.
+  ///
+  /// It then starts at the line's top and covers it from end to end, and its height, which comes
+  /// from wrapping its text at the line's zoom, is the height for this line too.
+  static func isLaidOut(_ field: CGRect, on line: CGRect) -> Bool {
+    abs(field.minY - line.minY) <= 1 && field.minX <= line.minX + 1 && field.maxX >= line.maxX - 1
+  }
+}

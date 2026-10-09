@@ -212,8 +212,14 @@ tested for every supported screen size, both orientations and three keyboard hei
    and zooming do not wait for the hold-to-move press (`LiftGestureDelegate`).
 5. **Keyboard.** The page is moved for the field only on something the person did to the text:
    when the field opens, when the visible area gets shorter (the keyboard coming up, the bar
-   growing, the screen turning), and when a letter is typed. Never because the field moved or grew
-   with the page, and never while the person is moving the page (a finger on it, a pinch, a glide):
+   growing), when the page view changes size (the screen turning), and when a letter is typed.
+   Room asked for is kept as a request (`TextEditRoomRequest`) until the field is seen in view, and
+   the page is scrolled for it only once the line was measured at the page view's present size,
+   the page is at rest and the field is laid out on the line. A turn settles over several frames
+   (the new size, the line measured at it, PDFKit fitting the page to the new width, the field
+   wrapping again), and room made once at one of them left the field turned to landscape under the
+   bar on CI (2026-10-09). A request scrolls at most three times. Never because the field moved or
+   grew with the page, and never while the person is moving the page (a finger on it, a pinch, a glide):
    the editor that made room whenever the field's height changed pulled the page back under the
    finger on every pinch, so it felt locked (the owner's report, 2026-10-08). The page scrolls under
    the field so it sits above the bar with Cancel and Done, as in Notes
