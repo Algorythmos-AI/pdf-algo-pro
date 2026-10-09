@@ -549,12 +549,22 @@ extension PDFDocumentController {
 
   #if canImport(UIKit)
     /// Scrolls the page under the picked text by a distance in screen points: up for a positive
-    /// distance, down for a negative one.
+    /// distance, down for a negative one, and across by `across` (to the left for a positive one).
     ///
-    /// The editor stays on its line and moves with it.
-    public func scrollPickedText(by distance: CGFloat) {
-      guard selectedTextRegion != nil else { return }
-      view?.scrollPickedText(by: distance)
+    /// The editor stays on its line and moves with it. Nothing moves while the person is moving the
+    /// page themselves.
+    ///
+    /// Returns whether it scrolled.
+    @discardableResult
+    public func scrollPickedText(by distance: CGFloat, across: CGFloat = 0) -> Bool {
+      guard selectedTextRegion != nil, let view else { return false }
+      return view.scrollPickedText(by: distance, across: across)
+    }
+
+    /// Whether a finger is on the page, dragging or pinching it.
+    public var isPageTouched: Bool {
+      guard let scroller = view?.pageScroller else { return false }
+      return scroller.isTracking || scroller.isZooming
     }
   #endif
 

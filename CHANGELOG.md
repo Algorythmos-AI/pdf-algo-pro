@@ -24,6 +24,15 @@ Store notes (see the changelog strategy).
   moved, and a long line was cut off at the screen's edge with the caret out of sight. Now the page
   keeps its zoom and can be scrolled and zoomed while you type, the line wraps to the width of the
   page's text, and the page scrolls to keep what you type above the keyboard.
+- Editing text (internal builds): with a line open, the page can now be scrolled and zoomed freely,
+  as in Notes. Before, it was pulled back to the line under your finger, so it felt locked. Typing
+  brings the caret back into view, a keyboard button in the bar puts the keyboard away and brings
+  it back, and the page returns to where it was when you finish, unless you moved it yourself.
+- Editing text (internal builds): Done can no longer be undone halfway. While the change is being
+  made, Cancel is disabled and typing is held. Words still being composed in Chinese, Japanese or
+  Korean are accepted before the change, pasted text with line breaks no longer finishes the edit,
+  Escape on a keyboard cancels, and text on a turned page is edited in the bar. Light grey text now
+  gets a dark field to be typed on.
 - Scanning: the hidden text of a scanned page now sits exactly over the printed words. Before,
   it could be narrower or wider than the line, so a selection did not match what you dragged
   over, and a long line squeezed into a narrow space could be found only in pieces.
