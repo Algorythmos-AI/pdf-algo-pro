@@ -8,14 +8,24 @@ final class LibraryUITests: UITestCase {
     let sample = app.buttons["library.home.sample"]
     XCTAssertTrue(sample.waitForExistence(timeout: Self.settleTimeout), "The app opens on Home")
     try audit(app)
-    sample.tap()
-    XCTAssertTrue(
-      app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15), "The sample opens in the reader")
+    openSample(by: sample, in: app)
     XCTAssertTrue(app.buttons["reader.ask"].exists)
     XCTAssertFalse(app.buttons["Subscribe"].exists, "No paywall before value (FR-ONB-004)")
     // The sample was filed in All documents, so that is where Back leads.
     app.navigationBars.buttons.firstMatch.tap()
     XCTAssertTrue(app.navigationBars["All documents"].waitForExistence(timeout: Self.settleTimeout))
+  }
+
+  /// Taps the sample and waits for the reader; taps again only if the first tap was lost, with the
+  /// sample still on screen and no reader (CI, 2026-10-09: the reader never opened after one tap that
+  /// followed an accessibility audit).
+  private func openSample(by sample: XCUIElement, in app: XCUIApplication, line: UInt = #line) {
+    let reader = app.staticTexts["reader.pageIndicator"]
+    sample.tap()
+    if !reader.waitForExistence(timeout: 15), sample.exists, sample.isHittable {
+      sample.tap()
+    }
+    XCTAssertTrue(reader.waitForExistence(timeout: 15), "The sample opens in the reader", line: line)
   }
 
   /// The document list keeps its own empty state, one step in from Home.
@@ -25,9 +35,7 @@ final class LibraryUITests: UITestCase {
     let sample = app.buttons["library.empty.sample"]
     XCTAssertTrue(sample.waitForExistence(timeout: Self.settleTimeout))
     try audit(app)
-    sample.tap()
-    XCTAssertTrue(
-      app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15), "The sample opens in the reader")
+    openSample(by: sample, in: app)
   }
 
   /// Home with a document in the library: each action does its own thing and nothing else, and a

@@ -1,0 +1,10 @@
+#!/bin/sh
+# Runs the quick preflight (format, design tokens, docs, invariants, script tests, typecheck) before a
+# push, so what a Mac can check never waits for CI to find it. Turn on with
+# `git config core.hooksPath .githooks`; skip once with `git push --no-verify`.
+root=$(git rev-parse --show-toplevel) || exit 1
+if ! command -v xcrun >/dev/null 2>&1; then
+  echo "pre-push: no Xcode here, so the preflight cannot run; CI will run every check." >&2
+  exit 0
+fi
+exec "$root/scripts/dev/preflight.sh" --quick

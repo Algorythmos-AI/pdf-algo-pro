@@ -35,6 +35,15 @@ growth from a solo founder to a multi-team engineering organisation.
 7. **No third-party SDK without an ADR** covering privacy manifest, telemetry, licence and exit plan.
 8. **Evidence rule.** Every factual claim cites a source; every number is sourced or labelled
    `Assumption:` with a validation plan.
+9. **A test counts once CI has run it green.** A new or changed test is not merged, and no branch is
+   started from its branch, until a CI run on that branch has shown it pass; the pull request links
+   the run. Where a test cannot be run before pushing (no Mac or simulator), its failure message
+   reports the state needed to fix it in one round, not only what was expected.
+10. **Debug from evidence, not by pushing.** At most one full CI run is in flight per branch. When a
+    test fails on CI, read its failure message (annotated on the run), its screenshots (the
+    `failed-attachments` artifact) and, if needed, the result bundle before the next push. After two
+    failed rounds on the same test, stop pushing and find the cause from that evidence; a push that
+    only adds diagnostics is a last resort, and says so.
 
 ## Product guardrails
 

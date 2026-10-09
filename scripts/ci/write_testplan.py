@@ -25,6 +25,8 @@ ROOT = Path(__file__).resolve().parents[2]
 PROJECT = ROOT / "PDFAlgoPro.xcodeproj" / "project.pbxproj"
 PLAN = ROOT / "PDFAlgoPro.xctestplan"
 PERFORMANCE_PLAN = ROOT / "Performance.xctestplan"
+# Seconds a single test may run in the pull request plan before it fails (see main()).
+TEST_ALLOWANCE = 300
 PERFORMANCE_CLASS = re.compile(r"\bclass\s+(\w+PerformanceTests)\b")
 APP, UNIT_TESTS, UI_TESTS = "PDFAlgoPro", "PDFAlgoProTests", "PDFAlgoProUITests"
 
@@ -76,7 +78,12 @@ def main() -> int:
             performance.append({"selectedTests": classes, "target": target})
     write(PLAN, {
         "configurations": [{"id": "4F1C2A00-0000-4000-8000-000000000001", "name": "Default", "options": {}}],
-        "defaultOptions": {"codeCoverage": True, "targetForVariableExpansion": variables},
+        # A test that hangs fails by name after the allowance, instead of holding the job until its
+        # 60-minute timeout cancels it with no verdict. XCTest rounds the allowance up to whole
+        # minutes. The slowest UI test took 69 s on CI (run 414); Swift Testing suites keep their own
+        # .timeLimit traits.
+        "defaultOptions": {"codeCoverage": True, "defaultTestExecutionTimeAllowance": TEST_ALLOWANCE,
+                           "targetForVariableExpansion": variables, "testTimeoutsEnabled": True},
         "testTargets": targets,
         "version": 1,
     })
