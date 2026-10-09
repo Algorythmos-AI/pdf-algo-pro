@@ -661,9 +661,13 @@ jobs:
   ios:
     # The required check. It always runs (unless the run is cancelled) and decides from every iOS job's
     # result, because a job skipped after a failed one reports success (actions/runner#2566): a failed
-    # `changes` must never leave this check green. A focused run reports as `ios-focused`, so it can
-    # never stand in for `ios` on a pull request's commit.
-    name: ${{ inputs.only_testing && 'ios-focused' || 'ios' }}
+    # `changes` must never leave this check green. A manual run never reports as `ios`: a focused run
+    # as `ios-focused`, any other as `ios-manual`. Checks are kept per commit, so a manual run's `ios`
+    # on a pull request's head replaced the pull request's own: the serial_baseline run 37939544303
+    # turned #184's green `ios` red, and a green one would stand for a run that never tested the merge.
+    name: >-
+      ${{ github.event_name == 'workflow_dispatch' && (inputs.only_testing && 'ios-focused' || 'ios-manual')
+      || 'ios' }}
     needs: [changes, ios-build, ios-device, ios-tests, ios-report]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-24.04
