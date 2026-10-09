@@ -127,3 +127,29 @@ def test_durations_read_either_field():
     assert xcresult_report.seconds_of({"durationInSeconds": 1.5}) == 1.5
     assert xcresult_report.seconds_of({"duration": "12s"}) == 12.0
     assert xcresult_report.seconds_of({"duration": "1m 2s"}) == 0.0
+
+
+def test_a_failed_test_run_again_on_its_own_is_judged_by_that_run(tmp_path, capsys):
+    # A UI shard re-runs only its failed tests, in a second result bundle (run 37924545633: xcodebuild's
+    # own retry ran all 41 tests of ui-2 again for 3 failures, and the shard ran out of time).
+    first = results(tmp_path, case("testOffer()", "Failed", message("Contrast failed: explanation")),
+                    case("testJourney()", "Failed", message("1 accessibility finding(s)")),
+                    case("testHome()", "Passed"), name="tests.json")
+    retry_ids = tmp_path / "retry.txt"
+    assert xcresult_report.main([first, "--retry-ids", str(retry_ids)]) == 1
+    assert retry_ids.read_text() == ("PDFAlgoProUITests/PaywallUITests/testOffer\n"
+                                     "PDFAlgoProUITests/PaywallUITests/testJourney\n")
+    capsys.readouterr()
+    again = results(tmp_path, case("testOffer()", "Passed"),
+                    case("testJourney()", "Failed", message("1 accessibility finding(s) again")), name="retry.json")
+    ids = tmp_path / "failed.txt"
+    assert xcresult_report.main([first, "--retries", again, "--failed-ids", str(ids), "--flaky-budget", "3"]) == 1
+    out = capsys.readouterr().out
+    assert ("::warning title=Flaky%3A PDFAlgoProUITests/PaywallUITests/testOffer()::Failed, then passed on retry: "
+            "Contrast failed: explanation") in out
+    assert "::error title=PDFAlgoProUITests/PaywallUITests/testJourney()::1 accessibility finding(s) again" in out
+    assert "1 passed, 1 failed, 1 flaky" in out, "the retry's passing run is not counted as another test"
+    assert ids.read_text() == "PaywallUITests/testJourney()\n"
+    # Every failure retried and passed: the shard passes, with the flakes named.
+    healed = results(tmp_path, case("testOffer()", "Passed"), case("testJourney()", "Passed"), name="healed.json")
+    assert xcresult_report.main([first, "--retries", healed]) == 0

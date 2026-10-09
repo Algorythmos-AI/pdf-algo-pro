@@ -2,22 +2,23 @@
 """Say which tests failed and why, which were flaky, and where the time went. Standard library only.
 
     xcrun xcresulttool get test-results tests --path Tests.xcresult > tests.json
-    python3 scripts/ci/xcresult_report.py tests.json [more.json ...] \
-        [--failed-ids failed.txt] [--flaky-budget 3] [--summary "$GITHUB_STEP_SUMMARY"]
+    python3 scripts/ci/xcresult_report.py tests.json [more.json ...] [--retries retry-tests.json ...] \
+        [--failed-ids failed.txt] [--retry-ids retry.txt] [--flaky-budget 3] [--summary "$GITHUB_STEP_SUMMARY"]
 
 Reads the JSON that `xcresulttool get test-results tests` writes, from one result bundle or one per
-shard. A test's verdict is its last repetition when the run retried it (`-retry-tests-on-failure`),
-and its own result otherwise:
+shard. A test's verdict is its last repetition when the run repeated it, its result in a --retries
+file when it failed and was run again on its own (a UI shard re-runs only its failed tests, in a
+second result bundle), and its own result otherwise:
 
 - failed: the last repetition failed. Printed as an ::error annotation with every failure message,
   so the run's summary says why without opening the log or the result bundle.
-- flaky: an earlier repetition failed and the last one passed. Printed as a ::warning with the
+- flaky: an earlier repetition or run failed and the last one passed. Printed as a ::warning with the
   first failure's message, so a retry never hides a problem from the person reading the run.
 - quarantined: an expected failure (XCTExpectFailure), listed so the quarantine stays visible.
 
 --failed-ids writes the failed tests' identifiers, one per line, for `xcresulttool export
-attachments --test-id`. Exits 1 when a test failed, when more distinct tests were flaky than
---flaky-budget allows, or when the input holds no test at all (a crash before any result).
+attachments --test-id`; --retry-ids writes them as `-only-testing` takes them (Target/Class/method).
+Exits 1 when a test failed, when more distinct tests were flaky than --flaky-budget allows, or when the input holds no test at all (a crash before any result).
 """
 from __future__ import annotations
 
@@ -48,6 +49,17 @@ class Case:
     @property
     def suite(self) -> str:
         return "/".join(self.trail) or "(no suite)"
+
+    @property
+    def selector(self) -> str:
+        """The test as `-only-testing` names it: its bundle, then its identifier, without "()"."""
+        bundle = self.trail[0] if self.trail else ""
+        identifier = self.identifier
+        if bundle and identifier.startswith(bundle + "/"):
+            identifier = identifier[len(bundle) + 1:]
+        if identifier.endswith("()"):
+            identifier = identifier[:-2]
+        return f"{bundle}/{identifier}" if bundle else identifier
 
 
 def messages_under(node: dict) -> list[str]:
@@ -134,6 +146,20 @@ def load(paths: list[str]) -> tuple[list[Case], list[str]]:
     return found, problems
 
 
+def apply_retries(found: list[Case], retried: list[Case]) -> None:
+    """A failed test that passed when run again on its own is flaky; one that failed again stays failed,
+    with the messages of both runs. Tests that did not fail first are left as they were."""
+    again = {case.selector: case for case in retried}
+    for case in found:
+        second = again.get(case.selector)
+        if case.verdict != "failed" or second is None:
+            continue
+        if second.verdict == "passed":
+            case.verdict = "flaky"
+        else:
+            case.messages += [m for m in second.messages if m not in case.messages]
+
+
 def summary(all_cases: list[Case], flaky_budget: int | None) -> str:
     by_verdict = {v: [c for c in all_cases if c.verdict == v]
                   for v in ("failed", "flaky", "quarantined", "skipped", "passed")}
@@ -163,12 +189,18 @@ def summary(all_cases: list[Case], flaky_budget: int | None) -> str:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("results", nargs="+", help="`xcresulttool get test-results tests` JSON files")
+    ap.add_argument("--retries", nargs="*", default=[],
+                    help="results of the failed tests run again on their own, one file per shard that retried")
     ap.add_argument("--failed-ids", help="write the failed tests' identifiers here, one per line")
+    ap.add_argument("--retry-ids", help="write the failed tests here as -only-testing takes them, one per line")
     ap.add_argument("--flaky-budget", type=int, help="fail when more distinct tests than this were flaky")
     ap.add_argument("--summary", help="append a markdown summary here (e.g. $GITHUB_STEP_SUMMARY)")
     args = ap.parse_args(argv)
 
     all_cases, problems = load(args.results)
+    retried, retry_problems = load(args.retries)
+    problems += retry_problems
+    apply_retries(all_cases, retried)
     for problem in problems:
         print(f"::error::Cannot read test results: {escape(problem)}")
     for case in all_cases:
@@ -182,6 +214,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.failed_ids:
         with open(args.failed_ids, "w", encoding="utf-8") as f:
             f.writelines(f"{case.identifier}\n" for case in all_cases if case.verdict == "failed")
+    if args.retry_ids:
+        with open(args.retry_ids, "w", encoding="utf-8") as f:
+            f.writelines(f"{case.selector}\n" for case in all_cases if case.verdict == "failed")
     if args.summary:
         with open(args.summary, "a", encoding="utf-8") as f:
             f.write(summary(all_cases, args.flaky_budget))
