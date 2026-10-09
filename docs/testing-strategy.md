@@ -436,11 +436,13 @@ fake passes it too, so feature tests rely on a fake that behaves like the real e
 
 - **Floor:** at least 80% line coverage overall and for every first-party target (NFR-QUAL-001,
   [ADR-0014](adr/0014-testing-strategy-and-coverage.md)).
-- **How it is measured:** each test shard runs with coverage on; `ios-report` merges the shards'
-  result bundles, exports the merged result with `xcrun xccov view --report --json`, checks that the
-  merge kept every shard's coverage ([coverage_compare.py](../scripts/ci/coverage_compare.py)), and
-  runs [coverage_gate.py](../scripts/ci/coverage_gate.py) with `--min 80`
-  ([ci.yml](../.github/workflows/ci.yml)).
+- **How it is measured:** each test shard runs with coverage on; `ios-report` reads each shard's
+  per-line coverage (`xcrun xccov view --archive --json`) and counts a line as covered when any shard
+  ran it ([coverage_union.py](../scripts/ci/coverage_union.py)), checks that the union kept every
+  shard's coverage ([coverage_compare.py](../scripts/ci/coverage_compare.py)), and runs
+  [coverage_gate.py](../scripts/ci/coverage_gate.py) with `--min 80`
+  ([ci.yml](../.github/workflows/ci.yml)). The result bundles are not merged: `xcresulttool merge`
+  kept fewer covered lines than a single shard in 19 files on run 37914825017.
 - **Exclusions**, as the script applies them: test bundles (targets ending in `.xctest` or
   `Tests`); files ending in `Previews.swift`; paths containing `/Generated/`, `/Tests/`, `/.build/`
   or `/DerivedData/`. Previews therefore go in `<View>+Previews.swift`

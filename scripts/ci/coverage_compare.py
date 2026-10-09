@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""Check that merging the shards' result bundles kept every shard's coverage. Standard library only.
+"""Check that the shards' combined coverage kept every shard's coverage. Standard library only.
 
-    xcrun xccov view --report --json Merged.xcresult > coverage.json
+    python3 scripts/ci/coverage_union.py lines/*.json --out coverage.json
     python3 scripts/ci/coverage_compare.py coverage.json shards/ios-shard-*/coverage.json \
         [--expect unit,ui-1,ui-2] [--summary "$GITHUB_STEP_SUMMARY"]
 
-The coverage gate reads the merged bundle (`xcresulttool merge`), which must be the union of the
-shards: a line any shard ran counts as covered. This compares each first-party file's covered lines
+The coverage gate reads the combined report, which must be the union of the shards: a line any shard
+ran counts as covered. (It caught `xcresulttool merge` losing covered lines on run 37914825017, which
+is why the union is now taken by coverage_union.py.) This compares each first-party file's covered lines
 in the merged report with the best of the single-shard reports (files as coverage_gate.py counts
 them) and fails when the merged report has fewer, because the gate would then be judging less than
 the tests ran. It also fails when a shard's report is missing, unreadable or holds no executable

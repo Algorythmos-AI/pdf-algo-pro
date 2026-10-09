@@ -444,6 +444,14 @@ jobs:
           xcodebuild test-without-building -scheme "$SCHEME" -testPlan "$TEST_PLAN" -derivedDataPath DD \
             -destination "id=$SIM" -enumerate-tests -test-enumeration-format json \
             -test-enumeration-output-path inventory.json
+          # What the listing wrote, so an inventory the check cannot read says why (run 37914825017
+          # listed the tests, yet ios-report found the inventory empty).
+          if [ -s inventory.json ]; then
+            python3 -c 'import json, sys; d = json.load(open("inventory.json")); print("inventory.json:",
+              type(d).__name__, sorted(d)[:10] if isinstance(d, dict) else len(d)); print(json.dumps(d)[:800])'
+          else
+            echo "::warning::The listing wrote no inventory.json; files here: $(ls -1 | tr '\n' ' ')"
+          fi
       - name: Export the failed tests' screenshots and attachments
         # A failed UI test's screenshots say what was on screen, but the whole result bundle is a large
         # download. This takes out only what belongs to failed tests and lists it on the run's summary.
@@ -531,27 +539,30 @@ jobs:
           pattern: ios-shard-*
           path: shards
           merge-multiple: false
-      - name: Merge the shards' result bundles
+      - name: The shards' coverage, line by line
+        # The union of the lines each shard ran, from each bundle's per-line archive. xcresulttool merge
+        # kept fewer covered lines than a single shard in 19 files on run 37914825017
+        # (coverage_union.py), so the bundles are not merged.
         run: |
-          bundles=()
+          mkdir -p lines coverage
+          found=0
           for bundle in shards/ios-shard-*/*.xcresult; do
-            if [ -f "$bundle/Info.plist" ]; then bundles+=("$bundle"); fi
+            [ -f "$bundle/Info.plist" ] || continue
+            shard="$(basename "$(dirname "$bundle")")"
+            xcrun xccov view --archive --json "$bundle" > "lines/${shard#ios-shard-}.json"
+            found=$((found + 1))
           done
-          if [ "${#bundles[@]}" -eq 0 ]; then
+          if [ "$found" -eq 0 ]; then
             echo "::error::No shard left a result bundle"
             exit 1
-          elif [ "${#bundles[@]}" -eq 1 ]; then
-            cp -R "${bundles[0]}" Merged.xcresult
-          else
-            xcrun xcresulttool merge "${bundles[@]}" --output-path Merged.xcresult
           fi
-          xcrun xccov view --report --json Merged.xcresult > coverage.json
-          mkdir -p coverage
+          python3 scripts/ci/coverage_union.py lines/*.json --out coverage.json \
+            --reports shards/ios-shard-*/coverage.json
           cp coverage.json coverage/merged.json
           for shard in shards/ios-shard-*; do
             if [ -f "$shard/coverage.json" ]; then cp "$shard/coverage.json" "coverage/${shard##*/ios-shard-}.json"; fi
           done
-      - name: The merge kept every shard's coverage
+      - name: The union kept every shard's coverage
         if: ${{ !cancelled() && hashFiles('coverage.json') != '' }}
         run: |
           python3 scripts/ci/coverage_compare.py coverage.json shards/ios-shard-*/coverage.json \
