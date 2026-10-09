@@ -19,6 +19,9 @@ Store notes (see the changelog strategy).
   only ever means a red annotation or Delete.
 
 ### Fixed
+- On the plans screen, the soft red wash at the top now stays behind the title, so the line under
+  it and the note for an account that already has Pro read against plain white, for every
+  accessibility check.
 - Editing text (internal builds): a line is now edited right where it is, at the page's own size,
   as in Notes, and nothing is cut off. Before, the page zoomed in so its lines ran off the screen,
   a long line was cut off at the screen's edge with the caret out of sight, and the page was pulled
