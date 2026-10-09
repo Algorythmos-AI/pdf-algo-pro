@@ -153,7 +153,7 @@ on the `ios` runs of early October 2026). Since PAP-062 they run as a graph of j
 
 | Job | Runs | Needs |
 |---|---|---|
-| `ios-build` | Project, Info.plist, lockfile and format checks; one build for testing (Debug, simulator, signed ad hoc); the products packed as the `ios-products` artifact | `changes` |
+| `ios-build` | Project, Info.plist, lockfile and format checks; one build for testing (Debug, simulator, signed ad hoc); the products and the resolved packages packed as the `ios-products` artifact, so no shard fetches a package | `changes` |
 | `ios-device` | The Staging build for a device and the Release build with its internal-tools check | `changes` |
 | `ios-tests (unit, ui-1, ui-2, ui-3)` | The test plan in four shards ([test shards](../testing-strategy.md#test-shards-in-ci)), each on its own runner and simulator, against the products of `ios-build`; keeps `ios-shard-<shard>` (result bundle, results, coverage, reports, failed tests' attachments; the unit shard also lists the plan's tests, `-enumerate-tests`, as the inventory) | `ios-build` |
 | `ios-report` | The union of the lines each shard covered, each distinct line counted once ([`coverage_union.py`](../../scripts/ci/coverage_union.py)); checks the union kept every shard's coverage ([`coverage_compare.py`](../../scripts/ci/coverage_compare.py)); the coverage gate; every failed and flaky test across the shards, against the flake budget ([`xcresult_report.py`](../../scripts/ci/xcresult_report.py)); that the shards ran every test of the plan once ([`shard_inventory.py`](../../scripts/ci/shard_inventory.py)) | `ios-tests` |
