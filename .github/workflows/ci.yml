@@ -176,8 +176,10 @@ jobs:
         # through the environment only, never the shell.
         env:
           ONLY_TESTING: ${{ inputs.only_testing }}
+          RECORD: ${{ inputs.record_snapshots }}
         run: |
-          if ! python3 scripts/ci/test_shards.py matrix --only-testing "$ONLY_TESTING" > "$RUNNER_TEMP/matrix.json"; then
+          if ! python3 scripts/ci/test_shards.py matrix --only-testing "$ONLY_TESTING" --record "$RECORD" \
+            > "$RUNNER_TEMP/matrix.json"; then
             cat "$RUNNER_TEMP/matrix.json"
             exit 1
           fi
@@ -811,19 +813,27 @@ jobs:
           SOURCE: ${{ github.ref_name }}
         run: |
           tar -xf "$RUNNER_TEMP/snapshots/snapshots.tar"
-          git switch -c "snapshot-recordings/$RUN_ID"
-          git add -A -- ':(glob)**/__Snapshots__/**'
-          if git diff --cached --quiet; then
+          changed="$(git status --porcelain -- ':(glob)**/__Snapshots__/**')"
+          if [ -z "$changed" ]; then
             echo "The recorded references match the committed ones; nothing to publish." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
+          # A branch of its own history holding only the references: this job's token cannot push a
+          # branch whose history changes a workflow, as the history of a CI pull request does (run
+          # 37895331076).
+          git checkout -q --orphan "snapshot-recordings/$RUN_ID"
+          git rm -rq --cached .
+          git add -- ':(glob)**/__Snapshots__/**'
           git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
             commit -q -m "test: snapshot references recorded by run $RUN_ID on $SOURCE"
           git push origin "snapshot-recordings/$RUN_ID"
           {
             echo "### Recorded snapshot references"
-            echo "On branch \`snapshot-recordings/$RUN_ID\`: $(git diff --name-only HEAD~1 | wc -l | tr -d ' ') changed file(s)."
-            echo "Fetch with \`git fetch origin snapshot-recordings/$RUN_ID\`, review, commit to the pull request, then delete the branch."
+            echo "On branch \`snapshot-recordings/$RUN_ID\`, every reference; these changed:"
+            echo '```'
+            echo "$changed"
+            echo '```'
+            echo "Fetch with \`git fetch origin snapshot-recordings/$RUN_ID\`, copy the changed files, review, commit to the pull request, then delete the branch."
           } >> "$GITHUB_STEP_SUMMARY"
 
   pdf-export:

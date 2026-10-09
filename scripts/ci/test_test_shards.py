@@ -120,6 +120,14 @@ def test_matrix_is_three_shards_or_one_focused():
         test_shards.matrix("CoreTests; echo")
 
 
+def test_a_recording_run_is_the_unit_shard_alone():
+    assert test_shards.matrix("", record=True) == {"shard": ["unit"]}
+    with pytest.raises(ValueError):
+        test_shards.matrix("CoreTests", record=True)
+    assert test_shards.main(["matrix", "--record", "true"]) == 0
+    assert test_shards.main(["matrix", "--record", "false"]) == 0
+
+
 def test_cli_prints_matrix_args_and_refuses_bad_input(capsys):
     assert test_shards.main(["matrix"]) == 0
     assert json.loads(capsys.readouterr().out) == {"shard": ["unit", "ui-1", "ui-2"]}

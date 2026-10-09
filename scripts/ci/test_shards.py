@@ -66,7 +66,14 @@ def is_focused(only_testing: str | None) -> bool:
     return bool(only_testing and only_testing.strip())
 
 
-def matrix(only_testing: str | None) -> dict:
+def matrix(only_testing: str | None, record: bool = False) -> dict:
+    """The shards to run: one focused shard, the unit shard alone when recording snapshot references
+    (they belong to the unit shard's app tests, and the UI shards would only delay publishing them),
+    or every shard."""
+    if record:
+        if is_focused(only_testing):
+            raise ValueError("record_snapshots and only_testing cannot be combined")
+        return {"shard": ["unit"]}
     if is_focused(only_testing):
         focused_ids(only_testing or "")
         return {"shard": [FOCUSED]}
@@ -115,6 +122,7 @@ def main(argv: list[str] | None = None) -> int:
     sub = ap.add_subparsers(dest="command", required=True)
     m = sub.add_parser("matrix")
     m.add_argument("--only-testing", default="")
+    m.add_argument("--record", default="", help="'true' on a run that records snapshot references")
     sub.add_parser("names")
     a = sub.add_parser("args")
     a.add_argument("shard")
@@ -127,7 +135,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         if args.command == "matrix":
-            print(json.dumps(matrix(args.only_testing), separators=(",", ":")))
+            print(json.dumps(matrix(args.only_testing, args.record == "true"), separators=(",", ":")))
         elif args.command == "names":
             print(",".join(SHARDS))
         elif args.command == "args":
