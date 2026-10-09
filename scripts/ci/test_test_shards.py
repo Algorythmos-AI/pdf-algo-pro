@@ -66,17 +66,16 @@ def test_unit_skips_only_the_ui_target():
     assert test_shards.args_for("unit", config=CONFIG) == ["-skip-testing:UI"]
 
 
-def test_ui_1_runs_its_classes_and_retries_once():
-    assert test_shards.args_for("ui-1", config=CONFIG) == [
-        "-only-testing:UI/A", "-only-testing:UI/B",
-        "-retry-tests-on-failure", "-test-iterations", "2", "-test-repetition-relaunch-enabled", "YES"]
+def test_ui_1_runs_its_classes_without_xcodebuilds_own_retry():
+    # -retry-tests-on-failure ran all of ui-2 again for 3 failures on run 37924545633.
+    assert test_shards.args_for("ui-1", config=CONFIG) == ["-only-testing:UI/A", "-only-testing:UI/B"]
 
 
 def test_ui_2_is_the_complement_of_ui_1_within_the_ui_target():
     args = test_shards.args_for("ui-2", config=CONFIG)
     assert args[0] == "-only-testing:UI"
     assert [a for a in args if a.startswith("-skip-testing:")] == ["-skip-testing:UI/A", "-skip-testing:UI/B"]
-    assert "-retry-tests-on-failure" in args
+    assert "-retry-tests-on-failure" not in args
 
 
 def test_the_real_ui_shards_cover_every_ui_class_once():
@@ -154,6 +153,37 @@ def test_cli_prints_matrix_args_and_refuses_bad_input(capsys):
 ])
 def test_verdict(shard, xcodebuild, reporter, passes):
     assert test_shards.verdict(shard, xcodebuild, reporter)[0] is passes
+
+
+def test_a_ui_shard_runs_only_its_failed_tests_again(tmp_path, capsys):
+    failed = ["PDFAlgoProUITests/PaywallUITests/testOffer\n", "PDFAlgoProUITests/PaywallUITests/testJourney\n"]
+    assert test_shards.retry_args("ui-2", failed)[0] == [
+        "-only-testing:PDFAlgoProUITests/PaywallUITests/testOffer",
+        "-only-testing:PDFAlgoProUITests/PaywallUITests/testJourney"]
+    path = tmp_path / "retry.txt"
+    path.write_text("".join(failed))
+    assert test_shards.main(["retry-args", "ui-1", str(path)]) == 0
+    assert capsys.readouterr().out.splitlines() == [
+        "-only-testing:PDFAlgoProUITests/PaywallUITests/testOffer",
+        "-only-testing:PDFAlgoProUITests/PaywallUITests/testJourney"]
+
+
+@pytest.mark.parametrize("shard,failed,why", [
+    ("unit", ["CoreTests/DocTests/testOpen"], "does not retry"),
+    ("focused", ["UI/A/testX"], "does not retry"),
+    ("ui-1", [], "no test failed"),
+    ("ui-1", [f"UI/A/test{n}" for n in range(4)], "more than the 3"),
+    ("ui-2", ["UI/A/testX; rm -rf /"], "is not Target/Class/method"),
+    ("ui-2", ["UI/A"], "is not Target/Class/method"),
+])
+def test_no_retry_when_it_cannot_help(shard, failed, why):
+    selectors, reason = test_shards.retry_args(shard, failed)
+    assert selectors == [] and why in reason
+
+
+def test_a_missing_list_of_failed_tests_runs_nothing_again(tmp_path, capsys):
+    assert test_shards.main(["retry-args", "ui-2", str(tmp_path / "absent.txt")]) == 0
+    assert capsys.readouterr().out == ""
 
 
 def test_verdict_cli_reads_an_empty_reporter_exit_as_no_results(capsys):

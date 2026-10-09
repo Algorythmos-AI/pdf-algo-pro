@@ -4,6 +4,7 @@
     python3 scripts/ci/test_shards.py matrix [--only-testing IDS]   # the job matrix, as JSON
     python3 scripts/ci/test_shards.py names                         # unit,ui-1,ui-2
     python3 scripts/ci/test_shards.py args SHARD [--only-testing IDS]  # xcodebuild arguments, one per line
+    python3 scripts/ci/test_shards.py retry-args SHARD FAILED  # the failed tests' re-run, or nothing
     python3 scripts/ci/test_shards.py verdict SHARD --xcodebuild-exit N --reporter-exit M
 
 Every shard runs the same build (`ios-build`), each on its own runner and simulator:
@@ -14,8 +15,11 @@ Every shard runs the same build (`ios-build`), each on its own runner and simula
   * focused: on a manual run with `only_testing`, only the identifiers given (Target, Target/Class
     or Target/Class/method, comma-separated), instead of the three shards above.
 
-UI shards retry a failed test once on a relaunched app (-retry-tests-on-failure, two iterations);
-the unit and focused shards never retry. To rebalance, move classes between the shards by editing
+UI shards run their failed tests once more, on their own, in a second xcodebuild run (retry-args),
+and only when at most MAX_RETRIED failed: more than that fails the flaky budget even if all pass, so
+the shard ends sooner without them. xcodebuild's own -retry-tests-on-failure is not used: on run
+37924545633 it ran all 41 tests of ui-2 again for 3 failures, and the shard ran out of time. The unit
+and focused shards never retry. To rebalance, move classes between the shards by editing
 test_shards.json; the tests in test_test_shards.py check that every listed class exists.
 """
 from __future__ import annotations
@@ -32,7 +36,8 @@ FOCUSED = "focused"
 # Target, Target/Class or Target/Class/method, optionally with "()": nothing else reaches xcodebuild.
 IDENTIFIER = re.compile(r"^[A-Za-z0-9_]+(/[A-Za-z0-9_]+){0,2}(\(\))?$")
 MAX_FOCUSED = 20
-RETRY = ["-retry-tests-on-failure", "-test-iterations", "2", "-test-repetition-relaunch-enabled", "YES"]
+# The flaky budget ios-report enforces (xcresult_report.py --flaky-budget).
+MAX_RETRIED = 3
 
 
 def load_config(path: Path = CONFIG) -> dict:
@@ -97,7 +102,23 @@ def args_for(shard: str, only_testing: str | None = None, config: dict | None = 
         selectors = [f"-only-testing:{value}" for value in focused_ids(only_testing or "")]
     else:
         raise ValueError(f"unknown shard {shard!r}; expected one of {', '.join(SHARDS + (FOCUSED,))}")
-    return selectors + (RETRY if retries(shard) else [])
+    return selectors
+
+
+def retry_args(shard: str, failed: list[str]) -> tuple[list[str], str]:
+    """(xcodebuild selectors for running the failed tests again, why not when empty)."""
+    failed = [line.strip() for line in failed if line.strip()]
+    if not retries(shard):
+        return [], f"{shard} does not retry"
+    if not failed:
+        return [], "no test failed"
+    if len(failed) > MAX_RETRIED:
+        return [], (f"{len(failed)} tests failed, more than the {MAX_RETRIED} the flaky budget allows, "
+                    "so they are not run again")
+    for value in failed:
+        if not IDENTIFIER.fullmatch(value) or value.count("/") != 2:
+            return [], f"{value!r} is not Target/Class/method, so the failed tests are not run again"
+    return [f"-only-testing:{value}" for value in failed], f"running {len(failed)} failed test(s) again"
 
 
 def verdict(shard: str, xcodebuild_exit: int, reporter_exit: int | None) -> tuple[bool, str]:
@@ -112,9 +133,9 @@ def verdict(shard: str, xcodebuild_exit: int, reporter_exit: int | None) -> tupl
     if not retries(shard):
         return False, f"xcodebuild failed ({xcodebuild_exit}); this shard does not retry, so its verdict stands"
     if reporter_exit != 0:
-        return False, f"xcodebuild failed ({xcodebuild_exit}) and a test's last repetition failed, or no test ran"
-    return True, (f"xcodebuild exited {xcodebuild_exit}, but every test's last repetition passed: "
-                  "the failures were retried and are reported as flaky")
+        return False, f"xcodebuild failed ({xcodebuild_exit}) and a test failed again when re-run, or no test ran"
+    return True, (f"xcodebuild exited {xcodebuild_exit}, but every failed test passed when run again: "
+                  "they are reported as flaky")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -127,6 +148,9 @@ def main(argv: list[str] | None = None) -> int:
     a = sub.add_parser("args")
     a.add_argument("shard")
     a.add_argument("--only-testing", default="")
+    r = sub.add_parser("retry-args")
+    r.add_argument("shard")
+    r.add_argument("failed", help="the failed tests as -only-testing takes them, one per line (may be missing)")
     v = sub.add_parser("verdict")
     v.add_argument("shard")
     v.add_argument("--xcodebuild-exit", type=int, required=True)
@@ -140,6 +164,16 @@ def main(argv: list[str] | None = None) -> int:
             print(",".join(SHARDS))
         elif args.command == "args":
             print("\n".join(args_for(args.shard, args.only_testing)))
+        elif args.command == "retry-args":
+            try:
+                with open(args.failed, encoding="utf-8") as f:
+                    failed = f.readlines()
+            except OSError:
+                failed = []
+            selectors, reason = retry_args(args.shard, failed)
+            print(f"{args.shard}: {reason}", file=sys.stderr)
+            if selectors:
+                print("\n".join(selectors))
         else:
             reporter = int(args.reporter_exit) if args.reporter_exit.strip() else None
             ok, reason = verdict(args.shard, args.xcodebuild_exit, reporter)

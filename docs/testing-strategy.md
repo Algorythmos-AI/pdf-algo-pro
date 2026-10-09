@@ -482,9 +482,9 @@ never retried away: a retry lets a run finish, it never clears the test.
 2. **Fix or delete within five business days** (`Assumption:` validated by tracking quarantined
    tests at each milestone review). A test still quarantined after that is deleted, and the gap it
    leaves is recorded as debt ([technical debt](engineering-playbook.md#technical-debt)).
-3. **One retry, for UI tests only, and every flake named** (PAP-062). In CI the UI shards run a
-   failed test once more on a relaunched app, and its last repetition is its verdict; unit tests never
-   retry. A test that passed only on retry is reported on the run as flaky with its first failure's
+3. **One retry, for UI tests only, and every flake named** (PAP-062). In CI the UI shards run their
+   failed tests once more, on their own, on a relaunched app (at most three), and that run is their
+   verdict; unit tests never retry. A test that passed only on retry is reported on the run as flaky with its first failure's
    message, more than three distinct flaky tests fail the run (`Assumption:` budget, see
    [quality gates](process/quality-gates.md#the-ios-job-graph)), and each one seen is quarantined as in
    step 1. Otherwise, Xcode's repetition modes are for reproducing a flake locally, not for hiding it.

@@ -157,9 +157,12 @@ on the `ios` runs of early October 2026). Since PAP-062 they run as a graph of j
 | `ios-report` | The union of the lines each shard covered, each distinct line counted once ([`coverage_union.py`](../../scripts/ci/coverage_union.py)); checks the union kept every shard's coverage ([`coverage_compare.py`](../../scripts/ci/coverage_compare.py)); the coverage gate; every failed and flaky test across the shards, against the flake budget ([`xcresult_report.py`](../../scripts/ci/xcresult_report.py)); that the shards ran every test of the plan once ([`shard_inventory.py`](../../scripts/ci/shard_inventory.py)) | `ios-tests` |
 | `ios` | The required check: passes only when every job above passed, or none had to run ([`ios_gate.py`](../../scripts/ci/ios_gate.py)) | All of the above |
 
-- **Retries, UI shards only.** A failed UI test runs once more on a relaunched app
-  (`-retry-tests-on-failure -test-iterations 2 -test-repetition-relaunch-enabled YES`); its last
-  repetition is its verdict. The unit shard and focused runs never retry. A test that failed and then
+- **Retries, UI shards only.** After a UI shard's run, its failed tests run once more, on their own,
+  in a second `xcodebuild` run on a relaunched app, and that run is their verdict
+  ([`test_shards.py retry-args`](../../scripts/ci/test_shards.py)). They are not run again when more
+  than three failed, since that fails the flake budget either way. Not xcodebuild's own
+  `-retry-tests-on-failure`: on run 37924545633 it ran all 41 tests of `ui-2` again for 3 failures,
+  and the shard ran out of time. The unit shard and focused runs never retry. A test that failed and then
   passed is named on the run as flaky with its first failure's message, and follows the
   [flaky test policy](../testing-strategy.md#flaky-tests) like any other flake.
 - **Flake budget: 3.** More than three distinct flaky tests in one run fail `ios-report`, because

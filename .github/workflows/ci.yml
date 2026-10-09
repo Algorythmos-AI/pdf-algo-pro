@@ -417,6 +417,24 @@ jobs:
             grep -E '^xcodebuild: error:|error:' "$RUNNER_TEMP/xcodebuild.log" | head -5 \
               | sed 's/^/::error title=xcodebuild ('"$SHARD"')::/' || true
           fi
+          # A UI shard runs its failed tests once more, on their own, on a relaunched app, into a second
+          # bundle; xcresult_report.py judges them by that run. Not xcodebuild's -retry-tests-on-failure,
+          # which ran all 41 tests of ui-2 again for 3 failures on run 37924545633 and timed the shard out.
+          if [ "$code" != 0 ] && [ -f "$SHARD.xcresult/Info.plist" ]; then
+            xcrun xcresulttool get test-results tests --path "$SHARD.xcresult" > "$RUNNER_TEMP/first.json"
+            python3 scripts/ci/xcresult_report.py "$RUNNER_TEMP/first.json" \
+              --retry-ids "$RUNNER_TEMP/failed.txt" > /dev/null || true
+            python3 scripts/ci/test_shards.py retry-args "$SHARD" "$RUNNER_TEMP/failed.txt" > "$RUNNER_TEMP/retry.txt"
+            retry=()
+            while IFS= read -r arg; do retry+=("$arg"); done < "$RUNNER_TEMP/retry.txt"
+            if [ "${#retry[@]}" -gt 0 ]; then
+              echo "Running again: ${retry[*]}"
+              xcodebuild test-without-building -scheme "$SCHEME" -testPlan "$TEST_PLAN" -derivedDataPath DD \
+                -destination "id=$SIM" -resultBundlePath "$SHARD-retry.xcresult" "${retry[@]}" 2>&1 \
+                | tee "$RUNNER_TEMP/xcodebuild-retry.log"
+              echo "xcodebuild (failed tests again) exited ${PIPESTATUS[0]}"
+            fi
+          fi
       - name: Name each failed test and why, and export the results
         id: report
         # An annotation per failed test puts its message on the run's summary, with the slowest suites;
@@ -430,8 +448,13 @@ jobs:
           xcrun xcresulttool get test-results tests --path "$SHARD.xcresult" > tests.json
           xcrun xccov view --report --json "$SHARD.xcresult" > coverage.json \
             || echo "::warning::No coverage report for $SHARD; ios-report will fail on it"
+          retries=()
+          if [ -f "$SHARD-retry.xcresult/Info.plist" ]; then
+            xcrun xcresulttool get test-results tests --path "$SHARD-retry.xcresult" > retry-tests.json
+            retries=(--retries retry-tests.json)
+          fi
           set +e
-          python3 scripts/ci/xcresult_report.py tests.json --failed-ids failed-tests.txt \
+          python3 scripts/ci/xcresult_report.py tests.json "${retries[@]}" --failed-ids failed-tests.txt \
             --summary "$GITHUB_STEP_SUMMARY"
           echo "exit=$?" >> "$GITHUB_OUTPUT"
       - name: List the plan's tests (the inventory the shards are checked against)
@@ -479,6 +502,7 @@ jobs:
           path: |
             ${{ matrix.shard }}.xcresult
             tests.json
+            retry-tests.json
             coverage.json
             inventory.json
             reports/
@@ -588,7 +612,12 @@ jobs:
         # run fail it, because retries may then be hiding a real problem.
         if: ${{ !cancelled() }}
         run: |
-          python3 scripts/ci/xcresult_report.py shards/ios-shard-*/tests.json --flaky-budget 3 \
+          # A UI shard's failed tests run again on their own are judged by that run (retry-tests.json).
+          shopt -s nullglob
+          retried=(shards/ios-shard-*/retry-tests.json)
+          retries=()
+          if [ "${#retried[@]}" -gt 0 ]; then retries=(--retries "${retried[@]}"); fi
+          python3 scripts/ci/xcresult_report.py shards/ios-shard-*/tests.json "${retries[@]}" --flaky-budget 3 \
             --summary "$GITHUB_STEP_SUMMARY"
       - name: The shards ran every test of the plan, each once
         if: ${{ !cancelled() }}
