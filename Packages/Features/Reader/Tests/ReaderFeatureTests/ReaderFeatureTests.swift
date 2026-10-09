@@ -1577,6 +1577,13 @@ struct ReaderTextEditingTests {
     let lowLine = CGRect(x: 40, y: 560, width: 200, height: 20)
     let low = TextEditAnchor(selection: selection, lineFrame: lowLine, columnFrame: lowLine, scale: 1)
     #expect(TextEditLayer.fitsInPlace(selection, anchor: low))
+    // Room is made only for a line measured at the layer's size: not for one left from before the
+    // screen turned.
+    let phone = CGSize(width: 402, height: 874)
+    let measured = TextEditAnchor(
+      selection: selection, lineFrame: lowLine, columnFrame: lowLine, scale: 1, viewSize: phone)
+    #expect(TextEditLayer.isMeasured(measured, at: phone))
+    #expect(!TextEditLayer.isMeasured(measured, at: CGSize(width: phone.height, height: phone.width)))
     // An anchor left from other text is not this text's.
     let other = TextRegionSelection(pageIndex: selection.pageIndex + 1, region: selection.region)
     #expect(!TextEditLayer.fitsInPlace(other, anchor: low))

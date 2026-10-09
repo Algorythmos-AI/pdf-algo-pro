@@ -238,11 +238,12 @@ struct TextEditLayer: View {
           // Room for the field is made when it opens, when it grows a line, and when the keyboard
           // or the screen changes; never while the person scrolls the page.
           .onChange(of: room, initial: true) {
-            guard let fieldFrame else { return }
-            // The field is where its line is now: its own frame is laid out a pass later, and, just
-            // after the screen turns, still where the line was before the page was laid out again.
-            // Measuring the old frame is the likely reason the field turned to landscape on CI
-            // (2026-10-09) was left under the bar.
+            // Only for the line as measured at the page view's present size. Just after the screen
+            // turns, the layer has its new size and the line is still where it was in the old one;
+            // room made for that put the field turned to landscape under the bar, or, made again,
+            // under the top bar (CI, 2026-10-09). The line measured anew changes `room` again.
+            guard let fieldFrame, Self.isMeasured(anchor, at: geometry.size) else { return }
+            // The field is where its line is now: its own frame is laid out a pass later.
             let editor = CGRect(origin: CGPoint(x: fieldFrame.minX, y: anchor.lineFrame.minY), size: fieldFrame.size)
             let distance = TextEditPlacement.scrollDistance(for: editor, in: visible, margin: Spacing.s100)
             if abs(distance) > Self.scrollTolerance { model.controller?.scrollPickedText(by: distance) }
@@ -260,6 +261,12 @@ struct TextEditLayer: View {
 
   /// Distances smaller than this are rounding, not a field out of view.
   private static let scrollTolerance: CGFloat = 0.5
+
+  /// Whether the line was measured with the page view at a size: the layer's own, which it covers.
+  static func isMeasured(_ anchor: TextEditAnchor, at size: CGSize) -> Bool {
+    abs(anchor.viewSize.width - size.width) <= scrollTolerance
+      && abs(anchor.viewSize.height - size.height) <= scrollTolerance
+  }
 
   /// What, when it changes, may leave the field without room: its height, the bottom of what can
   /// be seen, and the size of the page view its line was last measured for.
