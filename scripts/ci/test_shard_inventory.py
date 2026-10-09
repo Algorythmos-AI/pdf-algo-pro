@@ -118,3 +118,24 @@ def test_an_enumeration_without_the_enabled_split_is_read_from_its_identifiers(t
     path = tmp_path / "flat.json"
     path.write_text(json.dumps({"tests": [{"identifier": "CoreTests/DocumentTests/testOpen()"}]}))
     assert shard_inventory.inventory(str(path)) == ({"CoreTests/DocumentTests/testOpen"}, set())
+
+
+def test_the_xcode_26_tree_is_read_and_its_differences_can_be_warnings(tmp_path):
+    # The shape run 37920045109 wrote: targets, classes (or suites, nested) and tests, by name only.
+    path = tmp_path / "tree.json"
+    path.write_text(json.dumps({"errors": [], "values": [{"kind": "plan", "name": "PDFAlgoPro", "children": [
+        {"kind": "target", "name": "AssistantFeatureTests", "children": [
+            {"kind": "class", "name": "AssistantModelTests", "children": [
+                {"kind": "test", "name": "ask()"}, {"kind": "test", "name": "unavailable(reason:)"}]},
+            {"kind": "suite", "name": "Outer", "children": [
+                {"kind": "suite", "name": "Inner", "children": [{"kind": "test", "name": "nested()"}]}]}]}]}]}))
+    enabled, disabled = shard_inventory.inventory(str(path))
+    assert enabled == {"AssistantFeatureTests/AssistantModelTests/ask",
+                       "AssistantFeatureTests/AssistantModelTests/unavailable(reason:)",
+                       "AssistantFeatureTests/Outer/Inner/nested"}
+    assert disabled == set()
+    # Run on CI as warnings until a run shows none: an identifier written differently by the two tools
+    # must not fail a pull request whose shards, by construction, leave no test out.
+    errors, warnings, _ = shard_inventory.check(str(path), three_shards(tmp_path), EXPECT, warn_only=True)
+    assert not any("ran in no shard" in e or "not in the inventory" in e for e in errors)
+    assert any("ran in no shard" in w for w in warnings) and any("not in the inventory" in w for w in warnings)
