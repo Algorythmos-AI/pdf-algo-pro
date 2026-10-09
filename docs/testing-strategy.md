@@ -528,9 +528,10 @@ simulator ([quality gates](process/quality-gates.md#the-ios-job-graph)). The sel
   `PDFAlgoProUITests` that `ui-1` and `ui-2` do not list. `ios-report` checks that the shards together
   ran every test of the plan, each once; the classes the plan skips (`*PerformanceTests`, run by the
   performance plan) are not expected in any shard.
-- **Balance:** measured on 2026-10-09 (seconds in tests): `ui-1` (Reader, LargeText, Assistant, Scan)
-  about 690, `ui-2` (TextEditing, Onboarding) about 560, `ui-3` (Library, Paywall, Settings) about 640.
-  With two UI shards the second took 34 minutes (run 37934833918), the longest job of the run.
+- **Balance:** seconds in tests on run 37984144377, the first with three UI shards: `ui-1` (Reader,
+  LargeText, Assistant, Scan) 742, `ui-2` (TextEditing, Onboarding) 689, `ui-3` (Library, Paywall,
+  Settings) 785; each shard's job took 19 to 21 minutes. With two UI shards the second took 34 minutes
+  (run 37934833918), the longest job of the run.
 - **Rebalancing:** `ci-timings` warns on the run when a shard ran over 20 minutes, and `ios-report`'s
   summary shows how the UI classes would balance on that run's times
   ([rebalance_shards.py](../scripts/ci/rebalance_shards.py)), with the `test_shards.json` to use when
