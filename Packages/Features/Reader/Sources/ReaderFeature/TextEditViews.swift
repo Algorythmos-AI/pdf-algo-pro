@@ -488,15 +488,12 @@ struct TextEditLayer: View {
     #endif
   }
 
-  /// The part of the layer that is not under the bars at its top or the bar and keyboard below.
+  /// The part of the layer that is not under the bars at its top or the bar and keyboard below
+  /// (`TextEditPlacement.visibleArea`).
   static func visibleArea(in geometry: GeometryProxy, below bar: CGRect?) -> CGRect {
-    let top = geometry.safeAreaInsets.top
-    var bottom = geometry.size.height
-    if let bar {
-      // The bar is outside the layer; both are measured in the window's space.
-      bottom = min(bottom, bar.minY - geometry.frame(in: .global).minY)
-    }
-    return CGRect(x: 0, y: top, width: geometry.size.width, height: max(0, bottom - top))
+    TextEditPlacement.visibleArea(
+      size: geometry.size, top: geometry.frame(in: .global).minY, barsBottom: geometry.safeAreaInsets.top,
+      barTop: bar?.minY)
   }
 
   /// Whether the region's text is light, so it needs a dark field to be seen while it is typed.

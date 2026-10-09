@@ -156,6 +156,33 @@ struct TextEditPlacementTests {
     #expect(TextEditPlacement.revealDistance(for: .null, in: tall, margin: 8) == .zero)
   }
 
+  // MARK: - What can be seen
+
+  /// The layer starts below the bars at the top, which it is still told as its top safe area: on CI
+  /// (2026-10-09) the area counted them twice and left 18 points in landscape.
+  @Test("What can be seen is below the bars and above the bar over the keyboard, counted once")
+  func visibleAreaCountsTheBarsOnce() {
+    // Landscape: the layer at 78 under bars ending at 78, the bar over the keyboard at 174.
+    let landscape = TextEditPlacement.visibleArea(
+      size: CGSize(width: 750, height: 324), top: 78, barsBottom: 78, barTop: 174)
+    #expect(landscape == CGRect(x: 0, y: 0, width: 750, height: 96))
+    // Portrait: the layer at 116 under bars ending at 116, the bar at 450.
+    let portrait = TextEditPlacement.visibleArea(
+      size: CGSize(width: 402, height: 758), top: 116, barsBottom: 116, barTop: 450)
+    #expect(portrait == CGRect(x: 0, y: 0, width: 402, height: 334))
+    // A layer reaching up under the bars loses only the part they cover.
+    let under = TextEditPlacement.visibleArea(
+      size: CGSize(width: 402, height: 874), top: 0, barsBottom: 116, barTop: 450)
+    #expect(under == CGRect(x: 0, y: 116, width: 402, height: 334))
+    // No bar over the keyboard: down to the layer's bottom; and never a negative height.
+    #expect(
+      TextEditPlacement.visibleArea(size: CGSize(width: 402, height: 758), top: 116, barsBottom: 116, barTop: nil)
+        == CGRect(x: 0, y: 0, width: 402, height: 758))
+    #expect(
+      TextEditPlacement.visibleArea(size: CGSize(width: 402, height: 758), top: 116, barsBottom: 116, barTop: 100)
+        .height == 0)
+  }
+
   // MARK: - Room after the screen turns
 
   /// A line of the sample page.

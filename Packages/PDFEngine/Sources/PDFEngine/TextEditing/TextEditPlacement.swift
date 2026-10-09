@@ -32,6 +32,27 @@ public enum TextEditPlacement {
     return CGRect(x: line.minX, y: line.minY, width: width, height: height)
   }
 
+  /// The part of the layer over the page that can be seen: below the bars at the top of the screen
+  /// and above the bar over the keyboard, in the layer's own space.
+  ///
+  /// The page view, and the layer over it, start below the bars at the top, yet the layer is told
+  /// the bars' whole height as its top safe area: 116 points in portrait with the layer at 116, and
+  /// 78 in landscape with the layer at 78 (CI, 2026-10-09). Taken as the layer's own top, it hid
+  /// those 78 points twice, which left 18 of the 96 above the bar in landscape, and the field was
+  /// scrolled under the bar to fit them. So only the part of the bars that reaches into the layer
+  /// is taken off: none, where the layer starts below them.
+  /// - Parameters:
+  ///   - size: The layer's size.
+  ///   - top: Where the layer's top is, in the window's space.
+  ///   - barsBottom: Where the bars at the top end, in the window's space (the safe area's top).
+  ///   - barTop: Where the bar over the keyboard starts, in the window's space; `nil` without one.
+  /// - Returns: The part that can be seen, in the layer's space.
+  public static func visibleArea(size: CGSize, top: CGFloat, barsBottom: CGFloat, barTop: CGFloat?) -> CGRect {
+    let upper = min(max(0, barsBottom - top), size.height)
+    let lower = barTop.map { min(size.height, $0 - top) } ?? size.height
+    return CGRect(x: 0, y: upper, width: size.width, height: max(0, lower - upper))
+  }
+
   /// How far to scroll the page so the editor is in the part of the screen that can be seen: up
   /// for a positive distance, down for a negative one, and 0 when it is already in view.
   ///
