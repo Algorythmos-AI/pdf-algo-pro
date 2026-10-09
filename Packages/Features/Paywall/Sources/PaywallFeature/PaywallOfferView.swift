@@ -277,7 +277,11 @@ struct AlreadyProNote: View {
     .frame(maxWidth: .infinity)
     .padding(Spacing.s150)
     .background(
-      Color.ds.brandTint.opacity(Opacities.brandGlow), in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+      // EXPERIMENT (not for merge): an opaque card, to learn whether the audit reads the translucent one.
+      ProcessInfo.processInfo.arguments.contains("-card-opaque")
+        ? Color.ds.backgroundPrimary.mix(with: Color.ds.brandTint, by: Opacities.brandGlow, in: .device)
+        : Color.ds.brandTint.opacity(Opacities.brandGlow),
+      in: RoundedRectangle(cornerRadius: 14, style: .continuous)
     )
     .accessibilityIdentifier("paywall.alreadyPro")
   }

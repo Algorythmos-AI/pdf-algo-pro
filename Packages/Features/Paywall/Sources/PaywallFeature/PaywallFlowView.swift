@@ -50,12 +50,24 @@ public struct PaywallFlowView: View {
     .onDisappear { Task { await model.dismissed() } }
   }
 
+  // EXPERIMENT (not for merge): which glow the contrast audit reads correctly, one per paywall test.
+  @ViewBuilder private var experimentalGlow: some View {
+    let arguments = ProcessInfo.processInfo.arguments
+    if arguments.contains("-glow-raster") {
+      BrandGlow().frame(height: 420).drawingGroup().ignoresSafeArea()
+    } else if arguments.contains("-glow-title") {
+      BrandGlow().frame(height: 72).ignoresSafeArea()
+    } else {
+      BrandGlow().frame(height: 420).ignoresSafeArea()
+    }
+  }
+
   private var offer: some View {
     PaywallOfferView(
       model: model, onRestore: { Task { await model.restore(using: store) } }, onRedeem: { redeemsCode = true },
       onManage: { managesSubscription = true }
     )
-    .background(alignment: .top) { BrandGlow().frame(height: 420).ignoresSafeArea() }
+    .background(alignment: .top) { experimentalGlow }
     .background(Color.ds.backgroundPrimary)
     .offerCodeRedemption(isPresented: $redeemsCode)
     .manageSubscriptionsSheet(isPresented: $managesSubscription)
