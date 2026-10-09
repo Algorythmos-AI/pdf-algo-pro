@@ -20,14 +20,13 @@ Store notes (see the changelog strategy).
 
 ### Fixed
 - Editing text (internal builds): a line is now edited right where it is, at the page's own size,
-  and nothing is cut off. Before, the page zoomed in so its lines ran off the screen, could not be
-  moved, and a long line was cut off at the screen's edge with the caret out of sight. Now the page
-  keeps its zoom and can be scrolled and zoomed while you type, the line wraps to the width of the
-  page's text, and the page scrolls to keep what you type above the keyboard.
-- Editing text (internal builds): with a line open, the page can now be scrolled and zoomed freely,
-  as in Notes. Before, it was pulled back to the line under your finger, so it felt locked. Typing
-  brings the caret back into view, a keyboard button in the bar puts the keyboard away and brings
-  it back, and the page returns to where it was when you finish, unless you moved it yourself.
+  as in Notes, and nothing is cut off. Before, the page zoomed in so its lines ran off the screen,
+  a long line was cut off at the screen's edge with the caret out of sight, and the page was pulled
+  back to the line under your finger, so it felt locked. Now the line wraps to the width of the
+  page's text, the page can be scrolled and zoomed freely while you type, typing brings the caret
+  back into view, and what you type stays above the keyboard, also after you turn the phone. A
+  keyboard button in the bar puts the keyboard away and brings it back, and when you finish the
+  page returns to where it was, unless you moved it yourself.
 - Editing text (internal builds): Done can no longer be undone halfway. While the change is being
   made, Cancel is disabled and typing is held. Words still being composed in Chinese, Japanese or
   Korean are accepted before the change, pasted text with line breaks no longer finishes the edit,
