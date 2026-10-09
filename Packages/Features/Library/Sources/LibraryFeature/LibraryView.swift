@@ -244,7 +244,7 @@ public struct LibraryView<Detail: View>: View {
       ZStack(alignment: .top) {
         Color.ds.backgroundGrouped
         // Behind the title only: text further down is read against a plain background.
-        BrandGlow().frame(height: 220)
+        BrandGlow(over: Color.ds.backgroundGrouped).frame(height: 220)
       }
       .ignoresSafeArea()
     }
