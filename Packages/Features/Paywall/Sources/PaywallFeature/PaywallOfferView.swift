@@ -276,8 +276,11 @@ struct AlreadyProNote: View {
     .font(.subheadline.weight(.semibold))
     .frame(maxWidth: .infinity)
     .padding(Spacing.s150)
+    // Opaque, the tint already mixed into the background: the accessibility audit failed the note's text on
+    // the translucent tint, which it read wrongly (run 37970616903), and not on this (run 37972849110).
     .background(
-      Color.ds.brandTint.opacity(Opacities.brandGlow), in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+      Color.ds.backgroundPrimary.mix(with: Color.ds.brandTint, by: Opacities.brandGlow, in: .device),
+      in: RoundedRectangle(cornerRadius: 14, style: .continuous)
     )
     .accessibilityIdentifier("paywall.alreadyPro")
   }

@@ -278,8 +278,10 @@ final class TextEditingUITests: UITestCase {
     let field = app.textViews["reader.textEdit.field"]
     tap(line(containing: "Try these", in: app), until: field)
 
-    // Far more words than one line of a phone has room for, as in the owner's screenshot.
+    // Far more words than one line of a phone has room for, as in the owner's screenshot. Typed once the
+    // field has the keyboard: typed at once, all of it was lost on CI (run 37934833918).
     let tail = " Detected card numbers, IDs and contact details are masked, and a good many more words after that"
+    XCTAssertTrue(waitForKeyboardFocus(field), "The open line takes the keyboard")
     field.typeText(tail)
     XCTAssertEqual(field.value as? String, "Try these:" + tail)
     attach(app, named: "Long line, keyboard up")
@@ -343,8 +345,15 @@ final class TextEditingUITests: UITestCase {
       CGVector(dx: app.windows.firstMatch.frame.midX, dy: max(low, (low + high) / 2)))
     from.press(forDuration: 0.05, thenDragTo: from.withOffset(CGVector(dx: 0, dy: -180)))
     let settled = NSPredicate { _, _ in field.frame.minY < opened.minY - 60 }
+    let scrolled = XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: settled, object: nil)], timeout: 10)
+    if scrolled != .completed {
+      keepEvidence(
+        app, named: "not scrolled",
+        notes: "field \(opened) -> \(field.frame); bar \(bar.frame); drag from y \(max(low, (low + high) / 2)) up 180; "
+          + "keyboard \(app.keyboards.firstMatch.exists ? "\(app.keyboards.firstMatch.frame)" : "none")")
+    }
     XCTAssertEqual(
-      XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: settled, object: nil)], timeout: 10), .completed,
+      scrolled, .completed,
       "The page did not scroll with the line open: the field went from \(opened) to \(field.frame)")
     // Still there once the page has come to rest.
     Thread.sleep(forTimeInterval: 1.5)
@@ -370,9 +379,12 @@ final class TextEditingUITests: UITestCase {
     let pages = app.descendants(matching: .any)["reader.pages"].firstMatch
     pages.pinch(withScale: 1.5, velocity: 1)
     let zoomed = NSPredicate { _, _ in field.frame.height > before.height * 1.25 }
+    let grew = XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: zoomed, object: nil)], timeout: 10)
+    if grew != .completed {
+      keepEvidence(app, named: "not zoomed", notes: "field \(before) -> \(field.frame); pages \(pages.frame)")
+    }
     XCTAssertEqual(
-      XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: zoomed, object: nil)], timeout: 10), .completed,
-      "The page did not zoom with the line open: the field went from \(before) to \(field.frame)")
+      grew, .completed, "The page did not zoom with the line open: the field went from \(before) to \(field.frame)")
     attach(app, named: "Zoomed with the line open")
 
     // The keyboard comes back, typing goes on, and the caret is brought into view.

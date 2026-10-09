@@ -55,7 +55,11 @@ public struct PaywallFlowView: View {
       model: model, onRestore: { Task { await model.restore(using: store) } }, onRedeem: { redeemsCode = true },
       onManage: { managesSubscription = true }
     )
-    .background(alignment: .top) { BrandGlow().frame(height: 420).ignoresSafeArea() }
+    // Behind the title only, as in Library: text further down is read against a plain background. The
+    // accessibility audit failed the explanation under the title, near-black on the wash (20:1 on screen),
+    // whenever the glow lay behind it, and never once the glow ended above it (runs 37970616903 and
+    // 37972849110); a rasterised glow was failed the same.
+    .background(alignment: .top) { BrandGlow().frame(height: 72).ignoresSafeArea() }
     .background(Color.ds.backgroundPrimary)
     .offerCodeRedemption(isPresented: $redeemsCode)
     .manageSubscriptionsSheet(isPresented: $managesSubscription)

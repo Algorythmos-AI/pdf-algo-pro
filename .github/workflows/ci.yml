@@ -396,6 +396,8 @@ jobs:
           # Snapshots: a missing or changed reference fails; only a manual run with record_snapshots records.
           TEST_RUNNER_SNAPSHOT_TESTING_RECORD: ${{ inputs.record_snapshots && 'all' || 'never' }}
           ONLY_TESTING: ${{ inputs.only_testing }}
+          # A focused run also keeps the screen of quarantined audit findings (UITestCase.keepEvidence).
+          TEST_RUNNER_UI_EVIDENCE: ${{ inputs.only_testing && 'all' || '' }}
         run: |
           python3 scripts/ci/test_shards.py args "$SHARD" --only-testing "$ONLY_TESTING" > "$RUNNER_TEMP/args.txt"
           args=()
@@ -429,12 +431,44 @@ jobs:
             while IFS= read -r arg; do retry+=("$arg"); done < "$RUNNER_TEMP/retry.txt"
             if [ "${#retry[@]}" -gt 0 ]; then
               echo "Running again: ${retry[*]}"
-              xcodebuild test-without-building -scheme "$SCHEME" -testPlan "$TEST_PLAN" -derivedDataPath DD \
-                -destination "id=$SIM" -resultBundlePath "$SHARD-retry.xcresult" "${retry[@]}" 2>&1 \
-                | tee "$RUNNER_TEMP/xcodebuild-retry.log"
+              TEST_RUNNER_REPORTS_DIR="$GITHUB_WORKSPACE/reports/retry" xcodebuild test-without-building \
+                -scheme "$SCHEME" -testPlan "$TEST_PLAN" -derivedDataPath DD -destination "id=$SIM" \
+                -resultBundlePath "$SHARD-retry.xcresult" "${retry[@]}" 2>&1 | tee "$RUNNER_TEMP/xcodebuild-retry.log"
               echo "xcodebuild (failed tests again) exited ${PIPESTATUS[0]}"
             fi
           fi
+      - name: Show the failed tests' screens in the log
+        # Before the failures are named, so they stay at the end of the log, which is where a log
+        # cut to its last lines still shows them (run 37967203580 printed screens after them, and they
+        # fell out of reach). A failing UI test keeps its screen and element tree in reports/ui-evidence
+        # (UITestCase.keepEvidence). Printed here as small JPEGs in base64, between UI-EVIDENCE markers, so
+        # a failure can be seen from the log alone, where the artifact cannot be downloaded.
+        if: ${{ !cancelled() && hashFiles('reports/**/ui-evidence/*.png') != '' }}
+        continue-on-error: true
+        env:
+          # Sharper on a focused run, which keeps few screens, so colours can be measured from it.
+          QUALITY: ${{ inputs.only_testing && '90' || '45' }}
+          SIZE: ${{ inputs.only_testing && '1400' || '900' }}
+        run: |
+          shopt -s nullglob
+          shown=0
+          for png in reports/ui-evidence/*.png reports/retry/ui-evidence/*.png; do
+            shown=$((shown + 1))
+            [ "$shown" -le 6 ] || break
+            name="$(basename "$png" .png)"
+            sips -s format jpeg -s formatOptions "$QUALITY" -Z "$SIZE" "$png" --out "$RUNNER_TEMP/screen.jpg" > /dev/null
+            echo "::group::Screen of $name"
+            echo "UI-EVIDENCE-BEGIN $name.jpg"
+            base64 -b 100 -i "$RUNNER_TEMP/screen.jpg"
+            echo "UI-EVIDENCE-END"
+            if [ -f "${png%.png}.txt" ]; then
+              echo "UI-NOTES-BEGIN $name"
+              head -c 16000 "${png%.png}.txt"
+              echo
+              echo "UI-NOTES-END"
+            fi
+            echo "::endgroup::"
+          done
       - name: Name each failed test and why, and export the results
         id: report
         # An annotation per failed test puts its message on the run's summary, with the slowest suites;
