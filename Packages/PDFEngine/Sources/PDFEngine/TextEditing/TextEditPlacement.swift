@@ -138,23 +138,43 @@ extension TextEditAnchor {
 /// the page is scrolled for it only when the line was measured at the page view's present size, the
 /// page is at rest, and the field has been laid out on that line.
 ///
+/// Seen in view once is not the end either. PDFKit's fitting is not a scroll the page view can see
+/// (`TextEditAnchor.isPageMoving` stays false), and between the new size and the new zoom the field
+/// can be in view for a frame: a request that ended there left the field under the bar when the page
+/// was fitted a moment later (CI, 2026-10-09, after a turn). So a field in view is looked at again
+/// after `settleTime`, and the request ends only if nothing moved in between.
+///
 /// It is never met by moving a page the person is moving: a finger on the page ends it.
 ///
 /// Pure, so each step of a turn can be tested without a screen (`TextEditPlacementTests`).
 public struct TextEditRoomRequest: Equatable, Sendable {
   /// What to do about the request now.
   public enum Step: Equatable, Sendable {
-    /// Nothing yet, until the next line or field is measured.
-    ///
-    /// The line has not been measured at the page view's size, the page is moving, the field is not
-    /// laid out on the line yet, or the line has not been measured since the last scroll.
-    case wait
+    /// Nothing yet, until the next line or field is measured, for the reason given.
+    case wait(Waiting)
     /// Scroll the page by this distance, up for a positive one, and then record it with
     /// `scrolled(for:)`.
     case scroll(CGFloat)
-    /// The request is over: the field is in view, the person took the page, or the page was
-    /// scrolled as often as one request may scroll it.
+    /// The field is in view: record it with `sawInView(anchor:field:)` and ask again after
+    /// `settleTime`, with the line and the field as they are then.
+    case confirm
+    /// The request is over: the field stayed in view, the person took the page, or the page was
+    /// scrolled or looked at as often as one request may.
     case done
+  }
+
+  /// Why a request waits.
+  public enum Waiting: String, Equatable, Sendable {
+    /// The line has not been measured at the page view's present size yet.
+    case notMeasured
+    /// The page is moving: the person's glide or bounce.
+    case moving
+    /// The line has not been measured since the page was last scrolled for it.
+    case scrolledHere
+    /// The field has not been laid out yet.
+    case noField
+    /// The field is still where the line was before it moved.
+    case notLaidOut
   }
 
   /// The most times one request scrolls the page: once, and again each time the page settles
@@ -164,6 +184,16 @@ public struct TextEditRoomRequest: Equatable, Sendable {
   /// UI test in landscape.
   public static let maximumScrolls = 3
 
+  /// How long a field seen in view must stay where it is before the request ends, in seconds.
+  ///
+  /// `Assumption:` longer than the gap between the page view taking its new size and PDFKit fitting
+  /// the page to it after a turn; checked by the long-line UI test in landscape.
+  public static let settleTime: Double = 0.5
+
+  /// The most times one request looks again at a field in view that moved in between, so a page that
+  /// never stops moving by itself does not keep a request alive.
+  public static let maximumChecks = 8
+
   /// Distances and differences of size smaller than this are rounding.
   public static let tolerance: CGFloat = 0.5
 
@@ -172,6 +202,20 @@ public struct TextEditRoomRequest: Equatable, Sendable {
 
   /// How many times the page has been scrolled for this request.
   public private(set) var scrolls = 0
+
+  /// The line and the field when the field was last seen in view, until it is looked at again.
+  public private(set) var seenInView: Sighting?
+
+  /// How many times the field has been seen in view for this request.
+  public private(set) var checks = 0
+
+  /// Where the line and the field were when the field was seen in view.
+  public struct Sighting: Equatable, Sendable {
+    /// Where the line was.
+    public var anchor: TextEditAnchor
+    /// Where the field was, in the same space.
+    public var field: CGRect
+  }
 
   /// A request for room, not yet met.
   public init() {}
@@ -190,14 +234,28 @@ public struct TextEditRoomRequest: Equatable, Sendable {
   ) -> Step {
     // The person is moving the page: it stays where they put it.
     if isPageTouched { return .done }
-    guard let viewSize, anchor.isMeasured(at: viewSize), !anchor.isPageMoving, anchor != scrolledFor, let field,
-      Self.isLaidOut(field, on: anchor.lineFrame)
-    else { return .wait }
+    guard let viewSize, anchor.isMeasured(at: viewSize) else { return .wait(.notMeasured) }
+    if anchor.isPageMoving { return .wait(.moving) }
+    if anchor == scrolledFor { return .wait(.scrolledHere) }
+    guard let field else { return .wait(.noField) }
+    guard Self.isLaidOut(field, on: anchor.lineFrame) else { return .wait(.notLaidOut) }
     // The field is where its line is now.
     let editor = CGRect(origin: CGPoint(x: field.minX, y: anchor.lineFrame.minY), size: field.size)
     let distance = TextEditPlacement.scrollDistance(for: editor, in: visible, margin: margin)
-    if abs(distance) <= Self.tolerance || scrolls >= Self.maximumScrolls { return .done }
+    if abs(distance) <= Self.tolerance {
+      // In view, and nothing moved since it was last seen so: the page has settled.
+      if seenInView == Sighting(anchor: anchor, field: field) || checks >= Self.maximumChecks { return .done }
+      return .confirm
+    }
+    if scrolls >= Self.maximumScrolls { return .done }
     return .scroll(distance)
+  }
+
+  /// Records that the field was seen in view, with the line where it was, so the request ends if
+  /// both are still there when it is next asked.
+  public mutating func sawInView(anchor: TextEditAnchor, field: CGRect) {
+    seenInView = Sighting(anchor: anchor, field: field)
+    checks += 1
   }
 
   /// Records that the page was scrolled for the line where it was, so the next step waits for the
@@ -211,7 +269,7 @@ public struct TextEditRoomRequest: Equatable, Sendable {
   ///
   /// It then starts at the line's top and covers it from end to end, and its height, which comes
   /// from wrapping its text at the line's zoom, is the height for this line too.
-  static func isLaidOut(_ field: CGRect, on line: CGRect) -> Bool {
+  public static func isLaidOut(_ field: CGRect, on line: CGRect) -> Bool {
     abs(field.minY - line.minY) <= 1 && field.minX <= line.minX + 1 && field.maxX >= line.maxX - 1
   }
 }

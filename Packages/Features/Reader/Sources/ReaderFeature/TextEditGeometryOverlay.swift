@@ -55,6 +55,12 @@
         .onChange(of: [line, visible, log.editor ?? .null, log.textView ?? .null], initial: true) {
           log.layer(line: line, visible: visible, scale: scale)
         }
+        // The room request's last steps, read by the UI tests into their failure messages, so a
+        // field left out of view says why (`TextEditingUITests`).
+        Color.clear.frame(width: 1, height: 1)
+          .accessibilityElement()
+          .accessibilityLabel(Text(verbatim: log.roomSummary))
+          .accessibilityIdentifier("reader.textEdit.roomTrace")
       }
     }
 
@@ -75,6 +81,8 @@
 
     var editor: CGRect?
     var textView: CGRect?
+    /// The room request's last steps, oldest first, each with how many times in a row it was taken.
+    private(set) var roomTrace: [(step: String, count: Int)] = []
     @ObservationIgnored private var lastLayer = ""
     @ObservationIgnored private var lastTextView = ""
     private let logger = Logger(
@@ -90,6 +98,48 @@
       guard entry != lastLayer else { return }
       lastLayer = entry
       logger.debug("layer \(entry, privacy: .public)")
+    }
+
+    /// The room request's last steps, on one line.
+    var roomSummary: String {
+      roomTrace.map { $0.count > 1 ? "\($0.step) x\($0.count)" : $0.step }.joined(separator: "; ")
+    }
+
+    /// Notes a step of the room request (`TextEditLayer`), the same step taken again in a row once.
+    func room(_ step: String) {
+      guard Self.isOn else { return }
+      if let last = roomTrace.last, last.step == step {
+        roomTrace[roomTrace.count - 1].count += 1
+        return
+      }
+      roomTrace.append((step, 1))
+      if roomTrace.count > 24 { roomTrace.removeFirst(roomTrace.count - 24) }
+      logger.debug("room \(step, privacy: .public)")
+    }
+
+    /// Notes what the room request decided, with the numbers it decided from.
+    func room(
+      _ step: TextEditRoomRequest.Step, request: TextEditRoomRequest, anchor: TextEditAnchor, field: CGRect?,
+      visible: CGRect, _ controller: PDFDocumentController
+    ) {
+      guard Self.isOn else { return }
+      let size = controller.pageViewSize.map { "\(Int($0.width))x\(Int($0.height))" } ?? "none"
+      let place = "line \(Self.text(anchor.lineFrame)) field \(Self.text(field ?? .null)) visible \(Self.text(visible))"
+      switch step {
+      case .wait(.notMeasured):
+        room("wait notMeasured at \(Int(anchor.viewSize.width))x\(Int(anchor.viewSize.height)), view \(size)")
+      case .wait(.notLaidOut):
+        room("wait notLaidOut \(place)")
+      case .wait(let reason):
+        room("wait \(reason.rawValue)")
+      case .scroll(let distance):
+        room("scroll \(Int(distance.rounded())) \(place)")
+      case .confirm:
+        room("inView \(place)")
+      case .done:
+        let why = controller.isPageTouched ? "touched" : "scrolls \(request.scrolls) checks \(request.checks)"
+        room("done \(why) \(place)")
+      }
     }
 
     /// Logs the text view's own sizes and caret, and outlines its laid-out text in purple.
@@ -125,7 +175,7 @@
       shape.path = used.isNull ? nil : UIBezierPath(rect: used.offsetBy(dx: inset.left, dy: inset.top)).cgPath
     }
 
-    private static func text(_ rect: CGRect) -> String {
+    static func text(_ rect: CGRect) -> String {
       guard !rect.isNull else { return "none" }
       let whole = rect.integral
       return "(\(Int(whole.minX)),\(Int(whole.minY)) \(Int(whole.width))x\(Int(whole.height)))"

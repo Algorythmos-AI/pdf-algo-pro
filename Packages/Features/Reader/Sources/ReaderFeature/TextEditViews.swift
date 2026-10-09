@@ -312,6 +312,8 @@ struct TextEditLayer: View {
   /// Room for the field still to be made, kept until the page is ready for it
   /// (`TextEditRoomRequest`); `nil` when there is none to make.
   @State private var roomRequest: TextEditRoomRequest?
+  /// What could be seen when room was last asked about, for a request looked at again after a pause.
+  @State private var lastVisible = CGRect.zero
 
   /// The name of the layer's own space, in which the line, the visible area and the field are placed.
   nonisolated static let space = "reader.textEdit.layer"
@@ -356,15 +358,15 @@ struct TextEditLayer: View {
             }
           }
           // The field opening, for this text or for other text picked while it was open.
-          .onChange(of: selection, initial: true) { requestRoom(on: anchor, in: visible) }
+          .onChange(of: selection, initial: true) { requestRoom(on: anchor, in: visible, for: "open") }
           // The keyboard coming up or the bar growing: what can be seen got shorter and may now be
           // over the field. Putting the keyboard away moves nothing.
           .onChange(of: visible.maxY) { before, after in
-            if after < before { requestRoom(on: anchor, in: visible) }
+            if after < before { requestRoom(on: anchor, in: visible, for: "visible") }
           }
           // The screen turning, or the window taking another size: the line moves as the page
           // settles at the new size, and room is made once it has (`TextEditRoomRequest`).
-          .onChange(of: geometry.size) { requestRoom(on: anchor, in: visible) }
+          .onChange(of: geometry.size) { requestRoom(on: anchor, in: visible, for: "size") }
           // Each new measure of the line, including the one that says the page stopped moving
           // (`TextEditAnchor.isPageMoving`), lets a waiting request go on.
           .onChange(of: anchor) { _, after in makeRoomIfDue(on: after, field: fieldFrame, in: visible) }
@@ -383,15 +385,19 @@ struct TextEditLayer: View {
   private static let scrollTolerance: CGFloat = 0.5
 
   /// Asks for the page to be scrolled so the whole field is above the bar and the keyboard, or its
-  /// top where it is taller than the room there is, and scrolls it now if it can.
-  private func requestRoom(on anchor: TextEditAnchor, in visible: CGRect) {
+  /// top where it is taller than the room there is, and scrolls it now if it can. `reason`, what
+  /// asked, goes in the Debug trace of the request (`TextEditGeometryLog`).
+  private func requestRoom(on anchor: TextEditAnchor, in visible: CGRect, for reason: String) {
+    #if DEBUG
+      TextEditGeometryLog.shared.room("ask \(reason)")
+    #endif
     roomRequest = TextEditRoomRequest()
     makeRoomIfDue(on: anchor, field: fieldFrame, in: visible)
   }
 
   /// Scrolls the page for a waiting request once the line was measured at the page view's present
   /// size, the page is at rest, and the field is laid out on the line; ends the request once the
-  /// field is in view.
+  /// field has stayed in view for `TextEditRoomRequest.settleTime`.
   ///
   /// Just after the screen turns, the layer has its new size while the line is still where it was
   /// in the old one, and PDFKit fits the page to the new width a little later, moving the line
@@ -399,19 +405,47 @@ struct TextEditLayer: View {
   /// on CI (2026-10-09); made for the old line, it scrolled the field under the top bar.
   private func makeRoomIfDue(on anchor: TextEditAnchor, field: CGRect?, in visible: CGRect) {
     guard var request = roomRequest, let controller = model.controller else { return }
+    if lastVisible != visible { lastVisible = visible }
     let step = request.step(
       anchor: anchor, field: field, visible: visible, viewSize: controller.pageViewSize, margin: Spacing.s100,
       isPageTouched: controller.isPageTouched)
+    #if DEBUG
+      TextEditGeometryLog.shared.room(
+        step, request: request, anchor: anchor, field: field, visible: visible, controller)
+    #endif
     switch step {
     case .wait:
       return
     case .done:
       roomRequest = nil
+    case .confirm:
+      // In view, but the page may still be fitted to a new size without a scroll that can be seen:
+      // looked at again in a moment, and over if nothing moved in between.
+      guard let field else { return }
+      request.sawInView(anchor: anchor, field: field)
+      roomRequest = request
+      confirmLater(request)
     case .scroll(let distance):
       // The page does not scroll while it is moving; the request then waits for it to stop.
-      guard controller.scrollPickedText(by: distance) else { return }
+      guard controller.scrollPickedText(by: distance) else {
+        #if DEBUG
+          TextEditGeometryLog.shared.room("refused")
+        #endif
+        return
+      }
       request.scrolled(for: anchor)
       roomRequest = request
+    }
+  }
+
+  /// Asks about a request again after `TextEditRoomRequest.settleTime`, with the line and the field
+  /// as they are then, unless it was replaced or moved on in the meantime.
+  private func confirmLater(_ request: TextEditRoomRequest) {
+    Task { @MainActor in
+      try? await Task.sleep(for: .seconds(TextEditRoomRequest.settleTime))
+      guard roomRequest == request, let anchor = model.controller?.textEditAnchor, anchor.selection == selection
+      else { return }
+      makeRoomIfDue(on: anchor, field: fieldFrame, in: lastVisible)
     }
   }
 

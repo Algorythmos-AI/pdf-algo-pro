@@ -405,25 +405,29 @@ final class TextEditingUITests: UITestCase {
   ) {
     let screen = app.windows.firstMatch.frame
     let frame = field.frame
-    XCTAssertTrue(screen.contains(frame), "\(frame) is inside \(screen)", file: file, line: line)
+    // What the room request did, in Debug builds launched with -text-edit-geometry, so a field out of
+    // view says why in one round (AGENTS.md rule 9).
+    let trace = app.descendants(matching: .any)["reader.textEdit.roomTrace"].firstMatch
+    let room = trace.exists ? "; room: \(trace.label)" : ""
+    XCTAssertTrue(screen.contains(frame), "\(frame) is inside \(screen)\(room)", file: file, line: line)
     let top = app.navigationBars.firstMatch
     if top.exists {
       XCTAssertGreaterThanOrEqual(
-        frame.minY, top.frame.maxY - 1, "Below the top bar: field \(frame), top bar \(top.frame), screen \(screen)",
-        file: file, line: line)
+        frame.minY, top.frame.maxY - 1,
+        "Below the top bar: field \(frame), top bar \(top.frame), screen \(screen)\(room)", file: file, line: line)
     }
     let bar = app.descendants(matching: .any)["reader.textEdit.actionBar"].firstMatch
     // Text the field cannot sit over is typed in the bar itself.
     if bar.exists, !bar.textViews["reader.textEdit.field"].exists {
       XCTAssertLessThanOrEqual(
-        frame.maxY, bar.frame.minY + 1, "Above the bar: field \(frame), bar \(bar.frame), screen \(screen)",
+        frame.maxY, bar.frame.minY + 1, "Above the bar: field \(frame), bar \(bar.frame), screen \(screen)\(room)",
         file: file, line: line)
     }
     if app.keyboards.firstMatch.exists {
       let keyboard = app.keyboards.firstMatch.frame
       XCTAssertLessThanOrEqual(
-        frame.maxY, keyboard.minY + 1, "Above the keyboard: field \(frame), keyboard \(keyboard), screen \(screen)",
-        file: file, line: line)
+        frame.maxY, keyboard.minY + 1,
+        "Above the keyboard: field \(frame), keyboard \(keyboard), screen \(screen)\(room)", file: file, line: line)
     }
   }
 

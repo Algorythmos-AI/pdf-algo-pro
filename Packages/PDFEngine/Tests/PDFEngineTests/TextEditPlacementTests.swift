@@ -207,31 +207,66 @@ struct TextEditPlacementTests {
     var request = TextEditRoomRequest()
     // Just after the turn the line is still where it was, measured in portrait.
     let before = CGRect(x: 60, y: 300, width: 280, height: 18)
-    #expect(Self.step(request, Self.anchor(before, at: Self.portrait), field: Self.field(on: before)) == .wait)
+    #expect(
+      Self.step(request, Self.anchor(before, at: Self.portrait), field: Self.field(on: before)) == .wait(.notMeasured))
     // Measured at the new size while the page is still moving by itself: not yet.
     let line = CGRect(x: 136, y: 164, width: 596, height: 39)
     let moving = Self.anchor(line, at: Self.landscape, moving: true)
-    #expect(Self.step(request, moving, field: Self.field(on: line)) == .wait)
+    #expect(Self.step(request, moving, field: Self.field(on: line)) == .wait(.moving))
     // At rest, but the field is not laid out yet, or is still where the line was: not yet.
     let measured = Self.anchor(line, at: Self.landscape)
-    #expect(Self.step(request, measured, field: nil) == .wait)
-    #expect(Self.step(request, measured, field: Self.field(on: before)) == .wait)
+    #expect(Self.step(request, measured, field: nil) == .wait(.noField))
+    #expect(Self.step(request, measured, field: Self.field(on: before)) == .wait(.notLaidOut))
     // The field on the line ends 29 points under the bar's top; with the margin, up by 37.
     #expect(Self.step(request, measured, field: Self.field(on: line)) == .scroll(37))
     request.scrolled(for: measured)
     #expect(request.scrolls == 1)
     // Not twice for one place of the line: it is measured where the scroll left it first.
-    #expect(Self.step(request, measured, field: Self.field(on: line)) == .wait)
+    #expect(Self.step(request, measured, field: Self.field(on: line)) == .wait(.scrolledHere))
     // PDFKit then fits the page to the new width, and the line comes down by 20: once more, after
     // the field is laid out on it.
     let refitted = line.offsetBy(dx: 0, dy: -17)
-    #expect(Self.step(request, Self.anchor(refitted, at: Self.landscape), field: Self.field(on: line)) == .wait)
+    #expect(
+      Self.step(request, Self.anchor(refitted, at: Self.landscape), field: Self.field(on: line)) == .wait(.notLaidOut))
     #expect(
       Self.step(request, Self.anchor(refitted, at: Self.landscape), field: Self.field(on: refitted)) == .scroll(20))
     request.scrolled(for: Self.anchor(refitted, at: Self.landscape))
-    // In view at last, below the top bar and above the bar: the request is over.
-    let settled = refitted.offsetBy(dx: 0, dy: -20)
-    #expect(Self.step(request, Self.anchor(settled, at: Self.landscape), field: Self.field(on: settled)) == .done)
+    // In view at last, below the top bar and above the bar; once it has stayed there, the request
+    // is over.
+    let settled = Self.anchor(refitted.offsetBy(dx: 0, dy: -20), at: Self.landscape)
+    #expect(Self.step(request, settled, field: Self.field(on: settled.lineFrame)) == .confirm)
+    request.sawInView(anchor: settled, field: Self.field(on: settled.lineFrame))
+    #expect(Self.step(request, settled, field: Self.field(on: settled.lineFrame)) == .done)
+  }
+
+  /// On CI (2026-10-09) the field turned to landscape was left 29 points under the bar, where the
+  /// page put it, unscrolled: PDFKit fits the page to its new width without a scroll the page view
+  /// can see, and between the new size and the new zoom the field can be in view for a moment.
+  @Test("A field in view for a moment after a turn is not the end: the page is fitted after it")
+  func inViewBeforeTheFitIsNotTheEnd() {
+    var request = TextEditRoomRequest()
+    // Measured at the new size, at the old zoom: one short line, in view.
+    let early = Self.anchor(CGRect(x: 136, y: 110, width: 280, height: 18), at: Self.landscape)
+    #expect(Self.step(request, early, field: Self.field(on: early.lineFrame)) == .confirm)
+    request.sawInView(anchor: early, field: Self.field(on: early.lineFrame))
+    // Fitted to the new width, the line is lower and wraps onto two: it is scrolled up after all.
+    let fitted = Self.anchor(CGRect(x: 136, y: 164, width: 596, height: 39), at: Self.landscape)
+    #expect(Self.step(request, fitted, field: Self.field(on: early.lineFrame)) == .wait(.notLaidOut))
+    #expect(Self.step(request, fitted, field: Self.field(on: fitted.lineFrame)) == .scroll(37))
+  }
+
+  @Test("A field in view is looked at again, and not forever while the page keeps moving by itself")
+  func checksAreBounded() {
+    var request = TextEditRoomRequest()
+    var line = CGRect(x: 136, y: 100, width: 596, height: 39)
+    for _ in 0..<TextEditRoomRequest.maximumChecks {
+      let anchor = Self.anchor(line, at: Self.landscape)
+      #expect(Self.step(request, anchor, field: Self.field(on: line)) == .confirm)
+      request.sawInView(anchor: anchor, field: Self.field(on: line))
+      // Still in view, a point lower, when it is looked at again.
+      line = line.offsetBy(dx: 0, dy: 1)
+    }
+    #expect(Self.step(request, Self.anchor(line, at: Self.landscape), field: Self.field(on: line)) == .done)
   }
 
   @Test("A finger on the page ends the request: the page stays where the person puts it")
