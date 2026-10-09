@@ -431,9 +431,11 @@ fake passes it too, so feature tests rely on a fake that behaves like the real e
 
 - **Floor:** at least 80% line coverage overall and for every first-party target (NFR-QUAL-001,
   [ADR-0014](adr/0014-testing-strategy-and-coverage.md)).
-- **How it is measured:** the `ios` job runs the tests with coverage on, exports the result with
-  `xcrun xccov view --report --json`, and runs [coverage_gate.py](../scripts/ci/coverage_gate.py)
-  with `--min 80` ([ci.yml](../.github/workflows/ci.yml)).
+- **How it is measured:** each test shard runs with coverage on; `ios-report` merges the shards'
+  result bundles, exports the merged result with `xcrun xccov view --report --json`, checks that the
+  merge kept every shard's coverage ([coverage_compare.py](../scripts/ci/coverage_compare.py)), and
+  runs [coverage_gate.py](../scripts/ci/coverage_gate.py) with `--min 80`
+  ([ci.yml](../.github/workflows/ci.yml)).
 - **Exclusions**, as the script applies them: test bundles (targets ending in `.xctest` or
   `Tests`); files ending in `Previews.swift`; paths containing `/Generated/`, `/Tests/`, `/.build/`
   or `/DerivedData/`. Previews therefore go in `<View>+Previews.swift`
@@ -456,7 +458,7 @@ fake passes it too, so feature tests rely on a fake that behaves like the real e
 ## Flaky tests
 
 A flaky test passes and fails on the same code. It is treated as a bug in the test or the product,
-never retried away.
+never retried away: a retry lets a run finish, it never clears the test.
 
 1. **Quarantine the same day it is seen.** Open an issue labelled `bug` and `flaky`
    ([labels.yml](../.github/labels.yml)), then keep the test running without failing the build: in
@@ -466,8 +468,12 @@ never retried away.
 2. **Fix or delete within five business days** (`Assumption:` validated by tracking quarantined
    tests at each milestone review). A test still quarantined after that is deleted, and the gap it
    leaves is recorded as debt ([technical debt](engineering-playbook.md#technical-debt)).
-3. **No automatic retries** in the pull request test plan. Xcode's repetition modes are for
-   reproducing a flake locally, not for hiding it.
+3. **One retry, for UI tests only, and every flake named** (PAP-062). In CI the UI shards run a
+   failed test once more on a relaunched app, and its last repetition is its verdict; unit tests never
+   retry. A test that passed only on retry is reported on the run as flaky with its first failure's
+   message, more than three distinct flaky tests fail the run (`Assumption:` budget, see
+   [quality gates](process/quality-gates.md#the-ios-job-graph)), and each one seen is quarantined as in
+   step 1. Otherwise, Xcode's repetition modes are for reproducing a flake locally, not for hiding it.
 4. The usual causes are timing, shared state, order dependence and real clocks; the fix removes the
    cause.
 
@@ -489,6 +495,29 @@ never retried away.
   recorded next to the file; when in doubt, generate instead.
 - **No production data in tests**, no copies of support attachments, and no document content in
   test logs or result bundles kept by CI.
+
+## Test shards in CI
+
+The `ios` gate runs the `PDFAlgoPro` plan from one build in three shards, each on its own runner and
+simulator ([quality gates](process/quality-gates.md#the-ios-job-graph)). The selectors come from
+[test_shards.py](../scripts/ci/test_shards.py) and [test_shards.json](../scripts/ci/test_shards.json):
+
+| Shard | Runs | Retries |
+|---|---|---|
+| `unit` | Every test target except `PDFAlgoProUITests`: the packages' tests, the app's unit and snapshot tests | None |
+| `ui-1` | The UI test classes listed under `ui-1` in `test_shards.json` | Once, on a relaunched app |
+| `ui-2` | Every other UI test class | Once, on a relaunched app |
+
+- **A new UI test class** lands in `ui-2` without any change, because `ui-2` is everything in
+  `PDFAlgoProUITests` that `ui-1` does not list. `ios-report` checks that the shards together ran every
+  test of the plan, each once.
+- **Rebalancing:** when one UI shard is regularly much slower than the other (the run summary lists
+  each shard's time in tests), move classes into or out of the `ui-1` list in `test_shards.json`. The
+  script's tests check that every listed class exists in `App/UITests` and that none is listed twice.
+- **On a Mac:** `scripts/dev/ci_tests.sh --shard unit|ui-1|ui-2` makes the same build and runs the same
+  shard on the pinned simulator; `--only PDFAlgoProUITests/ReaderUITests` runs a focused set.
+- **One test in CI:** a manual run of `ci.yml` with `only_testing` (for example
+  `PDFAlgoProUITests/ReaderUITests/testGoToPageJumpsToTheNumberTyped`) runs only those tests, reported as `ios-focused`.
 
 ## Where each suite runs
 
@@ -515,8 +544,8 @@ is the release checklist on reference devices.
 | Pseudolanguage and right-to-left runs | `Nightly` | — | — | Yes | — |
 | Manual VoiceOver script, exploratory testing | Release checklist | — | — | — | Yes |
 
-Today the `ios` job in [ci.yml](../.github/workflows/ci.yml) runs one test plan, `PDFAlgoPro`
-("unit, UI, accessibility audit, snapshots"), for every pull request. Running the `Release` and
+Today the `ios` gate in [ci.yml](../.github/workflows/ci.yml) runs one test plan, `PDFAlgoPro`
+("unit, UI, accessibility audit, snapshots"), in three shards, for every pull request. Running the `Release` and
 `Performance` plans on release pull requests, and the nightly Xcode Cloud workflow, are the target
 design listed in the open questions. The `codeql (swift)` job runs nightly, on demand and on release pushes to `main`; when it becomes
 a required check is decided in [GitHub governance](github-governance.md#protected-branches-rulesets-as-code).
