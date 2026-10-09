@@ -1,0 +1,9 @@
+{
+  "uiTarget": "PDFAlgoProUITests",
+  "ui-1": [
+    "ReaderUITests",
+    "LargeTextUITests",
+    "AssistantUITests",
+    "ScanUITests"
+  ]
+}

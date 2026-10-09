@@ -41,9 +41,9 @@ growth from a solo founder to a multi-team engineering organisation.
    reports the state needed to fix it in one round, not only what was expected.
 10. **Debug from evidence, not by pushing.** At most one full CI run is in flight per branch. When a
     test fails on CI, read its failure message (annotated on the run), its screenshots (the
-    `failed-attachments` artifact) and, if needed, the result bundle before the next push. After two
-    failed rounds on the same test, stop pushing and find the cause from that evidence; a push that
-    only adds diagnostics is a last resort, and says so.
+    `failed-attachments/` folder of the shard's `ios-shard-*` artifact) and, if needed, the result
+    bundle before the next push. After two failed rounds on the same test, stop pushing and find the
+    cause from that evidence; a push that only adds diagnostics is a last resort, and says so.
 
 ## Product guardrails
 

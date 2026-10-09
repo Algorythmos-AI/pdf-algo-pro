@@ -73,7 +73,8 @@ not mention are kept rather than reset to weaker defaults.
    check that never reports leaves pull requests waiting, and a check can be selected as required only
    if it has completed successfully in the repository in the past seven days
    ([Troubleshooting required status checks](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/troubleshooting-required-status-checks)).
-   The `ios` job reports on every pull request, as skipped when no Swift or project input changed.
+   The `ios` check reports on every pull request: it is a short job that always runs and passes when no
+   Swift or project input changed ([the `ios` job graph](process/quality-gates.md#the-ios-job-graph)).
 2. **Dry run first**, read the diff, then apply:
 
    ```sh

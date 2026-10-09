@@ -105,9 +105,10 @@ hotfix/* from main ─► squash-merge into main ─► back-merge into integrat
    `secrets / Secret scan`, `docs`, `invariants`, `dependency-review` and `ios`
    ([ci.yml](../.github/workflows/ci.yml), [quality gates](process/quality-gates.md)). The CodeQL
    jobs run but are not required checks yet; [GitHub governance](github-governance.md) says when
-   each one becomes required. The `ios` job runs only when Swift or project inputs change; a job
-   skipped by its condition reports success, so it never blocks a documentation change
-   ([GitHub Actions: control jobs with conditions](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-jobs-with-conditions)).
+   each one becomes required. The iOS build and test jobs run only when Swift or project inputs
+   change; the `ios` check that stands for them always runs and passes when none had to, so it never
+   blocks a documentation change
+   ([the `ios` job graph](process/quality-gates.md#the-ios-job-graph)).
 7. **Review.** As described in the [code review guide](code-review-guide.md). Review threads must be
    resolved before merging (the rulesets require it).
 8. **Squash-merge into `integration`.** Squash is the only merge method the `integration` ruleset

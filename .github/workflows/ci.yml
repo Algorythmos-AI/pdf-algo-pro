@@ -19,6 +19,18 @@ on:
         description: Record snapshot references
         type: boolean
         default: false
+      only_testing:
+        # A focused run: only these tests, on the usual build, without the device builds, the coverage
+        # gate or the inventory. Reported as `ios-focused`, so it never stands in for `ios`.
+        description: "Only these tests: Target, Target/Class or Target/Class/method, comma-separated"
+        type: string
+        default: ""
+      serial_baseline:
+        # Also runs the serial pipeline from before the split (ios-serial), to compare its coverage
+        # with the shards'. Kept for one week after the split as the rollback (PAP-062).
+        description: Also run the serial baseline (ios-serial)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -128,7 +140,7 @@ jobs:
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
-          pattern='(\.swift$|^project\.yml$|^Packages/|^App/|\.xctestplan$|\.xcprivacy$|Package\.resolved$|^\.github/workflows/ci\.yml$)'
+          pattern='(\.swift$|^project\.yml$|^Packages/|^App/|\.xctestplan$|\.xcprivacy$|Package\.resolved$|^\.github/workflows/ci\.yml$|^scripts/ci/)'
           if [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ] \
              || ! git cat-file -e "$BASE_SHA" 2>/dev/null; then
             changed="$(git ls-files)"
@@ -141,26 +153,482 @@ jobs:
             echo "ios=false" >> "$GITHUB_OUTPUT"
           fi
 
-  ios:
-    name: ios
+  # The iOS gates run as a graph: ios-build builds once for testing, ios-device builds Staging and
+  # Release for a device beside it, ios-tests runs the tests in shards on that one build, ios-report
+  # merges the shards for coverage and the test report, and `ios` (the required check) passes only
+  # when every one of them did. Splitting the 35-50 minute serial job is decision PAP-062.
+  ios-build:
+    name: ios-build
     needs: changes
-    # Runs when Swift or project inputs changed, and also whenever `changes` did not succeed: a job
-    # skipped by its condition reports success, so a failed `changes` must never leave this required
-    # check green without the tests having run.
-    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.ios == 'true') }}
+    if: ${{ needs.changes.result == 'success' && needs.changes.outputs.ios == 'true' }}
+    runs-on: macos-26
+    timeout-minutes: 25
+    env:
+      SCHEME: PDFAlgoPro
+      TEST_PLAN: PDFAlgoPro
+    outputs:
+      matrix: ${{ steps.shards.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Choose the test shards (and check a focused run's identifiers)
+        id: shards
+        # First, so a malformed only_testing fails before the build. The value reaches the script
+        # through the environment only, never the shell.
+        env:
+          ONLY_TESTING: ${{ inputs.only_testing }}
+        run: |
+          if ! python3 scripts/ci/test_shards.py matrix --only-testing "$ONLY_TESTING" > "$RUNNER_TEMP/matrix.json"; then
+            cat "$RUNNER_TEMP/matrix.json"
+            exit 1
+          fi
+          echo "matrix=$(cat "$RUNNER_TEMP/matrix.json")" >> "$GITHUB_OUTPUT"
+          cat "$RUNNER_TEMP/matrix.json"
+      - name: Select the pinned Xcode (fail if missing)
+        run: |
+          xcode="/Applications/$XCODE_APP"
+          if [ ! -d "$xcode" ]; then
+            echo "::error::$XCODE_APP is not installed on this runner image; update the pin (PAP-029)"
+            exit 1
+          fi
+          sudo xcode-select -s "$xcode/Contents/Developer"
+          xcodebuild -version
+          if ! xcodebuild -version | grep -q "Build version $XCODE_BUILD"; then
+            echo "::error::$XCODE_APP is not build $XCODE_BUILD; update the pin (PAP-029)"
+            exit 1
+          fi
+      - name: Install pinned XcodeGen (checksum verified)
+        run: |
+          curl -sSL -o xcodegen.zip "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
+          echo "${XCODEGEN_SHA256}  xcodegen.zip" | shasum -a 256 -c -
+          unzip -q xcodegen.zip -d "$RUNNER_TEMP/xcodegen"
+          echo "$RUNNER_TEMP/xcodegen/xcodegen/bin" >> "$GITHUB_PATH"
+      - name: Generate project and test plan, and check the package lockfile
+        run: |
+          xcodegen generate
+          # XcodeGen rewrites Info.plist from project.yml. A key added to the plist alone is dropped
+          # from every build CI and Xcode Cloud make, as NSFaceIDUsageDescription was after #113.
+          if ! git diff --exit-code -- App/PDFAlgoPro/Info.plist; then
+            echo "::error::Info.plist differs from what project.yml generates; put the change in project.yml"
+            exit 1
+          fi
+          python3 scripts/ci/write_testplan.py
+          xcodebuild -resolvePackageDependencies -scheme "$SCHEME"
+          # A changed or a new, untracked lockfile both mean the committed pins are out of date.
+          if [ -n "$(git status --porcelain -- '*Package.resolved')" ]; then
+            git status --porcelain -- '*Package.resolved'
+            git diff -- '*Package.resolved'
+            echo "::error::Package.resolved is missing or out of date; resolve locally and commit it"
+            exit 1
+          fi
+      - name: Format (swift format, strict)
+        run: xcrun swift-format lint --strict --recursive App Packages
+      - name: Build for testing (signed ad hoc, warnings as errors)
+        run: |
+          # Pinned device and runtime: snapshot references are recorded on exactly this simulator.
+          device="$(scripts/ci/pinned_simulator.sh)"
+          echo "SIM=$device" >> "$GITHUB_ENV"
+          # Signed ad hoc ("Sign to Run Locally"), not unsigned: the app-hosted tests use the Keychain, which
+          # refuses an unsigned app (errSecMissingEntitlement, -34018). No team or certificate is involved.
+          # Warnings are errors through project.yml and each package manifest, not here: a command-line
+          # setting reaches the test-only SnapshotTesting package, where it clashes with -suppress-warnings.
+          # One build for every shard and for a focused run, in a known folder so it can be packed.
+          xcodebuild build-for-testing -scheme "$SCHEME" -testPlan "$TEST_PLAN" \
+            -destination "id=$device" -derivedDataPath DD CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=
+      - name: List the plan's tests (the inventory the shards are checked against)
+        # ios-report checks that the shards together ran exactly these tests. If listing fails or
+        # hangs, the inventory is empty and that check only warns: it must not block on its own.
+        timeout-minutes: 10
+        continue-on-error: true
+        run: |
+          xctestrun="$(find DD/Build/Products -maxdepth 1 -name '*.xctestrun' | head -1)"
+          xcodebuild test-without-building -xctestrun "$xctestrun" -destination "id=$SIM" \
+            -enumerate-tests -test-enumeration-format json -test-enumeration-output-path inventory.json
+      - name: Pack the test products
+        # Artifacts lose file modes, so the products travel as one tar. Debug symbols stay behind:
+        # neither coverage nor the tests need them, and they are most of the size.
+        run: |
+          if [ ! -s inventory.json ]; then
+            echo "::warning::No test inventory; ios-report will not check that the shards ran every test"
+            echo '{}' > inventory.json
+          fi
+          count="$(find DD/Build/Products -maxdepth 1 -name '*.xctestrun' | wc -l | tr -d ' ')"
+          if [ "$count" != 1 ]; then
+            echo "::error::Expected one .xctestrun in DD/Build/Products, found $count"
+            exit 1
+          fi
+          if command -v zstd >/dev/null; then
+            tar -C DD/Build --exclude='*.dSYM' -cf - Products | zstd -T0 -3 -q -c > products.tar.zst
+          else
+            tar -C DD/Build --exclude='*.dSYM' -cf products.tar Products
+          fi
+          echo "Test products: $(du -h products.tar* | cut -f1) ($(ls products.tar*))" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Keep the test products for the shards
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ios-products
+          path: products.tar*
+          if-no-files-found: error
+          retention-days: 3
+          # Already compressed (or not worth compressing): zipping it again only costs time.
+          compression-level: 0
+          overwrite: true
+      - name: Keep the test inventory
+        # Small and separate, so ios-report does not download the products to read it.
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ios-inventory
+          path: inventory.json
+          if-no-files-found: error
+          retention-days: 7
+          overwrite: true
+
+  ios-device:
+    name: ios-device
+    needs: changes
+    # Not in a focused run, which is for tests only.
+    if: ${{ needs.changes.result == 'success' && needs.changes.outputs.ios == 'true' && !inputs.only_testing }}
+    runs-on: macos-26
+    timeout-minutes: 30
+    env:
+      SCHEME: PDFAlgoPro
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Select the pinned Xcode (fail if missing)
+        run: |
+          xcode="/Applications/$XCODE_APP"
+          if [ ! -d "$xcode" ]; then
+            echo "::error::$XCODE_APP is not installed on this runner image; update the pin (PAP-029)"
+            exit 1
+          fi
+          sudo xcode-select -s "$xcode/Contents/Developer"
+          xcodebuild -version
+          if ! xcodebuild -version | grep -q "Build version $XCODE_BUILD"; then
+            echo "::error::$XCODE_APP is not build $XCODE_BUILD; update the pin (PAP-029)"
+            exit 1
+          fi
+      - name: Install pinned XcodeGen (checksum verified)
+        run: |
+          curl -sSL -o xcodegen.zip "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
+          echo "${XCODEGEN_SHA256}  xcodegen.zip" | shasum -a 256 -c -
+          unzip -q xcodegen.zip -d "$RUNNER_TEMP/xcodegen"
+          echo "$RUNNER_TEMP/xcodegen/xcodegen/bin" >> "$GITHUB_PATH"
+      - name: Generate project and test plan
+        # The lockfile and Info.plist checks run in ios-build.
+        run: |
+          xcodegen generate
+          python3 scripts/ci/write_testplan.py
+      - name: Build Staging for a device (unsigned, optimised, warnings as errors)
+        # The configuration Xcode Cloud archives; catches optimised-build failures before TestFlight.
+        run: |
+          xcodebuild build -scheme "$SCHEME" -configuration Staging -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
+      - name: The App Store build contains no internal tools (Release binary)
+        # The Staging first-run replay and the internal testing section are compiled only where
+        # INTERNAL_TOOLS is defined (PAP-060). This builds the Release configuration and looks in
+        # the binary; the Staging binary built above is the control that the search can find them.
+        run: |
+          marker='internal\.firstRun\.build'
+          executable() { echo "$1/$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$1/Info.plist")"; }
+          xcodebuild build -scheme "$SCHEME" -configuration Release -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
+          products="$(xcodebuild -scheme "$SCHEME" -configuration Release -destination 'generic/platform=iOS' \
+            -showBuildSettings 2>/dev/null | awk -F' = ' '/ BUILT_PRODUCTS_DIR = /{print $2; exit}')"
+          release="$(find "$products" -maxdepth 1 -name '*.app' | head -1)"
+          staging="$(find "${products%/*}/Staging-iphoneos" -maxdepth 1 -name '*.app' | head -1)"
+          [ -n "$release" ] && [ -n "$staging" ] || { echo "::error::Release or Staging app not found"; exit 1; }
+          if ! strings -a "$(executable "$staging")" | grep -Eq "$marker"; then
+            echo "::error::The Staging binary no longer shows the replay's marker; this check has gone blind"; exit 1
+          fi
+          if strings -a "$(executable "$release")" | grep -E "$marker|InternalFirstRunReplay|Internal testing"; then
+            echo "::error::The Release binary contains internal tools; they must not ship (PAP-060)"; exit 1
+          fi
+          echo "Release binary is free of the internal tools; the Staging binary has them."
+
+  ios-tests:
+    name: ios-tests (${{ matrix.shard }})
+    needs: [changes, ios-build]
+    runs-on: macos-26
+    timeout-minutes: 40
+    strategy:
+      # Every shard reports, so one run names every failing test.
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.ios-build.outputs.matrix) }}
+    env:
+      SHARD: ${{ matrix.shard }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Select the pinned Xcode (fail if missing)
+        run: |
+          xcode="/Applications/$XCODE_APP"
+          if [ ! -d "$xcode" ]; then
+            echo "::error::$XCODE_APP is not installed on this runner image; update the pin (PAP-029)"
+            exit 1
+          fi
+          sudo xcode-select -s "$xcode/Contents/Developer"
+          xcodebuild -version
+          if ! xcodebuild -version | grep -q "Build version $XCODE_BUILD"; then
+            echo "::error::$XCODE_APP is not build $XCODE_BUILD; update the pin (PAP-029)"
+            exit 1
+          fi
+      - name: Boot the pinned simulator while the products download
+        run: |
+          # The simulator snapshot references were recorded on, as in ios-build.
+          device="$(scripts/ci/pinned_simulator.sh)"
+          echo "SIM=$device" >> "$GITHUB_ENV"
+          # In the background: booting takes as long as the download, so they overlap.
+          nohup xcrun simctl bootstatus "$device" -b > "$RUNNER_TEMP/boot.log" 2>&1 &
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ios-products
+          path: products
+      - name: Unpack the test products
+        run: |
+          mkdir -p DD/Build
+          if [ -f products/products.tar.zst ]; then
+            zstd -dc products/products.tar.zst | tar -C DD/Build -xf -
+          else
+            tar -C DD/Build -xf products/products.tar
+          fi
+          count="$(find DD/Build/Products -maxdepth 1 -name '*.xctestrun' | wc -l | tr -d ' ')"
+          if [ "$count" != 1 ]; then
+            echo "::error::Expected one .xctestrun in the products, found $count"
+            exit 1
+          fi
+          echo "XCTESTRUN=$(find DD/Build/Products -maxdepth 1 -name '*.xctestrun')" >> "$GITHUB_ENV"
+      - name: Tests (${{ matrix.shard }})
+        id: tests
+        # Never fails by itself: a UI test that failed and then passed on retry still makes xcodebuild
+        # fail, so the shard's verdict is taken below from the results, after they are kept.
+        env:
+          # Snapshots: a missing or changed reference fails; only a manual run with record_snapshots records.
+          TEST_RUNNER_SNAPSHOT_TESTING_RECORD: ${{ inputs.record_snapshots && 'all' || 'never' }}
+          ONLY_TESTING: ${{ inputs.only_testing }}
+        run: |
+          python3 scripts/ci/test_shards.py args "$SHARD" --only-testing "$ONLY_TESTING" > "$RUNNER_TEMP/args.txt"
+          args=()
+          while IFS= read -r arg; do args+=("$arg"); done < "$RUNNER_TEMP/args.txt"
+          echo "Selectors: ${args[*]}"
+          xcrun simctl bootstatus "$SIM" -b > /dev/null
+          set +e
+          # Suites write their reports (OCR accuracy, AI evaluation, performance) to reports/, kept below.
+          TEST_RUNNER_REPORTS_DIR="$GITHUB_WORKSPACE/reports" xcodebuild test-without-building \
+            -xctestrun "$XCTESTRUN" -destination "id=$SIM" -enableCodeCoverage YES \
+            -resultBundlePath "$SHARD.xcresult" "${args[@]}"
+          code=$?
+          echo "exit=$code" >> "$GITHUB_OUTPUT"
+          echo "xcodebuild exited $code"
+      - name: Name each failed test and why, and export the results
+        id: report
+        # An annotation per failed test puts its message on the run's summary, with the slowest suites;
+        # a test that passed only on retry is named as flaky. tests.json and coverage.json go to ios-report.
+        if: ${{ !cancelled() }}
+        run: |
+          if [ ! -f "$SHARD.xcresult/Info.plist" ]; then
+            echo "::error::xcodebuild left no result bundle for $SHARD"
+            exit 0
+          fi
+          xcrun xcresulttool get test-results tests --path "$SHARD.xcresult" > tests.json
+          xcrun xccov view --report --json "$SHARD.xcresult" > coverage.json \
+            || echo "::warning::No coverage report for $SHARD; ios-report will fail on it"
+          set +e
+          python3 scripts/ci/xcresult_report.py tests.json --failed-ids failed-tests.txt \
+            --summary "$GITHUB_STEP_SUMMARY"
+          echo "exit=$?" >> "$GITHUB_OUTPUT"
+      - name: Export the failed tests' screenshots and attachments
+        # A failed UI test's screenshots say what was on screen, but the whole result bundle is a large
+        # download. This takes out only what belongs to failed tests and lists it on the run's summary.
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: |
+          # Every attachment of each failed test, not only those tied to the failure itself: on run
+          # 37880998386 `--only-failures` found none for three failed UI tests, whose screenshots are
+          # kept on their activities. The failed tests are the ones named in the step above.
+          [ -s failed-tests.txt ] || exit 0
+          echo "### Attachments of failed tests ($SHARD)" >> "$GITHUB_STEP_SUMMARY"
+          echo "In the \`ios-shard-$SHARD\` artifact of this run, under failed-attachments/." >> "$GITHUB_STEP_SUMMARY"
+          while read -r test; do
+            folder="failed-attachments/$(echo "$test" | tr -c 'A-Za-z0-9._-' '_')"
+            xcrun xcresulttool export attachments --path "$SHARD.xcresult" --output-path "$folder" --test-id "$test"
+            echo "- \`$test\`: $(find "$folder" -type f ! -name manifest.json | wc -l | tr -d ' ') file(s)" \
+              >> "$GITHUB_STEP_SUMMARY"
+          done < failed-tests.txt
+      - name: Keep the shard's results
+        # Always, not only on failure: ios-report merges every shard's bundle for coverage.
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ios-shard-${{ matrix.shard }}
+          path: |
+            ${{ matrix.shard }}.xcresult
+            tests.json
+            coverage.json
+            reports/
+            failed-attachments/
+          if-no-files-found: warn
+          retention-days: 7
+          overwrite: true
+      - name: Pack the recorded snapshot references
+        # One archive with the references' paths in the repository, so they unpack where they belong.
+        if: ${{ !cancelled() && inputs.record_snapshots && matrix.shard == 'unit' }}
+        run: find . -type d -name __Snapshots__ -not -path './DD/*' -print0 | xargs -0 tar -cf snapshots.tar
+      - name: Keep the recorded snapshot references
+        if: ${{ !cancelled() && inputs.record_snapshots && matrix.shard == 'unit' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: snapshots
+          path: snapshots.tar
+          if-no-files-found: error
+          retention-days: 7
+      - name: Shard verdict
+        # UI shards pass when every test's last repetition passed (a flaky test is named above and
+        # counted against the run's budget in ios-report); other shards take xcodebuild's verdict.
+        if: ${{ !cancelled() }}
+        env:
+          XCODEBUILD_EXIT: ${{ steps.tests.outputs.exit }}
+          REPORTER_EXIT: ${{ steps.report.outputs.exit }}
+        run: |
+          python3 scripts/ci/test_shards.py verdict "$SHARD" --xcodebuild-exit "${XCODEBUILD_EXIT:-1}" \
+            --reporter-exit "$REPORTER_EXIT"
+
+  ios-report:
+    name: ios-report
+    needs: [changes, ios-build, ios-tests]
+    # Also when a shard failed, so one run reports every problem; not in a focused run, which covers
+    # too little for the coverage gate or the inventory.
+    if: >-
+      ${{ !cancelled() && needs.changes.result == 'success' && needs.changes.outputs.ios == 'true'
+      && needs.ios-build.result == 'success' && !inputs.only_testing }}
+    runs-on: macos-26
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Select the pinned Xcode (fail if missing)
+        run: |
+          xcode="/Applications/$XCODE_APP"
+          if [ ! -d "$xcode" ]; then
+            echo "::error::$XCODE_APP is not installed on this runner image; update the pin (PAP-029)"
+            exit 1
+          fi
+          sudo xcode-select -s "$xcode/Contents/Developer"
+          xcodebuild -version
+          if ! xcodebuild -version | grep -q "Build version $XCODE_BUILD"; then
+            echo "::error::$XCODE_APP is not build $XCODE_BUILD; update the pin (PAP-029)"
+            exit 1
+          fi
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: ios-shard-*
+          path: shards
+          merge-multiple: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ios-inventory
+          path: inventory
+      - name: Merge the shards' result bundles
+        run: |
+          bundles=()
+          for bundle in shards/ios-shard-*/*.xcresult; do
+            if [ -f "$bundle/Info.plist" ]; then bundles+=("$bundle"); fi
+          done
+          if [ "${#bundles[@]}" -eq 0 ]; then
+            echo "::error::No shard left a result bundle"
+            exit 1
+          elif [ "${#bundles[@]}" -eq 1 ]; then
+            cp -R "${bundles[0]}" Merged.xcresult
+          else
+            xcrun xcresulttool merge "${bundles[@]}" --output-path Merged.xcresult
+          fi
+          xcrun xccov view --report --json Merged.xcresult > coverage.json
+          mkdir -p coverage
+          cp coverage.json coverage/merged.json
+          for shard in shards/ios-shard-*; do
+            if [ -f "$shard/coverage.json" ]; then cp "$shard/coverage.json" "coverage/${shard##*/ios-shard-}.json"; fi
+          done
+      - name: The merge kept every shard's coverage
+        if: ${{ !cancelled() && hashFiles('coverage.json') != '' }}
+        run: |
+          python3 scripts/ci/coverage_compare.py coverage.json shards/ios-shard-*/coverage.json \
+            --expect "$(python3 scripts/ci/test_shards.py names)" --summary "$GITHUB_STEP_SUMMARY"
+      - name: Coverage gate (80% overall and per module)
+        # Runs even when a test failed, so one run reports every problem. A test bundle that crashed
+        # records no coverage, so its module can look low until the crash is fixed.
+        if: ${{ !cancelled() && hashFiles('coverage.json') != '' }}
+        env:
+          TESTS_RESULT: ${{ needs.ios-tests.result }}
+        run: |
+          if [ "$TESTS_RESULT" != "success" ]; then
+            echo "::warning::A test shard did not pass, so the coverage below may be incomplete"
+          fi
+          python3 scripts/ci/coverage_gate.py coverage.json --min 80
+      - name: Every failed and flaky test across the shards (flaky budget 3)
+        # A retry never hides a flake: each is named, and more than three distinct flaky tests in one
+        # run fail it, because retries may then be hiding a real problem.
+        if: ${{ !cancelled() }}
+        run: |
+          python3 scripts/ci/xcresult_report.py shards/ios-shard-*/tests.json --flaky-budget 3 \
+            --summary "$GITHUB_STEP_SUMMARY"
+      - name: The shards ran every test of the plan, each once
+        if: ${{ !cancelled() }}
+        run: |
+          python3 scripts/ci/shard_inventory.py inventory/inventory.json shards/ios-shard-*/tests.json \
+            --expect "$(python3 scripts/ci/test_shards.py names)" --summary "$GITHUB_STEP_SUMMARY"
+      - name: Gather the suite reports
+        if: ${{ !cancelled() }}
+        run: |
+          mkdir -p reports
+          for shard in shards/ios-shard-*; do
+            if [ -d "$shard/reports" ]; then cp -R "$shard/reports/." reports/; fi
+          done
+      - name: Keep the suite reports
+        # Golden corpus, OCR, AI evaluation and performance reports, written under reports/ by the tests.
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: reports
+          path: reports/
+          if-no-files-found: ignore
+          retention-days: 30
+      - name: Keep the coverage reports (merged and per shard)
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ios-coverage
+          path: coverage/
+          if-no-files-found: ignore
+          retention-days: 30
+
+  ios:
+    # The required check. It always runs (unless the run is cancelled) and decides from every iOS job's
+    # result, because a job skipped after a failed one reports success (actions/runner#2566): a failed
+    # `changes` must never leave this check green. A focused run reports as `ios-focused`, so it can
+    # never stand in for `ios` on a pull request's commit.
+    name: ${{ inputs.only_testing && 'ios-focused' || 'ios' }}
+    needs: [changes, ios-build, ios-device, ios-tests, ios-report]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: scripts/ci
+      - name: Every iOS gate ran and passed, or none had to run
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+          ONLY_TESTING: ${{ inputs.only_testing }}
+        run: python3 scripts/ci/ios_gate.py
+
+  ios-serial:
+    name: ios-serial
+    # The single-job pipeline from before the split (PAP-062), on request only: run once beside the
+    # shards to show the merged coverage equals the serial run's (ios-serial-coverage), and kept for
+    # one week as the rollback. Remove it after that week.
+    if: github.event_name == 'workflow_dispatch' && inputs.serial_baseline
     runs-on: macos-26
     timeout-minutes: 60
     env:
       SCHEME: PDFAlgoPro
       TEST_PLAN: PDFAlgoPro
     steps:
-      - name: Stop if the change detection failed
-        if: needs.changes.result != 'success'
-        env:
-          CHANGES_RESULT: ${{ needs.changes.result }}
-        run: |
-          echo "::error::The changes job ended with '$CHANGES_RESULT', so it is unknown whether the iOS gates must run"
-          exit 1
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Select the pinned Xcode (fail if missing)
         run: |
@@ -240,16 +708,13 @@ jobs:
           echo "Release binary is free of the internal tools; the Staging binary has them."
       - name: Tests (unit, UI, accessibility audit, snapshots)
         id: tests
+        env:
+          # Snapshots: a missing or changed reference fails; only a manual run with record_snapshots records.
+          TEST_RUNNER_SNAPSHOT_TESTING_RECORD: ${{ inputs.record_snapshots && 'all' || 'never' }}
         run: |
           # Suites write their reports (OCR accuracy, AI evaluation, performance) to reports/, kept below.
-          # Snapshots: a missing or changed reference fails; only a manual run with record_snapshots records,
-          # and it runs only the app tests the snapshots belong to (red by design, so never a passing ios).
-          export TEST_RUNNER_SNAPSHOT_TESTING_RECORD="${{ inputs.record_snapshots && 'all' || 'never' }}"
-          only=()
-          if [ "$TEST_RUNNER_SNAPSHOT_TESTING_RECORD" = "all" ]; then only=(-only-testing:PDFAlgoProTests/AppTests); fi
           TEST_RUNNER_REPORTS_DIR="$GITHUB_WORKSPACE/reports" xcodebuild test-without-building -scheme "$SCHEME" \
-            -testPlan "$TEST_PLAN" -destination "id=$SIM" -enableCodeCoverage YES -resultBundlePath Tests.xcresult \
-            ${only[@]+"${only[@]}"}
+            -testPlan "$TEST_PLAN" -destination "id=$SIM" -enableCodeCoverage YES -resultBundlePath Tests.xcresult
       - name: Name each failed test and why
         # The log is too long to read a failure's message from its tail: an annotation per failed test
         # puts the message on the run's summary, with the slowest suites. The Tests step keeps the verdict.
@@ -271,27 +736,22 @@ jobs:
           fi
           xcrun xccov view --report --json Tests.xcresult > coverage.json
           python3 scripts/ci/coverage_gate.py coverage.json --min 80
+      - name: Keep the coverage report for the comparison with the shards
+        if: ${{ !cancelled() && hashFiles('coverage.json') != '' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ios-serial-coverage
+          path: coverage.json
+          retention-days: 30
       - name: Keep the suite reports
         # Golden corpus, OCR, AI evaluation and performance reports, written under reports/ by the tests.
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: reports
+          name: ios-serial-reports
           path: reports/
           if-no-files-found: ignore
           retention-days: 30
-      - name: Pack the recorded snapshot references
-        # One archive with the references' paths in the repository, so they unpack where they belong.
-        if: ${{ !cancelled() && inputs.record_snapshots }}
-        run: find . -type d -name __Snapshots__ -not -path './DerivedData/*' -print0 | xargs -0 tar -cf snapshots.tar
-      - name: Keep the recorded snapshot references
-        if: ${{ !cancelled() && inputs.record_snapshots }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: snapshots
-          path: snapshots.tar
-          if-no-files-found: error
-          retention-days: 7
       - name: Export the failed tests' screenshots and attachments
         # A failed UI test's screenshots say what was on screen, but the whole result bundle below
         # is a large download. This takes out only what belongs to failed tests and lists it on the
@@ -304,7 +764,7 @@ jobs:
           # kept on their activities. The failed tests are the ones named in the step above.
           [ -s failed-tests.txt ] || exit 0
           echo "### Attachments of failed tests" >> "$GITHUB_STEP_SUMMARY"
-          echo "In the \`failed-attachments\` artifact of this run." >> "$GITHUB_STEP_SUMMARY"
+          echo "In the \`ios-serial-failed-attachments\` artifact of this run." >> "$GITHUB_STEP_SUMMARY"
           while read -r test; do
             folder="failed-attachments/$(echo "$test" | tr -c 'A-Za-z0-9._-' '_')"
             xcrun xcresulttool export attachments --path Tests.xcresult --output-path "$folder" --test-id "$test"
@@ -315,7 +775,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: failed-attachments
+          name: ios-serial-failed-attachments
           path: failed-attachments
           if-no-files-found: ignore
           retention-days: 7
@@ -323,7 +783,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: Tests.xcresult
+          name: ios-serial-Tests.xcresult
           path: Tests.xcresult
           retention-days: 7
 
@@ -333,7 +793,7 @@ jobs:
     # snapshot-recordings/<run id>, made from the branch it ran on. They are fetched with git, looked
     # at, and committed to the pull request by hand like any other change; the branch is then deleted.
     # This needs no Mac and no artifact download. The only job allowed to push, and never to a PR branch.
-    needs: ios
+    needs: ios-tests
     if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' && inputs.record_snapshots }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5

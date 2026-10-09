@@ -28,8 +28,11 @@ Owner: Quality · Reviewed: each milestone, and with any change to a workflow, r
 | `secrets / Secret scan` | `ci.yml` → `secrets` (the organisation's shared security workflow, pinned by commit SHA, Semgrep off) | Organisation secret scanner | Pull requests, pushes, merge queue | Yes | Yes | No secret in the change | Active |
 | `docs` | `ci.yml` → `docs` | [`scripts/ci/check_docs.py`](../../scripts/ci/check_docs.py) | Pull requests, pushes | Yes | Yes | Relative links resolve; exactly one H1, first; no skipped heading levels; every document indexed once [`docs/README.md`](../README.md) exists | Active |
 | `invariants` | `ci.yml` → `invariants` | [`scripts/ci/invariants.py`](../../scripts/ci/invariants.py) | Pull requests, pushes | Yes | Yes | PDFs only under `Tests/Fixtures/Synthetic/`; Swift rules listed below | PDF rule active; Swift rules dormant |
-| `changes` | `ci.yml` → `changes` | `git diff` | Pull requests, pushes | No | No | Decides whether `ios` runs | Active |
-| `ios` | `ci.yml` → `ios` | Xcode 26.6 (build 17F113) and the iOS 26.5 simulator, pinned exactly (interim, PAP-029), XcodeGen 2.46.0 (checksum-verified), `swift-format`, `xcodebuild`, `.xctestplan`, [`coverage_gate.py`](../../scripts/ci/coverage_gate.py) | When `changes` reports Swift or project input changes | Yes | Yes | Lockfile unchanged; format clean (strict); build with warnings as errors, for the simulator and for a device in the optimised Staging configuration; unit, UI, accessibility-audit and snapshot tests pass; line coverage at least 80% overall and per first-party target (ADR-0014); no single XCTest test runs longer than 5 minutes (the test plan's execution time allowance) | Active; skipped on pull requests that change no Swift or project input |
+| `changes` | `ci.yml` → `changes` | `git diff` | Pull requests, pushes | No | No | Decides whether the iOS jobs run | Active |
+| `ios` | `ci.yml` → `ios`, standing for `ios-build`, `ios-device`, `ios-tests (unit, ui-1, ui-2)` and `ios-report` ([job graph](#the-ios-job-graph)) | Xcode 26.6 (build 17F113) and the iOS 26.5 simulator, pinned exactly (interim, PAP-029), XcodeGen 2.46.0 (checksum-verified), `swift-format`, `xcodebuild`, `.xctestplan`, [`coverage_gate.py`](../../scripts/ci/coverage_gate.py), [`ios_gate.py`](../../scripts/ci/ios_gate.py) | When `changes` reports Swift or project input changes | Yes | Yes | Lockfile unchanged; format clean (strict); build with warnings as errors, for the simulator and for a device in the optimised Staging configuration; unit, UI, accessibility-audit and snapshot tests pass; line coverage at least 80% overall and per first-party target (ADR-0014); no single XCTest test runs longer than 5 minutes (the test plan's execution time allowance); every job in the graph ran and passed, or none had to; at most 3 distinct flaky UI tests per run, each named | Active; skipped on pull requests that change no Swift or project input |
+| `ios-build`, `ios-device`, `ios-tests (…)`, `ios-report` | `ci.yml` → the jobs of the same names | As `ios` | As `ios` | No | No | Not required themselves: `ios` passes only when each passed ([job graph](#the-ios-job-graph)) | Active |
+| `ios-focused` | `ci.yml` → `ios`, on a manual run with `only_testing` | As `ios` | Manual runs only | No | No | The named tests pass on the usual build; never reported as `ios` | Active |
+| `ios-serial` | `ci.yml` → `ios-serial` | The serial pipeline from before the split | Manual runs with `serial_baseline` only | No | No | As `ios` before the split; keeps `ios-serial-coverage` to compare with the shards | Rollback until one week after the split merges, then removed |
 | `codeql (actions)` | `codeql.yml` → `actions` | CodeQL, `security-extended` queries | Pull requests, pushes, nightly | Not yet | Not yet | Analysis completes; findings appear as code-scanning alerts | Runs, but its upload is rejected while CodeQL default setup is enabled on the repository; becomes required when the repository switches to advanced setup |
 | `performance` | `ci.yml` → `performance` | The `Performance` test plan on the pinned simulator, optimised build; [`scripts/ci/perf_gate.py`](../../scripts/ci/perf_gate.py) | Nightly on `integration`, and on request | No | No | Median of three iterations within 120% of each p50 budget (`Assumption:`, [performance budgets](../performance-budgets.md)); reported in the run summary, never blocking | Active |
 | `codeql (swift)` | `codeql.yml` → `swift` | CodeQL, `security-extended`, manual build (one architecture) | Nightly on `integration`, on demand, and release pushes to `main` that change Swift | No | No | Analysis completes; findings appear as code-scanning alerts | Active; 30–50 minutes under the tracer, so not per pull request |
@@ -110,12 +113,16 @@ The iOS gates must be required before any Swift exists, or the first code pull r
 without them. They are kept dormant, not absent, by a job-level condition:
 
 1. `changes` checks whether the diff touches Swift or project inputs (`*.swift`, `project.yml`,
-   `Packages/`, `App/`, `*.xctestplan`, `*.xcprivacy`, `Package.resolved`, or `ci.yml` itself) **and**
+   `Packages/`, `App/`, `*.xctestplan`, `*.xcprivacy`, `Package.resolved`, `ci.yml` itself, or the
+   scripts it runs under `scripts/ci/`) **and**
    `project.yml` exists.
-2. `ios` declares `needs: changes` and runs when `changes` reports such a change, or when `changes`
-   itself did not succeed, in which case its first step fails the job
-   (`if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.ios == 'true') }}`).
-   On a documentation-only pull request it is skipped.
+2. The iOS jobs (`ios-build`, `ios-device`, `ios-tests`, `ios-report`) run only when `changes`
+   succeeded and reports such a change. On a documentation-only pull request they are skipped.
+   `ios`, the required check, always runs unless the run is cancelled, and
+   [`ios_gate.py`](../../scripts/ci/ios_gate.py) decides from every job's result
+   ([job graph](#the-ios-job-graph)): green when `changes` succeeded and either reported no change with
+   every iOS job skipped, or reported a change with every iOS job successful. Anything else, including
+   a failed `changes`, is red.
 3. GitHub reports a job skipped by a condition as successful, and it does not block merging even when
    it is a required check
    ([Using conditions to control job execution](https://docs.github.com/en/actions/writing-workflows/choosing-when-your-workflow-runs/using-conditions-to-control-job-execution)).
@@ -131,8 +138,47 @@ The cost of this design is that a skipped `ios` looks green. Three safeguards ap
 includes `ci.yml`, so editing the gate re-runs it; the first code pull request had to show `ios`
 actually running and passing (readiness M7, closed); and `ios` also runs when `changes` itself did not
 succeed, then fails on purpose, because a job skipped after a failed dependency would otherwise report
-success ([actions/runner#2566](https://github.com/actions/runner/issues/2566)). When the source layout
+success ([actions/runner#2566](https://github.com/actions/runner/issues/2566)). The decision about which
+jobs the gate needs and when it passes is in `ios_gate.py`, with a test of every combination of job
+results, rather than in job conditions. When the source layout
 changes, the pattern in `changes` is reviewed in the same pull request.
+
+## The `ios` job graph
+
+The iOS gates ran as one serial job of 35–50 minutes, most of it UI tests one after another (measured
+on the `ios` runs of early October 2026). Since PAP-062 they run as a graph of jobs in
+[`ci.yml`](../../.github/workflows/ci.yml):
+
+| Job | Runs | Needs |
+|---|---|---|
+| `ios-build` | Project, Info.plist, lockfile and format checks; one build for testing (Debug, simulator, signed ad hoc); the plan's test inventory (`-enumerate-tests`); the products packed as the `ios-products` artifact | `changes` |
+| `ios-device` | The Staging build for a device and the Release build with its internal-tools check | `changes` |
+| `ios-tests (unit, ui-1, ui-2)` | The test plan in three shards ([test shards](../testing-strategy.md#test-shards-in-ci)), each on its own runner and simulator, against the products of `ios-build`; keeps `ios-shard-<shard>` (result bundle, results, coverage, reports, failed tests' attachments) | `ios-build` |
+| `ios-report` | Merges the shards' result bundles; checks the merge kept every shard's coverage ([`coverage_compare.py`](../../scripts/ci/coverage_compare.py)); the coverage gate; every failed and flaky test across the shards, against the flake budget ([`xcresult_report.py`](../../scripts/ci/xcresult_report.py)); that the shards ran every test of the plan once ([`shard_inventory.py`](../../scripts/ci/shard_inventory.py)) | `ios-tests` |
+| `ios` | The required check: passes only when every job above passed, or none had to run ([`ios_gate.py`](../../scripts/ci/ios_gate.py)) | All of the above |
+
+- **Retries, UI shards only.** A failed UI test runs once more on a relaunched app
+  (`-retry-tests-on-failure -test-iterations 2 -test-repetition-relaunch-enabled YES`); its last
+  repetition is its verdict. The unit shard and focused runs never retry. A test that failed and then
+  passed is named on the run as flaky with its first failure's message, and follows the
+  [flaky test policy](../testing-strategy.md#flaky-tests) like any other flake.
+- **Flake budget: 3.** More than three distinct flaky tests in one run fail `ios-report`, because
+  retries may then be hiding a real problem. `Assumption:` three is enough headroom for the UI suite's
+  known flakes without hiding a new one; validated by counting flaky tests per run over the first
+  month and revisited at the next milestone review.
+- **Inventory.** If listing the plan's tests fails in `ios-build`, the inventory is empty and the check
+  that the shards ran every test only warns; the other checks still apply.
+- **Focused runs.** A manual run of `ci.yml` with `only_testing` (`Target`, `Target/Class` or
+  `Target/Class/method`, comma-separated, checked against a strict pattern) runs only those tests in one
+  shard on the usual build, without `ios-device` and `ios-report`, and reports as `ios-focused`, so it
+  never stands in for `ios` on a pull request's commit.
+- **Time target.** `Assumption:` `ios` reports within 22 minutes at the median (p50) of pull request
+  runs; validated from the run durations of the first 20 pull requests after the split, and the shards
+  rebalanced (`scripts/ci/test_shards.json`) if one shard is regularly the slowest by far.
+- **Rollback.** For one week after the split merges, a manual run with `serial_baseline` also runs the
+  old serial pipeline as `ios-serial`. It is run once to show that the merged coverage matches the
+  serial run's (`ios-serial-coverage` against `ios-coverage`), and it is the rollback if the graph
+  misbehaves: restore the old `ios` job from it. It is removed after that week.
 
 ## Warnings never fail the build
 
@@ -224,7 +270,7 @@ The checklist that collects this evidence is in [release management](../release-
 | `secrets / Secret scan` | Treat the secret as leaked, even on a branch: revoke and rotate it first, then remove it from the branch history before anything merges, and tell the Security hat. A false positive is recorded in the pull request and handled through the organisation workflow's allowlist, never by weakening the scan. |
 | `docs` | Fix the broken link or heading. A document that does not exist yet is referenced as inline code (`docs/…`), not as a link. |
 | `invariants` | Fix the code: handle errors instead of `try!`, use `Logger` instead of `print(`, move networking or colour literals into their package, declare the required-reason API in the privacy manifest. PDFs belong under `Tests/Fixtures/Synthetic/` and must be synthetic. |
-| `ios` | Read the failing step. Each failed test is annotated on the run with its failure messages, and the run's summary lists them with the slowest suites. The failed tests' screenshots and other attachments are exported to the `failed-attachments` artifact and listed on the run's summary; the whole `Tests.xcresult` bundle is uploaded on failure too. Both are kept for 7 days; suite reports under `reports/` are uploaded on every run. For coverage, add tests; do not exclude files. If the pinned Xcode or simulator runtime is missing on the runner, the job fails on purpose: move the pin in `ci.yml` to what the image offers, in its own pull request, and re-record snapshot references if the runtime changed. |
+| `ios` | Its summary lists each job's result; open the job that failed and read its failing step. Each failed test is annotated on the run with its failure messages, and the run's summary lists them with the slowest suites; a test that passed only on retry is named as flaky. Each shard keeps its result bundle, results, coverage and the failed tests' screenshots and other attachments (under `failed-attachments/`) in its `ios-shard-<shard>` artifact for 7 days; suite reports under `reports/` and the merged and per-shard coverage (`ios-coverage`) are kept by `ios-report` on every run. For coverage, add tests; do not exclude files. If `ios-report` says the merge lost coverage, or that a test ran in two shards or in none, the pipeline is at fault, not the change: fix the shards or report it. If the pinned Xcode or simulator runtime is missing on the runner, the job fails on purpose: move the pin in `ci.yml` to what the image offers, in its own pull request, and re-record snapshot references if the runtime changed. |
 | `codeql (…)` | Fix the finding, or ask the Security hat to dismiss it with a reason. An analysis failure is a CI problem to fix, not to skip. |
 | `dependency-review` | Upgrade or replace the dependency. Accepting a known vulnerability needs a Security decision recorded in an ADR. |
 | `ai-eval` (planned) | Read the per-sample results, fix the prompt or schema, and re-run the on-device suite. A threshold changes only as the [AI evaluation framework](../ai-evaluation-framework.md) allows. |
