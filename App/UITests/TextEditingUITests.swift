@@ -390,11 +390,18 @@ final class TextEditingUITests: UITestCase {
     XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: Self.settleTimeout), "The keyboard went")
     XCTAssertTrue(field.exists, "The line is still open")
 
-    // A pinch zooms the page, and the field grows with it.
+    // A pinch zooms the page, and the field grows with it. A synthesized pinch zooms less than it
+    // asks, part of it spent before the page takes it as a pinch: asked for 1.5 times, the page
+    // zoomed about 1.16 times on run 37989496789 (the field 321.67 wide, then 374, and 11 high,
+    // then 13, short of the 1.25 times the height was held to). So a clear growth of the width
+    // counts too; a page that does not zoom leaves the field as it was. Not a larger pinch: it
+    // zooms about the fingers, and would carry the line off the top of the screen.
     let before = field.frame
     let pages = app.descendants(matching: .any)["reader.pages"].firstMatch
     pages.pinch(withScale: 1.5, velocity: 1)
-    let zoomed = NSPredicate { _, _ in field.frame.height > before.height * 1.25 }
+    let zoomed = NSPredicate { _, _ in
+      field.frame.width > before.width * 1.05 || field.frame.height > before.height * 1.25
+    }
     let grew = XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: zoomed, object: nil)], timeout: 10)
     if grew != .completed {
       keepEvidence(app, named: "not zoomed", notes: "field \(before) -> \(field.frame); pages \(pages.frame)")
