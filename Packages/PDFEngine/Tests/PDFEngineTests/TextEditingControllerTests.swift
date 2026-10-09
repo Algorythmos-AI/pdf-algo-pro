@@ -5,11 +5,11 @@ import PDFEngineTestSupport
 import PDFKit
 import Testing
 
+@testable import PDFEngine
+
 #if canImport(UIKit)
   import UIKit
 #endif
-
-@testable import PDFEngine
 
 private typealias Line = TextEditFixtures.Line
 
