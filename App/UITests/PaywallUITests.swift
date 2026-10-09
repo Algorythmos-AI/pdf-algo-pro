@@ -31,7 +31,7 @@ final class PaywallUITests: UITestCase {
   }
 
   func testTheWholeJourneyFromFirstRunThroughAPurchaseToHome() throws {
-    let app = launch(["-glow-title"])  // EXPERIMENT (not for merge)
+    let app = launch([])
     let next = app.buttons["onboarding.continue"]
     tap(next, until: element("onboarding.page.sign", in: app))
     tap(next, until: element("onboarding.page.ask", in: app))
@@ -104,7 +104,7 @@ final class PaywallUITests: UITestCase {
   }
 
   func testWithoutPlansTheOfferSaysSoAndOffersToAskAgain() throws {
-    let app = launch(["-skip-onboarding", "-store", "unavailable", "-glow-raster"])  // EXPERIMENT (not for merge)
+    let app = launch(["-skip-onboarding", "-store", "unavailable"])
     tap(app.buttons["library.sidebar.settings"], until: element("settings.subscription.plans", in: app))
     tap(element("settings.subscription.plans", in: app), until: app.buttons["paywall.retry"])
     XCTAssertFalse(app.buttons["paywall.purchase"].exists, "There is nothing to buy")
@@ -115,8 +115,7 @@ final class PaywallUITests: UITestCase {
   }
 
   func testSomeoneWithProIsToldSoAndSoldNothing() throws {
-    // EXPERIMENT (not for merge)
-    let app = launch(["-skip-onboarding", "-entitlement", "subscribed", "-glow-title", "-card-opaque"])
+    let app = launch(["-skip-onboarding", "-entitlement", "subscribed"])
     tap(app.buttons["library.sidebar.settings"], until: element("settings.subscription.plans", in: app))
     tap(element("settings.subscription.plans", in: app), until: element("paywall.alreadyPro", in: app))
     XCTAssertFalse(app.buttons["paywall.purchase"].exists, "Nothing is sold to someone who has Pro")
