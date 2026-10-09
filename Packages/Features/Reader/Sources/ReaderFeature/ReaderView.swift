@@ -263,7 +263,12 @@ public struct ReaderView<Assistant: View>: View {
       .onChange(of: model.selectedTextRegion) { _, selection in
         // The editor starts from the text as it is; what to say about it is worked out once.
         textDraft.text = selection?.region.text ?? ""
-        textDraft.isInPlace = nil
+        textDraft.isTyping = false
+        // Where it is typed is decided once, here: the page view has already zoomed and scrolled to
+        // the text and said where it is (`textEditAnchor`), before this runs.
+        textDraft.isInPlace = selection.map {
+          TextEditLayer.fitsInPlace($0, anchor: model.controller?.textEditAnchor)
+        }
         if selection != nil { model.textRegionPicked() }
       }
       .onChange(of: scenePhase) { _, phase in
@@ -343,6 +348,12 @@ public struct ReaderView<Assistant: View>: View {
           // Outside the page view, which runs under the keyboard: this sits just above it.
           if model.selectedTextRegion != nil {
             TextEditBar(model: model, draft: textDraft)
+              // The editor over the page stays above the bar, which stays above the keyboard.
+              .onGeometryChange(for: CGRect.self) {
+                $0.frame(in: .global)
+              } action: {
+                textDraft.barFrame = $0
+              }
           }
         }
         // In the layout, above the page, so the tip covers none of the document's words.

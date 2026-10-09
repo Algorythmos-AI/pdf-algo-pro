@@ -1256,10 +1256,28 @@ struct ReaderTextEditingTests {
     let selection = try #require(reader.selectedTextRegion)
     let layer = TextEditLayer(model: reader, selection: selection, draft: draft).frame(width: 390, height: 700)
     #expect(ImageRenderer(content: layer).uiImage != nil)
-    #expect(!TextEditLayer.fitsInPlace(selection, frame: nil))
-    #expect(TextEditLayer.fitsInPlace(selection, frame: CGRect(x: 40, y: 200, width: 200, height: 18)))
-    #expect(!TextEditLayer.fitsInPlace(selection, frame: CGRect(x: 40, y: 200, width: 200, height: 6)))
+    #expect(!TextEditLayer.fitsInPlace(selection, anchor: nil))
+    // Small print is edited in place too, at its own size: the person zooms the page if they want.
+    let line = CGRect(x: 40, y: 200, width: 200, height: 6)
+    let tiny = TextEditAnchor(selection: selection, lineFrame: line, columnFrame: line, scale: 1)
+    #expect(TextEditLayer.fitsInPlace(selection, anchor: tiny))
+    // On a turned page the line's frame is on its side: the field goes in the bar.
+    let turned = TextEditAnchor(selection: selection, lineFrame: line, columnFrame: line, scale: 1, isPageTurned: true)
+    #expect(!TextEditLayer.fitsInPlace(selection, anchor: turned))
     #expect(!TextEditLayer.isLight(selection.region))
+    // The cover is the one the text has more contrast against (WCAG 2): a mid grey that the raw
+    // values called dark is light, and gets a black cover.
+    func region(grey: Double) -> EditableTextRegion {
+      let old = selection.region
+      let style = TextStyle(
+        fontName: old.style.fontName, pointSize: old.style.pointSize, isBold: false, isItalic: false,
+        isMonospaced: false, color: TextColor(grey, grey, grey))
+      return EditableTextRegion(
+        id: old.id, text: old.text, bounds: old.bounds, angle: 0, style: style, capability: old.capability)
+    }
+    #expect(TextEditLayer.isLight(region(grey: 0.55)))
+    #expect(TextEditLayer.isLight(region(grey: 1)))
+    #expect(!TextEditLayer.isLight(region(grey: 0.4)))
     #expect(TextEditLayer.font(for: selection.region, scale: 1.5).fontName == "Georgia")
     #expect(TextEditLayer.color(for: selection.region).cgColor.components?.prefix(3).allSatisfy { $0 < 0.01 } == true)
     for message in [
@@ -1566,16 +1584,18 @@ struct ReaderTextEditingTests {
     #expect(ImageRenderer(content: label).uiImage != nil)
   }
 
-  @Test("The field sits over the text only where it can be seen above the keyboard")
+  @Test("The field sits over upright text the page view has on screen, wherever it is; other text is typed in the bar")
   func fieldStaysInView() async throws {
     let harness = Harness()
     let (reader, _) = try await editing(try TextEditFixtures.invoice(), in: harness, picking: "John Smith")
     let selection = try #require(reader.selectedTextRegion)
-    let high = CGRect(x: 40, y: 150, width: 200, height: 20)
-    let low = CGRect(x: 40, y: 560, width: 200, height: 20)
-    #expect(TextEditLayer.fitsInPlace(selection, frame: high, within: 800))
-    #expect(!TextEditLayer.fitsInPlace(selection, frame: low, within: 800), "It would be under the keyboard")
-    #expect(TextEditLayer.fitsInPlace(selection, frame: low), "With no height known, as before")
+    // Low on the screen is no longer a reason for the bar: the editor is placed above the keyboard.
+    let lowLine = CGRect(x: 40, y: 560, width: 200, height: 20)
+    let low = TextEditAnchor(selection: selection, lineFrame: lowLine, columnFrame: lowLine, scale: 1)
+    #expect(TextEditLayer.fitsInPlace(selection, anchor: low))
+    // An anchor left from other text is not this text's.
+    let other = TextRegionSelection(pageIndex: selection.pageIndex + 1, region: selection.region)
+    #expect(!TextEditLayer.fitsInPlace(other, anchor: low))
     // Then the field is in the bar, which is always in view.
     let draft = TextEditDraft()
     draft.isInPlace = false
@@ -1641,57 +1661,52 @@ struct ReaderTextEditingTests {
     #expect(controller.annotationCount(onPage: 0) == 0)
   }
 
-  @Test("The field over a line never runs off the screen, however long the line is when zoomed in")
-  func fieldStaysOnScreen() {
-    let screen: CGFloat = 393
-    // A small line, zoomed in to be read: three times as wide as the screen.
-    let long = TextEditLayer.fieldSpan(over: CGRect(x: 20, y: 300, width: 1200, height: 24), in: screen)
-    #expect(long.x == 18 && long.x + long.width <= screen, "\(long)")
-    #expect(long.width > 300, "It uses the room there is")
-    // An ordinary line: from its start to the edge, with room to type more.
-    let short = TextEditLayer.fieldSpan(over: CGRect(x: 40, y: 300, width: 120, height: 20), in: screen)
-    #expect(short.x == 38 && short.x + short.width <= screen && short.width > 300)
-    // A line that starts near the right edge keeps a usable width by starting further left.
-    let late = TextEditLayer.fieldSpan(over: CGRect(x: 340, y: 300, width: 40, height: 20), in: screen)
-    #expect(late.width >= TextEditLayer.minimumFieldWidth && late.x + late.width <= screen && late.x < 340)
-    // And one that starts off the left of the screen starts at the screen's edge.
-    let before = TextEditLayer.fieldSpan(over: CGRect(x: -200, y: 300, width: 900, height: 24), in: screen)
-    #expect(before.x >= 0 && before.x + before.width <= screen)
-    // A very narrow reader still gets a field that fits it.
-    let narrow = TextEditLayer.fieldSpan(over: CGRect(x: 10, y: 0, width: 500, height: 20), in: 120)
-    #expect(narrow.x >= 0 && narrow.x + narrow.width <= 120 && narrow.width > 0)
-  }
-
-  @Test("A line longer than the field can be scrolled to either end, and stays one line")
-  func longLineScrolls() throws {
-    let field = SingleLineTextView()
+  @Test("The field is as tall as its text: a line wider than the field wraps, and none of it is hidden")
+  func longLineWraps() throws {
+    let field = TextEditTextView()
     field.font = UIFont(name: "Helvetica", size: 22)
-    field.frame = CGRect(x: 0, y: 0, width: 300, height: 30)
     let container = UIView(frame: CGRect(x: 0, y: 0, width: 393, height: 852))
     container.addSubview(field)
+    let lineHeight = try #require(field.font).lineHeight
 
-    // Short text: nothing to scroll.
-    field.show("Short")
-    field.layoutIfNeeded()
-    #expect(field.contentSize.width == 300 && field.contentSize.height == 30)
+    // Short text: one line.
+    field.text = "Short"
+    let short = field.fittingHeight(for: 300)
+    #expect(short >= lineHeight && short < lineHeight * 2, "\(short)")
 
-    // A line of small print, zoomed in: several times the field's width.
-    field.show("This footer is one long sentence of small print, set on a single line right across the page.")
+    // The owner's line, zoomed in: several times the field's width, so it takes several lines.
+    field.text = "Detected card numbers, IDs and contact details are masked. And a good many more words after that."
+    let long = field.fittingHeight(for: 300)
+    #expect(long >= lineHeight * 3, "\(long)")
+    field.frame = CGRect(x: 0, y: 0, width: 300, height: long)
     field.layoutIfNeeded()
-    #expect(
-      field.lineWidth > 800 && field.contentSize.width >= field.lineWidth,
-      "\(field.lineWidth)")
-    #expect(field.contentSize.height == 30, "It never scrolls up and down")
-    #expect(field.isScrollEnabled && field.textContainer.maximumNumberOfLines == 1)
-    // Either end can be brought into view.
-    field.contentOffset = CGPoint(x: field.contentSize.width - 300, y: 0)
+    // All of it is in view at that height: nothing to scroll to, sideways or up and down.
+    #expect(field.contentSize.width <= 300 + 0.5 && field.contentSize.height <= long + 0.5, "\(field.contentSize)")
+    #expect(field.contentOffset == .zero)
+    // The first letter and the last are inside the field.
+    let first = field.caretRect(for: field.beginningOfDocument)
+    let last = field.caretRect(for: field.endOfDocument)
+    #expect(field.bounds.contains(CGPoint(x: first.midX, y: first.midY)), "\(first)")
+    #expect(field.bounds.contains(CGPoint(x: last.midX, y: last.midY)), "\(last)")
+  }
+
+  @Test("The field in the bar is held to a few lines and keeps the caret in view")
+  func barFieldScrollsToTheCaret() throws {
+    let field = TextEditTextView()
+    field.font = UIFont(name: "Helvetica", size: 17)
+    let lineHeight = try #require(field.font).lineHeight
+    let height = ceil(lineHeight * CGFloat(TextEditBar.maximumLines))
+    field.frame = CGRect(x: 0, y: 0, width: 200, height: height)
+    let container = UIView(frame: CGRect(x: 0, y: 0, width: 393, height: 852))
+    container.addSubview(field)
+    field.text = String(repeating: "Many words that run on and on. ", count: 12)
+    #expect(field.fittingHeight(for: 200) > height, "More text than the field shows")
     field.layoutIfNeeded()
-    #expect(field.contentOffset.x > 500)
-    field.contentOffset = .zero
-    field.layoutIfNeeded()
-    #expect(field.contentOffset == .zero, "The start of the line can be got back to")
-    // The line is in the middle of the field's height.
-    #expect(field.textContainerInset.top > 0 && field.textContainerInset.top < 8)
+    field.selectedRange = NSRange(location: (field.text ?? "").utf16.count, length: 0)
+    field.revealSelection()
+    let caret = field.caretRect(for: field.endOfDocument)
+    let visible = CGRect(origin: field.contentOffset, size: field.bounds.size)
+    #expect(visible.intersects(caret), "The caret at the end is in view: \(caret) in \(visible)")
   }
 
   @Test("Return finishes the edit, and a pasted line break becomes a space")
@@ -1699,7 +1714,7 @@ struct ReaderTextEditingTests {
     let draft = TextEditDraft()
     var submitted = 0
     let coordinator = TextEditField(draft: draft, onSubmit: { submitted += 1 }).makeCoordinator()
-    let field = SingleLineTextView()
+    let field = TextEditTextView()
     field.delegate = coordinator
     field.text = "Total due"
     let end = NSRange(location: 9, length: 0)

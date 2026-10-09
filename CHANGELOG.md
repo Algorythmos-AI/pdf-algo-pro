@@ -19,6 +19,19 @@ Store notes (see the changelog strategy).
   only ever means a red annotation or Delete.
 
 ### Fixed
+- Editing text (internal builds): a line is now edited right where it is, at the page's own size,
+  as in Notes, and nothing is cut off. Before, the page zoomed in so its lines ran off the screen,
+  a long line was cut off at the screen's edge with the caret out of sight, and the page was pulled
+  back to the line under your finger, so it felt locked. Now the line wraps to the width of the
+  page's text, the page can be scrolled and zoomed freely while you type, typing brings the caret
+  back into view, and what you type stays above the keyboard, also after you turn the phone. A
+  keyboard button in the bar puts the keyboard away and brings it back, and when you finish the
+  page returns to where it was, unless you moved it yourself.
+- Editing text (internal builds): Done can no longer be undone halfway. While the change is being
+  made, Cancel is disabled and typing is held. Words still being composed in Chinese, Japanese or
+  Korean are accepted before the change, pasted text with line breaks no longer finishes the edit,
+  Escape on a keyboard cancels, and text on a turned page is edited in the bar. Light grey text now
+  gets a dark field to be typed on.
 - Scanning: the hidden text of a scanned page now sits exactly over the printed words. Before,
   it could be narrower or wider than the line, so a selection did not match what you dragged
   over, and a long line squeezed into a narrow space could be found only in pieces.

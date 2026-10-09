@@ -117,6 +117,10 @@ final class PDFReaderHostView: PDFView {
       #endif
       previous.detach(self)
     }
+    #if canImport(UIKit)
+      // Also where the last controller is already gone (it is held weakly) with a line picked.
+      forgetPickedText()
+    #endif
     if let pageObserver { NotificationCenter.default.removeObserver(pageObserver) }
     #if canImport(UIKit)
       // The provider is asked for a view as each page comes on screen, so it is in place first.
@@ -233,6 +237,25 @@ final class PDFReaderHostView: PDFView {
   }
 
   #if canImport(UIKit)
+    /// A touch inside the field over the picked line goes to the field, so it places the caret and
+    /// selects as in any text view; anywhere else, to the page as usual.
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+      if let field = controller?.fieldOverPage, Self.root(of: field) === Self.root(of: self), !field.isHidden,
+        field.isUserInteractionEnabled
+      {
+        let inField = convert(point, to: field)
+        if field.point(inside: inField, with: event), let found = field.hitTest(inField, with: event) {
+          return found
+        }
+      }
+      return super.hitTest(point, with: event)
+    }
+
+    /// The view at the top of a view's hierarchy: its window, once it is on screen.
+    private static func root(of view: UIView) -> UIView {
+      sequence(first: view, next: \.superview).reduce(view) { $1 }
+    }
+
     override func layoutSubviews() {
       super.layoutSubviews()
       limitZoom()
@@ -645,8 +668,11 @@ final class PDFReaderHostView: PDFView {
       // While text is being edited, scrolling and zooming wait to see whether a touch is a press
       // on a line: once a line is lifted the page stays still under it. A drag fails the press
       // within a few points, so scrolling starts as it always did.
+      // With a line picked nothing can be lifted (`liftableText(at:)`), so nothing waits: the page
+      // scrolls and zooms under the open editor at once, even for a slow drag.
       MainActor.assumeIsolated {
-        guard host?.controller?.isEditingText == true else { return false }
+        guard let controller = host?.controller, controller.isEditingText, controller.selectedTextRegion == nil
+        else { return false }
         return otherGestureRecognizer is UIPanGestureRecognizer || otherGestureRecognizer is UIPinchGestureRecognizer
       }
     }

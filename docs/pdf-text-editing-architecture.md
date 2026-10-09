@@ -188,6 +188,77 @@ text to Times New Roman, anything else to Helvetica, in the same weight and slan
 **Page boxes.** PDFKit moves a page's box to the origin when it copies it. Regions are reported in
 the live page's space, and annotations are shifted with the page when it is swapped.
 
+## Editor layout
+
+The editor for a picked line works like editing in Preview: the line is edited where it is, at the
+page's own size, and the page stays free. The geometry is pure (`TextEditPlacement`, PDFEngine) and
+tested for every supported screen size, both orientations and three keyboard heights
+(`TextEditPlacementTests`).
+
+1. **No zoom.** Picking a line never changes the zoom. The page keeps fitting the screen (or the
+   person's own zoom), so no line of the document is pushed off its edge. Small print is edited at
+   its real size; the person pinches to make it bigger, and the field grows with the page.
+2. **Anchor.** While text is picked, the page view publishes where the line is on screen, and the
+   line widened to the right edge of the page's text (`PDFDocumentController.textEditAnchor`), on
+   every frame where it changed, the way the annotation outline follows its annotation.
+3. **Editor.** The field is the system text view, in the line's font at the page's scale, on an
+   opaque cover with a light shadow. It sits on the line and never leaves it. It is as wide as the
+   page's text from the line's start, so typed words wrap where the page's own lines end, and as
+   tall as what it holds; text longer than the line wraps down over the lines below while it is
+   typed (a fixed PDF page cannot reflow; the engine's fit rules decide what Done accepts).
+4. **The page stays free.** Nothing but the field takes touches: the page scrolls and zooms while
+   the field is open, and the field moves with its line. A tap elsewhere does nothing until the
+   edit is finished or cancelled. With a line open nothing can be lifted, so the page's scrolling
+   and zooming do not wait for the hold-to-move press (`LiftGestureDelegate`).
+5. **Keyboard.** The page is moved for the field only on something the person did to the text:
+   when the field opens, when the visible area gets shorter (the keyboard coming up, the bar
+   growing), when the page view changes size (the screen turning), and when a letter is typed.
+   Room asked for is kept as a request (`TextEditRoomRequest`) until the field is seen in view, and
+   the page is scrolled for it only once the line was measured at the page view's present size,
+   the page is at rest and the field is laid out on the line. A turn settles over several frames
+   (the new size, the line measured at it, PDFKit fitting the page to the new width, the field
+   wrapping again), and room made once at one of them left the field turned to landscape under the
+   bar on CI (2026-10-09). A request scrolls at most three times. Never because the field moved or
+   grew with the page, and never while the person is moving the page (a finger on it, a pinch, a glide):
+   the editor that made room whenever the field's height changed pulled the page back under the
+   finger on every pinch, so it felt locked (the owner's report, 2026-10-08). The page scrolls under
+   the field so it sits above the bar with Cancel and Done, as in Notes
+   (`TextEditPlacement.scrollDistance`, `PDFDocumentController.scrollPickedText(by:across:)`). Near
+   the end of the document, room is added under the last page and taken away when the text is let
+   go of. The keyboard button in the bar puts the keyboard away to look over the page, and brings
+   it back, with the line still open.
+6. **Caret.** The caret starts after the last letter. Each letter typed scrolls the page, up, down
+   or (on a zoomed page) across, so the caret is in view, as Notes does even after the note was
+   scrolled away (`TextEditPlacement.revealDistance`).
+7. **Leaving.** When the text is let go of, the room under the last page is taken away, and the
+   page goes back to where it was before the line was picked if only the editor moved it. Where the
+   person scrolled or zoomed while editing, the page stays where they took it.
+8. **Done and Return.** Done in the bar and Return in either field finish the text the same way
+   (`TextEditCommit`). Words an input method is still composing (Pinyin, kana, Hangul) are
+   accepted first, so the raw letters are never put on the page. While the edit is being made,
+   typing is held and Cancel is disabled: either would be lost when the field closes, and the page
+   would still change. Only a single line break is Return; line breaks inside pasted or dictated
+   text become spaces, so a paste never finishes the edit by itself. Escape on a hardware keyboard
+   is Cancel, except while an input method is composing.
+9. **Turned pages.** Text on a page shown turned (its `/Rotate`) is upright on the page but not on
+   screen, so its field goes in the bar (`TextEditAnchor.isPageTurned`), and the page is brought to
+   the line by PDFKit, which turns the line's box itself.
+10. **Another document.** When the page view is given another document's controller, it stops
+    following the old line and takes away the room it made under the old document's last page.
+    Off screen, the frame-by-frame follow does nothing.
+
+The cover behind the field is black or white, whichever the text has more contrast against
+(WCAG 2 relative luminance). Cancel, Done and the keyboard button meet the minimum touch target.
+
+This replaces an editor that zoomed small print in, held the page still and moved itself above the
+keyboard, away from its line: the page's own lines ran off the screen and the editor lay over other
+text (the owner's reports, 2026-10-07 and 2026-10-08). Debug builds launched with
+`-text-edit-geometry` draw the line, the visible area, the editor, the text view and its laid-out
+text in five colours, and log the numbers (no document text) under `text-edit.geometry`. Launched
+with `-text-edit-touches`, they log, while a line is open, which view each touch lands on and every
+state the page's scroll, zoom and own gestures pass through, under `text-edit.touches`
+(`TextEditTouchLog`): a page that will not move is then told apart from one that is moved back.
+
 ## Covering text that cannot be edited
 
 For "covered only" text the reader can place a filled rectangle and a text box over it. This is
@@ -423,6 +494,14 @@ From TestFlight feedback on 2026-10-06 (a letter laid out in frames, on an iPhon
   shortened to its newest half.
 - **Accessibility tags.** PDFKit does not carry a tagged PDF's structure through any save, with or
   without an edit.
+- **Found by code review, not yet fixed or reproduced (2026-10-08).** The field wraps to the
+  width of the page's text, but the engine may still refuse a replacement as too long when Done is
+  tapped; the text typed is kept. Picking text that was covered before shows the old words, and a
+  second change stacks another cover. An empty replacement is refused with the message about
+  characters that cannot be used. The spoken "Text changed" is said when the edit is made, before
+  the file is saved. Suspected, not shown: a crop box offset from the media box, baseline drift
+  with substituted fonts, horizontal scaling (`Tz`) left out of the fit, and the floating iPad
+  keyboard. Scanned pages have no editing path; they offer recognition only.
 - **File size.** Each edited page gains a font subset (about 9 kB in the spike's invoice); further
   edits to the same page add a few hundred bytes.
 

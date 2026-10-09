@@ -537,6 +537,41 @@ extension PDFDocumentController {
     #endif
   }
 
+  /// The right edge of a page's text, in page space, from the text already found on it; `nil`
+  /// before the page's text is found.
+  ///
+  /// The editor for a line may grow to it, so typed words wrap where the page's own lines end.
+  func textColumnMaxX(onPage pageIndex: Int) -> CGFloat? {
+    guard let page = document.page(at: pageIndex), let found = textPages[ObjectIdentifier(page)], found.page === page
+    else { return nil }
+    return found.text.regions.filter(\.isUpright).map(\.bounds.maxX).max()
+  }
+
+  #if canImport(UIKit)
+    /// Scrolls the page under the picked text by a distance in screen points: up for a positive
+    /// distance, down for a negative one, and across by `across` (to the left for a positive one).
+    ///
+    /// The editor stays on its line and moves with it. Nothing moves while the person is moving the
+    /// page themselves.
+    ///
+    /// Returns whether it scrolled.
+    @discardableResult
+    public func scrollPickedText(by distance: CGFloat, across: CGFloat = 0) -> Bool {
+      guard selectedTextRegion != nil, let view else { return false }
+      return view.scrollPickedText(by: distance, across: across)
+    }
+
+    /// Whether a finger is on the page, dragging or pinching it.
+    public var isPageTouched: Bool {
+      guard let scroller = view?.pageScroller else { return false }
+      return scroller.isTracking || scroller.isZooming
+    }
+
+    /// The page view's size now, to tell a line measured before the view last changed size
+    /// (`TextEditAnchor.isMeasured(at:)`); `nil` while no page view shows the document.
+    public var pageViewSize: CGSize? { view?.bounds.size }
+  #endif
+
   /// Lets go of the picked text without changing it.
   public func clearTextRegionSelection() {
     selectedTextRegion = nil

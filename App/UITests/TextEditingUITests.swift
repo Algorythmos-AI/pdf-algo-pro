@@ -265,34 +265,178 @@ final class TextEditingUITests: UITestCase {
       "Undo puts the line back")
   }
 
-  func testALineLongerThanTheFieldCanBeReachedAtBothEnds() throws {
-    let app = launch(["-skip-onboarding", "-seed-library", "sample", "-text-editing", "available"])
+  /// A line longer than the screen is wholly in view while it is edited, and both ends can be edited.
+  ///
+  /// The owner's report, 2026-10-08: such a line was cut off at the screen's edge, with the caret and
+  /// the rest of the sentence out of sight.
+  func testALongLineIsWhollyInViewAndBothEndsCanBeEdited() throws {
+    let app = launch([
+      "-skip-onboarding", "-seed-library", "sample", "-text-editing", "available", "-text-edit-geometry",
+    ])
     XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
     tap(app.buttons["reader.edit"], until: app.buttons["reader.doneEditingText"])
     let field = app.textViews["reader.textEdit.field"]
     tap(line(containing: "Try these", in: app), until: field)
 
-    // Far more words than the field has room for: the caret, at the end, stays in view.
-    let tail = " and then a good many more words than any field on a phone has the room to show at once"
+    // Far more words than one line of a phone has room for, as in the owner's screenshot.
+    let tail = " Detected card numbers, IDs and contact details are masked, and a good many more words after that"
     field.typeText(tail)
     XCTAssertEqual(field.value as? String, "Try these:" + tail)
+    attach(app, named: "Long line, keyboard up")
+    assertWhollyInView(field, in: app)
 
-    // Swiping the field brings the start of the line back, where a tap puts the caret.
-    for _ in 0..<4 { field.swipeRight(velocity: .fast) }
-    field.coordinate(withNormalizedOffset: CGVector(dx: 0.04, dy: 0.5)).tap()
+    // The start of the line is in view: holding a finger there puts the caret there.
+    //
+    // Held inside the first line and the last, not on the field's edges. On CI (2026-10-08 and -09)
+    // neither a tap nor a hold there moved the caret: the touch went to the page under the field,
+    // which now hands it on (`PDFReaderHostView.hitTest`).
+    let held = field.frame
+    field.coordinate(withNormalizedOffset: CGVector(dx: 0.01, dy: 0.25)).press(forDuration: Self.hold)
     field.typeText("Z")
     let start = try XCTUnwrap(field.value as? String)
     let place = try XCTUnwrap(start.firstIndex(of: "Z"), "The letter was typed")
-    XCTAssertLessThan(start.distance(from: start.startIndex, to: place), 12, "It went in at the start of the line")
+    XCTAssertLessThan(
+      start.distance(from: start.startIndex, to: place), 3,
+      "It went in at the start of the line; the field was at \(held)")
 
-    // And swiping the other way brings the end back.
-    for _ in 0..<4 { field.swipeLeft(velocity: .fast) }
-    field.coordinate(withNormalizedOffset: CGVector(dx: 0.96, dy: 0.5)).tap()
+    // And so is the end: holding after the last word puts the caret after it.
+    field.coordinate(withNormalizedOffset: CGVector(dx: 0.99, dy: 0.75)).press(forDuration: Self.hold)
     field.typeText("Q")
-    let end = try XCTUnwrap(field.value as? String)
-    let last = try XCTUnwrap(end.firstIndex(of: "Q"), "The letter was typed")
-    XCTAssertLessThan(end.distance(from: last, to: end.endIndex), 12, "It went in at the end of the line")
+    XCTAssertEqual((field.value as? String)?.last, "Q", "It went in at the end of the line")
+
+    // Turned on its side, with less room, the field is still wholly in view, once the page has
+    // settled: it lays out again over several frames, and room is made for the field after that.
+    XCUIDevice.shared.orientation = .landscapeLeft
+    defer { XCUIDevice.shared.orientation = .portrait }
+    XCTAssertTrue(field.waitForExistence(timeout: 5))
+    waitUntilSteady(field)
+    attach(app, named: "Long line, landscape")
+    assertWhollyInView(field, in: app)
+    XCUIDevice.shared.orientation = .portrait
+    waitUntilSteady(field)
+    attach(app, named: "Long line, upright again")
+    assertWhollyInView(field, in: app)
     app.buttons["reader.textEdit.cancel"].tap()
+  }
+
+  /// With a line open, the page scrolls and zooms under the finger, and typing goes on after.
+  ///
+  /// The owner's report, 2026-10-08: with the editor open the page could be neither scrolled nor
+  /// zoomed; the editor pulled the page back to its line whenever the field's height changed, which
+  /// a pinch changes on every frame.
+  func testThePageScrollsAndZoomsWithALineOpenAndTypingGoesOn() throws {
+    let app = launch(["-skip-onboarding", "-seed-library", "sample", "-text-editing", "available"])
+    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
+    tap(app.buttons["reader.edit"], until: app.buttons["reader.doneEditingText"])
+    let field = app.textViews["reader.textEdit.field"]
+    tap(line(containing: "Try these", in: app), until: field)
+    let bar = app.descendants(matching: .any)["reader.textEdit.actionBar"].firstMatch
+    XCTAssertTrue(bar.waitForExistence(timeout: Self.settleTimeout))
+    let opened = field.frame
+    attach(app, named: "Line open")
+
+    // A drag on the page, between the field and the bar, scrolls it; the field goes with its line
+    // and stays where the page was taken, instead of being pulled back.
+    let low = opened.maxY + 16
+    let high = bar.frame.minY - 16
+    let from = app.coordinate(withNormalizedOffset: .zero).withOffset(
+      CGVector(dx: app.windows.firstMatch.frame.midX, dy: max(low, (low + high) / 2)))
+    from.press(forDuration: 0.05, thenDragTo: from.withOffset(CGVector(dx: 0, dy: -180)))
+    let settled = NSPredicate { _, _ in field.frame.minY < opened.minY - 60 }
+    XCTAssertEqual(
+      XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: settled, object: nil)], timeout: 10), .completed,
+      "The page did not scroll with the line open: the field went from \(opened) to \(field.frame)")
+    // Still there once the page has come to rest.
+    Thread.sleep(forTimeInterval: 1.5)
+    XCTAssertLessThan(field.frame.minY, opened.minY - 60, "The page was pulled back to the line: \(field.frame)")
+    attach(app, named: "Scrolled with the line open")
+    // Back down, so the pinch below keeps the line on screen: a pinch zooms about the fingers, and
+    // a line far from them leaves the screen, as it would in Notes.
+    from.press(forDuration: 0.05, thenDragTo: from.withOffset(CGVector(dx: 0, dy: 180)))
+    let back = NSPredicate { _, _ in field.frame.minY > opened.minY - 30 }
+    XCTAssertEqual(
+      XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: back, object: nil)], timeout: 10), .completed,
+      "The page did not scroll back down with the line open: the field is at \(field.frame)")
+
+    // The keyboard can be put away to look over the page, and the line stays open.
+    let keyboardButton = app.buttons["reader.textEdit.keyboard"]
+    XCTAssertTrue(keyboardButton.waitForExistence(timeout: 5))
+    keyboardButton.tap()
+    XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: Self.settleTimeout), "The keyboard went")
+    XCTAssertTrue(field.exists, "The line is still open")
+
+    // A pinch zooms the page, and the field grows with it.
+    let before = field.frame
+    let pages = app.descendants(matching: .any)["reader.pages"].firstMatch
+    pages.pinch(withScale: 1.5, velocity: 1)
+    let zoomed = NSPredicate { _, _ in field.frame.height > before.height * 1.25 }
+    XCTAssertEqual(
+      XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: zoomed, object: nil)], timeout: 10), .completed,
+      "The page did not zoom with the line open: the field went from \(before) to \(field.frame)")
+    attach(app, named: "Zoomed with the line open")
+
+    // The keyboard comes back, typing goes on, and the caret is brought into view.
+    keyboardButton.tap()
+    XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: Self.settleTimeout), "The keyboard came back")
+    field.typeText(" now")
+    XCTAssertEqual(field.value as? String, "Try these: now")
+    let screen = app.windows.firstMatch.frame
+    let shown = NSPredicate { _, _ in
+      let frame = field.frame
+      let keyboard = app.keyboards.firstMatch.frame
+      return frame.maxY > 0 && frame.minY < keyboard.minY && frame.maxX > 0 && frame.minX < screen.maxX
+    }
+    XCTAssertEqual(
+      XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: shown, object: nil)], timeout: 10), .completed,
+      "What was typed is out of sight: the field is at \(field.frame)")
+    attach(app, named: "Typing after scrolling and zooming")
+    app.buttons["reader.textEdit.done"].tap()
+    XCTAssertTrue(line(containing: "Try these: now", in: app).waitForExistence(timeout: 20), "The line was changed")
+  }
+
+  /// How long a finger is held on text to put the caret under it.
+  ///
+  /// `Assumption:` the system's hold to move the caret begins well within a second.
+  private static let hold: TimeInterval = 1
+
+  /// The field is on screen, above the bar and the keyboard, with none of it cut off.
+  private func assertWhollyInView(
+    _ field: XCUIElement, in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line
+  ) {
+    let screen = app.windows.firstMatch.frame
+    let frame = field.frame
+    // What the room request did, in Debug builds launched with -text-edit-geometry, so a field out of
+    // view says why in one round (AGENTS.md rule 9).
+    let trace = app.descendants(matching: .any)["reader.textEdit.roomTrace"].firstMatch
+    let room = trace.exists ? "; room: \(trace.label)" : ""
+    XCTAssertTrue(screen.contains(frame), "\(frame) is inside \(screen)\(room)", file: file, line: line)
+    let top = app.navigationBars.firstMatch
+    if top.exists {
+      XCTAssertGreaterThanOrEqual(
+        frame.minY, top.frame.maxY - 1,
+        "Below the top bar: field \(frame), top bar \(top.frame), screen \(screen)\(room)", file: file, line: line)
+    }
+    let bar = app.descendants(matching: .any)["reader.textEdit.actionBar"].firstMatch
+    // Text the field cannot sit over is typed in the bar itself.
+    if bar.exists, !bar.textViews["reader.textEdit.field"].exists {
+      XCTAssertLessThanOrEqual(
+        frame.maxY, bar.frame.minY + 1, "Above the bar: field \(frame), bar \(bar.frame), screen \(screen)\(room)",
+        file: file, line: line)
+    }
+    if app.keyboards.firstMatch.exists {
+      let keyboard = app.keyboards.firstMatch.frame
+      XCTAssertLessThanOrEqual(
+        frame.maxY, keyboard.minY + 1,
+        "Above the keyboard: field \(frame), keyboard \(keyboard), screen \(screen)\(room)", file: file, line: line)
+    }
+  }
+
+  /// A screenshot for the test report, with the editor's geometry drawn over it.
+  private func attach(_ app: XCUIApplication, named name: String) {
+    let shot = XCTAttachment(screenshot: app.screenshot())
+    shot.name = name
+    shot.lifetime = .keepAlways
+    add(shot)
   }
 
   func testEditingIsLockedWithoutProAndAbsentWhenTheBuildDoesNotHaveIt() throws {
