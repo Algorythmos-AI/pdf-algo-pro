@@ -36,6 +36,9 @@ struct TextEditField: UIViewRepresentable {
   /// The most lines shown before the field scrolls; `nil` for as many as the space it is given.
   var maximumLines: Int?
   var onSubmit: () -> Void
+  /// The document the field is laid over, for a field on the page itself; its page view hands the
+  /// field the touches inside it. `nil` for the field in the bar.
+  var overPage: PDFDocumentController?
 
   func makeUIView(context: Context) -> TextEditTextView {
     let field = TextEditTextView()
@@ -57,6 +60,7 @@ struct TextEditField: UIViewRepresentable {
 
   func updateUIView(_ field: TextEditTextView, context: Context) {
     context.coordinator.parent = self
+    if let overPage, overPage.fieldOverPage !== field { overPage.fieldOverPage = field }
     if field.text != draft.text {
       field.text = draft.text
       field.invalidateIntrinsicContentSize()
@@ -263,7 +267,8 @@ struct TextEditLayer: View {
     TextEditField(
       draft: draft, font: Self.font(for: selection.region, scale: scale),
       color: Self.color(for: selection.region),
-      onSubmit: { Task { await model.commitTextEdit(draft.text) } }
+      onSubmit: { Task { await model.commitTextEdit(draft.text) } },
+      overPage: model.controller
     )
     #if DEBUG
       .modifier(TextEditGeometryOverlay.Measure(role: .textView))

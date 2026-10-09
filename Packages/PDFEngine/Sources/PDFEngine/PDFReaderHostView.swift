@@ -233,6 +233,20 @@ final class PDFReaderHostView: PDFView {
   }
 
   #if canImport(UIKit)
+    /// A touch inside the field over the picked line goes to the field, so it places the caret and
+    /// selects as in any text view; anywhere else, to the page as usual.
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+      if let field = controller?.fieldOverPage, field.window === window, !field.isHidden,
+        field.isUserInteractionEnabled
+      {
+        let inField = convert(point, to: field)
+        if field.point(inside: inField, with: event), let found = field.hitTest(inField, with: event) {
+          return found
+        }
+      }
+      return super.hitTest(point, with: event)
+    }
+
     override func layoutSubviews() {
       super.layoutSubviews()
       limitZoom()
