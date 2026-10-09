@@ -416,7 +416,9 @@ final class TextEditingUITests: UITestCase {
     let bar = app.descendants(matching: .any)["reader.textEdit.actionBar"].firstMatch
     // Text the field cannot sit over is typed in the bar itself.
     if bar.exists, !bar.textViews["reader.textEdit.field"].exists {
-      XCTAssertLessThanOrEqual(frame.maxY, bar.frame.minY + 1, "Above the bar", file: file, line: line)
+      XCTAssertLessThanOrEqual(
+        frame.maxY, bar.frame.minY + 1, "Above the bar: field \(frame), bar \(bar.frame), screen \(screen)",
+        file: file, line: line)
     }
     if app.keyboards.firstMatch.exists {
       XCTAssertLessThanOrEqual(

@@ -388,14 +388,19 @@ struct TextEditLayer: View {
               fieldFrame = $0
               if !madeRoomOnOpen {
                 madeRoomOnOpen = true
-                makeRoom(for: $0, in: visible)
+                makeRoom(for: $0, on: anchor, in: visible)
               }
             }
           }
           // The keyboard coming up, the bar growing, or the screen turning: what can be seen got
           // shorter and may now be over the field. Putting the keyboard away moves nothing.
           .onChange(of: visible.maxY) { before, after in
-            if after < before, let fieldFrame { makeRoom(for: fieldFrame, in: visible) }
+            if after < before, let fieldFrame { makeRoom(for: fieldFrame, on: anchor, in: visible) }
+          }
+          // The screen turned: the line has been measured for the page view's new size, which the
+          // layer can take a frame earlier, while the line is still where it was.
+          .onChange(of: anchor.viewSize) {
+            if let fieldFrame { makeRoom(for: fieldFrame, on: anchor, in: visible) }
           }
           #if DEBUG
             TextEditGeometryOverlay(line: anchor.lineFrame, visible: visible, scale: anchor.scale)
@@ -413,8 +418,13 @@ struct TextEditLayer: View {
 
   /// Scrolls the page so the whole field is above the bar and the keyboard, or its top where it is
   /// taller than the room there is.
-  private func makeRoom(for field: CGRect, in visible: CGRect) {
-    let distance = TextEditPlacement.scrollDistance(for: field, in: visible, margin: Spacing.s100)
+  ///
+  /// The field is where its line is now. Its own frame is laid out a pass later and, just after the
+  /// screen turns, is still where the line was before the page was laid out again; measuring that
+  /// is the likely reason the field turned to landscape on CI (2026-10-09) was left under the bar.
+  private func makeRoom(for field: CGRect, on anchor: TextEditAnchor, in visible: CGRect) {
+    let editor = CGRect(origin: CGPoint(x: field.minX, y: anchor.lineFrame.minY), size: field.size)
+    let distance = TextEditPlacement.scrollDistance(for: editor, in: visible, margin: Spacing.s100)
     if abs(distance) > Self.scrollTolerance { model.controller?.scrollPickedText(by: distance) }
   }
 
