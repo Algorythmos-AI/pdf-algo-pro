@@ -3,7 +3,7 @@
 
     python3 scripts/ci/coverage_union.py lines/*.json --out coverage.json
     python3 scripts/ci/coverage_compare.py coverage.json shards/ios-shard-*/coverage.json \
-        [--expect unit,ui-1,ui-2] [--summary "$GITHUB_STEP_SUMMARY"]
+        [--expect unit,ui-1,ui-2,ui-3] [--summary "$GITHUB_STEP_SUMMARY"]
 
 The coverage gate reads the combined report, which must be the union of the shards: a line any shard
 ran counts as covered. (It caught `xcresulttool merge` losing covered lines on run 37914825017, which

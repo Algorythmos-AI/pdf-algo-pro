@@ -5,5 +5,9 @@
     "LargeTextUITests",
     "AssistantUITests",
     "ScanUITests"
+  ],
+  "ui-2": [
+    "TextEditingUITests",
+    "OnboardingUITests"
   ]
 }

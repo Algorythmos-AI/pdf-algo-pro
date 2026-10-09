@@ -4,7 +4,7 @@
 # retry flags from scripts/ci/test_shards.py, against that build.
 #
 #   scripts/dev/ci_tests.sh                          # the unit shard
-#   scripts/dev/ci_tests.sh --shard ui-1             # unit, ui-1 or ui-2
+#   scripts/dev/ci_tests.sh --shard ui-1             # unit, ui-1, ui-2 or ui-3
 #   scripts/dev/ci_tests.sh --only PDFAlgoProUITests/ReaderUITests   # a focused run, as only_testing
 #
 # The simulator is ci.yml's (SIMULATOR_NAME and SIMULATOR_RUNTIME, which may be overridden). The build
@@ -19,7 +19,7 @@ shard=unit
 only=""
 while [ "$#" -gt 0 ]; do
   case "$1" in
-    --shard) shard="${2:?--shard needs unit, ui-1 or ui-2}"; shift 2 ;;
+    --shard) shard="${2:?--shard needs unit, ui-1, ui-2 or ui-3}"; shift 2 ;;
     --only) only="${2:?--only needs Target, Target/Class or Target/Class/method}"; shift 2 ;;
     -h|--help) sed -n '2,12p' "$0"; exit 0 ;;
     *) echo "unknown argument: $1 (see --help)" >&2; exit 2 ;;

@@ -33,33 +33,41 @@ def test_the_ui_target_is_the_one_the_test_plan_writer_uses():
     assert test_shards.load_config()["uiTarget"] == write_testplan.UI_TESTS
 
 
-def test_every_ui_1_class_exists_and_is_a_ui_test_case():
+def test_every_listed_class_exists_and_is_a_ui_test_case():
     classes = ui_classes()
-    for name in test_shards.load_config()["ui-1"]:
+    config = test_shards.load_config()
+    for name in [n for shard in test_shards.LISTED for n in config[shard]]:
         assert name in classes, f"{name} in test_shards.json is not a class in App/UITests"
         assert classes[name] == "UITestCase", f"{name} is not a UITestCase"
         assert not name.endswith("PerformanceTests"), "performance classes run in the Performance plan"
 
 
-def test_ui_2_keeps_at_least_one_class_of_its_own():
+def test_ui_3_keeps_at_least_one_class_of_its_own():
     runnable = {n for n, base in ui_classes().items() if base == "UITestCase"}
-    assert runnable - set(test_shards.load_config()["ui-1"]), "ui-2 would run nothing"
+    config = test_shards.load_config()
+    assert runnable - {n for shard in test_shards.LISTED for n in config[shard]}, "ui-3 would run nothing"
 
 
 def test_a_duplicate_or_malformed_class_is_refused(tmp_path):
     path = tmp_path / "shards.json"
-    path.write_text(json.dumps({"uiTarget": "PDFAlgoProUITests", "ui-1": ["ReaderUITests", "ReaderUITests"]}))
+    def write(ui1: list[str], ui2: list[str]) -> None:
+        path.write_text(json.dumps({"uiTarget": "PDFAlgoProUITests", "ui-1": ui1, "ui-2": ui2}))
+
+    write(["ReaderUITests", "ReaderUITests"], ["PaywallUITests"])
     with pytest.raises(SystemExit, match="twice"):
         test_shards.load_config(path)
-    path.write_text(json.dumps({"uiTarget": "PDFAlgoProUITests", "ui-1": ["Reader UITests"]}))
+    write(["ReaderUITests"], ["ReaderUITests"])  # in two shards
+    with pytest.raises(SystemExit, match="twice"):
+        test_shards.load_config(path)
+    write(["Reader UITests"], ["PaywallUITests"])
     with pytest.raises(SystemExit, match="not a class name"):
         test_shards.load_config(path)
-    path.write_text(json.dumps({"uiTarget": "PDFAlgoProUITests", "ui-1": []}))
-    with pytest.raises(SystemExit, match="non-empty"):
+    write(["ReaderUITests"], [])
+    with pytest.raises(SystemExit, match="non-empty ui-2"):
         test_shards.load_config(path)
 
 
-CONFIG = {"uiTarget": "UI", "ui-1": ["A", "B"]}
+CONFIG = {"uiTarget": "UI", "ui-1": ["A", "B"], "ui-2": ["C"]}
 
 
 def test_unit_skips_only_the_ui_target():
@@ -71,22 +79,27 @@ def test_ui_1_runs_its_classes_without_xcodebuilds_own_retry():
     assert test_shards.args_for("ui-1", config=CONFIG) == ["-only-testing:UI/A", "-only-testing:UI/B"]
 
 
-def test_ui_2_is_the_complement_of_ui_1_within_the_ui_target():
-    args = test_shards.args_for("ui-2", config=CONFIG)
+def test_ui_2_runs_its_classes_and_ui_3_is_the_complement_of_both():
+    assert test_shards.args_for("ui-2", config=CONFIG) == ["-only-testing:UI/C"]
+    args = test_shards.args_for("ui-3", config=CONFIG)
     assert args[0] == "-only-testing:UI"
-    assert [a for a in args if a.startswith("-skip-testing:")] == ["-skip-testing:UI/A", "-skip-testing:UI/B"]
+    assert [a for a in args if a.startswith("-skip-testing:")] == [
+        "-skip-testing:UI/A", "-skip-testing:UI/B", "-skip-testing:UI/C"]
     assert "-retry-tests-on-failure" not in args
+    assert test_shards.retries("ui-3") and not test_shards.retries("unit")
 
 
 def test_the_real_ui_shards_cover_every_ui_class_once():
     config = test_shards.load_config()
     target = config["uiTarget"]
     runnable = {n for n, base in ui_classes().items() if base == "UITestCase"}
-    ui1 = {a.split("/", 1)[1] for a in test_shards.args_for("ui-1") if a.startswith("-only-testing:")}
-    skipped_in_ui2 = {a.split("/", 1)[1] for a in test_shards.args_for("ui-2") if a.startswith("-skip-testing:")}
-    assert ui1 == skipped_in_ui2
-    assert f"-only-testing:{target}" in test_shards.args_for("ui-2")
-    assert ui1 <= runnable
+    listed = [a.split("/", 1)[1] for shard in test_shards.LISTED for a in test_shards.args_for(shard)
+              if a.startswith("-only-testing:")]
+    skipped_in_ui3 = {a.split("/", 1)[1] for a in test_shards.args_for("ui-3") if a.startswith("-skip-testing:")}
+    assert len(listed) == len(set(listed)), "a class is in two listed shards"
+    assert set(listed) == skipped_in_ui3
+    assert f"-only-testing:{target}" in test_shards.args_for("ui-3")
+    assert set(listed) <= runnable
 
 
 def test_focused_runs_exactly_what_was_asked_without_retries():
@@ -111,9 +124,9 @@ def test_focused_rejects_too_many_identifiers():
 
 
 def test_matrix_is_three_shards_or_one_focused():
-    assert test_shards.matrix("") == {"shard": ["unit", "ui-1", "ui-2"]}
-    assert test_shards.matrix(None) == {"shard": ["unit", "ui-1", "ui-2"]}
-    assert test_shards.matrix("   ") == {"shard": ["unit", "ui-1", "ui-2"]}
+    assert test_shards.matrix("") == {"shard": ["unit", "ui-1", "ui-2", "ui-3"]}
+    assert test_shards.matrix(None) == {"shard": ["unit", "ui-1", "ui-2", "ui-3"]}
+    assert test_shards.matrix("   ") == {"shard": ["unit", "ui-1", "ui-2", "ui-3"]}
     assert test_shards.matrix("CoreTests") == {"shard": ["focused"]}
     with pytest.raises(ValueError):
         test_shards.matrix("CoreTests; echo")
@@ -129,9 +142,9 @@ def test_a_recording_run_is_the_unit_shard_alone():
 
 def test_cli_prints_matrix_args_and_refuses_bad_input(capsys):
     assert test_shards.main(["matrix"]) == 0
-    assert json.loads(capsys.readouterr().out) == {"shard": ["unit", "ui-1", "ui-2"]}
+    assert json.loads(capsys.readouterr().out) == {"shard": ["unit", "ui-1", "ui-2", "ui-3"]}
     assert test_shards.main(["names"]) == 0
-    assert capsys.readouterr().out.strip() == "unit,ui-1,ui-2"
+    assert capsys.readouterr().out.strip() == "unit,ui-1,ui-2,ui-3"
     assert test_shards.main(["args", "unit"]) == 0
     assert capsys.readouterr().out.splitlines() == ["-skip-testing:PDFAlgoProUITests"]
     assert test_shards.main(["matrix", "--only-testing", "x y"]) == 1

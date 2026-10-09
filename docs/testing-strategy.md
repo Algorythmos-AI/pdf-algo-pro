@@ -512,23 +512,27 @@ never retried away: a retry lets a run finish, it never clears the test.
 
 ## Test shards in CI
 
-The `ios` gate runs the `PDFAlgoPro` plan from one build in three shards, each on its own runner and
+The `ios` gate runs the `PDFAlgoPro` plan from one build in four shards, each on its own runner and
 simulator ([quality gates](process/quality-gates.md#the-ios-job-graph)). The selectors come from
 [test_shards.py](../scripts/ci/test_shards.py) and [test_shards.json](../scripts/ci/test_shards.json):
 
 | Shard | Runs | Retries |
 |---|---|---|
 | `unit` | Every test target except `PDFAlgoProUITests`: the packages' tests, the app's unit and snapshot tests | None |
-| `ui-1` | The UI test classes listed under `ui-1` in `test_shards.json` | Once, on a relaunched app |
-| `ui-2` | Every other UI test class | Once, on a relaunched app |
+| `ui-1`, `ui-2` | The UI test classes listed under `ui-1` and `ui-2` in `test_shards.json` | Once, on a relaunched app |
+| `ui-3` | Every other UI test class | Once, on a relaunched app |
 
-- **A new UI test class** lands in `ui-2` without any change, because `ui-2` is everything in
-  `PDFAlgoProUITests` that `ui-1` does not list. `ios-report` checks that the shards together ran every
-  test of the plan, each once.
-- **Rebalancing:** when one UI shard is regularly much slower than the other (the run summary lists
-  each shard's time in tests), move classes into or out of the `ui-1` list in `test_shards.json`. The
-  script's tests check that every listed class exists in `App/UITests` and that none is listed twice.
-- **On a Mac:** `scripts/dev/ci_tests.sh --shard unit|ui-1|ui-2` makes the same build and runs the same
+- **A new UI test class** lands in `ui-3` without any change, because `ui-3` is everything in
+  `PDFAlgoProUITests` that `ui-1` and `ui-2` do not list. `ios-report` checks that the shards together
+  ran every test of the plan, each once; the classes the plan skips (`*PerformanceTests`, run by the
+  performance plan) are not expected in any shard.
+- **Balance:** measured on 2026-10-09 (seconds in tests): `ui-1` (Reader, LargeText, Assistant, Scan)
+  about 690, `ui-2` (TextEditing, Onboarding) about 560, `ui-3` (Library, Paywall, Settings) about 640.
+  With two UI shards the second took 34 minutes (run 37934833918), the longest job of the run.
+- **Rebalancing:** when one UI shard is regularly much slower than the others (the run summary lists
+  each shard's time in tests), move classes between the `ui-1` and `ui-2` lists in `test_shards.json`.
+  The script's tests check that every listed class exists in `App/UITests` and that none is listed twice.
+- **On a Mac:** `scripts/dev/ci_tests.sh --shard unit|ui-1|ui-2|ui-3` makes the same build and runs the same
   shard on the pinned simulator; `--only PDFAlgoProUITests/ReaderUITests` runs a focused set.
 - **One test in CI:** a manual run of `ci.yml` with `only_testing` (for example
   `PDFAlgoProUITests/ReaderUITests/testGoToPageJumpsToTheNumberTyped`) runs only those tests, reported as `ios-focused`.
@@ -559,7 +563,7 @@ is the release checklist on reference devices.
 | Manual VoiceOver script, exploratory testing | Release checklist | — | — | — | Yes |
 
 Today the `ios` gate in [ci.yml](../.github/workflows/ci.yml) runs one test plan, `PDFAlgoPro`
-("unit, UI, accessibility audit, snapshots"), in three shards, for every pull request. Running the `Release` and
+("unit, UI, accessibility audit, snapshots"), in four shards, for every pull request. Running the `Release` and
 `Performance` plans on release pull requests, and the nightly Xcode Cloud workflow, are the target
 design listed in the open questions. The `codeql (swift)` job runs nightly, on demand and on release pushes to `main`; when it becomes
 a required check is decided in [GitHub governance](github-governance.md#protected-branches-rulesets-as-code).

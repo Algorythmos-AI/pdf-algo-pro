@@ -31,6 +31,10 @@ from dataclasses import dataclass, field
 GROUPS = ("Unit test bundle", "UI test bundle", "Test Suite")
 MESSAGE = "Failure Message"
 REPETITION = re.compile(r"(\d+)")
+# The reasons UITestCase.recordQuarantined gives an expected failure (XCTExpectFailure). Inside a test
+# that failed for another reason they are not why it failed: on run 37930118069 each paywall failure was
+# annotated a second time as "Quarantined flaky audit finding, issue #76".
+QUARANTINE = re.compile(r"^(Quarantined |Measured while the screen was moving)")
 
 
 @dataclass
@@ -62,11 +66,18 @@ class Case:
         return f"{bundle}/{identifier}" if bundle else identifier
 
 
-def messages_under(node: dict) -> list[str]:
-    """Every failure message in a node's subtree, in order, without repeats."""
+def is_expected(node: dict) -> bool:
+    return node.get("result") == "Expected Failure" or bool(QUARANTINE.match(node.get("name", "")))
+
+
+def messages_under(node: dict, expected: bool = True) -> list[str]:
+    """Every failure message in a node's subtree, in order, without repeats; without the expected failures'
+    (quarantines') when `expected` is false."""
     found: list[str] = []
 
     def walk(n: dict) -> None:
+        if not expected and n.get("nodeType") == MESSAGE and is_expected(n):
+            return
         if n.get("nodeType") == MESSAGE and n.get("name") and n["name"] not in found:
             found.append(n["name"])
         for child in n.get("children", []):
@@ -91,14 +102,14 @@ def verdict_of(node: dict) -> tuple[str, list[str]]:
         last = repetitions[-1].get("result")
         failed_before = [r for r in repetitions[:-1] if r.get("result") == "Failed"]
         if last == "Failed":
-            return "failed", messages_under(repetitions[-1]) or messages_under(node)
+            return "failed", messages_under(repetitions[-1], expected=False) or messages_under(node, expected=False)
         if last == "Passed" and failed_before:
             return "flaky", messages_under(failed_before[0])
         result = last
     else:
         result = node.get("result")
     if result == "Failed":
-        return "failed", messages_under(node)
+        return "failed", messages_under(node, expected=False)
     if result == "Expected Failure":
         return "quarantined", messages_under(node)
     if result == "Skipped":
