@@ -553,9 +553,18 @@ extension PDFDocumentController {
     ///
     /// The editor stays on its line and moves with it. Nothing moves while the person is moving the
     /// page themselves.
-    public func scrollPickedText(by distance: CGFloat, across: CGFloat = 0) {
-      guard selectedTextRegion != nil else { return }
-      view?.scrollPickedText(by: distance, across: across)
+    ///
+    /// Returns whether it scrolled.
+    @discardableResult
+    public func scrollPickedText(by distance: CGFloat, across: CGFloat = 0) -> Bool {
+      guard selectedTextRegion != nil, let view else { return false }
+      return view.scrollPickedText(by: distance, across: across)
+    }
+
+    /// Whether a finger is on the page, dragging or pinching it.
+    public var isPageTouched: Bool {
+      guard let scroller = view?.pageScroller else { return false }
+      return scroller.isTracking || scroller.isZooming
     }
   #endif
 

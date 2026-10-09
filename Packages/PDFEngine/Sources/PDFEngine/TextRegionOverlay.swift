@@ -326,7 +326,8 @@
       let column = CGRect(x: line.minX, y: line.minY, width: columnRight - line.minX, height: line.height)
       let anchor = TextEditAnchor(
         selection: selection, lineFrame: convert(line, from: page), columnFrame: convert(column, from: page),
-        scale: scaleFactor, isPageTurned: !page.rotation.isMultiple(of: 360), viewSize: bounds.size)
+        scale: scaleFactor, isPageTurned: !page.rotation.isMultiple(of: 360), viewSize: bounds.size,
+        isPageMoving: pageScroller.map { Self.isBeingMoved($0) } ?? false)
       if controller.textEditAnchor != anchor { controller.textEditAnchor = anchor }
     }
 
@@ -340,10 +341,14 @@
     /// It never moves the page while the person is moving it: a finger on the page, a pinch, or the
     /// glide after a flick. Pulling the page back under their finger is what made the page feel
     /// locked while the editor was open (the owner's report, 2026-10-08).
-    func scrollPickedText(by distance: CGFloat, across: CGFloat = 0, animated: Bool = true) {
-      guard distance != 0 || across != 0, let scroller = pageScroller, !Self.isBeingMoved(scroller),
-        let before = pickedLineFrame?.minY
-      else { return }
+    ///
+    /// Returns whether it scrolled; it does not while the page is moving.
+    @discardableResult
+    func scrollPickedText(by distance: CGFloat, across: CGFloat = 0, animated: Bool = true) -> Bool {
+      guard distance != 0 || across != 0 else { return true }
+      guard let scroller = pageScroller, !Self.isBeingMoved(scroller), let before = pickedLineFrame?.minY else {
+        return false
+      }
       let pixel = 1 / max(1, traitCollection.displayScale)
       let move: @MainActor () -> Void = {
         // Scrolling can move the page by more than it was scrolled: PDFKit centres a page shorter
@@ -374,6 +379,7 @@
       } else {
         move()
       }
+      return true
     }
 
     /// Whether the person is moving the page: a finger on it, a pinch, a bounce or a glide.

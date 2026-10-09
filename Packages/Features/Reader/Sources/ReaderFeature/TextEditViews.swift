@@ -349,6 +349,10 @@ struct TextEditLayer: View {
   @State private var fieldFrame: CGRect?
   /// Whether room was made for the field when it first appeared.
   @State private var madeRoomOnOpen = false
+  /// Whether room for the field is still to be made: it could not be made when it was needed.
+  @State private var roomPending = false
+  /// The line's place the page was last scrolled for, so it is not scrolled twice for one place.
+  @State private var scrolledFor: TextEditAnchor?
 
   /// The name of the layer's own space, in which the line, the visible area and the field are placed.
   nonisolated static let space = "reader.textEdit.layer"
@@ -388,19 +392,26 @@ struct TextEditLayer: View {
               fieldFrame = $0
               if !madeRoomOnOpen {
                 madeRoomOnOpen = true
-                makeRoom(for: $0, on: anchor, in: visible)
+                makeRoom(for: $0, on: anchor, in: visible, at: geometry.size)
               }
             }
           }
           // The keyboard coming up, the bar growing, or the screen turning: what can be seen got
           // shorter and may now be over the field. Putting the keyboard away moves nothing.
           .onChange(of: visible.maxY) { before, after in
-            if after < before, let fieldFrame { makeRoom(for: fieldFrame, on: anchor, in: visible) }
+            if after < before, let fieldFrame { makeRoom(for: fieldFrame, on: anchor, in: visible, at: geometry.size) }
           }
-          // The screen turned: the line has been measured for the page view's new size, which the
-          // layer can take a frame earlier, while the line is still where it was.
-          .onChange(of: anchor.viewSize) {
-            if let fieldFrame { makeRoom(for: fieldFrame, on: anchor, in: visible) }
+          // Room that could not be made yet is made once it can: when the line has been measured at
+          // the page view's new size after the screen turned, and when the page stops moving on its
+          // own. A finger on the page means the person is moving it, and it is left where they put it.
+          .onChange(of: anchor) { before, after in
+            if after.viewSize != before.viewSize { roomPending = true }
+            guard roomPending, let fieldFrame else { return }
+            if model.controller?.isPageTouched == true {
+              roomPending = false
+            } else {
+              makeRoom(for: fieldFrame, on: after, in: visible, at: geometry.size)
+            }
           }
           #if DEBUG
             TextEditGeometryOverlay(line: anchor.lineFrame, visible: visible, scale: anchor.scale)
@@ -417,15 +428,35 @@ struct TextEditLayer: View {
   private static let scrollTolerance: CGFloat = 0.5
 
   /// Scrolls the page so the whole field is above the bar and the keyboard, or its top where it is
-  /// taller than the room there is.
+  /// taller than the room there is; where that cannot be done yet, it is left pending.
   ///
-  /// The field is where its line is now. Its own frame is laid out a pass later and, just after the
-  /// screen turns, is still where the line was before the page was laid out again; measuring that
-  /// is the likely reason the field turned to landscape on CI (2026-10-09) was left under the bar.
-  private func makeRoom(for field: CGRect, on anchor: TextEditAnchor, in visible: CGRect) {
+  /// Only for the line as measured at the page view's present size: just after the screen turns,
+  /// the layer has its new size and the line is still where it was in the old one. And the page
+  /// does not scroll while it is moving, on its own after turning too. On CI (2026-10-09) the
+  /// field turned to landscape was left under the bar.
+  ///
+  /// The field is where its line is now: its own frame is laid out a pass later.
+  private func makeRoom(for field: CGRect, on anchor: TextEditAnchor, in visible: CGRect, at size: CGSize) {
+    // Once for each place of the line: the scroll moves it, and the line measured there comes next.
+    guard Self.isMeasured(anchor, at: size), anchor != scrolledFor else {
+      roomPending = true
+      return
+    }
     let editor = CGRect(origin: CGPoint(x: field.minX, y: anchor.lineFrame.minY), size: field.size)
     let distance = TextEditPlacement.scrollDistance(for: editor, in: visible, margin: Spacing.s100)
-    if abs(distance) > Self.scrollTolerance { model.controller?.scrollPickedText(by: distance) }
+    guard abs(distance) > Self.scrollTolerance else {
+      roomPending = false
+      return
+    }
+    let scrolled = model.controller?.scrollPickedText(by: distance) ?? false
+    if scrolled { scrolledFor = anchor }
+    roomPending = !scrolled
+  }
+
+  /// Whether the line was measured with the page view at a size: the layer's own, which it covers.
+  static func isMeasured(_ anchor: TextEditAnchor, at size: CGSize) -> Bool {
+    abs(anchor.viewSize.width - size.width) <= scrollTolerance
+      && abs(anchor.viewSize.height - size.height) <= scrollTolerance
   }
 
   /// Scrolls the page so the caret is in view, up and down and, on a zoomed page, across.

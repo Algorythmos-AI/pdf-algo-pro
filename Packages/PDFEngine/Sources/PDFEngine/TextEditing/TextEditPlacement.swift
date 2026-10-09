@@ -96,11 +96,15 @@ public struct TextEditAnchor: Equatable, Sendable {
   /// measured again, on the next frame, and room made then is made for where the line used to be.
   /// The new size here says the line has been measured since.
   public var viewSize: CGSize
+  /// Whether the page was moving when the line was measured: moved by the person, or settling by
+  /// itself, as after the screen turns. It does not scroll for the editor then, so the editor waits
+  /// for this to change.
+  public var isPageMoving: Bool
 
   /// Creates an anchor.
   public init(
     selection: TextRegionSelection, lineFrame: CGRect, columnFrame: CGRect, scale: CGFloat, isPageTurned: Bool = false,
-    viewSize: CGSize = .zero
+    viewSize: CGSize = .zero, isPageMoving: Bool = false
   ) {
     self.selection = selection
     self.lineFrame = lineFrame
@@ -108,5 +112,6 @@ public struct TextEditAnchor: Equatable, Sendable {
     self.scale = scale
     self.isPageTurned = isPageTurned
     self.viewSize = viewSize
+    self.isPageMoving = isPageMoving
   }
 }
