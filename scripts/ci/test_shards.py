@@ -133,7 +133,8 @@ def verdict(shard: str, xcodebuild_exit: int, reporter_exit: int | None) -> tupl
     if not retries(shard):
         return False, f"xcodebuild failed ({xcodebuild_exit}); this shard does not retry, so its verdict stands"
     if reporter_exit != 0:
-        return False, f"xcodebuild failed ({xcodebuild_exit}) and a test failed again when re-run, or no test ran"
+        return False, (f"xcodebuild failed ({xcodebuild_exit}), and a failed test was not cleared by running it "
+                       "again (it failed again, or too many failed to run again), or no test ran")
     return True, (f"xcodebuild exited {xcodebuild_exit}, but every failed test passed when run again: "
                   "they are reported as flaky")
 
