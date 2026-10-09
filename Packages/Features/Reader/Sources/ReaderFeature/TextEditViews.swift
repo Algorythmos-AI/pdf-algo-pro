@@ -92,6 +92,9 @@ struct TextEditField: UIViewRepresentable {
   /// Told where the caret is, in the field's own space, after each change the person types, so the
   /// page can be scrolled to keep it in view; `nil` where the field keeps its caret in view by itself.
   var onCaretMoved: ((CGRect) -> Void)?
+  /// The document the field is laid over, for a field on the page itself; its page view hands the
+  /// field the touches inside it. `nil` for the field in the bar.
+  var overPage: PDFDocumentController?
 
   func makeUIView(context: Context) -> TextEditTextView {
     let field = TextEditTextView()
@@ -118,6 +121,7 @@ struct TextEditField: UIViewRepresentable {
   func updateUIView(_ field: TextEditTextView, context: Context) {
     context.coordinator.parent = self
     field.onEscape = onCancel
+    if let overPage, overPage.fieldOverPage !== field { overPage.fieldOverPage = field }
     if field.text != draft.text {
       field.text = draft.text
       field.invalidateIntrinsicContentSize()
@@ -429,7 +433,8 @@ struct TextEditLayer: View {
       onSubmit: { TextEditCommit.run(model: model, draft: draft) },
       onCancel: { if !model.isCommittingTextEdit { model.cancelTextEdit() } },
       isLocked: model.isCommittingTextEdit,
-      onCaretMoved: onCaretMoved
+      onCaretMoved: onCaretMoved,
+      overPage: model.controller
     )
     #if DEBUG
       .modifier(TextEditGeometryOverlay.Measure(role: .textView))

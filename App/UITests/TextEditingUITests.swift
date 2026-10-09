@@ -288,8 +288,8 @@ final class TextEditingUITests: UITestCase {
     // The start of the line is in view: holding a finger there puts the caret there.
     //
     // Held inside the first line and the last, not on the field's edges. On CI (2026-10-08 and -09)
-    // neither a tap nor a hold there moved the caret, with the field still holding the keyboard; the
-    // message says whether the text view took the hold (its edit menu shows) or something else did.
+    // neither a tap nor a hold there moved the caret: the touch went to the page under the field,
+    // which now hands it on (`PDFReaderHostView.hitTest`). The message says which view took it.
     let tapped = field.frame
     field.coordinate(withNormalizedOffset: CGVector(dx: 0.01, dy: 0.25)).press(forDuration: Self.hold)
     let focused = (field.value(forKey: "hasKeyboardFocus") as? Bool) ?? false
