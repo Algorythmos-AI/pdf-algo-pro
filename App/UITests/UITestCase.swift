@@ -32,6 +32,33 @@ class UITestCase: XCTestCase {
     return app
   }
 
+  /// Keeps the screen as it is, for a failure about to be reported: a screenshot, and `notes` followed by
+  /// the app's element tree, in `REPORTS_DIR/ui-evidence`.
+  ///
+  /// CI prints them into the shard's log, so a failure can be seen without downloading the result
+  /// bundle. Three paywall audits and the text-editing journeys failed on some runners only
+  /// (2026-10-09), and their screenshots were in the artifacts alone.
+  func keepEvidence(_ app: XCUIApplication, named name: String, notes: String) {
+    guard let folder = ProcessInfo.processInfo.environment["REPORTS_DIR"], !folder.isEmpty else { return }
+    let directory = URL(fileURLWithPath: folder, isDirectory: true).appendingPathComponent("ui-evidence")
+    try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    let stem = "\(self.name) \(name)".replacingOccurrences(
+      of: "[^A-Za-z0-9]+", with: "-", options: .regularExpression)
+    try? app.screenshot().pngRepresentation.write(to: directory.appendingPathComponent(stem + ".png"))
+    try? (notes + "\n\n" + app.debugDescription).write(
+      to: directory.appendingPathComponent(stem + ".txt"), atomically: true, encoding: .utf8)
+  }
+
+  /// Waits until `element` has the keyboard focus, so that typed text reaches it.
+  ///
+  /// A field exists before it takes the focus. On CI (run 37934833918) text typed at once after a line
+  /// opened was lost: the field still read "Try these:".
+  func waitForKeyboardFocus(_ element: XCUIElement, timeout: TimeInterval = UITestCase.settleTimeout) -> Bool {
+    let focused = NSPredicate(format: "hasKeyboardFocus == true")
+    let expectation = XCTNSPredicateExpectation(predicate: focused, object: element)
+    return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
+  }
+
   /// A point in an element, as a coordinate relative to the app.
   ///
   /// The element's frame is read once. A coordinate relative to the element looks the element up again
@@ -240,6 +267,7 @@ class UITestCase: XCTestCase {
       findings = findings.filter { again.contains($0) }
     }
     if !findings.isEmpty {
+      keepEvidence(app, named: "audit \(line)", notes: findings.joined(separator: "\n"))
       XCTFail(
         "\(findings.count) accessibility finding(s):\n" + findings.joined(separator: "\n"), file: file, line: line)
     }

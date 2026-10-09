@@ -429,9 +429,9 @@ jobs:
             while IFS= read -r arg; do retry+=("$arg"); done < "$RUNNER_TEMP/retry.txt"
             if [ "${#retry[@]}" -gt 0 ]; then
               echo "Running again: ${retry[*]}"
-              xcodebuild test-without-building -scheme "$SCHEME" -testPlan "$TEST_PLAN" -derivedDataPath DD \
-                -destination "id=$SIM" -resultBundlePath "$SHARD-retry.xcresult" "${retry[@]}" 2>&1 \
-                | tee "$RUNNER_TEMP/xcodebuild-retry.log"
+              TEST_RUNNER_REPORTS_DIR="$GITHUB_WORKSPACE/reports/retry" xcodebuild test-without-building \
+                -scheme "$SCHEME" -testPlan "$TEST_PLAN" -derivedDataPath DD -destination "id=$SIM" \
+                -resultBundlePath "$SHARD-retry.xcresult" "${retry[@]}" 2>&1 | tee "$RUNNER_TEMP/xcodebuild-retry.log"
               echo "xcodebuild (failed tests again) exited ${PIPESTATUS[0]}"
             fi
           fi
@@ -493,6 +493,32 @@ jobs:
             echo "- \`$test\`: $(find "$folder" -type f ! -name manifest.json | wc -l | tr -d ' ') file(s)" \
               >> "$GITHUB_STEP_SUMMARY"
           done < failed-tests.txt
+      - name: Show the failed tests' screens in the log
+        # A failing UI test keeps its screen and element tree in reports/ui-evidence
+        # (UITestCase.keepEvidence). Printed here as small JPEGs in base64, between UI-EVIDENCE markers, so
+        # a failure can be seen from the log alone, where the artifact cannot be downloaded.
+        if: ${{ !cancelled() && hashFiles('reports/**/ui-evidence/*.png') != '' }}
+        continue-on-error: true
+        run: |
+          shopt -s nullglob
+          shown=0
+          for png in reports/ui-evidence/*.png reports/retry/ui-evidence/*.png; do
+            shown=$((shown + 1))
+            [ "$shown" -le 6 ] || break
+            name="$(basename "$png" .png)"
+            sips -s format jpeg -s formatOptions 45 -Z 900 "$png" --out "$RUNNER_TEMP/screen.jpg" > /dev/null
+            echo "::group::Screen of $name"
+            echo "UI-EVIDENCE-BEGIN $name.jpg"
+            base64 -b 100 -i "$RUNNER_TEMP/screen.jpg"
+            echo "UI-EVIDENCE-END"
+            if [ -f "${png%.png}.txt" ]; then
+              echo "UI-NOTES-BEGIN $name"
+              head -c 16000 "${png%.png}.txt"
+              echo
+              echo "UI-NOTES-END"
+            fi
+            echo "::endgroup::"
+          done
       - name: Keep the shard's results
         # Always, not only on failure: ios-report merges every shard's bundle for coverage.
         if: ${{ !cancelled() }}
