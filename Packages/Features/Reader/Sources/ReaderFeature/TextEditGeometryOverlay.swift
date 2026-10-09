@@ -183,7 +183,16 @@
         for touch in touches {
           let name = touch.view.map { String(describing: type(of: $0)) } ?? "none"
           let onField = field.map { touch.view?.isDescendant(of: $0) ?? false } ?? false
-          TextEditGeometryLog.record { $0.lastTouch = "\(name) onField \(onField)" }
+          // Where the touch is against the field, in the field's own points and the window's.
+          var place = "no field"
+          if let field, let window = field.window {
+            let inField = touch.location(in: field)
+            let frame = field.convert(field.bounds, to: window)
+            place =
+              "at \(Int(inField.x)),\(Int(inField.y)) in field \(Int(frame.minX)),\(Int(frame.minY)) "
+              + "\(Int(frame.width))x\(Int(frame.height)) inside \(field.bounds.contains(inField))"
+          }
+          TextEditGeometryLog.record { $0.lastTouch = "\(name) onField \(onField) \(place)" }
         }
         state = .failed
       }
