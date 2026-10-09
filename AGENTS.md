@@ -35,6 +35,10 @@ growth from a solo founder to a multi-team engineering organisation.
 7. **No third-party SDK without an ADR** covering privacy manifest, telemetry, licence and exit plan.
 8. **Evidence rule.** Every factual claim cites a source; every number is sourced or labelled
    `Assumption:` with a validation plan.
+9. **A test counts once CI has run it green.** A new or changed test is not merged, and no branch is
+   started from its branch, until a CI run on that branch has shown it pass; the pull request links
+   the run. Where a test cannot be run before pushing (no Mac or simulator), its failure message
+   reports the state needed to fix it in one round, not only what was expected.
 
 ## Product guardrails
 

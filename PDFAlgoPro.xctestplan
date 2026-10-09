@@ -8,11 +8,13 @@
   ],
   "defaultOptions": {
     "codeCoverage": true,
+    "defaultTestExecutionTimeAllowance": 300,
     "targetForVariableExpansion": {
       "containerPath": "container:PDFAlgoPro.xcodeproj",
       "identifier": "F7ED77A099661D789A92EF15",
       "name": "PDFAlgoPro"
-    }
+    },
+    "testTimeoutsEnabled": true
   },
   "testTargets": [
     {

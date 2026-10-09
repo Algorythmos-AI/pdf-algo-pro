@@ -192,9 +192,10 @@ class UITestCase: XCTestCase {
         details: "\(appearing.count) quarantined finding(s):\n" + appearing.joined(separator: "\n"), file: file,
         line: line)
     }
-    if !findings.isEmpty, findings.allSatisfy({ $0.hasPrefix("- Contrast failed") }) {
+    if !findings.isEmpty, findings.allSatisfy(Self.isMeasuredTooSoon) {
       // Contrast measured while a sheet still slides in fails on text drawn in the primary label colour
-      // (issue #105). A real contrast problem is still there once the screen has settled, so contrast
+      // (issue #105), and text measured right after the audit changed its size, before it redrew, reads
+      // as not scaling (issue #182). A real problem is still there once the screen has settled, so these
       // findings count only when a second audit, after another wait, finds them again.
       waitUntilStill(app)
       var again: [String] = []
@@ -205,7 +206,7 @@ class UITestCase: XCTestCase {
       let passing = findings.filter { !again.contains($0) }
       if !passing.isEmpty {
         recordQuarantined(
-          "Contrast measured while the screen was moving, gone on a second audit (issue #105)",
+          "Measured while the screen was moving, gone on a second audit (issues #105, #182)",
           details: passing.joined(separator: "\n"), file: file, line: line)
       }
       findings = findings.filter { again.contains($0) }
@@ -214,6 +215,12 @@ class UITestCase: XCTestCase {
       XCTFail(
         "\(findings.count) accessibility finding(s):\n" + findings.joined(separator: "\n"), file: file, line: line)
     }
+  }
+
+  /// Whether a finding is one the audit can make while the screen is still redrawing: contrast
+  /// (issue #105), or text that seems not to scale with Dynamic Type (issue #182).
+  private static func isMeasuredTooSoon(_ finding: String) -> Bool {
+    finding.hasPrefix("- Contrast failed") || finding.hasPrefix("- Dynamic Type font sizes are partially unsupported")
   }
 
   private func runAudit(

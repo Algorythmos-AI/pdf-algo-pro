@@ -275,6 +275,37 @@ jobs:
           path: "**/__Snapshots__/**"
           if-no-files-found: error
           retention-days: 7
+      - name: Export the failed tests' screenshots and attachments
+        # A failed UI test's screenshots say what was on screen, but the whole result bundle below
+        # is a large download. This takes out only what belongs to failed tests and lists it on the
+        # run's summary. Diagnostic only: the Tests step already failed the job.
+        if: ${{ failure() && hashFiles('Tests.xcresult/Info.plist') != '' }}
+        continue-on-error: true
+        run: |
+          xcrun xcresulttool export attachments --path Tests.xcresult --output-path failed-attachments \
+            --only-failures
+          python3 - failed-attachments/manifest.json >> "$GITHUB_STEP_SUMMARY" <<'PY'
+          import json, sys
+
+          print("### Attachments of failed tests\n")
+          print("In the `failed-attachments` artifact of this run.\n")
+          for test in json.load(open(sys.argv[1])):
+              files = test.get("attachments", [])
+              if not files:
+                  continue
+              print(f"- `{test.get('testIdentifier', 'unknown test')}`")
+              for item in files:
+                  name = item.get("suggestedHumanReadableName") or item.get("exportedFileName", "")
+                  print(f"  - {name} (`{item.get('exportedFileName', '')}`)")
+          PY
+      - name: Keep the failed tests' screenshots and attachments
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: failed-attachments
+          path: failed-attachments
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Keep the result bundle on failure
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

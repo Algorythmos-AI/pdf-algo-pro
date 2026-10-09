@@ -22,6 +22,7 @@ Privacy policy impact: <!-- none, because …, or a link -->
 
 - [ ] One focused change; the branch targets `integration` (or `main` for a release/hotfix)
 - [ ] Tests added or updated for changed behaviour
+- [ ] Every new or changed test has passed in a CI run on this branch (link the run), and this branch does not start from another unmerged branch
 - [ ] No secrets, credentials, personal data or real documents in the diff
 - [ ] Docs, CHANGELOG `[Unreleased]` and `docs/working-memory.md` updated if state or behaviour changed
 - [ ] Accessibility checked for UI changes (VoiceOver, Dynamic Type, contrast)
