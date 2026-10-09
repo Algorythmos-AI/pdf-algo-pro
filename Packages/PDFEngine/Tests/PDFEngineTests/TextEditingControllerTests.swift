@@ -7,6 +7,10 @@ import Testing
 
 @testable import PDFEngine
 
+#if canImport(UIKit)
+  import UIKit
+#endif
+
 private typealias Line = TextEditFixtures.Line
 
 private func folder() throws -> URL {
@@ -978,6 +982,33 @@ struct TextEditingDependabilityTests {
       host.pickText(at: host.convert(CGPoint(x: target.bounds.midX, y: target.bounds.midY), from: page))
       for _ in 0..<200 where controller.selectedTextRegion == nil { try await Task.sleep(for: .milliseconds(20)) }
       #expect(controller.selectedTextRegion?.region == target)
+    }
+
+    @Test("A touch inside the field over a line goes to the field, and anywhere else to the page")
+    func touchesInsideTheFieldReachIt() throws {
+      let (controller, _) = try open(TextEditFixtures.invoice())
+      // As in the reader: the field is laid over the page view from outside it, not inside it.
+      let screen = UIView(frame: CGRect(x: 0, y: 0, width: 390, height: 800))
+      let host = PDFReaderHostView(frame: screen.bounds)
+      host.configure(for: controller)
+      let layer = UIView(frame: screen.bounds)
+      let field = UITextView(frame: CGRect(x: 39, y: 224, width: 321, height: 21))
+      layer.addSubview(field)
+      screen.addSubview(host)
+      screen.addSubview(layer)
+      controller.fieldOverPage = field
+
+      let inside = try #require(host.hitTest(CGPoint(x: 42, y: 229), with: nil))
+      #expect(inside === field || inside.isDescendant(of: field), "Got \(type(of: inside))")
+      let outside = host.hitTest(CGPoint(x: 200, y: 600), with: nil)
+      #expect(outside.map { !$0.isDescendant(of: field) } ?? true)
+
+      // A field that is hidden, or has left the page's hierarchy, takes nothing.
+      field.isHidden = true
+      #expect(host.hitTest(CGPoint(x: 42, y: 229), with: nil).map { !$0.isDescendant(of: field) } ?? true)
+      field.isHidden = false
+      field.removeFromSuperview()
+      #expect(host.hitTest(CGPoint(x: 42, y: 229), with: nil).map { !$0.isDescendant(of: field) } ?? true)
     }
   #endif
 }

@@ -58,7 +58,28 @@ public final class PDFDocumentController {
   /// The existing text the person picked to edit, if any.
   ///
   /// Separate from `selection`, which is for annotations.
-  public internal(set) var selectedTextRegion: TextRegionSelection?
+  public internal(set) var selectedTextRegion: TextRegionSelection? {
+    didSet {
+      guard selectedTextRegion != oldValue else { return }
+      if textEditAnchor?.selection != selectedTextRegion { textEditAnchor = nil }
+      #if canImport(UIKit)
+        view?.textRegionSelectionChanged()
+      #endif
+    }
+  }
+  /// Where the picked text is on screen and at what zoom, kept up to date by the page view while
+  /// text is picked; `nil` when nothing is picked or the page view is not on screen.
+  public internal(set) var textEditAnchor: TextEditAnchor?
+  #if canImport(UIKit)
+    /// The text field laid over the picked line, if there is one; the page view hands it every touch
+    /// inside it.
+    ///
+    /// The field is laid over the page by SwiftUI, outside the page view. On the iOS 26.5 simulator
+    /// (CI, 2026-10-09) a touch inside it went to the page overlay underneath, although the window
+    /// found the field at the same point when asked without an event: the caret could not be placed
+    /// by touch.
+    @ObservationIgnored public weak var fieldOverPage: UIView?
+  #endif
   /// A link to outside the document that the person tapped, waiting for them to confirm (T-02).
   public var tappedLink: DocumentLink?
   /// The selected annotation itself; PDFKit objects stay out of `selection`.

@@ -832,6 +832,16 @@
         }
       }
     },
+    "Hide keyboard" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Masquer le clavier"
+          }
+        }
+      }
+    },
     "Highlight" : {
       "localizations" : {
         "fr" : {
@@ -1470,6 +1480,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Partager cette page en image"
+          }
+        }
+      }
+    },
+    "Show keyboard" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Afficher le clavier"
           }
         }
       }

@@ -22,6 +22,10 @@ class UITestCase: XCTestCase {
 
   func launch(_ arguments: [String]) -> XCUIApplication {
     continueAfterFailure = false
+    // Every journey starts upright, whatever the one before it left. A test that stops on a failure
+    // does not run its own clean-up: on CI (2026-10-09) the test after one that failed in landscape
+    // ran in landscape, and audited its screen there.
+    XCUIDevice.shared.orientation = .portrait
     let app = XCUIApplication()
     app.launchArguments = ["-ui-testing", "-disable-animations"] + arguments
     app.launch()
@@ -37,6 +41,30 @@ class UITestCase: XCTestCase {
     let frame = element.frame
     return app.coordinate(withNormalizedOffset: .zero)
       .withOffset(CGVector(dx: frame.minX + frame.width * dx, dy: frame.minY + frame.height * dy))
+  }
+
+  /// Waits until an element's frame has stayed the same for `steady` seconds, and returns that frame.
+  ///
+  /// After the screen turns, the app lays out again over several frames and then scrolls for what
+  /// is being edited; a frame read at once can be one of the steps on the way (CI, 2026-10-09).
+  /// Where the frame never settles within `timeout`, the last one read is returned, for the caller's
+  /// own assertions to report.
+  @discardableResult
+  func waitUntilSteady(_ element: XCUIElement, for steady: TimeInterval = 1, timeout: TimeInterval = 10) -> CGRect {
+    var frame = element.frame
+    var since = Date()
+    let deadline = Date().addingTimeInterval(timeout)
+    while Date() < deadline {
+      Thread.sleep(forTimeInterval: 0.1)
+      let current = element.frame
+      if current != frame {
+        frame = current
+        since = Date()
+      } else if Date().timeIntervalSince(since) >= steady {
+        return frame
+      }
+    }
+    return frame
   }
 
   /// Waits, for up to four seconds, until three screenshots taken a quarter of a second apart match, so
