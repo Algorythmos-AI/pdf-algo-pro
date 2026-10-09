@@ -103,6 +103,7 @@ struct RootView: View {
     // Not after the subscription offer or its confirmation: a rating is never asked for beside a
     // purchase (App Store strategy, ratings).
     .onChange(of: app.sheet) { closed, sheet in
+      if sheet == nil { app.sheetClosed(closed) }
       if sheet == nil, closed != .paywall { askForReviewIfDue() }
     }
     // A trial that has ended, been refunded or become paid has nothing left to remind of.

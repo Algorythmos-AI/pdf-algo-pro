@@ -78,6 +78,14 @@ struct EvaluationTests {
     #expect(report.markdown.contains("No item failed."))
   }
 
+  @Test("The deterministic suite meets every threshold with words matched in their base forms too")
+  func recordedSuiteWithBaseForms() async throws {
+    let router = IntelligenceRouter(models: [RecordedModel(goodResponses)], wordForms: .base)
+    let report = await EvaluationRunner(intelligence: router).run(EvaluationSets.all)
+    for metric in report.metrics { #expect(metric.passes, "\(metric.name): \(metric.value)") }
+    #expect(report.outcomes.count == EvaluationSets.all.count && report.markdown.contains("No item failed."))
+  }
+
   @Test("Grounding defends the pipeline: a wrong page is re-cited and a planted claim is dropped and counted")
   func groundingDefends() async throws {
     var tricky = goodResponses

@@ -169,6 +169,46 @@ def print_outside_debug(text: str) -> list[int]:
     return bad
 
 
+INTERNAL_ONLY = ("InternalFirstRunReplay", "isReplayingFirstRun", "resetFirstRunReplay", "firstRunReplay(")
+INTERNAL_CONFIGS = {"Debug", "Staging"}
+
+
+def outside_internal_tools(text: str, names: tuple[str, ...] = INTERNAL_ONLY) -> list[int]:
+    """Lines that name an internal-only symbol outside `#if INTERNAL_TOOLS`; comments do not count."""
+    bad: list[int] = []
+    stack: list[bool] = []
+    for no, line in enumerate(text.splitlines(), 1):
+        stripped = line.strip()
+        if stripped.startswith("#if"):
+            stack.append("INTERNAL_TOOLS" in stripped and "!INTERNAL_TOOLS" not in stripped)
+        elif stripped.startswith(("#else", "#elseif")) and stack:
+            stack[-1] = False
+        elif stripped.startswith("#endif") and stack:
+            stack.pop()
+        elif not stripped.startswith("//") and not any(stack) and any(name in line for name in names):
+            bad.append(no)
+    return bad
+
+
+def internal_tools_config_problems(project: str) -> list[str]:
+    """`INTERNAL_TOOLS` may be defined for the Debug and Staging configurations only (project.yml)."""
+    problems: list[str] = []
+    lines = project.splitlines()
+    for index, line in enumerate(lines):
+        if "INTERNAL_TOOLS" not in line or line.lstrip().startswith("#"):
+            continue
+        indent = len(line) - len(line.lstrip())
+        owner = next(
+            (prev.strip().rstrip(":") for prev in reversed(lines[:index])
+             if prev.strip() and not prev.lstrip().startswith("#") and len(prev) - len(prev.lstrip()) < indent),
+            "")
+        if owner not in INTERNAL_CONFIGS:
+            problems.append(
+                f"project.yml:{index + 1}: INTERNAL_TOOLS is defined under '{owner}'; only the Debug and Staging "
+                "configurations may define it, so an App Store build never contains the internal tools (PAP-060)")
+    return problems
+
+
 def main() -> int:
     errors: list[str] = []
 
@@ -184,6 +224,8 @@ def main() -> int:
     errors.extend(icon_document_problems())
     errors.extend(app_mark_problems())
     errors.extend(infoplist_name_problems())
+    if (ROOT / "project.yml").exists():
+        errors.extend(internal_tools_config_problems((ROOT / "project.yml").read_text(encoding="utf-8")))
 
     swift = [p for p in tracked("*.swift") if not p.startswith("scripts/")]
     if not swift:
@@ -199,6 +241,10 @@ def main() -> int:
                     errors.append(f"{rel}: `as!` is not allowed; use a conditional cast")
                 for no in print_outside_debug(text):
                     errors.append(f"{rel}:{no}: `print(` outside `#if DEBUG`; use Logger")
+                for no in outside_internal_tools(text):
+                    errors.append(
+                        f"{rel}:{no}: the Staging first-run replay is named outside `#if INTERNAL_TOOLS`; "
+                        "an App Store build must not compile it (PAP-060)")
                 for category, pattern in REQUIRED_REASON.items():
                     if pattern.search(text):
                         used_categories.add(category)

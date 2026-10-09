@@ -82,7 +82,8 @@ citations, subscribe and restore, and the privacy centre.
 - **Launch arguments select a test world.** In Debug builds only, the app reads arguments such as
   `-ui-testing` (which also resets state: temporary folders and throwaway settings),
   `-seed-library <fixture-set>`, `-skip-onboarding`, `-intelligence-unavailable`,
-  `-entitlement none|trial|subscribed|expired`, `-allowance exhausted`, `-store unavailable` and
+  `-entitlement none|trial|subscribed|expired`, `-allowance exhausted`, `-store unavailable`,
+  `-purchase cancelled|failed|pending`, `-trial ineligible|none` and
   `-disable-animations`, and swaps
   in a container with fakes: a scripted intelligence router, a fixed entitlement (nobody is
   entitled unless the test says so, and the App Store is never asked), a free allowance with no

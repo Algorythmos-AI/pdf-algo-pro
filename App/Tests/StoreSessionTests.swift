@@ -89,6 +89,39 @@ struct StoreSessionTests {
     #expect(!store.grantsPro)
   }
 
+  @Test("The offering gives the plans in order, the annual one with its trial for an account that can have it")
+  func plansOnOffer() async throws {
+    let session = try session()
+    defer { session.clearTransactions() }
+    let plans = try #require(await StoreKitOffering().plans(for: catalog.ordered))
+    #expect(plans.map(\.id) == catalog.ordered && plans.map(\.term) == [.year, .week])
+    #expect(plans[0].trial != nil, "Case A: an offer is configured and this account has not used it")
+    #expect(plans[1].trial == nil, "Case C: the weekly plan has no introductory offer")
+    #expect(await StoreKitOffering().plans(for: catalog.ordered + ["not.a.product"]) == nil)
+  }
+
+  @Test("Buying through the offering reaches the app as an entitlement, finished, and uses up the trial")
+  func buyThroughTheOffering() async throws {
+    let session = try session()
+    defer { session.clearTransactions() }
+    let store = EntitlementStore(provider: StoreKitEntitlements(productIDs: catalog.productIDs))
+    store.start()
+    #expect(await eventually(store) { $0 == Entitlement.none })
+
+    #expect(await StoreKitOffering().purchase(catalog.yearly) == .purchased)
+    await store.refresh()
+    #expect(
+      await eventually(store) {
+        if case .trial = $0 { true } else { false }
+      }, "The purchase is read back as a trial")
+    var unfinished = 0
+    for await _ in Transaction.unfinished { unfinished += 1 }
+    #expect(unfinished == 0, "The offering finished the transaction it was handed")
+
+    let plans = try #require(await StoreKitOffering().plans(for: catalog.ordered))
+    #expect(plans[0].trial == nil, "Case B: the offer is still configured, and this account has now used it")
+  }
+
   @Test("Buying the weekly plan is a paid subscription, with no trial")
   func weekly() async throws {
     let session = try session()

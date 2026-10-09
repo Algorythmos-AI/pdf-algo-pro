@@ -16,6 +16,14 @@ public enum ReleaseFlag: String, CaseIterable, Sendable {
   /// Recognition in more languages, found automatically, and a text layer placed word by word
   /// (FR-SCAN-002, ADR-0008).
   case widerRecognition
+  /// Finding a word in another of its forms, in library search and in the pages chosen for a
+  /// question (FR-LIB-004, FR-AI-001).
+  case baseFormMatching
+  /// Dragging a document out of the library into another app (ADR-0022).
+  case documentDragging
+  /// Reading a scanned page as a document, paragraph by paragraph, so columns and tables come in
+  /// the order they are read (FR-SCAN-004, ADR-0008).
+  case documentRecognition
 
   /// The value in a build that does not turn the flag on.
   ///
@@ -28,6 +36,9 @@ public enum ReleaseFlag: String, CaseIterable, Sendable {
     case .textEditing: "PDF engine"
     case .readingControls: "Reader"
     case .widerRecognition: "PDF engine"
+    case .baseFormMatching: "Intelligence"
+    case .documentDragging: "Library"
+    case .documentRecognition: "PDF engine"
     }
   }
 
@@ -37,6 +48,9 @@ public enum ReleaseFlag: String, CaseIterable, Sendable {
     case .textEditing: "1.1.0"
     case .readingControls: "1.1.0"
     case .widerRecognition: "1.1.0"
+    case .baseFormMatching: "1.1.0"
+    case .documentDragging: "1.1.0"
+    case .documentRecognition: "1.1.0"
     }
   }
 

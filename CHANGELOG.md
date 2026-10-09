@@ -10,6 +10,10 @@ Store notes (see the changelog strategy).
 ## [Unreleased]
 
 ### Changed
+- The plans screen is redrawn: the two plans side by side with the yearly plan marked Best Value,
+  what you pay today and afterwards in one line, and one button. A free trial is shown only when
+  your Apple Account can have it. If a purchase can't be made, or is waiting for approval, the
+  app now says so.
 - A new look: red on white. Buttons, tiles and the app icon are now red, and screens stay white
   (or dark in Dark Mode). On a document, what you select is outlined in blue, so that red there
   only ever means a red annotation or Delete.
@@ -27,10 +31,17 @@ Store notes (see the changelog strategy).
   line was missing.
 
 ### Added
+- Scanning (internal builds): a page set in columns is now read one column after the other, and a
+  table row by row, so searching for a phrase and asking about a scan work on the text as you
+  would read it.
 - Scanning (internal builds): text is recognised in more languages, among them German, Spanish,
   Italian, Portuguese, Dutch, Polish, Russian and Ukrainian, without choosing one first.
 - Scanning (internal builds): on a scan you can now select a single word; before, the selection
   could only follow whole lines loosely.
+- Search (internal builds): a word also finds its simpler form, so "invoices" finds "invoice" and
+  "paid" finds "pay". The assistant uses the same idea to pick the pages a question is about.
+- Library (internal builds): press and hold a document and drag it into another app, such as
+  Mail or Files, to put a copy of the PDF there.
 - Reading (internal builds): a strip of small pages along the bottom of a document. Tap a small
   page to go to it; the strip steps aside while you edit or mark up, and Layout › Page strip
   puts it away.
@@ -39,7 +50,7 @@ Store notes (see the changelog strategy).
 - Reading (internal builds): with a keyboard, the left and right arrows turn the page, and
   Command with plus, minus and zero zooms in, out and back to the whole page.
 - A short introduction the first time you open the app: three pages on what it does, each with a
-  picture of the app at work, and Skip on every one.
+  picture of the app at work, and Skip on every one. Swipe or tap Continue to move between them.
 - PDF Algo Pro now has a Pro subscription. The app stays free to use, with a daily limit on new
   scans and on summaries and answers; Pro removes it. Settings › Subscription shows your plan and lets you see the plans, manage
   or restore a subscription, and redeem a code. Opening, reading, signing, sharing and exporting

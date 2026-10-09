@@ -25,6 +25,41 @@ final class OnboardingUITests: UITestCase {
     XCTAssertTrue(app.buttons["library.home.sample"].exists, "The introduction ends on Home")
   }
 
+  /// Every new internal build replays the journey, with no reinstall (PAP-060): the same install is
+  /// opened as build 24, as build 24 again, and as build 25.
+  func testANewBuildReplaysFirstRunAndTheOfferWithoutReinstalling() throws {
+    let install = ["-keep-state", UUID().uuidString]
+    var app = launch(install + ["-first-run-build", "24"])
+    XCTAssertTrue(headline("scan", in: app).waitForExistence(timeout: Self.settleTimeout), "A new install starts here")
+    leave(by: app.buttons["onboarding.skip"], for: app.buttons["paywall.close"])
+    leave(by: app.buttons["paywall.close"], for: app.buttons["library.home.sample"])
+    app.terminate()
+
+    app = launch(install + ["-first-run-build", "24"])
+    XCTAssertTrue(app.buttons["library.home.sample"].waitForExistence(timeout: Self.settleTimeout))
+    XCTAssertFalse(headline("scan", in: app).exists, "The same build opens on Home")
+    XCTAssertFalse(app.buttons["paywall.close"].exists)
+    app.terminate()
+
+    app = launch(install + ["-first-run-build", "25"])
+    XCTAssertTrue(headline("scan", in: app).waitForExistence(timeout: Self.settleTimeout), "The next build starts over")
+    let next = app.buttons["onboarding.continue"]
+    tap(next, until: headline("sign", in: app))
+    tap(next, until: headline("ask", in: app))
+    leave(by: next, for: app.buttons["paywall.plan.yearly"])
+    XCTAssertTrue(app.buttons["paywall.purchase"].exists, "The offer is there to be tried again")
+    leave(by: app.buttons["paywall.close"], for: app.buttons["library.home.sample"])
+  }
+
+  func testAReplayShowsTheOfferToAnAccountThatHasProAndSaysSo() throws {
+    let app = launch(["-keep-state", UUID().uuidString, "-first-run-build", "24", "-entitlement", "subscribed"])
+    let note = app.descendants(matching: .any)["paywall.alreadyPro"].firstMatch
+    leave(by: app.buttons["onboarding.skip"], for: note)
+    XCTAssertFalse(app.buttons["paywall.purchase"].exists, "Nothing is sold to an account that has Pro")
+    XCTAssertTrue(app.buttons["paywall.manage"].exists)
+    leave(by: app.buttons["paywall.continue"], for: app.buttons["library.home.sample"])
+  }
+
   func testSkipLeadsToHomeFromTheFirstPage() throws {
     let app = launch([])
     XCTAssertTrue(headline("scan", in: app).waitForExistence(timeout: Self.settleTimeout))

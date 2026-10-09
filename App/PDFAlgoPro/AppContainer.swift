@@ -43,6 +43,20 @@ struct LaunchEnvironment {
   let allowanceExhausted: Bool
   /// Make the store unable to load its products (`-store unavailable`), as without a connection.
   let storeUnavailable: Bool
+  /// How a purchase ends in a UI test (`-purchase cancelled`, `failed` or `pending`); it succeeds
+  /// unless a test says otherwise.
+  let purchaseOutcome: PurchaseOutcome
+  /// Whether the annual plan offers its free trial in a UI test: it does unless a test says the
+  /// account is not eligible (`-trial ineligible`) or the plan has none (`-trial none`).
+  let offersTrial: Bool
+  /// The build number first run's replay sees in a UI test (`-first-run-build 24`); without it a UI
+  /// test has no replay, and starts where its other arguments say.
+  let firstRunBuild: String?
+  /// A name under which a UI test's settings survive a relaunch (`-keep-state <name>`).
+  ///
+  /// With it one test can open the app as two builds of the same install; without it every launch
+  /// starts afresh.
+  let keptState: String?
   /// Whether the reader's newer controls are on (`-reading-controls off` shows the reader without
   /// them, as a Release build has it until the flag is on there); `nil` leaves it to the build.
   let readingControls: Bool?
@@ -94,6 +108,26 @@ struct LaunchEnvironment {
         arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil
       }
       storeUnavailable = store == "unavailable"
+      let purchase = arguments.firstIndex(of: "-purchase").flatMap {
+        arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil
+      }
+      purchaseOutcome =
+        switch purchase {
+        case "cancelled": .cancelled
+        case "failed": .failed
+        case "pending": .pending
+        default: .purchased
+        }
+      let trial = arguments.firstIndex(of: "-trial").flatMap {
+        arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil
+      }
+      offersTrial = trial != "ineligible" && trial != "none"
+      firstRunBuild = arguments.firstIndex(of: "-first-run-build").flatMap {
+        arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil
+      }
+      keptState = arguments.firstIndex(of: "-keep-state").flatMap {
+        arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil
+      }
       let reading = arguments.firstIndex(of: "-reading-controls").flatMap {
         arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil
       }
@@ -117,6 +151,10 @@ struct LaunchEnvironment {
       entitlement = nil
       allowanceExhausted = false
       storeUnavailable = false
+      purchaseOutcome = .purchased
+      offersTrial = true
+      firstRunBuild = nil
+      keptState = nil
       readingControls = nil
     #endif
   }
@@ -128,6 +166,8 @@ struct LaunchEnvironment {
 @MainActor
 final class AppContainer {
   let settings: any SettingsStoring
+  /// Where the app keeps small things beside its settings; a UI test's own, never the real one.
+  let defaults: UserDefaults
   let library: any DocumentLibrary
   let index: LocalSearchIndex
   let intake: DocumentIntake
@@ -170,6 +210,11 @@ final class AppContainer {
   ///
   /// UI tests never ask the App Store: their store has its products unless a test says otherwise.
   let store: any StoreAccessing
+  /// The plans on sale and the way to buy one (ADR-0027).
+  ///
+  /// UI tests sell two made-up plans, and a purchase there ends as the test asked and, when it
+  /// succeeds, grants the entitlement a real one would.
+  let offering: any StoreOffering
   /// What edits existing text: the native editor, or under test one that cannot prove an edit.
   var textEditor: any PDFTextEditing {
     #if DEBUG
@@ -177,11 +222,23 @@ final class AppContainer {
     #endif
     return ContentStreamTextEditor()
   }
-  /// What recognises text in scans: the wider set of languages with words in internal builds, and
-  /// English and French as before in a Release build until `ReleaseFlag.widerRecognition` is on.
-  static var recognizer: VisionTextRecognizer {
-    AppTextEditingAccess.isInternalBuild || ReleaseFlag.widerRecognition.compiledDefault
+  /// What recognises text in scans.
+  ///
+  /// In internal builds: the page read as a document, in the wider set of languages, with words.
+  /// In a Release build each part waits for its flag (`ReleaseFlag.documentRecognition`,
+  /// `ReleaseFlag.widerRecognition`); with both off it is English and French, line by line, as before.
+  static var recognizer: any TextRecognizing {
+    let lines: VisionTextRecognizer =
+      AppTextEditingAccess.isInternalBuild || ReleaseFlag.widerRecognition.compiledDefault
       ? .wider : VisionTextRecognizer()
+    return AppTextEditingAccess.isInternalBuild || ReleaseFlag.documentRecognition.compiledDefault
+      ? VisionDocumentRecognizer(fallback: lines) : lines
+  }
+
+  /// Whether a word also finds its other forms, in library search and in the pages chosen for a
+  /// question: on in internal builds, the compiled default (off) in a Release build.
+  static var matchesBaseForms: Bool {
+    AppTextEditingAccess.isInternalBuild || ReleaseFlag.baseFormMatching.compiledDefault
   }
 
   /// Whether the reader's newer controls are part of this build: on in internal builds, the
@@ -198,11 +255,14 @@ final class AppContainer {
     self.environment = environment
     let folders = Folders(isUITesting: environment.isUITesting)
     let settings: any SettingsStoring
-    if environment.isUITesting, let defaults = UserDefaults(suiteName: "ui-testing-\(UUID().uuidString)") {
+    let suite = environment.keptState.map { "ui-testing-kept-\($0)" } ?? "ui-testing-\(UUID().uuidString)"
+    if environment.isUITesting, let defaults = UserDefaults(suiteName: suite) {
       settings = UserDefaultsSettingsStore(defaults: defaults)
       if environment.skipsOnboarding { settings.save(AppSettings(hasCompletedOnboarding: true)) }
+      self.defaults = defaults
     } else {
       settings = UserDefaultsSettingsStore()
+      defaults = .standard
     }
     self.settings = settings
 
@@ -214,7 +274,8 @@ final class AppContainer {
     self.library = library
     let spotlight: (any SpotlightIndexing)? =
       environment.isUITesting ? nil : SpotlightIndexer(includesText: { settings.load().indexesTextInSpotlight })
-    let index = LocalSearchIndex(folder: folders.searchIndex, spotlight: spotlight)
+    let index = LocalSearchIndex(
+      folder: folders.searchIndex, spotlight: spotlight, usesBaseForms: Self.matchesBaseForms)
     self.index = index
     intake = DocumentIntake(library: library, inspector: PDFKitInspector(), index: index)
     let isHidden: @Sendable () -> Bool = { settings.load().isIntelligenceHidden }
@@ -224,10 +285,14 @@ final class AppContainer {
       if environment.isUITesting {
         intelligence = ScriptedIntelligence(unavailable: environment.intelligenceUnavailable, isHidden: isHidden)
       } else {
-        intelligence = IntelligenceRouter(models: [OnDeviceModel()], isHidden: isHidden, activity: activity)
+        intelligence = IntelligenceRouter(
+          models: [OnDeviceModel()], isHidden: isHidden, activity: activity,
+          wordForms: Self.matchesBaseForms ? .base : .asWritten)
       }
     #else
-      intelligence = IntelligenceRouter(models: [OnDeviceModel()], isHidden: isHidden, activity: activity)
+      intelligence = IntelligenceRouter(
+        models: [OnDeviceModel()], isHidden: isHidden, activity: activity,
+        wordForms: Self.matchesBaseForms ? .base : .asWritten)
     #endif
     builder = SearchablePDFBuilder(recognizer: Self.recognizer)
     telemetry = LocalTelemetry()
@@ -246,12 +311,20 @@ final class AppContainer {
     let catalog = ProductCatalog(bundleIdentifier: Bundle.main.bundleIdentifier ?? "com.algorythmos.pdfalgopro")
     self.catalog = catalog
     let provider: any EntitlementProviding
-    if let fixed = environment.entitlement {
-      provider = FixedEntitlements(fixed)
-    } else if environment.isUITesting {
-      // A UI test never asks the App Store: without an argument, nobody is entitled.
-      provider = FixedEntitlements(.none)
+    if environment.isUITesting || environment.entitlement != nil {
+      // A UI test never asks the App Store: without an argument, nobody is entitled, and a scripted
+      // purchase is what changes that.
+      let scripted = ScriptedEntitlements(environment.entitlement ?? .none)
+      provider = scripted
+      let trial = environment.offersTrial ? TrialOffer(length: 3, unit: .day) : nil
+      let plans = FixedStoreOffering.fixturePlans(yearlyID: catalog.yearly, weeklyID: catalog.weekly, trial: trial)
+      offering = FixedStoreOffering(
+        plans: environment.storeUnavailable ? nil : plans, outcome: environment.purchaseOutcome
+      ) { plan in
+        scripted.set(plan.trial == nil ? .subscribed : .trial(endsAt: Date().addingTimeInterval(3 * 24 * 60 * 60)))
+      }
     } else {
+      offering = StoreKitOffering()
       let store = StoreKitEntitlements(productIDs: catalog.productIDs)
       #if INTERNAL_TOOLS
         provider = InternalEntitlementOverride(base: store)

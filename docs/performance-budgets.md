@@ -42,6 +42,7 @@ artifact. Pull requests run none of it, and nothing is blocked by it.
 | Search across a 1,000-document library | `EnginePerformanceTests.testSearchA1000DocumentLibrary` | One query on a warm index |
 | Scan → searchable PDF, 10 pages | `EnginePerformanceTests.testScanTenPagesToASearchablePDF` | Vision recognition and writing the PDF |
 | Retrieval over a 500-page PDF | `RetrievalPerformanceTests.testRetrievalOver500Pages` | Ranking every page for a question |
+| Retrieval over a 500-page PDF, words in their base forms | `RetrievalPerformanceTests.testRetrievalOver500PagesWithBaseForms` | The same, as internal builds match words (PAP-055); held to the same budget |
 
 - **Tolerance.** `Assumption:` a simulator median within 120% of the p50 budget means no
   regression worth stopping for. The simulator is not the baseline iPhone, so its numbers show

@@ -29,7 +29,7 @@ struct OnboardingModelTests {
     #expect(model.index == 0 && model.page == .scan && !model.isLastPage)
     await model.load()
     #expect(model.pages == [.scan, .sign, .ask])
-    #expect(await telemetry.events == ["onboarding.flow.started"])
+    #expect(await telemetry.events == ["onboarding.flow.started", "onboarding.page.viewed"])
   }
 
   @Test("Where on-device intelligence is unavailable, the third page needs none (FR-ONB-006)")
@@ -68,7 +68,9 @@ struct OnboardingModelTests {
     await model.advance()
     #expect(settings.load().hasCompletedOnboarding)
     #expect(finished.value?.hasCompletedOnboarding == true)
-    #expect(await telemetry.events == ["onboarding.flow.completed"])
+    #expect(
+      await telemetry.events == ["onboarding.page.viewed", "onboarding.page.viewed", "onboarding.flow.completed"],
+      "Each page reached is recorded, then the end")
   }
 
   @Test("Skip finishes from any page (FR-ONB-002)", arguments: 0...2)
@@ -78,7 +80,23 @@ struct OnboardingModelTests {
     await model.skip()
     #expect(settings.load().hasCompletedOnboarding)
     #expect(finished.value != nil)
-    #expect(await telemetry.events == ["onboarding.flow.skipped"])
+    #expect(
+      await telemetry.events == Array(repeating: "onboarding.page.viewed", count: page) + ["onboarding.flow.skipped"])
+  }
+
+  @Test("A swipe goes forward and back between pages, and never ends the introduction")
+  func swiping() async {
+    let (model, settings, telemetry, finished) = makeModel()
+    await model.goBack()
+    #expect(model.index == 0, "There is nothing before the first page")
+    await model.goForward()
+    await model.goForward()
+    #expect(model.isLastPage)
+    await model.goForward()
+    #expect(model.isLastPage && finished.value == nil && !settings.load().hasCompletedOnboarding)
+    await model.goBack()
+    #expect(model.index == 1)
+    #expect(await telemetry.events == Array(repeating: "onboarding.page.viewed", count: 3))
   }
 
   @Test("First run is saved as done before anything that follows is shown")
@@ -106,6 +124,7 @@ struct OnboardingModelTests {
   @Test("Every page has a headline and a sentence", arguments: OnboardingPage.allCases)
   func copy(page: OnboardingPage) {
     #expect(page.id == page.rawValue)
+    #expect(page.accents.count == 3, "Three tiles beside each phone")
     _ = page.title
     _ = page.detail
   }

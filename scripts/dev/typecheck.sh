@@ -6,7 +6,8 @@
 #   scripts/dev/typecheck.sh
 #
 # Module order follows the dependency graph in docs/ios-architecture-review.md. Package resource
-# bundles are replaced by a stub, and DEBUG is defined, as in a Debug build.
+# bundles are replaced by a stub, and DEBUG is defined, as in a Debug build; the app and its tests
+# also get INTERNAL_TOOLS, as the Debug configuration gives the app (project.yml).
 set -u
 ROOT=${0:A:h:h:h}
 OUT=$(mktemp -d "${TMPDIR:-/tmp}/pdfalgopro-typecheck.XXXXXX")
@@ -25,6 +26,7 @@ fail=0
 
 run() { # emit|check module isolation dir [bundle] [file to leave out]
   local mode=$1 m=$2 iso=$3 dir=$4 extra=()
+  [[ $dir == App/* ]] && extra+=(-D INTERNAL_TOOLS)
   [[ $iso == main ]] && extra+=(-default-isolation MainActor)
   [[ ${5:-} == bundle ]] && extra+=($BUNDLE)
   local action=(-typecheck)

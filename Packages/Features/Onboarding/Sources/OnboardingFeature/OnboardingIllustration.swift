@@ -2,25 +2,93 @@ import DesignSystem
 import SwiftUI
 
 /// The picture on an introduction page: a phone showing what the page is about, over a made-up
-/// document.
+/// document, with the tools or the result of that page floating beside it.
 ///
 /// It is drawn, not a screenshot, so it holds no real document and follows the appearance. Only the
 /// top of the phone shows, and its lower edge fades into the page. It is decoration: the headline
 /// and the sentence say everything, so VoiceOver skips it.
 struct OnboardingIllustration: View {
   let page: OnboardingPage
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  @Environment(\.playsDecorativeMotion) private var playsMotion
+  @State private var hasArrived = false
+
+  /// How much of the phone shows above the fade.
+  private static let height: CGFloat = 392
 
   var body: some View {
-    DeviceMockup {
-      switch page {
-      case .scan: ScanMockupScreen()
-      case .sign: SignScreen()
-      case .ask: AskScreen()
-      case .organize: OrganizeScreen()
+    ZStack {
+      // A soft pool of the page's colour behind the phone gives the picture its depth.
+      Circle()
+        .fill(tint.opacity(0.14))
+        .frame(width: 330, height: 330)
+        .blur(radius: 36)
+        .offset(y: -Spacing.s300)
+      DeviceMockup(width: 276) {
+        switch page {
+        case .scan: ScanMockupScreen()
+        case .sign: SignScreen()
+        case .ask: AskScreen()
+        case .organize: OrganizeScreen()
+        }
       }
+      .fadingBottom(height: Self.height)
+      accents
     }
-    .fadingBottom(height: 372)
+    .frame(height: Self.height)
+    .onAppear { hasArrived = true }
     .accessibilityHidden(true)
+  }
+
+  private var isStill: Bool { reduceMotion || !playsMotion }
+
+  private var tint: Color { page == .ask ? Color.ds.intelligenceTint : Color.ds.brandTint }
+
+  /// What the page gives, as tiles beside the phone: they arrive one after another, or are simply
+  /// there when the picture is to be still.
+  private var accents: some View {
+    let symbols = page.accents
+    return ForEach(Array(symbols.enumerated()), id: \.offset) { index, symbol in
+      FloatingTile(systemName: symbol, tint: tint)
+        .scaleEffect(isStill || hasArrived ? 1 : 0.6)
+        .opacity(isStill || hasArrived ? 1 : 0)
+        .offset(Self.places[index % Self.places.count])
+        .animation(
+          isStill ? nil : .spring(duration: 0.5, bounce: 0.35).delay(0.25 + Double(index) * 0.12), value: hasArrived)
+    }
+  }
+
+  /// Where the tiles sit around the phone, from its centre: two on the right, one on the left.
+  private static let places: [CGSize] = [
+    CGSize(width: 142, height: -92), CGSize(width: 150, height: -20), CGSize(width: -146, height: 34),
+  ]
+}
+
+extension OnboardingPage {
+  /// The symbols on the tiles beside the page's phone: its tools, or what comes of it.
+  var accents: [String] {
+    switch self {
+    case .scan: ["camera.fill", "text.viewfinder", "doc.fill"]
+    case .sign: ["signature", "highlighter", "lock.fill"]
+    case .ask: ["sparkles", "text.bubble.fill", "list.bullet.rectangle"]
+    case .organize: ["rectangle.stack.fill", "arrow.down.right.and.arrow.up.left", "magnifyingglass"]
+    }
+  }
+}
+
+/// A tile that floats beside the phone, lifted off the page by its shadow.
+private struct FloatingTile: View {
+  let systemName: String
+  let tint: Color
+
+  var body: some View {
+    Image(systemName: systemName)
+      .font(.system(size: 22, weight: .semibold))
+      .foregroundStyle(tint)
+      .frame(width: 54, height: 54)
+      .background(Color.ds.backgroundGroupedElevated, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+      .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color.ds.separator, lineWidth: 0.5))
+      .shadow(color: .black.opacity(0.14), radius: 12, y: 6)
   }
 }
 

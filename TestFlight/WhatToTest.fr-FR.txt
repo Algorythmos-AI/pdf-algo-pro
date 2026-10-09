@@ -1,9 +1,10 @@
 Version interne de PDF Algo Pro (Staging). Utilisez des documents de test, pas de vrais documents. À essayer :
 
 Premier lancement et formules (nouveau)
-- Une nouvelle version s’ouvre une fois sur l’introduction. Pour la revoir : Réglages > Internal testing > « Show first run again », avec « Pro without a purchase » désactivé.
-- Trois pages avec une image chacune, puis les formules : l’annuelle d’abord, avec son essai gratuit, l’hebdomadaire à côté. Fermer mène à l’accueil.
-- Démarrez l’essai annuel (TestFlight ne facture rien) : « Bienvenue dans Pro » suit. Essayez Restaurer les achats.
+- Chaque nouvelle version s’ouvre d’elle-même sur l’introduction, puis sur les formules. Rien à réinstaller.
+- Balayez ou touchez Continuer sur trois pages. Sur les formules, touchez l’hebdomadaire puis l’annuelle : le prix et le bouton suivent.
+- Démarrez l’essai annuel (rien n’est facturé dans TestFlight) : la feuille d’Apple, puis « Bienvenue dans Pro ». Essayez aussi de fermer la feuille d’Apple, et Restaurer les achats.
+- Si les formules indiquent que ce compte Apple a déjà Pro, c’est exact : touchez Continuer.
 
 Accueil, Réglages et À propos
 - L’app s’ouvre maintenant sur l’accueil. Touchez Importer et Numériser, ouvrez un document sous Reprendre la lecture, puis revenez.

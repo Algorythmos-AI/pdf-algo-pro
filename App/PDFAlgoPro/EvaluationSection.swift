@@ -18,6 +18,10 @@
     let onReplayFirstRun: () -> Void
     /// Closes Settings and shows the subscription offer, whatever the person is entitled to.
     let onShowOffer: () -> Void
+    /// Forgets which build completed first run, so the next launch replays it.
+    let onResetReplay: () -> Void
+    @State private var managesSubscription = false
+    @State private var replayIsReset = false
     @State private var hasPro = UserDefaults.standard.bool(forKey: InternalEntitlementOverride.key)
 
     var body: some View {
@@ -31,9 +35,21 @@
           onEntitlementOverride()
         }
         Button(action: onReplayFirstRun) {
-          TileLabel(Text(verbatim: "Show first run again"), systemImage: "arrow.counterclockwise", tone: .quiet)
+          TileLabel(
+            Text(verbatim: "Show onboarding now (simulate first launch)"), systemImage: "arrow.counterclockwise",
+            tone: .quiet)
         }
         .accessibilityIdentifier("internal.replayFirstRun")
+        Button {
+          onResetReplay()
+          replayIsReset = true
+        } label: {
+          TileLabel(
+            Text(verbatim: replayIsReset ? "First run will show at next launch" : "Reset first run for next launch"),
+            systemImage: "arrow.uturn.backward", tone: .quiet)
+        }
+        .disabled(replayIsReset)
+        .accessibilityIdentifier("internal.resetReplay")
         Button(action: onShowOffer) {
           TileLabel(Text(verbatim: "Show the subscription offer"), systemImage: "creditcard", tone: .quiet)
         }
@@ -43,6 +59,12 @@
             Text(verbatim: "Refresh subscription status"), systemImage: "arrow.triangle.2.circlepath", tone: .quiet)
         }
         .accessibilityIdentifier("internal.refreshSubscription")
+        Button {
+          managesSubscription = true
+        } label: {
+          TileLabel(Text(verbatim: "Manage test subscription"), systemImage: "person.crop.circle", tone: .quiet)
+        }
+        .accessibilityIdentifier("internal.manageSubscription")
         NavigationLink {
           EvaluationView(intelligence: intelligence)
         } label: {
@@ -54,10 +76,11 @@
       } footer: {
         Text(
           verbatim:
-            "Off, this build follows the sandbox store: the offer, the daily limits and locked features show as they will to customers. Each new internal build shows first run once by itself. First run again shows the introduction, and the offer after it when the store has its plans; your documents and settings stay. The app stores nothing about the offer, so there is no offer state to reset."
+            "Each new internal build opens on first run by itself: the introduction, then the subscription offer, whatever this Apple Account is entitled to. Purchases, Pro and trial eligibility are the App Store's and are never changed here; to buy again, cancel the test subscription and let it lapse, or use another account. Your documents and settings stay."
         )
         .foregroundStyle(Color.ds.labelSecondary)
       }
+      .manageSubscriptionsSheet(isPresented: $managesSubscription)
     }
   }
 
