@@ -242,6 +242,12 @@ class UITestCase: XCTestCase {
         "Quarantined flaky audit timeout, issue #53", details: error.localizedDescription, file: file, line: line)
     }
     if !appearing.isEmpty {
+      // On a focused run (UI_EVIDENCE=all), quarantined findings keep the screen too: a finding the audit
+      // reports without its element is quarantined (issue #76), and on run 37939544303 the paywall's
+      // two such findings came with their elements, one of them the offer's explanation.
+      if ProcessInfo.processInfo.environment["UI_EVIDENCE"] == "all" {
+        keepEvidence(app, named: "audit \(line) quarantined", notes: appearing.joined(separator: "\n"))
+      }
       recordQuarantined(
         "Quarantined flaky audit finding, issue #76",
         details: "\(appearing.count) quarantined finding(s):\n" + appearing.joined(separator: "\n"), file: file,

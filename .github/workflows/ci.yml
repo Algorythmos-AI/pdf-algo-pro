@@ -396,6 +396,8 @@ jobs:
           # Snapshots: a missing or changed reference fails; only a manual run with record_snapshots records.
           TEST_RUNNER_SNAPSHOT_TESTING_RECORD: ${{ inputs.record_snapshots && 'all' || 'never' }}
           ONLY_TESTING: ${{ inputs.only_testing }}
+          # A focused run also keeps the screen of quarantined audit findings (UITestCase.keepEvidence).
+          TEST_RUNNER_UI_EVIDENCE: ${{ inputs.only_testing && 'all' || '' }}
         run: |
           python3 scripts/ci/test_shards.py args "$SHARD" --only-testing "$ONLY_TESTING" > "$RUNNER_TEMP/args.txt"
           args=()
@@ -499,6 +501,10 @@ jobs:
         # a failure can be seen from the log alone, where the artifact cannot be downloaded.
         if: ${{ !cancelled() && hashFiles('reports/**/ui-evidence/*.png') != '' }}
         continue-on-error: true
+        env:
+          # Sharper on a focused run, which keeps few screens, so colours can be measured from it.
+          QUALITY: ${{ inputs.only_testing && '90' || '45' }}
+          SIZE: ${{ inputs.only_testing && '1400' || '900' }}
         run: |
           shopt -s nullglob
           shown=0
@@ -506,7 +512,7 @@ jobs:
             shown=$((shown + 1))
             [ "$shown" -le 6 ] || break
             name="$(basename "$png" .png)"
-            sips -s format jpeg -s formatOptions 45 -Z 900 "$png" --out "$RUNNER_TEMP/screen.jpg" > /dev/null
+            sips -s format jpeg -s formatOptions "$QUALITY" -Z "$SIZE" "$png" --out "$RUNNER_TEMP/screen.jpg" > /dev/null
             echo "::group::Screen of $name"
             echo "UI-EVIDENCE-BEGIN $name.jpg"
             base64 -b 100 -i "$RUNNER_TEMP/screen.jpg"
