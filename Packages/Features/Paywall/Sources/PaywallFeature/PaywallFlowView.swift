@@ -104,9 +104,11 @@ struct PaywallHeader: View {
           .fixedSize(horizontal: false, vertical: true)
           .accessibilityAddTraits(.isHeader)
           .accessibilityIdentifier("paywall.headline.\(trigger.rawValue)")
+        // The primary label, not the secondary: over the brand glow the secondary grey falls below
+        // the contrast minimum, which the accessibility audit found on the offer.
         trigger.explanation
           .font(.body)
-          .foregroundStyle(Color.ds.labelSecondary)
+          .foregroundStyle(Color.ds.labelPrimary)
           .multilineTextAlignment(.center)
           .fixedSize(horizontal: false, vertical: true)
       }
