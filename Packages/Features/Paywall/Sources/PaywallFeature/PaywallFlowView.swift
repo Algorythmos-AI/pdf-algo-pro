@@ -55,7 +55,7 @@ public struct PaywallFlowView: View {
       model: model, onRestore: { Task { await model.restore(using: store) } }, onRedeem: { redeemsCode = true },
       onManage: { managesSubscription = true }
     )
-    // EXPERIMENT (not for merge): no glow, to learn whether the audit's contrast findings follow it.
+    .background(alignment: .top) { BrandGlow().frame(height: 420).ignoresSafeArea() }
     .background(Color.ds.backgroundPrimary)
     .offerCodeRedemption(isPresented: $redeemsCode)
     .manageSubscriptionsSheet(isPresented: $managesSubscription)
