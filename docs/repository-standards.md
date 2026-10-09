@@ -66,7 +66,7 @@ edition held privately".
 | [`.github/SECURITY.md`](../.github/SECURITY.md), [`SUPPORT.md`](../.github/SUPPORT.md), [`CONTRIBUTING.md`](../.github/CONTRIBUTING.md), [`SUPERVISION.md`](../.github/SUPERVISION.md) | Community health and supervision |
 | [`.github/PULL_REQUEST_TEMPLATE.md`](../.github/PULL_REQUEST_TEMPLATE.md), [`.github/ISSUE_TEMPLATE/`](../.github/ISSUE_TEMPLATE/) | Exactly four issue templates (bug, feature, security, research) and a config that disables blank issues |
 | [`.github/labels.yml`](../.github/labels.yml), [`milestones.yml`](../.github/milestones.yml), [`dependabot.yml`](../.github/dependabot.yml), [`rulesets/`](../.github/rulesets/) | GitHub configuration as code |
-| [`.github/workflows/`](../.github/workflows/) | Exactly four workflows: `ci.yml`, `codeql.yml`, `release.yml`, `dependency-review.yml` |
+| [`.github/workflows/`](../.github/workflows/) | Exactly five workflows: `ci.yml`, `pr-metadata.yml` (title and description checks), `codeql.yml`, `release.yml`, `dependency-review.yml` |
 | [`scripts/gh/`](../scripts/gh/), [`scripts/ci/`](../scripts/ci/) | Repository tooling and CI checks |
 | `docs/` | The planning package, process documents, ADRs and runbooks |
 

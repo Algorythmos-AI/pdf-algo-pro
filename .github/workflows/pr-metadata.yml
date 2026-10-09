@@ -1,0 +1,47 @@
+name: pr-metadata
+
+# The checks that read a pull request's title and description, run again whenever either is edited.
+# ci.yml no longer runs on `edited`: editing a description restarted the whole iOS pipeline, cancelling
+# the run in flight (PR #184, 2026-10-09). ADR-0013, addendum of 2026-10-09.
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-metadata-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pr-title:
+    name: pr-title
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Conventional-commit pull request title
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          pattern='^(feat|fix|docs|chore|ci|refactor|perf|test|build|revert|release)(\([a-z0-9/-]+\))?!?: .+'
+          if ! printf '%s' "$TITLE" | grep -Eq "$pattern"; then
+            echo "::error::PR title must be a Conventional Commit, e.g. \"feat(ocr): add French recognition\". Got: \"$TITLE\""
+            exit 1
+          fi
+
+  privacy-impact:
+    name: privacy-impact
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The merge commit and its parents: the gate compares with the base (HEAD^1).
+          fetch-depth: 2
+      - name: Privacy policy impact is stated when a change touches what the policy describes
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          printf '%s' "$PR_BODY" > "$RUNNER_TEMP/pr-body.md"
+          python3 scripts/ci/privacy_impact.py --base HEAD^1 --body-file "$RUNNER_TEMP/pr-body.md"
