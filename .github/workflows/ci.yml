@@ -242,10 +242,14 @@ jobs:
         id: tests
         run: |
           # Suites write their reports (OCR accuracy, AI evaluation, performance) to reports/, kept below.
-          # Snapshots: a missing or changed reference fails; only a manual run with record_snapshots records.
+          # Snapshots: a missing or changed reference fails; only a manual run with record_snapshots records,
+          # and it runs only the app tests the snapshots belong to (red by design, so never a passing ios).
           export TEST_RUNNER_SNAPSHOT_TESTING_RECORD="${{ inputs.record_snapshots && 'all' || 'never' }}"
+          only=()
+          if [ "$TEST_RUNNER_SNAPSHOT_TESTING_RECORD" = "all" ]; then only=(-only-testing:PDFAlgoProTests/AppTests); fi
           TEST_RUNNER_REPORTS_DIR="$GITHUB_WORKSPACE/reports" xcodebuild test-without-building -scheme "$SCHEME" \
-            -testPlan "$TEST_PLAN" -destination "id=$SIM" -enableCodeCoverage YES -resultBundlePath Tests.xcresult
+            -testPlan "$TEST_PLAN" -destination "id=$SIM" -enableCodeCoverage YES -resultBundlePath Tests.xcresult \
+            ${only[@]+"${only[@]}"}
       - name: Name each failed test and why
         # The log is too long to read a failure's message from its tail: an annotation per failed test
         # puts the message on the run's summary, with the slowest suites. The Tests step keeps the verdict.
@@ -276,12 +280,16 @@ jobs:
           path: reports/
           if-no-files-found: ignore
           retention-days: 30
+      - name: Pack the recorded snapshot references
+        # One archive with the references' paths in the repository, so they unpack where they belong.
+        if: ${{ !cancelled() && inputs.record_snapshots }}
+        run: find . -type d -name __Snapshots__ -not -path './DerivedData/*' -print0 | xargs -0 tar -cf snapshots.tar
       - name: Keep the recorded snapshot references
         if: ${{ !cancelled() && inputs.record_snapshots }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: snapshots
-          path: "**/__Snapshots__/**"
+          path: snapshots.tar
           if-no-files-found: error
           retention-days: 7
       - name: Export the failed tests' screenshots and attachments
@@ -318,6 +326,45 @@ jobs:
           name: Tests.xcresult
           path: Tests.xcresult
           retention-days: 7
+
+  publish-snapshots:
+    name: publish-snapshots
+    # A manual recording run also puts the recorded references on a branch of their own,
+    # snapshot-recordings/<run id>, made from the branch it ran on. They are fetched with git, looked
+    # at, and committed to the pull request by hand like any other change; the branch is then deleted.
+    # This needs no Mac and no artifact download. The only job allowed to push, and never to a PR branch.
+    needs: ios
+    if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' && inputs.record_snapshots }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: snapshots
+          path: ${{ runner.temp }}/snapshots
+      - name: Push the references to snapshot-recordings/<run id>
+        env:
+          RUN_ID: ${{ github.run_id }}
+          SOURCE: ${{ github.ref_name }}
+        run: |
+          tar -xf "$RUNNER_TEMP/snapshots/snapshots.tar"
+          git switch -c "snapshot-recordings/$RUN_ID"
+          git add -A -- ':(glob)**/__Snapshots__/**'
+          if git diff --cached --quiet; then
+            echo "The recorded references match the committed ones; nothing to publish." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "test: snapshot references recorded by run $RUN_ID on $SOURCE"
+          git push origin "snapshot-recordings/$RUN_ID"
+          {
+            echo "### Recorded snapshot references"
+            echo "On branch \`snapshot-recordings/$RUN_ID\`: $(git diff --name-only HEAD~1 | wc -l | tr -d ' ') changed file(s)."
+            echo "Fetch with \`git fetch origin snapshot-recordings/$RUN_ID\`, review, commit to the pull request, then delete the branch."
+          } >> "$GITHUB_STEP_SUMMARY"
 
   pdf-export:
     name: pdf-export (advisory)
