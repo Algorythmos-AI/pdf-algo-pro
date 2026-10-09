@@ -341,8 +341,9 @@ final class TextEditingUITests: UITestCase {
     // and stays where the page was taken, instead of being pulled back.
     let low = opened.maxY + 16
     let high = bar.frame.minY - 16
+    let fromY = max(low, (low + high) / 2)
     let from = app.coordinate(withNormalizedOffset: .zero).withOffset(
-      CGVector(dx: app.windows.firstMatch.frame.midX, dy: max(low, (low + high) / 2)))
+      CGVector(dx: app.windows.firstMatch.frame.midX, dy: fromY))
     from.press(forDuration: 0.05, thenDragTo: from.withOffset(CGVector(dx: 0, dy: -180)))
     let settled = NSPredicate { _, _ in field.frame.minY < opened.minY - 60 }
     let scrolled = XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: settled, object: nil)], timeout: 10)
@@ -360,12 +361,27 @@ final class TextEditingUITests: UITestCase {
     XCTAssertLessThan(field.frame.minY, opened.minY - 60, "The page was pulled back to the line: \(field.frame)")
     attach(app, named: "Scrolled with the line open")
     // Back down, so the pinch below keeps the line on screen: a pinch zooms about the fingers, and
-    // a line far from them leaves the screen, as it would in Notes.
-    from.press(forDuration: 0.05, thenDragTo: from.withOffset(CGVector(dx: 0, dy: 180)))
+    // a line far from them leaves the screen, as it would in Notes. By as far as the page went up,
+    // and more: the drag up lifts at speed, so the page flings on by a varying amount, and the same
+    // 180 points back left the field short of its line (at y 191.67) on run 37984144377. This drag
+    // holds before it lifts, so it does not fling, and the margin covers the points a scroll takes
+    // to start.
+    let up = opened.minY - field.frame.minY
+    let down = min(up + 40, app.windows.firstMatch.frame.maxY - 20 - fromY)
+    from.press(
+      forDuration: 0.05, thenDragTo: from.withOffset(CGVector(dx: 0, dy: down)), withVelocity: .slow,
+      thenHoldForDuration: 0.5)
     let back = NSPredicate { _, _ in field.frame.minY > opened.minY - 30 }
+    let returned = XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: back, object: nil)], timeout: 10)
+    if returned != .completed {
+      keepEvidence(
+        app, named: "not back down",
+        notes: "field \(opened), up \(up) -> \(field.frame); dragged down \(down) from y \(fromY)")
+    }
     XCTAssertEqual(
-      XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: back, object: nil)], timeout: 10), .completed,
-      "The page did not scroll back down with the line open: the field is at \(field.frame)")
+      returned, .completed,
+      "The page did not scroll back down with the line open: it went up \(up), was dragged down \(down), "
+        + "and the field is at \(field.frame), opened at \(opened)")
 
     // The keyboard can be put away to look over the page, and the line stays open.
     let keyboardButton = app.buttons["reader.textEdit.keyboard"]
