@@ -154,7 +154,7 @@ on the `ios` runs of early October 2026). Since PAP-062 they run as a graph of j
 | `ios-build` | Project, Info.plist, lockfile and format checks; one build for testing (Debug, simulator, signed ad hoc); the products packed as the `ios-products` artifact | `changes` |
 | `ios-device` | The Staging build for a device and the Release build with its internal-tools check | `changes` |
 | `ios-tests (unit, ui-1, ui-2)` | The test plan in three shards ([test shards](../testing-strategy.md#test-shards-in-ci)), each on its own runner and simulator, against the products of `ios-build`; keeps `ios-shard-<shard>` (result bundle, results, coverage, reports, failed tests' attachments; the unit shard also lists the plan's tests, `-enumerate-tests`, as the inventory) | `ios-build` |
-| `ios-report` | The union of the lines each shard covered ([`coverage_union.py`](../../scripts/ci/coverage_union.py)); checks the union kept every shard's coverage ([`coverage_compare.py`](../../scripts/ci/coverage_compare.py)); the coverage gate; every failed and flaky test across the shards, against the flake budget ([`xcresult_report.py`](../../scripts/ci/xcresult_report.py)); that the shards ran every test of the plan once ([`shard_inventory.py`](../../scripts/ci/shard_inventory.py)) | `ios-tests` |
+| `ios-report` | The union of the lines each shard covered, each distinct line counted once ([`coverage_union.py`](../../scripts/ci/coverage_union.py)); checks the union kept every shard's coverage ([`coverage_compare.py`](../../scripts/ci/coverage_compare.py)); the coverage gate; every failed and flaky test across the shards, against the flake budget ([`xcresult_report.py`](../../scripts/ci/xcresult_report.py)); that the shards ran every test of the plan once ([`shard_inventory.py`](../../scripts/ci/shard_inventory.py)) | `ios-tests` |
 | `ios` | The required check: passes only when every job above passed, or none had to run ([`ios_gate.py`](../../scripts/ci/ios_gate.py)) | All of the above |
 
 - **Retries, UI shards only.** A failed UI test runs once more on a relaunched app
@@ -177,7 +177,8 @@ on the `ios` runs of early October 2026). Since PAP-062 they run as a graph of j
   rebalanced (`scripts/ci/test_shards.json`) if one shard is regularly the slowest by far.
 - **Rollback.** For one week after the split merges, a manual run with `serial_baseline` also runs the
   old serial pipeline as `ios-serial`. It is run once to show that the merged coverage matches the
-  serial run's: the `ios-baseline` job compares `ios-coverage` with `ios-serial-coverage`
+  serial run's: the `ios-baseline` job compares `ios-coverage` with `ios-serial-coverage`, both
+  counted in distinct lines
   ([`coverage_compare.py --baseline`](../../scripts/ci/coverage_compare.py)), lists every file the
   merge covers less of, and fails when the merge is more than half a point below the serial run.
   It is also the rollback if the graph misbehaves: restore the old `ios` job from it. It is removed

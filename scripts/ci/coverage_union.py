@@ -15,9 +15,15 @@ The output has the shape of `xccov view --report --json` that coverage_gate.py a
 coverage_compare.py read: one target whose files carry `path`, `coveredLines`, `executableLines` and
 `lineCoverage`.
 
+The counts are distinct lines, which is what ADR-0014's "line coverage" means. They are lower than
+xccov's report counts: the report adds up each function's lines, so a line inside a closure counts
+once for the closure and again for every function around it. On run 37920045109,
+AssistantView.swift (394 lines long) had 359 executable lines in the archive and 958 in the report.
+
 --reports checks the union against xccov's own per-shard reports: every first-party file a shard's
-report counts must be in the union with the same number of executable lines. A difference means the
-archive was read wrongly, and the gate would judge a wrong total, so it fails rather than warns.
+report counts must be in the union with at least one executable line, and with no more executable
+lines than the report counts (each distinct line is in at least one function). Anything else means
+the archive was read wrongly, and the gate would judge a wrong total, so it fails rather than warns.
 """
 from __future__ import annotations
 
@@ -98,12 +104,31 @@ def check(files: dict[str, tuple[set[int], set[int]]], report_paths: list[str]) 
             problems.append(f"{report_path}: cannot read it ({error})")
             continue
         for path, (_, executable) in shard.items():
-            if path not in files:
-                problems.append(f"{path}: in {report_path} but not in any shard's archive")
-            elif len(files[path][0]) != executable:
-                problems.append(f"{path}: {len(files[path][0])} executable lines in the archives, "
-                                f"{executable} in {report_path}")
+            if not executable:
+                continue
+            distinct = len(files[path][0]) if path in files else 0
+            if not distinct:
+                problems.append(f"{path}: {executable} executable lines in {report_path}, none in any "
+                                "shard's archive")
+            elif distinct > executable:
+                problems.append(f"{path}: {distinct} distinct executable lines in the archives, more than "
+                                f"the {executable} {report_path} counts")
     return problems
+
+
+def report_totals(report_paths: list[str]) -> tuple[int, int]:
+    """(covered, executable) over first-party files, best per file across the shards' xccov reports."""
+    best: dict[str, tuple[int, int]] = {}
+    for report_path in report_paths:
+        try:
+            with open(report_path, encoding="utf-8") as f:
+                shard = coverage_gate.collect(json.load(f))
+        except (OSError, json.JSONDecodeError):
+            continue
+        for path, counts in shard.items():
+            if path not in best or counts[0] > best[path][0]:
+                best[path] = counts
+    return sum(c for c, _ in best.values()), sum(e for _, e in best.values())
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -132,9 +157,16 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     with open(args.out, "w", encoding="utf-8") as f:
         json.dump(report(files), f)
-    covered = sum(len(c & e) for e, c in files.values())
-    executable = sum(len(e) for e, _ in files.values())
-    print(f"union of {len(archives)} shard(s): {covered}/{executable} lines covered in {len(files)} files")
+    gated = {p: v for p, v in files.items() if coverage_gate.module_of(p) is not None}
+    covered = sum(len(c & e) for e, c in gated.values())
+    executable = sum(len(e) for e, _ in gated.values())
+    print(f"union of {len(archives)} shard(s): {covered}/{executable} distinct first-party lines covered "
+          f"({100.0 * covered / executable if executable else 0.0:.1f}%) in {len(gated)} files")
+    if args.reports:
+        rc, re_ = report_totals(args.reports)
+        if re_:
+            print(f"for reference, xccov's reports count lines once per function: best shard per file "
+                  f"{rc}/{re_} ({100.0 * rc / re_:.1f}%), a lower bound on that count's union")
     return 0
 
 

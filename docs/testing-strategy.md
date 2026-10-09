@@ -443,6 +443,13 @@ fake passes it too, so feature tests rely on a fake that behaves like the real e
   [coverage_gate.py](../scripts/ci/coverage_gate.py) with `--min 80`
   ([ci.yml](../.github/workflows/ci.yml)). The result bundles are not merged: `xcresulttool merge`
   kept fewer covered lines than a single shard in 19 files on run 37914825017.
+- **What a line is:** a distinct executable line of a file, as the per-line archive has it. Before the
+  split the gate read `xccov view --report`, which counts a line once for every function around it,
+  so a closure's lines count again for each enclosing function: on run 37920045109
+  `AssistantView.swift`, 394 lines long, had 359 executable lines in the archive and 958 in the
+  report. The union cannot be taken on the report's counts, so the gate now judges distinct lines.
+  `ios-report` prints both percentages on every run, and the `ios-serial` baseline counts its own
+  run the same way, so the two pipelines are compared on one measure.
 - **Exclusions**, as the script applies them: test bundles (targets ending in `.xctest` or
   `Tests`); files ending in `Previews.swift`; paths containing `/Generated/`, `/Tests/`, `/.build/`
   or `/DerivedData/`. Previews therefore go in `<View>+Previews.swift`

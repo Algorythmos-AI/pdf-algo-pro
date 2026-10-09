@@ -42,22 +42,27 @@ def test_a_line_any_shard_ran_counts_as_covered(tmp_path, capsys):
     files = coverage_gate.collect(json.loads(out.read_text()))
     assert files[SCAN] == (2, 3), "lines 1 and 2 covered, of 3 executable lines; line 3 is not code"
     assert files[CORE] == (2, 2)
-    assert "union of 2 shard(s): 4/5 lines covered" in capsys.readouterr().out
+    assert "union of 2 shard(s): 4/5 distinct first-party lines covered (80.0%)" in capsys.readouterr().out
 
 
-def test_the_union_must_agree_with_each_shards_own_report(tmp_path, capsys):
+def test_the_union_must_fit_each_shards_own_report(tmp_path, capsys):
     unit = archive(tmp_path / "unit.json", {SCAN: {1: 1, 2: 0, 3: 0}})
+    # xccov's report counts a line once per function around it, so it may count more lines than the
+    # archive has (run 37920045109: AssistantView.swift, 359 in the archive, 958 in the report).
     agreeing = xccov_report(tmp_path / "ios-shard-unit" / "coverage.json", {SCAN: (1, 3)})
+    nested = xccov_report(tmp_path / "ios-shard-ui-1" / "coverage.json", {SCAN: (2, 8)})
     out = tmp_path / "coverage.json"
-    assert coverage_union.main([unit, "--out", str(out), "--reports", agreeing]) == 0
-    # A report counting a different number of executable lines, or a file the archives lack: the
-    # archive was read wrongly, and the gate would judge a wrong total.
-    differing = xccov_report(tmp_path / "ios-shard-ui-1" / "coverage.json", {SCAN: (1, 4), CORE: (1, 1)})
+    assert coverage_union.main([unit, "--out", str(out), "--reports", agreeing, nested]) == 0
+    assert "xccov's reports count lines once per function: best shard per file 2/8 (25.0%)" in \
+        capsys.readouterr().out
+    # Never fewer: a report counting fewer lines than the archive, or a file the archives lack, means
+    # the archive was read wrongly, and the gate would judge a wrong total.
+    differing = xccov_report(tmp_path / "ios-shard-ui-2" / "coverage.json", {SCAN: (1, 2), CORE: (1, 1)})
     out.unlink()
     assert coverage_union.main([unit, "--out", str(out), "--reports", differing]) == 1
     printed = capsys.readouterr().out
-    assert f"{SCAN}: 3 executable lines in the archives, 4 in" in printed
-    assert f"{CORE}: in" in printed and "not in any shard's archive" in printed
+    assert f"{SCAN}: 3 distinct executable lines in the archives, more than the 2" in printed
+    assert f"{CORE}: 1 executable lines in" in printed and "none in any shard's archive" in printed
     assert not out.exists(), "Nothing is written for the gate to judge"
 
 

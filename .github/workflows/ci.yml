@@ -542,7 +542,8 @@ jobs:
       - name: The shards' coverage, line by line
         # The union of the lines each shard ran, from each bundle's per-line archive. xcresulttool merge
         # kept fewer covered lines than a single shard in 19 files on run 37914825017
-        # (coverage_union.py), so the bundles are not merged.
+        # (coverage_union.py), so the bundles are not merged. Lines are counted once each, as the
+        # archive has them; xccov's reports count a line once per function around it.
         run: |
           mkdir -p lines coverage
           found=0
@@ -559,13 +560,17 @@ jobs:
           python3 scripts/ci/coverage_union.py lines/*.json --out coverage.json \
             --reports shards/ios-shard-*/coverage.json
           cp coverage.json coverage/merged.json
-          for shard in shards/ios-shard-*; do
-            if [ -f "$shard/coverage.json" ]; then cp "$shard/coverage.json" "coverage/${shard##*/ios-shard-}.json"; fi
+          # Each shard on its own, counted the same way, for the comparison below.
+          for archive in lines/*.json; do
+            shard="$(basename "$archive" .json)"
+            mkdir -p "union/ios-shard-$shard"
+            python3 scripts/ci/coverage_union.py "$archive" --out "union/ios-shard-$shard/coverage.json"
+            cp "union/ios-shard-$shard/coverage.json" "coverage/$shard.json"
           done
       - name: The union kept every shard's coverage
         if: ${{ !cancelled() && hashFiles('coverage.json') != '' }}
         run: |
-          python3 scripts/ci/coverage_compare.py coverage.json shards/ios-shard-*/coverage.json \
+          python3 scripts/ci/coverage_compare.py coverage.json union/ios-shard-*/coverage.json \
             --expect "$(python3 scripts/ci/test_shards.py names)" --summary "$GITHUB_STEP_SUMMARY"
       - name: Coverage gate (80% overall and per module)
         # Runs even when a test failed, so one run reports every problem. A test bundle that crashed
@@ -763,12 +768,19 @@ jobs:
           fi
           xcrun xccov view --report --json Tests.xcresult > coverage.json
           python3 scripts/ci/coverage_gate.py coverage.json --min 80
-      - name: Keep the coverage report for the comparison with the shards
+      - name: The serial run's coverage, line by line, as ios-report counts the shards'
         if: ${{ !cancelled() && hashFiles('coverage.json') != '' }}
+        run: |
+          xcrun xccov view --archive --json Tests.xcresult > serial-lines.json
+          mkdir -p serial-coverage
+          python3 scripts/ci/coverage_union.py serial-lines.json --out serial-coverage/coverage.json \
+            --reports coverage.json
+      - name: Keep the coverage report for the comparison with the shards
+        if: ${{ !cancelled() && hashFiles('serial-coverage/coverage.json') != '' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ios-serial-coverage
-          path: coverage.json
+          path: serial-coverage/coverage.json
           retention-days: 30
       - name: Keep the suite reports
         # Golden corpus, OCR, AI evaluation and performance reports, written under reports/ by the tests.
