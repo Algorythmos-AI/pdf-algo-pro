@@ -236,7 +236,7 @@ final class PDFReaderHostView: PDFView {
     /// A touch inside the field over the picked line goes to the field, so it places the caret and
     /// selects as in any text view; anywhere else, to the page as usual.
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
-      if let field = controller?.fieldOverPage, field.window === window, !field.isHidden,
+      if let field = controller?.fieldOverPage, Self.root(of: field) === Self.root(of: self), !field.isHidden,
         field.isUserInteractionEnabled
       {
         let inField = convert(point, to: field)
@@ -245,6 +245,11 @@ final class PDFReaderHostView: PDFView {
         }
       }
       return super.hitTest(point, with: event)
+    }
+
+    /// The view at the top of a view's hierarchy: its window, once it is on screen.
+    private static func root(of view: UIView) -> UIView {
+      sequence(first: view, next: \.superview).reduce(view) { $1 }
     }
 
     override func layoutSubviews() {

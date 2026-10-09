@@ -988,14 +988,14 @@ struct TextEditingDependabilityTests {
     func touchesInsideTheFieldReachIt() throws {
       let (controller, _) = try open(TextEditFixtures.invoice())
       // As in the reader: the field is laid over the page view from outside it, not inside it.
-      let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 800))
-      let host = PDFReaderHostView(frame: window.bounds)
+      let screen = UIView(frame: CGRect(x: 0, y: 0, width: 390, height: 800))
+      let host = PDFReaderHostView(frame: screen.bounds)
       host.configure(for: controller)
-      let layer = UIView(frame: window.bounds)
+      let layer = UIView(frame: screen.bounds)
       let field = UITextView(frame: CGRect(x: 39, y: 224, width: 321, height: 21))
       layer.addSubview(field)
-      window.addSubview(host)
-      window.addSubview(layer)
+      screen.addSubview(host)
+      screen.addSubview(layer)
       controller.fieldOverPage = field
 
       let inside = try #require(host.hitTest(CGPoint(x: 42, y: 229), with: nil))
@@ -1003,7 +1003,7 @@ struct TextEditingDependabilityTests {
       let outside = host.hitTest(CGPoint(x: 200, y: 600), with: nil)
       #expect(outside.map { !$0.isDescendant(of: field) } ?? true)
 
-      // A field that has left the window, or is hidden, takes nothing.
+      // A field that is hidden, or has left the page's hierarchy, takes nothing.
       field.isHidden = true
       #expect(host.hitTest(CGPoint(x: 42, y: 229), with: nil).map { !$0.isDescendant(of: field) } ?? true)
       field.isHidden = false
