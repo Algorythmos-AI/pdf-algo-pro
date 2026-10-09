@@ -13,6 +13,17 @@ the tests ran. It also fails when a shard's report is missing, unreadable or hol
 line, since that shard's coverage would silently drop out of the merge.
 
 A shard's name is its folder's, without the `ios-shard-` prefix.
+
+With --baseline, it instead compares the merged report with the serial pipeline's (`ios-serial`,
+run on request with `serial_baseline`), so the split is shown to judge the same lines as the single
+job it replaced:
+
+    python3 scripts/ci/coverage_compare.py coverage/merged.json --baseline serial/coverage.json
+
+It lists every file the merge covers fewer lines of than the serial run, and fails when the merge's
+first-party line coverage is more than BASELINE_TOLERANCE points below the serial run's. Not exact
+equality per file: UI tests take timing-dependent paths, so two serial runs of one commit can differ
+by a few lines.
 """
 from __future__ import annotations
 
@@ -26,6 +37,9 @@ import coverage_gate  # noqa: E402
 
 PREFIX = "ios-shard-"
 SHOWN = 20
+# `Assumption:` two serial runs of one commit differ by less than half a point of first-party line
+# coverage; checked by the first serial_baseline run, whose summary prints both percentages.
+BASELINE_TOLERANCE = 0.5
 
 
 def shard_name(path: str) -> str:
@@ -90,14 +104,54 @@ def compare(merged_path: str, shard_paths: list[str], expect: list[str]) -> tupl
     return errors, "\n".join(rows) + "\n\n"
 
 
+def totals(files: dict[str, tuple[int, int]]) -> tuple[int, int]:
+    return sum(c for c, _ in files.values()), sum(e for _, e in files.values())
+
+
+def compare_baseline(merged_path: str, baseline_path: str) -> tuple[list[str], str]:
+    """(errors, markdown summary) for the merged report against the serial run's."""
+    errors: list[str] = []
+    merged_report, baseline_report = read(merged_path), read(baseline_path)
+    if baseline_report is None:
+        errors.append(f"the serial run's coverage report {baseline_path} is missing, unreadable or empty; "
+                      "see the ios-serial job")
+    if merged_report is None:
+        errors.append(f"the merged coverage report {merged_path} is missing, unreadable or empty; see ios-report")
+    if errors:
+        return errors, ""
+    merged, baseline = coverage_gate.collect(merged_report), coverage_gate.collect(baseline_report)
+    (mc, me), (bc, be) = totals(merged), totals(baseline)
+    merged_pct, baseline_pct = 100.0 * mc / me if me else 0.0, 100.0 * bc / be if be else 0.0
+    behind = sorted(((covered - merged.get(path, (0, 0))[0], path) for path, (covered, _) in baseline.items()
+                     if merged.get(path, (0, 0))[0] < covered), reverse=True)
+    rows = ["### Coverage: shards merged against the serial run", "",
+            "| Report | First-party line coverage |", "| --- | --- |",
+            f"| serial (ios-serial) | {percent(baseline)} |", f"| shards merged | {percent(merged)} |", ""]
+    if behind:
+        rows += [f"{len(behind)} file(s) have fewer covered lines in the merge than in the serial run:", "",
+                 "| File | Lines fewer |", "| --- | ---: |"]
+        rows += [f"| `{path}` | {fewer} |" for fewer, path in behind[:SHOWN]]
+        rows.append("")
+    if merged_pct < baseline_pct - BASELINE_TOLERANCE:
+        shown = "; ".join(f"{path} ({fewer} fewer)" for fewer, path in behind[:5])
+        errors.append(f"the shards together cover {merged_pct:.1f}% against the serial run's {baseline_pct:.1f}%, "
+                      f"more than {BASELINE_TOLERANCE} points less, so the split drops coverage the single job "
+                      f"had: {shown or 'no single file behind; files are missing from the merge'}")
+    return errors, "\n".join(rows) + "\n"
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("merged")
     ap.add_argument("shards", nargs="*")
     ap.add_argument("--expect", default="", help="comma-separated shard names that must all have coverage")
     ap.add_argument("--summary")
+    ap.add_argument("--baseline", help="the serial run's coverage report, to compare the merged one with")
     args = ap.parse_args(argv)
-    errors, summary = compare(args.merged, args.shards, [n for n in args.expect.split(",") if n])
+    if args.baseline:
+        errors, summary = compare_baseline(args.merged, args.baseline)
+    else:
+        errors, summary = compare(args.merged, args.shards, [n for n in args.expect.split(",") if n])
     print(summary)
     if args.summary and summary:
         with open(args.summary, "a", encoding="utf-8") as f:
@@ -105,7 +159,8 @@ def main(argv: list[str] | None = None) -> int:
     for error in errors:
         print(f"::error::{error}")
     if not errors:
-        print("merged coverage keeps every shard's coverage")
+        print("merged coverage matches the serial run's" if args.baseline
+              else "merged coverage keeps every shard's coverage")
     return 1 if errors else 0
 
 

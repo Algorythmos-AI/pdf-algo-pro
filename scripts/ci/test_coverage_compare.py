@@ -74,3 +74,34 @@ def test_an_empty_merged_report_fails(tmp_path):
     merged.write_text("{}")
     errors, summary = coverage_compare.compare(str(merged), shards(tmp_path), EXPECT)
     assert any("merged coverage report" in e for e in errors) and summary == ""
+
+
+def test_the_merge_matching_the_serial_run_passes_and_says_so(tmp_path, capsys):
+    serial = report(tmp_path / "serial" / "coverage.json", {CORE: (95, 100), READER: (45, 50)})
+    merged = report(tmp_path / "merged.json", {CORE: (95, 100), READER: (45, 50), TEST: (5, 5)})
+    summary = tmp_path / "summary.md"
+    assert coverage_compare.main([merged, "--baseline", serial, "--summary", str(summary)]) == 0
+    assert "matches the serial run's" in capsys.readouterr().out
+    assert "| serial (ios-serial) | 93.3% (140/150) |" in summary.read_text()
+
+
+def test_a_few_lines_of_run_to_run_noise_are_listed_but_pass(tmp_path, capsys):
+    serial = report(tmp_path / "serial" / "coverage.json", {CORE: (900, 1000), READER: (450, 500)})
+    merged = report(tmp_path / "merged.json", {CORE: (898, 1000), READER: (450, 500)})
+    summary = tmp_path / "summary.md"
+    assert coverage_compare.main([merged, "--baseline", serial, "--summary", str(summary)]) == 0
+    assert f"| `{CORE}` | 2 |" in summary.read_text()
+
+
+def test_the_merge_falling_behind_the_serial_run_fails_naming_the_files(tmp_path, capsys):
+    serial = report(tmp_path / "serial" / "coverage.json", {CORE: (95, 100), READER: (45, 50)})
+    merged = report(tmp_path / "merged.json", {CORE: (95, 100), READER: (10, 50)})
+    assert coverage_compare.main([merged, "--baseline", serial]) == 1
+    out = capsys.readouterr().out
+    assert "70.0% against the serial run's 93.3%" in out and f"{READER} (35 fewer)" in out
+
+
+def test_a_missing_serial_report_fails(tmp_path, capsys):
+    merged = report(tmp_path / "merged.json", {CORE: (95, 100)})
+    assert coverage_compare.main([merged, "--baseline", str(tmp_path / "absent.json")]) == 1
+    assert "the serial run's coverage report" in capsys.readouterr().out

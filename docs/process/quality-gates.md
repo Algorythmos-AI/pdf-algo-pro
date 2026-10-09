@@ -177,8 +177,11 @@ on the `ios` runs of early October 2026). Since PAP-062 they run as a graph of j
   rebalanced (`scripts/ci/test_shards.json`) if one shard is regularly the slowest by far.
 - **Rollback.** For one week after the split merges, a manual run with `serial_baseline` also runs the
   old serial pipeline as `ios-serial`. It is run once to show that the merged coverage matches the
-  serial run's (`ios-serial-coverage` against `ios-coverage`), and it is the rollback if the graph
-  misbehaves: restore the old `ios` job from it. It is removed after that week.
+  serial run's: the `ios-baseline` job compares `ios-coverage` with `ios-serial-coverage`
+  ([`coverage_compare.py --baseline`](../../scripts/ci/coverage_compare.py)), lists every file the
+  merge covers less of, and fails when the merge is more than half a point below the serial run.
+  It is also the rollback if the graph misbehaves: restore the old `ios` job from it. It is removed
+  after that week.
 
 ## Warnings never fail the build
 

@@ -804,6 +804,30 @@ jobs:
           path: Tests.xcresult
           retention-days: 7
 
+  ios-baseline:
+    name: ios-baseline
+    # On a manual run with serial_baseline: the shards' merged coverage against the serial run's, so
+    # the split is shown to judge the same lines as the single job it replaced (PAP-062). Fails when
+    # the merge falls behind; not needed by ios, which a manual run never reports for a pull request.
+    needs: [ios-report, ios-serial]
+    if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' && inputs.serial_baseline }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ios-coverage
+          path: coverage
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ios-serial-coverage
+          path: serial
+      - name: The shards' merged coverage matches the serial run's
+        run: |
+          python3 scripts/ci/coverage_compare.py coverage/merged.json --baseline serial/coverage.json \
+            --summary "$GITHUB_STEP_SUMMARY"
+
   publish-snapshots:
     name: publish-snapshots
     # A manual recording run also puts the recorded references on a branch of their own,
