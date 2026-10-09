@@ -22,6 +22,10 @@ class UITestCase: XCTestCase {
 
   func launch(_ arguments: [String]) -> XCUIApplication {
     continueAfterFailure = false
+    // Every journey starts upright, whatever the one before it left. A test that stops on a failure
+    // does not run its own clean-up: on CI (2026-10-09) the test after one that failed in landscape
+    // ran in landscape, and audited its screen there.
+    XCUIDevice.shared.orientation = .portrait
     let app = XCUIApplication()
     app.launchArguments = ["-ui-testing", "-disable-animations"] + arguments
     app.launch()

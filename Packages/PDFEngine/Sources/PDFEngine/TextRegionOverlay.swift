@@ -254,7 +254,7 @@
       let column = CGRect(x: line.minX, y: line.minY, width: columnRight - line.minX, height: line.height)
       let anchor = TextEditAnchor(
         selection: selection, lineFrame: convert(line, from: page), columnFrame: convert(column, from: page),
-        scale: scaleFactor)
+        scale: scaleFactor, viewSize: bounds.size)
       if controller.textEditAnchor != anchor { controller.textEditAnchor = anchor }
     }
 

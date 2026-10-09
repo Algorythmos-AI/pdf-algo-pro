@@ -63,12 +63,21 @@ public struct TextEditAnchor: Equatable, Sendable {
   public var columnFrame: CGRect
   /// View points per page point.
   public var scale: CGFloat
+  /// How big the page view was when the line was measured.
+  ///
+  /// When the screen turns, the layer over the page can take its new size before the line is
+  /// measured again, on the next frame, and room made then is made for where the line used to be.
+  /// The new size here says the line has been measured since.
+  public var viewSize: CGSize
 
   /// Creates an anchor.
-  public init(selection: TextRegionSelection, lineFrame: CGRect, columnFrame: CGRect, scale: CGFloat) {
+  public init(
+    selection: TextRegionSelection, lineFrame: CGRect, columnFrame: CGRect, scale: CGFloat, viewSize: CGSize = .zero
+  ) {
     self.selection = selection
     self.lineFrame = lineFrame
     self.columnFrame = columnFrame
     self.scale = scale
+    self.viewSize = viewSize
   }
 }

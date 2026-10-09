@@ -226,6 +226,7 @@ struct TextEditLayer: View {
       ZStack(alignment: .topLeading) {
         if draft.isInPlace == true, let anchor = model.controller?.textEditAnchor, anchor.selection == selection {
           let visible = Self.visibleArea(in: geometry, below: draft.barFrame)
+          let room = RoomKey(height: fieldFrame?.height ?? 0, bottom: visible.maxY, measuredFor: anchor.viewSize)
           TextEditPlacementLayout(line: anchor.lineFrame, column: anchor.columnFrame) {
             field(scale: anchor.scale)
               .onGeometryChange(for: CGRect.self) {
@@ -236,9 +237,14 @@ struct TextEditLayer: View {
           }
           // Room for the field is made when it opens, when it grows a line, and when the keyboard
           // or the screen changes; never while the person scrolls the page.
-          .onChange(of: RoomKey(height: fieldFrame?.height ?? 0, bottom: visible.maxY), initial: true) {
+          .onChange(of: room, initial: true) {
             guard let fieldFrame else { return }
-            let distance = TextEditPlacement.scrollDistance(for: fieldFrame, in: visible, margin: Spacing.s100)
+            // The field is where its line is now: its own frame is laid out a pass later, and, just
+            // after the screen turns, still where the line was before the page was laid out again.
+            // Measuring the old frame is the likely reason the field turned to landscape on CI
+            // (2026-10-09) was left under the bar.
+            let editor = CGRect(origin: CGPoint(x: fieldFrame.minX, y: anchor.lineFrame.minY), size: fieldFrame.size)
+            let distance = TextEditPlacement.scrollDistance(for: editor, in: visible, margin: Spacing.s100)
             if abs(distance) > Self.scrollTolerance { model.controller?.scrollPickedText(by: distance) }
           }
           #if DEBUG
@@ -255,11 +261,12 @@ struct TextEditLayer: View {
   /// Distances smaller than this are rounding, not a field out of view.
   private static let scrollTolerance: CGFloat = 0.5
 
-  /// What, when it changes, may leave the field without room: its height and the bottom of what
-  /// can be seen.
+  /// What, when it changes, may leave the field without room: its height, the bottom of what can
+  /// be seen, and the size of the page view its line was last measured for.
   private struct RoomKey: Equatable {
     var height: CGFloat
     var bottom: CGFloat
+    var measuredFor: CGSize
   }
 
   /// The field, and its cover over the old words.
