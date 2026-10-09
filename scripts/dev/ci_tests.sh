@@ -55,20 +55,8 @@ echo "== $SIMULATOR_NAME ($SIMULATOR_RUNTIME): $device"
 xcodebuild build-for-testing -scheme PDFAlgoPro -testPlan PDFAlgoPro -destination "id=$device" \
   -derivedDataPath "$out/DD" CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=
 
-xctestrun=""
-count=0
-for candidate in "$out"/DD/Build/Products/*.xctestrun; do
-  [ -e "$candidate" ] || continue
-  xctestrun="$candidate"
-  count=$((count + 1))
-done
-if [ "$count" -ne 1 ]; then
-  echo "expected one .xctestrun in $out/DD/Build/Products, found $count" >&2
-  exit 1
-fi
-
 rm -rf "$out/$shard.xcresult"
 echo "== $shard: ${args[*]}"
 TEST_RUNNER_SNAPSHOT_TESTING_RECORD=never TEST_RUNNER_REPORTS_DIR="$out/reports" \
-  xcodebuild test-without-building -xctestrun "$xctestrun" -destination "id=$device" \
-  -enableCodeCoverage YES -resultBundlePath "$out/$shard.xcresult" "${args[@]}"
+  xcodebuild test-without-building -scheme PDFAlgoPro -testPlan PDFAlgoPro -derivedDataPath "$out/DD" \
+  -destination "id=$device" -enableCodeCoverage YES -resultBundlePath "$out/$shard.xcresult" "${args[@]}"

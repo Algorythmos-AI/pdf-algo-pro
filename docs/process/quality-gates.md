@@ -151,9 +151,9 @@ on the `ios` runs of early October 2026). Since PAP-062 they run as a graph of j
 
 | Job | Runs | Needs |
 |---|---|---|
-| `ios-build` | Project, Info.plist, lockfile and format checks; one build for testing (Debug, simulator, signed ad hoc); the plan's test inventory (`-enumerate-tests`); the products packed as the `ios-products` artifact | `changes` |
+| `ios-build` | Project, Info.plist, lockfile and format checks; one build for testing (Debug, simulator, signed ad hoc); the products packed as the `ios-products` artifact | `changes` |
 | `ios-device` | The Staging build for a device and the Release build with its internal-tools check | `changes` |
-| `ios-tests (unit, ui-1, ui-2)` | The test plan in three shards ([test shards](../testing-strategy.md#test-shards-in-ci)), each on its own runner and simulator, against the products of `ios-build`; keeps `ios-shard-<shard>` (result bundle, results, coverage, reports, failed tests' attachments) | `ios-build` |
+| `ios-tests (unit, ui-1, ui-2)` | The test plan in three shards ([test shards](../testing-strategy.md#test-shards-in-ci)), each on its own runner and simulator, against the products of `ios-build`; keeps `ios-shard-<shard>` (result bundle, results, coverage, reports, failed tests' attachments; the unit shard also lists the plan's tests, `-enumerate-tests`, as the inventory) | `ios-build` |
 | `ios-report` | Merges the shards' result bundles; checks the merge kept every shard's coverage ([`coverage_compare.py`](../../scripts/ci/coverage_compare.py)); the coverage gate; every failed and flaky test across the shards, against the flake budget ([`xcresult_report.py`](../../scripts/ci/xcresult_report.py)); that the shards ran every test of the plan once ([`shard_inventory.py`](../../scripts/ci/shard_inventory.py)) | `ios-tests` |
 | `ios` | The required check: passes only when every job above passed, or none had to run ([`ios_gate.py`](../../scripts/ci/ios_gate.py)) | All of the above |
 
@@ -166,7 +166,7 @@ on the `ios` runs of early October 2026). Since PAP-062 they run as a graph of j
   retries may then be hiding a real problem. `Assumption:` three is enough headroom for the UI suite's
   known flakes without hiding a new one; validated by counting flaky tests per run over the first
   month and revisited at the next milestone review.
-- **Inventory.** If listing the plan's tests fails in `ios-build`, the inventory is empty and the check
+- **Inventory.** If listing the plan's tests fails in the unit shard, the inventory is empty and the check
   that the shards ran every test only warns; the other checks still apply.
 - **Focused runs.** A manual run of `ci.yml` with `only_testing` (`Target`, `Target/Class` or
   `Target/Class/method`, comma-separated, checked against a strict pattern) runs only those tests in one

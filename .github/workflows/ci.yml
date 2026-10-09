@@ -236,23 +236,10 @@ jobs:
           # One build for every shard and for a focused run, in a known folder so it can be packed.
           xcodebuild build-for-testing -scheme "$SCHEME" -testPlan "$TEST_PLAN" \
             -destination "id=$device" -derivedDataPath DD CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=
-      - name: List the plan's tests (the inventory the shards are checked against)
-        # ios-report checks that the shards together ran exactly these tests. If listing fails or
-        # hangs, the inventory is empty and that check only warns: it must not block on its own.
-        timeout-minutes: 10
-        continue-on-error: true
-        run: |
-          xctestrun="$(find DD/Build/Products -maxdepth 1 -name '*.xctestrun' | head -1)"
-          xcodebuild test-without-building -xctestrun "$xctestrun" -destination "id=$SIM" \
-            -enumerate-tests -test-enumeration-format json -test-enumeration-output-path inventory.json
       - name: Pack the test products
         # Artifacts lose file modes, so the products travel as one tar. Debug symbols stay behind:
         # neither coverage nor the tests need them, and they are most of the size.
         run: |
-          if [ ! -s inventory.json ]; then
-            echo "::warning::No test inventory; ios-report will not check that the shards ran every test"
-            echo '{}' > inventory.json
-          fi
           count="$(find DD/Build/Products -maxdepth 1 -name '*.xctestrun' | wc -l | tr -d ' ')"
           if [ "$count" != 1 ]; then
             echo "::error::Expected one .xctestrun in DD/Build/Products, found $count"
@@ -273,15 +260,6 @@ jobs:
           retention-days: 3
           # Already compressed (or not worth compressing): zipping it again only costs time.
           compression-level: 0
-          overwrite: true
-      - name: Keep the test inventory
-        # Small and separate, so ios-report does not download the products to read it.
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: ios-inventory
-          path: inventory.json
-          if-no-files-found: error
-          retention-days: 7
           overwrite: true
 
   ios-device:
@@ -357,6 +335,8 @@ jobs:
       matrix: ${{ fromJSON(needs.ios-build.outputs.matrix) }}
     env:
       SHARD: ${{ matrix.shard }}
+      SCHEME: PDFAlgoPro
+      TEST_PLAN: PDFAlgoPro
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Select the pinned Xcode (fail if missing)
@@ -379,6 +359,18 @@ jobs:
           echo "SIM=$device" >> "$GITHUB_ENV"
           # In the background: booting takes as long as the download, so they overlap.
           nohup xcrun simctl bootstatus "$device" -b > "$RUNNER_TEMP/boot.log" 2>&1 &
+      - name: Install pinned XcodeGen (checksum verified)
+        run: |
+          curl -sSL -o xcodegen.zip "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
+          echo "${XCODEGEN_SHA256}  xcodegen.zip" | shasum -a 256 -c -
+          unzip -q xcodegen.zip -d "$RUNNER_TEMP/xcodegen"
+          echo "$RUNNER_TEMP/xcodegen/xcodegen/bin" >> "$GITHUB_PATH"
+      - name: Generate project and test plan
+        # The tests run through the scheme and test plan, as the serial job's did: run from the
+        # .xctestrun file alone, xcodebuild found no simulator for the products (run 37898761088).
+        run: |
+          xcodegen generate
+          python3 scripts/ci/write_testplan.py
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: ios-products
@@ -396,7 +388,6 @@ jobs:
             echo "::error::Expected one .xctestrun in the products, found $count"
             exit 1
           fi
-          echo "XCTESTRUN=$(find DD/Build/Products -maxdepth 1 -name '*.xctestrun')" >> "$GITHUB_ENV"
       - name: Tests (${{ matrix.shard }})
         id: tests
         # Never fails by itself: a UI test that failed and then passed on retry still makes xcodebuild
@@ -413,12 +404,19 @@ jobs:
           xcrun simctl bootstatus "$SIM" -b > /dev/null
           set +e
           # Suites write their reports (OCR accuracy, AI evaluation, performance) to reports/, kept below.
+          # -derivedDataPath DD finds the products ios-build built; nothing is built here.
           TEST_RUNNER_REPORTS_DIR="$GITHUB_WORKSPACE/reports" xcodebuild test-without-building \
-            -xctestrun "$XCTESTRUN" -destination "id=$SIM" -enableCodeCoverage YES \
-            -resultBundlePath "$SHARD.xcresult" "${args[@]}"
-          code=$?
+            -scheme "$SCHEME" -testPlan "$TEST_PLAN" -derivedDataPath DD -destination "id=$SIM" \
+            -enableCodeCoverage YES -resultBundlePath "$SHARD.xcresult" "${args[@]}" 2>&1 \
+            | tee "$RUNNER_TEMP/xcodebuild.log"
+          code=${PIPESTATUS[0]}
           echo "exit=$code" >> "$GITHUB_OUTPUT"
           echo "xcodebuild exited $code"
+          if [ "$code" != 0 ]; then
+            # xcodebuild's own errors (a missing simulator, a crash) say more than "no test results".
+            grep -E '^xcodebuild: error:|error:' "$RUNNER_TEMP/xcodebuild.log" | head -5 \
+              | sed 's/^/::error title=xcodebuild ('"$SHARD"')::/' || true
+          fi
       - name: Name each failed test and why, and export the results
         id: report
         # An annotation per failed test puts its message on the run's summary, with the slowest suites;
@@ -436,6 +434,16 @@ jobs:
           python3 scripts/ci/xcresult_report.py tests.json --failed-ids failed-tests.txt \
             --summary "$GITHUB_STEP_SUMMARY"
           echo "exit=$?" >> "$GITHUB_OUTPUT"
+      - name: List the plan's tests (the inventory the shards are checked against)
+        # In the unit shard, which has the products and a booted simulator and finishes well before the
+        # UI shards, so the listing never delays a shard. If it fails, the inventory check only warns.
+        if: ${{ !cancelled() && matrix.shard == 'unit' }}
+        timeout-minutes: 10
+        continue-on-error: true
+        run: |
+          xcodebuild test-without-building -scheme "$SCHEME" -testPlan "$TEST_PLAN" -derivedDataPath DD \
+            -destination "id=$SIM" -enumerate-tests -test-enumeration-format json \
+            -test-enumeration-output-path inventory.json
       - name: Export the failed tests' screenshots and attachments
         # A failed UI test's screenshots say what was on screen, but the whole result bundle is a large
         # download. This takes out only what belongs to failed tests and lists it on the run's summary.
@@ -464,6 +472,7 @@ jobs:
             ${{ matrix.shard }}.xcresult
             tests.json
             coverage.json
+            inventory.json
             reports/
             failed-attachments/
           if-no-files-found: warn
@@ -495,11 +504,11 @@ jobs:
   ios-report:
     name: ios-report
     needs: [changes, ios-build, ios-tests]
-    # Also when a shard failed, so one run reports every problem; not in a focused run, which covers
-    # too little for the coverage gate or the inventory.
+    # Also when a shard failed, so one run reports every problem; not in a focused or recording run,
+    # which covers too little for the coverage gate or the inventory.
     if: >-
       ${{ !cancelled() && needs.changes.result == 'success' && needs.changes.outputs.ios == 'true'
-      && needs.ios-build.result == 'success' && !inputs.only_testing }}
+      && needs.ios-build.result == 'success' && !inputs.only_testing && !inputs.record_snapshots }}
     runs-on: macos-26
     timeout-minutes: 10
     steps:
@@ -522,10 +531,6 @@ jobs:
           pattern: ios-shard-*
           path: shards
           merge-multiple: false
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: ios-inventory
-          path: inventory
       - name: Merge the shards' result bundles
         run: |
           bundles=()
@@ -572,7 +577,9 @@ jobs:
       - name: The shards ran every test of the plan, each once
         if: ${{ !cancelled() }}
         run: |
-          python3 scripts/ci/shard_inventory.py inventory/inventory.json shards/ios-shard-*/tests.json \
+          inventory=shards/ios-shard-unit/inventory.json
+          [ -s "$inventory" ] || { echo '{}' > "$RUNNER_TEMP/inventory.json"; inventory="$RUNNER_TEMP/inventory.json"; }
+          python3 scripts/ci/shard_inventory.py "$inventory" shards/ios-shard-*/tests.json \
             --expect "$(python3 scripts/ci/test_shards.py names)" --summary "$GITHUB_STEP_SUMMARY"
       - name: Gather the suite reports
         if: ${{ !cancelled() }}
