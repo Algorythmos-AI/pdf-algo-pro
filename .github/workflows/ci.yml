@@ -686,10 +686,12 @@ jobs:
     name: ios-serial
     # The single-job pipeline from before the split (PAP-062), on request only: run once beside the
     # shards to show the merged coverage equals the serial run's (ios-serial-coverage), and kept for
-    # one week as the rollback. Remove it after that week.
+    # one week as the rollback. Remove it after that week. 90 minutes, not the 60 it had as `ios`: its
+    # tests ran 51 minutes and were cut off at 60 on run 37939544303 (and an integration run was cut
+    # off at 60 on 2026-10-09), so it could neither be compared with the shards nor serve as a rollback.
     if: github.event_name == 'workflow_dispatch' && inputs.serial_baseline
     runs-on: macos-26
-    timeout-minutes: 60
+    timeout-minutes: 90
     env:
       SCHEME: PDFAlgoPro
       TEST_PLAN: PDFAlgoPro
