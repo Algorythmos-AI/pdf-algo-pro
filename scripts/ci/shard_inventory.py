@@ -2,7 +2,7 @@
 """Check that the `ios-tests` shards together ran the whole test plan, each test once. Standard library only.
 
     python3 scripts/ci/shard_inventory.py inventory.json shards/ios-shard-*/tests.json \
-        [--expect unit,ui-1,ui-2] [--summary "$GITHUB_STEP_SUMMARY"]
+        [--plan PDFAlgoPro.xctestplan] [--expect unit,ui-1,ui-2,ui-3] [--summary "$GITHUB_STEP_SUMMARY"]
 
 inventory.json is what `ios-build` listed with `xcodebuild test-without-building -enumerate-tests
 -test-enumeration-format json`: every test the plan enables (and those it disables). Each tests.json is
@@ -19,6 +19,10 @@ enumeration is new in the pipeline and must not by itself block a pull request.
 
 Tests are compared by test bundle and identifier, with a trailing "()" ignored, because enumeration
 and the result bundle write a method's identifier differently.
+
+--plan names the test plan, whose `skippedTests` (the performance classes, run by Performance.xctestplan
+instead) are counted as disabled: Xcode 26's listing names every test of a target, skipped or not (run
+37957530086 listed the 10 performance tests as enabled, and no shard ran them, by design).
 """
 from __future__ import annotations
 
@@ -129,8 +133,24 @@ def listed(names: set[str] | list[str]) -> str:
     return ", ".join(names[:SHOWN]) + more
 
 
+def plan_skips(path: str) -> set[str]:
+    """The plan's skipped tests, as Target/Class or Target/Class/method, without "()"."""
+    with open(path, encoding="utf-8") as f:
+        plan = json.load(f)
+    skips: set[str] = set()
+    for entry in plan.get("testTargets", []):
+        target = entry.get("target", {}).get("name", "")
+        for test in entry.get("skippedTests", []):
+            skips.add(normalise(target, test))
+    return skips
+
+
+def skipped_by(test: str, skips: set[str]) -> bool:
+    return any(test == skip or test.startswith(skip + "/") for skip in skips)
+
+
 def check(inventory_path: str, shard_paths: list[str], expect: list[str],
-          warn_only: bool = False) -> tuple[list[str], list[str], str]:
+          warn_only: bool = False, skips: set[str] | None = None) -> tuple[list[str], list[str], str]:
     """(errors, warnings, markdown summary). With warn_only, tests missing from the shards or from the
     inventory are warnings, not errors."""
     errors: list[str] = []
@@ -166,6 +186,9 @@ def check(inventory_path: str, shard_paths: list[str], expect: list[str],
                       + listed({f"{t} ({' and '.join(s)})" for t, s in twice.items()}))
 
     enabled, disabled = inventory(inventory_path)
+    if skips:
+        skipped = {test for test in enabled if skipped_by(test, skips)}
+        enabled, disabled = enabled - skipped, disabled | skipped
     union = set(seen)
     if not enabled:
         warnings.append("the test inventory from ios-build is empty (enumeration failed or was not run), "
@@ -188,11 +211,13 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("shards", nargs="*")
     ap.add_argument("--expect", default="", help="comma-separated shard names that must all have results")
     ap.add_argument("--summary")
+    ap.add_argument("--plan", help="the test plan, whose skippedTests count as disabled")
     ap.add_argument("--warn-only", action="store_true",
                     help="report tests missing from the shards or the inventory as warnings")
     args = ap.parse_args(argv)
     expect = [n for n in args.expect.split(",") if n]
-    errors, warnings, summary = check(args.inventory, args.shards, expect, args.warn_only)
+    skips = plan_skips(args.plan) if args.plan else None
+    errors, warnings, summary = check(args.inventory, args.shards, expect, args.warn_only, skips)
     print(summary)
     if args.summary:
         with open(args.summary, "a", encoding="utf-8") as f:

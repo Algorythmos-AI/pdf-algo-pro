@@ -139,3 +139,25 @@ def test_the_xcode_26_tree_is_read_and_its_differences_can_be_warnings(tmp_path)
     errors, warnings, _ = shard_inventory.check(str(path), three_shards(tmp_path), EXPECT, warn_only=True)
     assert not any("ran in no shard" in e or "not in the inventory" in e for e in errors)
     assert any("ran in no shard" in w for w in warnings) and any("not in the inventory" in w for w in warnings)
+
+
+def test_the_plans_skipped_classes_are_not_expected_in_any_shard(tmp_path):
+    # Xcode 26 lists the performance classes the plan skips as if enabled (run 37957530086: 10 tests,
+    # IntelligenceTests/RetrievalPerformanceTests and two more classes); the plan says they are skipped.
+    listed = ENABLED + ["PDFAlgoProTests/EnginePerformanceTests/testOpen500Pages",
+                        "PDFAlgoProUITests/LaunchPerformanceTests/testColdLaunch"]
+    plan = tmp_path / "PDFAlgoPro.xctestplan"
+    plan.write_text(json.dumps({"testTargets": [
+        {"target": {"name": "PDFAlgoProTests"}, "skippedTests": ["EnginePerformanceTests"]},
+        {"target": {"name": "PDFAlgoProUITests"}, "skippedTests": ["LaunchPerformanceTests"]},
+        {"target": {"name": "CoreTests"}}]}))
+    skips = shard_inventory.plan_skips(str(plan))
+    assert skips == {"PDFAlgoProTests/EnginePerformanceTests", "PDFAlgoProUITests/LaunchPerformanceTests"}
+    errors, warnings, _ = shard_inventory.check(enumeration(tmp_path, listed), three_shards(tmp_path), EXPECT,
+                                                skips=skips)
+    assert errors == [] and warnings == []
+    # Without the plan they would count as left out, which is an error once the check is enforced.
+    errors, _, _ = shard_inventory.check(enumeration(tmp_path, listed), three_shards(tmp_path), EXPECT)
+    assert any("ran in no shard" in e and "EnginePerformanceTests" in e for e in errors)
+    # A class only shares a prefix with a skipped one: still expected.
+    assert not shard_inventory.skipped_by("PDFAlgoProTests/EnginePerformanceTestsMore/testX", skips)

@@ -2,7 +2,7 @@
 """How the ci.yml `ios-tests` job splits the PDFAlgoPro test plan into shards. Standard library only.
 
     python3 scripts/ci/test_shards.py matrix [--only-testing IDS]   # the job matrix, as JSON
-    python3 scripts/ci/test_shards.py names                         # unit,ui-1,ui-2
+    python3 scripts/ci/test_shards.py names                         # unit,ui-1,ui-2,ui-3
     python3 scripts/ci/test_shards.py args SHARD [--only-testing IDS]  # xcodebuild arguments, one per line
     python3 scripts/ci/test_shards.py retry-args SHARD FAILED  # the failed tests' re-run, or nothing
     python3 scripts/ci/test_shards.py verdict SHARD --xcodebuild-exit N --reporter-exit M
@@ -10,10 +10,15 @@
 Every shard runs the same build (`ios-build`), each on its own runner and simulator:
 
   * unit: every test target except the UI tests (package tests, the app's unit and snapshot tests);
-  * ui-1: the UI test classes listed under "ui-1" in test_shards.json;
-  * ui-2: every other UI test class, so a new UI test class lands here without any change;
+  * ui-1 and ui-2: the UI test classes listed under "ui-1" and "ui-2" in test_shards.json;
+  * ui-3: every other UI test class, so a new UI test class lands here without any change;
   * focused: on a manual run with `only_testing`, only the identifiers given (Target, Target/Class
-    or Target/Class/method, comma-separated), instead of the three shards above.
+    or Target/Class/method, comma-separated), instead of the shards above.
+
+The UI shards are balanced from the classes' measured times (seconds in tests, runs of 2026-10-09):
+ui-1 Reader, LargeText, Assistant and Scan, about 690; ui-2 TextEditing and Onboarding, about 560; ui-3
+Library, Paywall and Settings, about 640. With two UI shards the second took 34 minutes on run
+37934833918, the longest job of the run.
 
 UI shards run their failed tests once more, on their own, in a second xcodebuild run (retry-args),
 and only when at most MAX_RETRIED failed: more than that fails the flaky budget even if all pass, so
@@ -31,7 +36,9 @@ import sys
 from pathlib import Path
 
 CONFIG = Path(__file__).resolve().with_name("test_shards.json")
-SHARDS = ("unit", "ui-1", "ui-2")
+LISTED = ("ui-1", "ui-2")
+COMPLEMENT = "ui-3"
+SHARDS = ("unit",) + LISTED + (COMPLEMENT,)
 FOCUSED = "focused"
 # Target, Target/Class or Target/Class/method, optionally with "()": nothing else reaches xcodebuild.
 IDENTIFIER = re.compile(r"^[A-Za-z0-9_]+(/[A-Za-z0-9_]+){0,2}(\(\))?$")
@@ -43,14 +50,19 @@ MAX_RETRIED = 3
 def load_config(path: Path = CONFIG) -> dict:
     with open(path, encoding="utf-8") as f:
         config = json.load(f)
-    classes = config.get("ui-1")
-    if not isinstance(config.get("uiTarget"), str) or not isinstance(classes, list) or not classes:
-        raise SystemExit(f"{path}: needs a uiTarget and a non-empty ui-1 list")
-    if len(set(classes)) != len(classes):
-        raise SystemExit(f"{path}: a class is listed twice in ui-1")
-    for name in classes:
-        if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name):
-            raise SystemExit(f"{path}: {name!r} is not a class name")
+    if not isinstance(config.get("uiTarget"), str):
+        raise SystemExit(f"{path}: needs a uiTarget")
+    seen: set[str] = set()
+    for shard in LISTED:
+        classes = config.get(shard)
+        if not isinstance(classes, list) or not classes:
+            raise SystemExit(f"{path}: needs a non-empty {shard} list")
+        for name in classes:
+            if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name):
+                raise SystemExit(f"{path}: {name!r} is not a class name")
+            if name in seen:
+                raise SystemExit(f"{path}: {name} is listed twice")
+            seen.add(name)
     return config
 
 
@@ -86,18 +98,19 @@ def matrix(only_testing: str | None, record: bool = False) -> dict:
 
 
 def retries(shard: str) -> bool:
-    return shard in ("ui-1", "ui-2")
+    return shard in LISTED or shard == COMPLEMENT
 
 
 def args_for(shard: str, only_testing: str | None = None, config: dict | None = None) -> list[str]:
     config = config or load_config()
-    target, ui1 = config["uiTarget"], config["ui-1"]
+    target = config["uiTarget"]
     if shard == "unit":
         selectors = [f"-skip-testing:{target}"]
-    elif shard == "ui-1":
-        selectors = [f"-only-testing:{target}/{name}" for name in ui1]
-    elif shard == "ui-2":
-        selectors = [f"-only-testing:{target}"] + [f"-skip-testing:{target}/{name}" for name in ui1]
+    elif shard in LISTED:
+        selectors = [f"-only-testing:{target}/{name}" for name in config[shard]]
+    elif shard == COMPLEMENT:
+        listed = [name for listed_shard in LISTED for name in config[listed_shard]]
+        selectors = [f"-only-testing:{target}"] + [f"-skip-testing:{target}/{name}" for name in listed]
     elif shard == FOCUSED:
         selectors = [f"-only-testing:{value}" for value in focused_ids(only_testing or "")]
     else:
