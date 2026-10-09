@@ -365,7 +365,9 @@ jobs:
           # branch whose history changes a workflow, as the history of a CI pull request does (run
           # 37895331076).
           git checkout -q --orphan "snapshot-recordings/$RUN_ID"
-          git rm -rq --cached .
+          # Forced, from the index only: the recorded files differ from what the index still holds
+          # from the old branch, and git refuses to unstage those without it (run 37901490891).
+          git rm -rqf --cached .
           git add -- ':(glob)**/__Snapshots__/**'
           git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
             commit -q -m "test: snapshot references recorded by run $RUN_ID on $SOURCE"
