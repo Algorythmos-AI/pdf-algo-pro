@@ -83,27 +83,18 @@ public struct TileLabel: View {
 /// It is strongest at the top and gone by its lower edge, and never stronger than `Opacities.brandGlow`,
 /// at which secondary text over it keeps 4.5:1 (see the design-system tests). Reduce Transparency and
 /// Increase Contrast remove it.
-///
-/// It is drawn in opaque colours, the tint already mixed into the background it lies on, so it looks as a
-/// translucent wash over that background would. The accessibility audit read text over the translucent
-/// wash against the tint itself: the paywall's explanation, near-black on a near-white wash (20:1 on
-/// screen), failed its contrast check (CI, 2026-10-09), and so did the buttons over the wash.
 public struct BrandGlow: View {
   @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
   @Environment(\.colorSchemeContrast) private var contrast
-  private let background: Color
 
-  /// Creates the glow over `background`, the opaque colour of the screen behind it.
-  public init(over background: Color = Color.ds.backgroundPrimary) {
-    self.background = background
-  }
+  /// Creates the glow.
+  public init() {}
 
   /// The glow, or nothing when the person has asked for less transparency or more contrast.
   public var body: some View {
     if Self.isShown(reduceTransparency: reduceTransparency, contrast: contrast) {
-      // Mixed in the device's colour space, as a translucent layer is composited over an opaque one.
       LinearGradient(
-        colors: [background.mix(with: Color.ds.brandTint, by: Opacities.brandGlow, in: .device), background],
+        colors: [Color.ds.brandTint.opacity(Opacities.brandGlow), Color.ds.brandTint.opacity(0)],
         startPoint: .top, endPoint: .bottom
       )
       .allowsHitTesting(false)
