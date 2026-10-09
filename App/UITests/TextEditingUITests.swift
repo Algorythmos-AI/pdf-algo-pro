@@ -287,19 +287,21 @@ final class TextEditingUITests: UITestCase {
 
     // The start of the line is in view: holding a finger there puts the caret there.
     //
-    // A hold, not a tap: a tap waits to be sure it is not a double tap before it moves the caret,
-    // and the test types sooner than a person would; on CI the letter went in where the caret had been
-    // (2026-10-08), most likely for that reason, with the field still holding the keyboard.
-    // Holding moves the caret under the finger while it is down, inside the first line and the last.
+    // Held inside the first line and the last, not on the field's edges. On CI (2026-10-08 and -09)
+    // neither a tap nor a hold there moved the caret, with the field still holding the keyboard; the
+    // message says whether the text view took the hold (its edit menu shows) or something else did.
     let tapped = field.frame
     field.coordinate(withNormalizedOffset: CGVector(dx: 0.01, dy: 0.25)).press(forDuration: Self.hold)
     let focused = (field.value(forKey: "hasKeyboardFocus") as? Bool) ?? false
+    // A hold the text view takes ends with its edit menu; one that went elsewhere does not.
+    let menu = app.menuItems.allElementsBoundByIndex.map(\.label)
     field.typeText("Z")
     let start = try XCTUnwrap(field.value as? String)
     let place = try XCTUnwrap(start.firstIndex(of: "Z"), "The letter was typed")
     XCTAssertLessThan(
       start.distance(from: start.startIndex, to: place), 3,
-      "It went in at the start of the line; the field was at \(tapped), focused after the hold \(focused)")
+      "It went in at the start of the line; the field was at \(tapped), focused after the hold \(focused), "
+        + "menu \(menu)")
 
     // And so is the end: holding after the last word puts the caret after it.
     field.coordinate(withNormalizedOffset: CGVector(dx: 0.99, dy: 0.75)).press(forDuration: Self.hold)
