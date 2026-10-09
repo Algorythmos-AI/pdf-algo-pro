@@ -139,7 +139,7 @@ struct ReadingControlsTests {
 
   @Test("Showing another document lets go of the line picked in the last one")
   func anotherDocumentLetsGoOfTheLine() async throws {
-    let (_, view, scroller) = try await editingInvoice()
+    let (controller, view, scroller) = try await editingInvoice()
     let inset = scroller.contentInset
     // Far past the end of the page, so room is made under it.
     view.scrollPickedText(by: 2000, animated: false)
@@ -156,25 +156,30 @@ struct ReadingControlsTests {
     #expect(view.textOverlays.placeBeforeEditing == nil)
     #expect(scroller.contentInset.bottom <= inset.bottom + 0.5, "The room made for the last document stayed")
     #expect(other.textEditAnchor == nil)
+    withExtendedLifetime(controller) {}
   }
 
   @Test("A page the person moved while editing stays where they took it when the text is let go of")
   func personsPlaceIsKept() async throws {
     let (controller, view, scroller) = try await editingInvoice()
     let inset = scroller.contentInset
-    // The editor makes room for the keyboard; then the person scrolls back up a little themselves.
+    // The editor makes room for the keyboard; then the person zooms in and scrolls themselves. The
+    // invoice is one page that fits the screen, so only zoomed in is there anywhere else to go.
     view.scrollPickedText(by: 120, animated: false)
     view.layoutIfNeeded()
-    let theirs = CGPoint(x: scroller.contentOffset.x, y: scroller.contentOffset.y - 40)
+    view.scaleFactor *= 2
+    view.layoutIfNeeded()
+    let theirs = CGPoint(x: scroller.contentOffset.x, y: 100)
     scroller.contentOffset = theirs
     controller.clearTextRegionSelection()
     #expect(scroller.contentInset == inset, "Inset \(inset) became \(scroller.contentInset)")
     // Kept, inside what can be scrolled to now the room under the page is gone.
+    let lowest = -scroller.adjustedContentInset.top
     let highest = max(
-      -scroller.adjustedContentInset.top,
-      scroller.contentSize.height + scroller.adjustedContentInset.bottom - scroller.bounds.height)
+      lowest, scroller.contentSize.height + scroller.adjustedContentInset.bottom - scroller.bounds.height)
+    #expect(highest > lowest + 100, "The zoomed page has no room to scroll: \(scroller.contentSize)")
     #expect(
-      abs(scroller.contentOffset.y - min(theirs.y, highest)) < 0.5,
+      abs(scroller.contentOffset.y - min(max(theirs.y, lowest), highest)) < 0.5,
       "The page went to \(scroller.contentOffset), not where the person left it (\(theirs), highest \(highest))")
   }
 

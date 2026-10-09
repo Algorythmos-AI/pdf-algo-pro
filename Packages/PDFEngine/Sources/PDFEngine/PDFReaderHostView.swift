@@ -114,10 +114,13 @@ final class PDFReaderHostView: PDFView {
     if let previous = self.controller {
       #if canImport(UIKit)
         if previous.isEditingText { setEditingText(false) }
-        forgetPickedText()
       #endif
       previous.detach(self)
     }
+    #if canImport(UIKit)
+      // Also where the last controller is already gone (it is held weakly) with a line picked.
+      forgetPickedText()
+    #endif
     if let pageObserver { NotificationCenter.default.removeObserver(pageObserver) }
     #if canImport(UIKit)
       // The provider is asked for a view as each page comes on screen, so it is in place first.
