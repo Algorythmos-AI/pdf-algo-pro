@@ -583,7 +583,9 @@ jobs:
           done
       - name: Keep the suite reports
         # Golden corpus, OCR, AI evaluation and performance reports, written under reports/ by the tests.
+        # Diagnostic uploads never decide the check (a network error failed one on run 37894865876).
         if: ${{ !cancelled() }}
+        continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: reports
@@ -592,6 +594,7 @@ jobs:
           retention-days: 30
       - name: Keep the coverage reports (merged and per shard)
         if: ${{ !cancelled() }}
+        continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ios-coverage
