@@ -2,6 +2,7 @@
   import PDFEngine
   import SwiftUI
   import UIKit
+  import UIKit.UIGestureRecognizerSubclass
   import os
 
   /// Shows where the text editor's parts are, over the page, in Debug builds launched with
@@ -145,10 +146,15 @@
       var touches = 0
       /// The caret's place after each change of selection, oldest first, the last few only.
       var carets: [Int] = []
+      /// The kind of view the window finds at the start of the field's first line, and the kinds
+      /// of the views it sits in, nearest first.
+      var hit = "none"
+      /// The kind of view the latest touch on the window landed on, and whether that is the field.
+      var lastTouch = "none"
 
       var summary: String {
         "made \(made) focused \(focused) replaced \(replaced) touches \(touches) "
-          + "carets \(carets.map(String.init).joined(separator: ","))"
+          + "carets \(carets.map(String.init).joined(separator: ",")) hit \(hit) lastTouch \(lastTouch)"
       }
     }
 
@@ -157,6 +163,30 @@
       guard isOn else { return }
       change(&shared.events)
       if shared.events.carets.count > 8 { shared.events.carets.removeFirst() }
+    }
+
+    /// Records which view the window finds at the start of a text view's first line.
+    static func hitTest(_ view: UITextView) {
+      guard isOn, let window = view.window else { return }
+      let point = view.convert(CGPoint(x: 2, y: 2), to: window)
+      guard let found = window.hitTest(point, with: nil) else { return }
+      let chain = sequence(first: found, next: \.superview).prefix(4).map { String(describing: type(of: $0)) }
+      let entry = (found === view ? "field " : "") + chain.joined(separator: "<")
+      if shared.events.hit != entry { record { $0.hit = entry } }
+    }
+
+    /// Records the kind of view each touch on the window lands on, while a text view is in it.
+    final class TouchProbe: UIGestureRecognizer {
+      weak var field: UIView?
+
+      override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
+        for touch in touches {
+          let name = touch.view.map { String(describing: type(of: $0)) } ?? "none"
+          let onField = field.map { touch.view?.isDescendant(of: $0) ?? false } ?? false
+          TextEditGeometryLog.record { $0.lastTouch = "\(name) onField \(onField)" }
+        }
+        state = .failed
+      }
     }
 
     private static func text(_ rect: CGRect) -> String {

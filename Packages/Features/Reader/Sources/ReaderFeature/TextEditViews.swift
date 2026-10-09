@@ -266,9 +266,27 @@ final class TextEditTextView: UITextView {
   }
 
   #if DEBUG
+    private var probe: TextEditGeometryLog.TouchProbe?
+
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
       TextEditGeometryLog.record { $0.touches += 1 }
       super.touchesBegan(touches, with: event)
+    }
+
+    /// Watches, where the geometry is shown, which view each touch on the window lands on.
+    override func didMoveToWindow() {
+      super.didMoveToWindow()
+      guard TextEditGeometryLog.isOn else { return }
+      if let probe { probe.view?.removeGestureRecognizer(probe) }
+      probe = nil
+      guard let window else { return }
+      let watcher = TextEditGeometryLog.TouchProbe(target: nil, action: nil)
+      watcher.field = self
+      watcher.cancelsTouchesInView = false
+      watcher.delaysTouchesBegan = false
+      watcher.delaysTouchesEnded = false
+      window.addGestureRecognizer(watcher)
+      probe = watcher
     }
   #endif
 
@@ -286,6 +304,7 @@ final class TextEditTextView: UITextView {
     super.layoutSubviews()
     #if DEBUG
       TextEditGeometryLog.textView(self)
+      TextEditGeometryLog.hitTest(self)
     #endif
     guard bounds.size != laidOutSize else { return }
     laidOutSize = bounds.size
