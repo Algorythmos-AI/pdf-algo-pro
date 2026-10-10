@@ -91,6 +91,8 @@ final class PDFReaderHostView: PDFView {
     private var transformStart: AnnotationGeometry?
     private var transformOffset = CGSize.zero
     private var transformScale: CGFloat = 1
+    /// The pages' own drags that a pinch resizing the selection has switched off, while one is under way.
+    private var heldPageDrags: [UIGestureRecognizer]?
     private var hasGestures = false
     private lazy var liftDelegate = LiftGestureDelegate(host: self)
     /// The text being dragged: what it is, where the finger took hold, and its picture.
@@ -625,7 +627,35 @@ final class PDFReaderHostView: PDFView {
     /// One step of the pinch that resizes the selection: it has begun, changed, or is over.
     func resized(by scale: CGFloat, state: UIGestureRecognizer.State) {
       transformScale = scale
+      holdPages(still: state == .began || state == .changed)
       transform(state)
+    }
+
+    /// Keeps the pages from being dragged while a pinch resizes the selection, and lets go after it.
+    ///
+    /// The pages' own drag does not wait for the pinch and runs alongside it (`TransformGestureDelegate`),
+    /// so a drag that the first finger began is still under way when the second finger lands and the
+    /// pinch begins. Switching a recognizer off cancels what it was recognising, and nothing new
+    /// begins until it is switched on again.
+    private func holdPages(still: Bool) {
+      guard still else {
+        for recognizer in heldPageDrags ?? [] { recognizer.isEnabled = true }
+        heldPageDrags = nil
+        return
+      }
+      guard heldPageDrags == nil else { return }
+      // Every scroll view under the page view: one for the pages and, a page at a time, one a page.
+      var held: [UIGestureRecognizer] = []
+      var views: [UIView] = subviews
+      while let view = views.popLast() {
+        views.append(contentsOf: view.subviews)
+        // One that is already off was switched off by someone else, and is theirs to switch on.
+        if let drag = (view as? UIScrollView)?.panGestureRecognizer, drag.isEnabled {
+          drag.isEnabled = false
+          held.append(drag)
+        }
+      }
+      heldPageDrags = held
     }
 
     private func transform(_ state: UIGestureRecognizer.State) {
@@ -702,8 +732,13 @@ final class PDFReaderHostView: PDFView {
       _ gestureRecognizer: UIGestureRecognizer,
       shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
     ) -> Bool {
-      // A drag and a pinch on the selection work together; nothing else runs alongside them.
-      gestureRecognizer.delegate === otherGestureRecognizer.delegate
+      // A drag and a pinch on the selection work together.
+      if gestureRecognizer.delegate === otherGestureRecognizer.delegate { return true }
+      // The pinch also runs alongside the pages' own drag, which does not wait for it (below). So a
+      // drag that the first finger began does not rule the pinch out when the second finger lands,
+      // and the pinch, once it has begun on the selection, stops that drag (`resized(by:state:)`).
+      // Nothing else runs alongside them.
+      return gestureRecognizer is UIPinchGestureRecognizer && Self.isPageDrag(otherGestureRecognizer)
     }
 
     func gestureRecognizer(
@@ -712,16 +747,19 @@ final class PDFReaderHostView: PDFView {
     ) -> Bool {
       // The page's scrolling and zooming wait: on the selection they give way, elsewhere these fail at once.
       guard otherGestureRecognizer.view is UIScrollView else { return false }
-      // All but the pinch, for anything other than the page's own zoom. A pinch that sees one finger
+      // All but the pinch, which only the page's own zoom waits for. A pinch that sees one finger
       // cannot fail until that finger lifts, so a page whose scrolling waited for it did not follow a
-      // drag at all: it glided on after a flick, and a slow drag left it where it was (issue #188).
-      // With nothing selected there is nothing to resize, so the page's scrolling does not wait for
-      // the pinch; with an annotation selected it still does, and the page keeps still while the
-      // annotation is resized.
-      if gestureRecognizer is UIPinchGestureRecognizer, !(otherGestureRecognizer is UIPinchGestureRecognizer) {
-        return MainActor.assumeIsolated { host?.controller?.selected != nil }
-      }
+      // drag at all: it glided on after a flick, and a slow drag left it where it was. That was so
+      // everywhere (issue #188), and then still with an annotation selected (issue #194), where the
+      // wait had been kept so that the page kept still while the annotation was resized. It keeps
+      // still now because the pinch stops the page's drag when it begins.
+      if gestureRecognizer is UIPinchGestureRecognizer { return otherGestureRecognizer is UIPinchGestureRecognizer }
       return true
+    }
+
+    /// Whether a recognizer is a scroll view's own drag.
+    private static func isPageDrag(_ recognizer: UIGestureRecognizer) -> Bool {
+      MainActor.assumeIsolated { (recognizer.view as? UIScrollView)?.panGestureRecognizer === recognizer }
     }
 
     func gestureRecognizer(
