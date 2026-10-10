@@ -56,6 +56,8 @@ section and drafts the store text. Then the release pull request is opened from 
 ### Before merging
 - [ ] MARKETING_VERSION is X.Y.Z; CHANGELOG has "## [X.Y.Z] - YYYY-MM-DD" and an empty [Unreleased]
 - [ ] Every required check is green, including promotion-guard
+- [ ] This description has a `Privacy policy impact:` line: a release carries every change since the
+      last one, so the `privacy-impact` check asks for it
 - [ ] No open priority:p0 / priority:p1 issue in the milestone, or each is deferred here with a reason
 - [ ] Staging build of this commit used on a real iPhone (and iPad if touched), with the
       [device smoke test](process/device-smoke-test.md) signed off

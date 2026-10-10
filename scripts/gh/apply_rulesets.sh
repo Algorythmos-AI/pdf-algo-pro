@@ -13,7 +13,9 @@ REPO="${REPO:-$(gh repo view --json nameWithOwner -q .nameWithOwner)}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 echo "Applying rulesets to $REPO${DRY:+ (dry run)}"
-existing="$(gh api "repos/$REPO/rulesets" --jq '.[] | "\(.id) \(.name)"' 2>/dev/null || true)"
+# A listing that fails stops the script here (set -e). Swallowed, it left nothing listed, every file
+# looked new, and each ruleset would have been created a second time beside the live one of its name.
+existing="$(gh api "repos/$REPO/rulesets" --jq '.[] | "\(.id) \(.name)"')"
 for f in .github/rulesets/*.json; do
   name="$(python3 -c "import json,sys;print(json.load(open('$f'))['name'])")"
   id="$(echo "$existing" | awk -v n="$name" '$2==n{print $1}')"

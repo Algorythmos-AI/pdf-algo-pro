@@ -34,6 +34,7 @@ step() { # name command...
 step "format (swift format, strict)" xcrun swift-format lint --strict --recursive App Packages
 step "design tokens" python3 scripts/design/generate_tokens.py --check
 step "docs" python3 scripts/ci/check_docs.py
+step "tester notes" python3 scripts/ci/check_tester_notes.py
 step "invariants" python3 scripts/ci/invariants.py
 if command -v uv >/dev/null; then
   step "script tests" uv run --quiet --no-project --with pytest==8.4.2 --with pyyaml==6.0.2 \

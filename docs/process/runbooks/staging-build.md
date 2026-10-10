@@ -48,6 +48,8 @@ Account details, identifiers and tester names are not written in this repository
 - The first block says what is new in this build, from `CHANGELOG.md` `[Unreleased]`. A "Known
   issues" block says what is known to be broken. No issue numbers or internal names
   ([changelog strategy](../../changelog-strategy.md)).
+- CI holds the files to this: [`scripts/ci/check_tester_notes.py`](../../../scripts/ci/check_tester_notes.py),
+  in the required `docs` check.
 
 ## Starting and checking the build
 
