@@ -148,3 +148,4 @@ features. No result is assumed here; the table is filled in from the device.
 
 | Date | Build | Device | iOS | Scenarios passed | Documents passed | Refusals recorded | Issues filed |
 |---|---|---|---|---|---|---|---|
+| 2026-10-11 | 27 | iPhone, model not recorded | Not recorded | A partial run, not the sign-off. Passed, as the maintainer reported them: N8 (a heading squashed by build 26 came back at full width after one change and stayed so over several more), N5e for a slow one-finger drag with a line open, and M1 (a heading held and dragged to another place). The five scenarios and the other rows were not run | One document, the maintainer's own | None reported | [#205](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/205), found on build 26 and fixed in this build |

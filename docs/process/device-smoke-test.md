@@ -51,3 +51,4 @@ Owner: Quality · Reviewed: whenever a build adds a feature that only a device c
 
 | Date | Build | Device | iOS | Result | Issues filed |
 |---|---|---|---|---|---|
+| 2026-10-11 | 27 | iPhone, model not recorded | Not recorded | A partial run. The page follows a slow one-finger drag in plain reading ([#188](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/188)); text editing is "pretty solid" in the maintainer's words. The every-build steps were not reported one by one | None |
