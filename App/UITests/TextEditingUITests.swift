@@ -381,7 +381,9 @@ final class TextEditingUITests: UITestCase {
     // Slowly and held again, so it is the drag that brings the page back and not a glide after it.
     // This drag once moved the page not at all: the page's scrolling waited for a pinch that cannot
     // fail while one finger is down, so it only began as the finger lifted (issue #188).
-    let up = opened.minY - field.frame.minY
+    // How far up is read from the line as the page has it: this drag takes the line up under the top
+    // bar, where the field is cut off and its frame stops at the bar (issue #195).
+    let up = opened.minY - line(containing: "Try these", in: app).frame.minY
     let down = min(up + 40, app.windows.firstMatch.frame.maxY - 20 - fromY)
     from.press(
       forDuration: 0.05, thenDragTo: from.withOffset(CGVector(dx: 0, dy: down)), withVelocity: .slow,

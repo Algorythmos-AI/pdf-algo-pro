@@ -1709,6 +1709,52 @@ struct ReaderTextEditingTests {
     #expect(visible.intersects(caret), "The caret at the end is in view: \(caret) in \(visible)")
   }
 
+  /// A field whose line has gone up under the top bar is cut off there by the layer it is laid in.
+  ///
+  /// It stays where its line is, at its full size; what is cut off is not the field's to be touched
+  /// at, nor where VoiceOver finds it (issue #195).
+  @Test("A field partly under the top bar takes touches, and is found by VoiceOver, only where it is drawn")
+  func fieldCutOffAtTheTop() throws {
+    let field = TextEditTextView()
+    field.font = UIFont(name: "Helvetica", size: 17)
+    field.text = "Try these:"
+    let container = UIView(frame: CGRect(x: 0, y: 0, width: 393, height: 852))
+    container.addSubview(field)
+    field.frame = CGRect(x: 39, y: 100, width: 300, height: 20)
+    field.layoutIfNeeded()
+    let top = CGPoint(x: 150, y: 3)
+    let bottom = CGPoint(x: 150, y: 17)
+
+    // Drawn whole: all of it is the field's.
+    let whole = field.accessibilityFrame
+    try #require(whole.size == CGSize(width: 300, height: 20), "The field's frame for VoiceOver: \(whole)")
+    #expect(field.drawnBounds == field.bounds)
+    #expect(field.point(inside: top, with: nil) && field.point(inside: bottom, with: nil))
+
+    // Its top 8 points under the bar: a touch there is not the field's, a touch below still is,
+    // and VoiceOver's frame is the 12 points that are drawn.
+    field.hiddenTop = 8
+    #expect(!field.point(inside: top, with: nil) && field.hitTest(top, with: nil) == nil)
+    #expect(field.point(inside: bottom, with: nil) && field.hitTest(bottom, with: nil) != nil)
+    #expect(
+      field.accessibilityFrame == CGRect(x: whole.minX, y: whole.minY + 8, width: 300, height: 12),
+      "\(field.accessibilityFrame), whole \(whole)")
+    // It has not moved or shrunk: it is still on its line, with all of its text.
+    #expect(field.frame == CGRect(x: 39, y: 100, width: 300, height: 20))
+
+    // Wholly under the bar, by more than it is tall: none of it can be touched, and VoiceOver's
+    // frame is empty, at the edge it went under, 73 points below its top, and not over the bar.
+    field.hiddenTop = 73
+    #expect(!field.point(inside: top, with: nil) && !field.point(inside: bottom, with: nil))
+    #expect(
+      field.accessibilityFrame == CGRect(x: whole.minX, y: whole.minY + 73, width: 300, height: 0),
+      "\(field.accessibilityFrame), whole \(whole)")
+
+    // Back below the bar: whole again.
+    field.hiddenTop = 0
+    #expect(field.point(inside: top, with: nil) && field.accessibilityFrame == whole)
+  }
+
   @Test("Return finishes the edit, and a pasted line break becomes a space")
   func fieldIsOneLine() throws {
     let draft = TextEditDraft()

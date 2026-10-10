@@ -183,6 +183,47 @@ struct TextEditPlacementTests {
         .height == 0)
   }
 
+  // MARK: - What is drawn
+
+  /// The editor is laid over the page view, not inside it, so nothing cut it off where the page
+  /// goes up under the top bar: a line scrolled there showed over the status bar, on top of the
+  /// clock (issue #195, found on the simulator, 2026-10-10).
+  @Test("The editor is drawn below the bars at the top, and under the bar over the keyboard as the page is")
+  func editorIsDrawnBelowTheTopBars() {
+    // Portrait, the layer at 116 under bars ending at 116: all of the layer, and nothing above it.
+    let portrait = TextEditPlacement.drawnArea(size: CGSize(width: 402, height: 758), top: 116, barsBottom: 116)
+    #expect(portrait == CGRect(x: 0, y: 0, width: 402, height: 758))
+    // Down to the layer's bottom: the bar over the keyboard takes nothing off, as it does from what
+    // can be seen.
+    let visible = TextEditPlacement.visibleArea(
+      size: CGSize(width: 402, height: 758), top: 116, barsBottom: 116, barTop: 450)
+    #expect(portrait.minY == visible.minY && portrait.maxY > visible.maxY)
+    // Landscape, the layer at 78 under bars ending at 78.
+    let landscape = TextEditPlacement.drawnArea(size: CGSize(width: 750, height: 324), top: 78, barsBottom: 78)
+    #expect(landscape == CGRect(x: 0, y: 0, width: 750, height: 324))
+    // A layer reaching up under the bars loses the part they cover, and no more than it has.
+    let under = TextEditPlacement.drawnArea(size: CGSize(width: 402, height: 874), top: 0, barsBottom: 116)
+    #expect(under == CGRect(x: 0, y: 116, width: 402, height: 758))
+    #expect(TextEditPlacement.drawnArea(size: CGSize(width: 402, height: 60), top: 0, barsBottom: 116).height == 0)
+  }
+
+  @Test("A line scrolled up under the top bars loses what is under them, and nothing while it is below them")
+  func lineUnderTheTopBarsIsCutOff() {
+    let drawn = TextEditPlacement.drawnArea(size: CGSize(width: 402, height: 758), top: 116, barsBottom: 116)
+    // Where it opened, and with its top just at the bars: drawn whole.
+    #expect(TextEditPlacement.hiddenTop(ofEditorAt: 108, drawnIn: drawn) == 0)
+    #expect(TextEditPlacement.hiddenTop(ofEditorAt: 0, drawnIn: drawn) == 0)
+    // Partly under the bars: an 11-point line 4 points up has those 4 points cut off.
+    #expect(TextEditPlacement.hiddenTop(ofEditorAt: -4, drawnIn: drawn) == 4)
+    // Over the clock, as it was found: 73 points up, far more than the line is tall, so none of it
+    // is drawn.
+    #expect(TextEditPlacement.hiddenTop(ofEditorAt: -73, drawnIn: drawn) == 73)
+    // In a layer that reaches up under the bars, the bars' bottom is where the cut is.
+    let under = TextEditPlacement.drawnArea(size: CGSize(width: 402, height: 874), top: 0, barsBottom: 116)
+    #expect(TextEditPlacement.hiddenTop(ofEditorAt: 120, drawnIn: under) == 0)
+    #expect(TextEditPlacement.hiddenTop(ofEditorAt: 100, drawnIn: under) == 16)
+  }
+
   // MARK: - Room after the screen turns
 
   /// A line of the sample page.
