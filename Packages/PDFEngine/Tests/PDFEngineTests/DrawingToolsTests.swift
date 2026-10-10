@@ -212,6 +212,22 @@ struct DrawingToolsTests {
       #expect(!scroll.isEnabled, "What was off before the pinch is off after it")
     }
 
+    @Test("The frame around a selection is cut off at the page view's edge, as the page is")
+    func theSelectionFrameIsCutOffAtThePageViewsEdge() throws {
+      let controller = try document()
+      let host = PDFReaderHostView(frame: CGRect(x: 0, y: 0, width: 390, height: 800))
+      host.configure(for: controller)
+      host.layoutIfNeeded()
+      #expect(controller.addStamp(.tick, onPage: 0), "A stamp is selected as it is placed")
+      let frames = (host.layer.sublayers ?? []).compactMap { $0 as? CAShapeLayer }.filter { $0.path != nil }
+      let frame = try #require(frames.first, "The selection has a frame drawn around it")
+      #expect(frames.count == 1)
+      // The frame follows its annotation as the page scrolls. Once the annotation is off the top of
+      // the page view, a frame that is not cut off there shows over the top bar and the status bar.
+      #expect(frame.frame == host.bounds, "The frame's layer covers the page view: \(frame.frame)")
+      #expect(frame.masksToBounds, "And draws nothing outside it")
+    }
+
     @Test("A stroke that may not start fails at once, so the touch goes to what waited for it")
     func strokeDeclines() {
       let recognizer = InkStrokeRecognizer()
