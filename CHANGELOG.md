@@ -24,6 +24,10 @@ Store notes (see the changelog strategy).
   Dragging the selected one still moves it, and pinching it still resizes it while the page keeps
   still. The frame around it no longer shows over the top of the screen once it has scrolled out
   of view.
+- Editing text (internal builds): a line you change more than once keeps its letters apart.
+  Before, each further change to a line starting with letters such as "Te" set all its letters a
+  little closer, until a heading changed half a dozen times was a few letters on top of one
+  another. A line left like that is set right by changing it once more.
 - Editing text (internal builds): when you finish a change, or undo one, the page stays where you
   were. Before, the reader went back to the top of the document after every Done and every Undo,
   which showed on any document longer than a page.

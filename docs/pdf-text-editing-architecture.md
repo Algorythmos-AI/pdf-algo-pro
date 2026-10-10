@@ -178,6 +178,17 @@ Text that still does not fit may narrow to no less than 90%, and beyond that the
 `Assumption:` the 90% floor and the 3% justification tolerance are not noticeable in body text;
 both are validated in the device test plan.
 
+**Letter spacing.** New text keeps the letter spacing of the line it replaces. That spacing is
+measured from the letters: the extra space after each letter that another letter follows, and the
+amount more than half of them share (`TextRegionBuilder.letterSpacing`). The character spacing
+operator (`Tc`) alone does not say it. Core Graphics, which writes every page that has been
+edited, may put the first letter's extra space there, its kerning with the second letter included,
+and take it back after each of the other letters
+([#205](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/205)). Spacing tighter than a tenth
+of the text's size is not kept (`TextRedrawer.tightestSpacing`): letters that close sit on top of
+one another, and editing such a line sets them apart again. `Assumption:` no document sets its
+letters that close on purpose; validated in the device test plan.
+
 **Alignment.** A region that shares a right edge with others keeps its right edge (amounts in a
 column); one that shares a centre keeps its centre; otherwise the start stays put.
 
@@ -475,6 +486,7 @@ From TestFlight feedback on 2026-10-06 (a letter laid out in frames, on an iPhon
 | A line low on the page could be picked but not edited: the field was under the keyboard | The page ends there, so it could not be scrolled clear of the keyboard and the editor's bar | The field sits over the text only in the part of the reader that stays in view (`TextEditLayer.fitsInPlace(_:frame:within:)`); otherwise it is in the bar above the keyboard, which is always in view. Giving PDFKit's scroll view room to scroll past the page's end was tried and dropped: it changed which page PDFKit reports as current |
 | The end of a long line in small print could not be reached while typing (the owner, 2026-10-07) | A small line is zoomed in to be read and may then be wider than the screen; the field was made as wide as the line, so its end, and the caret, were off the screen | The field runs from the start of the text to the edge of the reader and never past it (`TextEditLayer.fieldSpan(over:in:)`); it scrolls its own text as the caret moves |
 | On the same kind of line, the start (or the end) still could not be brought into view (the owner, 2026-10-08) | The field was a `UITextField`, which shows only the stretch around the caret and has no way to be swiped along | The field is a one-line `UITextView` (`SingleLineTextView`) whose text container is as wide as the words, so it scrolls sideways like any scroll view and a tap sets the caret. A scrolling text view puts its container back to its own width when it lays out, so the unbroken line and the scrolling size are set again on every layout and every change to the text (`fitLine()`). Return finishes the edit and a pasted line break becomes a space |
+| A heading changed several times ended as a few letters on top of one another (the owner, 2026-10-11, on an iPhone) | A line's letter spacing was read from the character spacing operator. Core Graphics may write the first letter's kerning with the second there and take it back after the other letters, so the kerning of a line starting "Te" was read as spacing for every letter, and each further edit added it again | Letter spacing is measured from the letters (`TextRegionBuilder.letterSpacing`). Spacing that puts letters on top of one another is not kept, so changing a line left in that state once more sets it right ([#205](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/205)) |
 | "The instruction keeps coming back" | "The font will be matched…" and "Your text will cover…" were shown at every line picked | An explanation is given once per document. That a text will be covered is still said each time, in three words, because it changes what Done does. "Tap any text to change it" goes once any text has been picked |
 
 ## Known limits

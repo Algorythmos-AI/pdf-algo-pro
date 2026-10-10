@@ -164,6 +164,15 @@ enum TextRedrawer {
   /// Assumption: 3% is absorbed by word spacing without looking loose or tight; validated by the
   /// device test plan.
   static let justifiedTolerance = 0.03
+  /// The tightest letter spacing new text takes over from the old, as a fraction of the text's size.
+  ///
+  /// Letters set closer than this sit on top of one another. That is damage, not a design: a line
+  /// edited several times before issue #205 was fixed is in that state, and editing it once more
+  /// sets its letters apart again.
+  ///
+  /// Assumption: no document sets its letters closer than a tenth of their size on purpose;
+  /// validated by the device test plan.
+  static let tightestSpacing = -0.1
 
   /// Lays out a region's replacement, or says why it cannot be drawn.
   ///
@@ -183,7 +192,8 @@ enum TextRedrawer {
     // The old words and their width tell a substitute font apart from its neighbours. A justified
     // line is wider than its words, and letter spacing widens them too, so those say nothing.
     let stretch = region.horizontalScale
-    let spaced = abs(region.characterSpacingDrawn) > 0.01 * region.pointSize
+    let spacing = region.characterSpacingDrawn
+    let spaced = abs(spacing) > 0.01 * region.pointSize
     let oldWords =
       region.isJustified || spaced || stretch <= 0 ? nil : (text: region.text, width: region.widthDrawn / stretch)
     let match = FontMatcher.match(region.font, size: size, text: text, original: oldWords)
@@ -191,8 +201,8 @@ enum TextRedrawer {
       NSAttributedString.Key(kCTFontAttributeName as String): match.font,
       NSAttributedString.Key(kCTForegroundColorAttributeName as String): color(region.fill),
     ]
-    if abs(region.characterSpacingDrawn) > 0.01 * region.pointSize {
-      attributes[NSAttributedString.Key(kCTKernAttributeName as String)] = region.characterSpacingDrawn
+    if spaced, spacing >= tightestSpacing * region.pointSize {
+      attributes[NSAttributedString.Key(kCTKernAttributeName as String)] = spacing
     }
     var line = CTLineCreateWithAttributedString(NSAttributedString(string: text, attributes: attributes))
     guard CTLineGetGlyphCount(line) > 0 else { return .declined(.refused(.unsupportedCharacters)) }
