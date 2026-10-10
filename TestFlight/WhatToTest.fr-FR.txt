@@ -1,7 +1,8 @@
 Version interne de PDF Algo Pro (Staging). Utilisez des documents de test, pas de vrais documents. À essayer :
 
-Nouveau dans cette version et la précédente
-- Avec une forme, un tampon ou une signature sélectionnés, faites glisser la page lentement ailleurs : elle suit le doigt. Faire glisser l’élément sélectionné le déplace toujours, et le pincer le redimensionne toujours.
+Nouveau dans cette version et les deux précédentes
+- Nouveau : dans Modifier, changez plusieurs fois le même titre, en touchant OK à chaque fois. Il garde sa largeur. Avant, ses lettres se resserraient un peu plus à chaque fois. Un titre resté écrasé se répare en le changeant une fois.
+- Avec une forme, un tampon ou une signature sélectionnés, faites glisser la page lentement ailleurs : elle suit le doigt. L’élément sélectionné se déplace et se redimensionne comme avant.
 - Une ligne en cours de modification, amenée tout en haut de l’écran, passe sous la barre et ne s’affiche plus par-dessus l’heure.
 - Modifier le texte : touchez Modifier, puis une ligne. Elle s’ouvre à sa place, à la taille de la page, et un texte long passe à la ligne. Rien n’est coupé.
 - Avec une ligne ouverte, faites glisser la page lentement avec un doigt, puis pincez. La page suit le doigt et reste où vous la laissez. Tapez : elle revient à la ligne.

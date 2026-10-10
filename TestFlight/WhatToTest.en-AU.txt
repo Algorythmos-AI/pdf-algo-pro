@@ -1,6 +1,7 @@
 Internal build of PDF Algo Pro (Staging). Use test documents, not real ones. Please try:
 
-New in this build and the one before
+New in this build and the two before
+- New now: in Edit, change the same heading several times, tapping Done each time. It stays as wide as its words. Before, its letters closed up a little more each time. A heading left squashed is set right by changing it once.
 - With a shape, stamp or signature selected, drag the page slowly anywhere else: it follows your finger. Dragging the selected one still moves it, and pinching it still resizes it.
 - A line you are editing, scrolled up to the top of the screen, goes under the bar and no longer shows over the clock.
 - Edit text: tap Edit, then a line. It opens where it is, at the page's own size, and long text wraps. Nothing is cut off.
