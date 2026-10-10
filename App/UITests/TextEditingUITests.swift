@@ -327,7 +327,17 @@ final class TextEditingUITests: UITestCase {
   /// zoomed; the editor pulled the page back to its line whenever the field's height changed, which
   /// a pinch changes on every frame.
   func testThePageScrollsAndZoomsWithALineOpenAndTypingGoesOn() throws {
-    let app = launch(["-skip-onboarding", "-seed-library", "sample", "-text-editing", "available"])
+    // With the editor's room trace and touch log (Debug builds), so a page that will not scroll says
+    // what took the drag and what moved the page, in one round (issue #188).
+    let app = launch([
+      "-skip-onboarding", "-seed-library", "sample", "-text-editing", "available", "-text-edit-geometry",
+      "-text-edit-touches",
+    ])
+    func traces() -> String {
+      let touches = app.descendants(matching: .any)["reader.textEdit.touchTrace"].firstMatch
+      let room = app.descendants(matching: .any)["reader.textEdit.roomTrace"].firstMatch
+      return "touches: \(touches.exists ? touches.label : "none"); room: \(room.exists ? room.label : "none")"
+    }
     XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
     tap(app.buttons["reader.edit"], until: app.buttons["reader.doneEditingText"])
     let field = app.textViews["reader.textEdit.field"]
@@ -351,11 +361,12 @@ final class TextEditingUITests: UITestCase {
       keepEvidence(
         app, named: "not scrolled",
         notes: "field \(opened) -> \(field.frame); bar \(bar.frame); drag from y \(max(low, (low + high) / 2)) up 180; "
-          + "keyboard \(app.keyboards.firstMatch.exists ? "\(app.keyboards.firstMatch.frame)" : "none")")
+          + "keyboard \(app.keyboards.firstMatch.exists ? "\(app.keyboards.firstMatch.frame)" : "none"); "
+          + traces())
     }
     XCTAssertEqual(
       scrolled, .completed,
-      "The page did not scroll with the line open: the field went from \(opened) to \(field.frame)")
+      "The page did not scroll with the line open: the field went from \(opened) to \(field.frame); \(traces())")
     // Still there once the page has come to rest.
     Thread.sleep(forTimeInterval: 1.5)
     XCTAssertLessThan(field.frame.minY, opened.minY - 60, "The page was pulled back to the line: \(field.frame)")
@@ -371,15 +382,18 @@ final class TextEditingUITests: UITestCase {
     from.press(forDuration: 0.05, thenDragTo: from.withOffset(CGVector(dx: 0, dy: down)))
     let back = NSPredicate { _, _ in field.frame.minY > opened.minY - 30 }
     let returned = XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: back, object: nil)], timeout: 10)
+    // Diagnostic for issue #188, printed whether the page came back or not, so a passing run can be
+    // compared with a failing one; taken out with the fix.
+    print("TOUCH-TRACE back down \(returned == .completed ? "moved" : "did not move"): \(traces())")
     if returned != .completed {
       keepEvidence(
         app, named: "not back down",
-        notes: "field \(opened), up \(up) -> \(field.frame); dragged down \(down) from y \(fromY)")
+        notes: "field \(opened), up \(up) -> \(field.frame); dragged down \(down) from y \(fromY); \(traces())")
     }
     XCTAssertEqual(
       returned, .completed,
       "The page did not scroll back down with the line open: it went up \(up), was dragged down \(down), "
-        + "and the field is at \(field.frame), opened at \(opened)")
+        + "and the field is at \(field.frame), opened at \(opened); \(traces())")
 
     // The keyboard can be put away to look over the page, and the line stays open.
     let keyboardButton = app.buttons["reader.textEdit.keyboard"]

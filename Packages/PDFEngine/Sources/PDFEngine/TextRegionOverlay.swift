@@ -215,6 +215,11 @@
         return
       }
       let rect = selection.region.bounds
+      #if DEBUG
+        if !bounds.contains(convert(rect, from: page)) {
+          textOverlays.touchLog?.note("editor brings the line into view")
+        }
+      #endif
       if !bounds.contains(convert(rect, from: page)), !page.rotation.isMultiple(of: 360) {
         // On a turned page, up the page is not up the screen, and the place worked out below would
         // scroll the wrong way; PDFKit turns the line's box itself.
@@ -315,6 +320,9 @@
     /// It runs on every frame while text is picked, the way the annotation outline does, so the
     /// editor stays on its line while the page scrolls, zooms or turns.
     func publishTextEditAnchor() {
+      #if DEBUG
+        textOverlays.touchLog?.pageMoved()
+      #endif
       guard let controller else { return }
       guard let selection = controller.selectedTextRegion, let page = document?.page(at: selection.pageIndex) else {
         if controller.textEditAnchor != nil { controller.textEditAnchor = nil }
@@ -349,6 +357,10 @@
       guard let scroller = pageScroller, !Self.isBeingMoved(scroller), let before = pickedLineFrame?.minY else {
         return false
       }
+      #if DEBUG
+        textOverlays.touchLog?.note(
+          "editor scrolls the page by \(Int(distance)) across \(Int(across)), animated \(animated)")
+      #endif
       let pixel = 1 / max(1, traitCollection.displayScale)
       let move: @MainActor () -> Void = {
         // Scrolling can move the page by more than it was scrolled: PDFKit centres a page shorter
