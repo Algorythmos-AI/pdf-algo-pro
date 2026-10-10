@@ -53,6 +53,35 @@ public enum TextEditPlacement {
     return CGRect(x: 0, y: upper, width: size.width, height: max(0, lower - upper))
   }
 
+  /// The part of the layer over the page in which the editor is drawn and takes touches: the layer
+  /// itself, less what the bars at the top of the screen cover.
+  ///
+  /// The page's own text fades out where it goes up under those bars. The editor is laid over the
+  /// page view, not inside it, so nothing cut it off there: a line scrolled up under the top bar
+  /// stayed fully drawn, over the bar and the status bar, on top of the clock (issue #195, found on
+  /// the simulator, 2026-10-10). Under the bar over the keyboard nothing is taken off: that bar and
+  /// the keyboard are drawn over the editor, as they are over the page.
+  /// - Parameters:
+  ///   - size: The layer's size.
+  ///   - top: Where the layer's top is, in the window's space.
+  ///   - barsBottom: Where the bars at the top end, in the window's space (the safe area's top).
+  /// - Returns: The part the editor is drawn in, in the layer's space.
+  public static func drawnArea(size: CGSize, top: CGFloat, barsBottom: CGFloat) -> CGRect {
+    visibleArea(size: size, top: top, barsBottom: barsBottom, barTop: nil)
+  }
+
+  /// How much of the editor's top is cut off: how far it starts above the area it is drawn in.
+  ///
+  /// The editor starts at its line's top and grows down, so this is all that can be cut off while
+  /// any of the editor is drawn; an editor wholly above the area has more cut off than it is tall.
+  /// - Parameters:
+  ///   - top: Where the editor's top, which is its line's top, is, in the layer's space.
+  ///   - area: The part of the layer the editor is drawn in (`drawnArea`).
+  /// - Returns: The height cut off, and 0 for an editor that starts inside the area.
+  public static func hiddenTop(ofEditorAt top: CGFloat, drawnIn area: CGRect) -> CGFloat {
+    max(0, area.minY - top)
+  }
+
   /// How far to scroll the page so the editor is in the part of the screen that can be seen: up
   /// for a positive distance, down for a negative one, and 0 when it is already in view.
   ///
