@@ -444,6 +444,84 @@ final class TextEditingUITests: UITestCase {
     XCTAssertTrue(line(containing: "Try these: now", in: app).waitForExistence(timeout: 20), "The line was changed")
   }
 
+  /// An open line scrolled up under the top bar is not drawn there, keeps the keyboard, and comes
+  /// back when something is typed.
+  ///
+  /// The page's own text fades out under the bar. The field is laid over the page view, not inside
+  /// it, and stayed fully drawn: over the bar and the status bar, on top of the clock (issue #195,
+  /// found on the simulator, 2026-10-10).
+  func testAnOpenLineScrolledUnderTheTopBarIsNotDrawnOverIt() throws {
+    // With the editor's room trace and touch log (Debug builds), as in the test above.
+    let app = launch([
+      "-skip-onboarding", "-seed-library", "sample", "-text-editing", "available", "-text-edit-geometry",
+      "-text-edit-touches",
+    ])
+    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
+    tap(app.buttons["reader.edit"], until: app.buttons["reader.doneEditingText"])
+    let field = app.textViews["reader.textEdit.field"]
+    // The line as the page has it, which PDFKit goes on exposing under the field: where the line
+    // is, whatever is drawn of the field.
+    let onPage = line(containing: "Try these", in: app)
+    tap(onPage, until: field)
+    XCTAssertTrue(waitForKeyboardFocus(field), "The open line takes the keyboard")
+    let bar = app.descendants(matching: .any)["reader.textEdit.actionBar"].firstMatch
+    XCTAssertTrue(bar.waitForExistence(timeout: Self.settleTimeout))
+    let top = app.navigationBars.firstMatch
+    XCTAssertTrue(top.exists, "The reader has a bar at the top")
+    let opened = waitUntilSteady(field)
+    let edge = top.frame.maxY
+
+    // A drag on the page, between the field and the bar over the keyboard, slowly and held before
+    // the finger lifts, so the page stays where the finger took it: far enough to put the line's
+    // middle half way up the status bar, where the clock is.
+    let fromY = max(opened.maxY + 16, bar.frame.minY - 24)
+    let distance = min(opened.midY - top.frame.minY / 2, fromY - 8)
+    let from = app.coordinate(withNormalizedOffset: .zero).withOffset(
+      CGVector(dx: app.windows.firstMatch.frame.midX, dy: fromY))
+    from.press(
+      forDuration: 0.05, thenDragTo: from.withOffset(CGVector(dx: 0, dy: -distance)), withVelocity: .slow,
+      thenHoldForDuration: 0.5)
+    func state() -> String {
+      "field \(opened) -> \(field.frame); the line on the page \(onPage.exists ? "\(onPage.frame)" : "gone"); "
+        + "top bar \(top.frame); bar \(bar.frame); dragged from y \(fromY) up \(distance); \(traces(in: app))"
+    }
+    let under = NSPredicate { _, _ in onPage.exists && onPage.frame.maxY < edge }
+    let wentUnder = XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: under, object: nil)], timeout: 10)
+    if wentUnder != .completed { keepEvidence(app, named: "not under the top bar", notes: state()) }
+    XCTAssertEqual(wentUnder, .completed, "The line did not go up under the top bar: \(state())")
+    waitUntilSteady(field)
+    attach(app, named: "Line under the top bar")
+
+    // None of the field is drawn above the top bar's bottom edge, where the page fades out.
+    if field.frame.minY < edge - 1 { keepEvidence(app, named: "drawn over the top bar", notes: state()) }
+    XCTAssertGreaterThanOrEqual(
+      field.frame.minY, edge - 1, "The open line is drawn over the top bar and the status bar: \(state())")
+
+    // Out of sight, it is still the line in hand: the keyboard stays, and typing brings it back.
+    XCTAssertTrue(app.keyboards.firstMatch.exists, "The keyboard went away with the line out of sight: \(state())")
+    app.typeText(" now")
+    XCTAssertEqual(field.value as? String, "Try these: now", "What was typed went to the line: \(state())")
+    let shown = NSPredicate { _, _ in
+      let frame = field.frame
+      return frame.minY >= edge - 1 && frame.height >= opened.height - 1 && frame.maxY <= bar.frame.minY + 1
+    }
+    let cameBack = XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: shown, object: nil)], timeout: 10)
+    if cameBack != .completed { keepEvidence(app, named: "not back in view", notes: state()) }
+    XCTAssertEqual(cameBack, .completed, "Typing did not bring the line back into view: \(state())")
+    waitUntilSteady(field)
+    attach(app, named: "Back in view after typing")
+    assertWhollyInView(field, in: app)
+    app.buttons["reader.textEdit.cancel"].tap()
+  }
+
+  /// What the editor's room request and the page's gestures did, in Debug builds launched with
+  /// `-text-edit-geometry` and `-text-edit-touches`, for a failure message.
+  private func traces(in app: XCUIApplication) -> String {
+    let touches = app.descendants(matching: .any)["reader.textEdit.touchTrace"].firstMatch
+    let room = app.descendants(matching: .any)["reader.textEdit.roomTrace"].firstMatch
+    return "touches: \(touches.exists ? touches.label : "none"); room: \(room.exists ? room.label : "none")"
+  }
+
   /// After an edit is finished, and after it is undone, the page is where it was: a line changed on
   /// the last page is still on screen.
   ///
