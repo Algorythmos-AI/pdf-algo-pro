@@ -19,6 +19,9 @@ Store notes (see the changelog strategy).
   only ever means a red annotation or Delete.
 
 ### Fixed
+- Editing text (internal builds): when you finish a change, or undo one, the page stays where you
+  were. Before, the reader went back to the top of the document after every Done and every Undo,
+  which showed on any document longer than a page.
 - Reading and editing text: the page now follows your finger when you drag it, also slowly, and
   stays where you leave it. Before, it kept still under the finger and only moved on after a
   flick, so a slow drag did nothing.

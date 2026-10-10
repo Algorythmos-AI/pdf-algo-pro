@@ -1010,5 +1010,26 @@ struct TextEditingDependabilityTests {
       field.removeFromSuperview()
       #expect(host.hitTest(CGPoint(x: 42, y: 229), with: nil).map { !$0.isDescendant(of: field) } ?? true)
     }
+
+    @Test("A page swapped in, as every edit and every Undo does, leaves the pages where they were")
+    func swappingAPageKeepsThePlace() throws {
+      let controller = try PDFDocumentController(data: SyntheticPDF.make(pages: ["One", "Two", "Three"]))
+      let host = PDFReaderHostView(frame: CGRect(x: 0, y: 0, width: 390, height: 600))
+      host.configure(for: controller)
+      host.layoutIfNeeded()
+      let scroller = try #require(host.pageScroller)
+      let last = try #require(controller.document.page(at: 2))
+      host.go(to: last)
+      host.layoutIfNeeded()
+      let before = scroller.contentOffset
+      // Otherwise there is no place to lose and the check below proves nothing.
+      try #require(before.y > 200, "The last page is well down the document: \(before)")
+
+      let source = try #require(PDFDocument(data: SyntheticPDF.make(pages: ["Three, changed"])))
+      controller.swap(last, for: try #require(source.page(at: 0)), keeping: source, links: [:])
+      #expect(abs(scroller.contentOffset.y - before.y) < 1, "After the swap: \(scroller.contentOffset), was \(before)")
+      controller.undoManager.undo()
+      #expect(abs(scroller.contentOffset.y - before.y) < 1, "After Undo: \(scroller.contentOffset), was \(before)")
+    }
   #endif
 }

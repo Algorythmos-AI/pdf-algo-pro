@@ -746,6 +746,10 @@ extension PDFDocumentController {
       let wanted = old.bounds(for: box).offsetBy(dx: shift.dx, dy: shift.dy)
       if new.bounds(for: box) != wanted { new.setBounds(wanted, for: box) }
     }
+    #if canImport(UIKit)
+      // Read now, with the text let go of: PDFKit does not keep the pages' place across the swap.
+      let place = view?.placeToKeep()
+    #endif
     // The new page goes into the document before anything is moved onto it. A form field moved to
     // a page that is not in a document yet loses its name when the page is inserted.
     document.removePage(at: index)
@@ -767,7 +771,7 @@ extension PDFDocumentController {
     structureGeneration += 1
     hasUnsavedChanges = true
     #if canImport(UIKit)
-      view?.pageSwapped(to: new)
+      view?.pageSwapped(to: new, keeping: place)
     #endif
     undoManager.registerUndo(withTarget: self) { controller in
       MainActor.assumeIsolated {

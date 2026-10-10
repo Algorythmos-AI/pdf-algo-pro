@@ -444,6 +444,69 @@ final class TextEditingUITests: UITestCase {
     XCTAssertTrue(line(containing: "Try these: now", in: app).waitForExistence(timeout: 20), "The line was changed")
   }
 
+  /// After an edit is finished, and after it is undone, the page is where it was: a line changed on
+  /// the last page is still on screen.
+  ///
+  /// An edit swaps the page for a rewritten one, and PDFKit does not keep the pages' place across
+  /// that. The reader went back to the top of the document after every Done and every Undo, which
+  /// does not show on a one-page document or on a line near the top (found on the simulator,
+  /// 2026-10-10).
+  func testThePageKeepsItsPlaceWhenAnEditIsFinishedAndUndone() throws {
+    let app = launch(["-skip-onboarding", "-seed-library", "sample", "-text-editing", "available"])
+    let indicator = app.staticTexts["reader.pageIndicator"]
+    XCTAssertTrue(indicator.waitForExistence(timeout: 15))
+    // To the last page, as far from the top of the document as it goes.
+    app.buttons["reader.more"].tap()
+    app.buttons["Go to page"].tap()
+    let number = app.alerts.firstMatch.textFields.firstMatch
+    XCTAssertTrue(number.waitForExistence(timeout: Self.settleTimeout))
+    number.tap()
+    number.typeText("3")
+    app.alerts.buttons["Go"].tap()
+    expectation(for: NSPredicate(format: "label CONTAINS %@", "3 of 3"), evaluatedWith: indicator)
+    waitForExpectations(timeout: Self.settleTimeout)
+
+    tap(app.buttons["reader.edit"], until: app.buttons["reader.doneEditingText"])
+    let field = app.textViews["reader.textEdit.field"]
+    let heading = line(containing: "Privacy", in: app)
+    XCTAssertTrue(heading.waitForExistence(timeout: 15), "The last page's heading can be picked")
+    tap(heading, until: field)
+    field.typeText(" kept")
+    app.buttons["reader.textEdit.done"].tap()
+    let changed = line(containing: "Privacy kept", in: app)
+    XCTAssertTrue(changed.waitForExistence(timeout: 20), "The line was changed")
+    assertOnTheLastPage(changed, indicator: indicator, in: app, after: "Done")
+
+    let undo = app.buttons["reader.textEdit.undo"]
+    XCTAssertTrue(undo.waitForExistence(timeout: 5) && undo.isEnabled, "The edit can be undone")
+    undo.tap()
+    XCTAssertTrue(changed.waitForNonExistence(timeout: 20), "Undo put the old words back")
+    assertOnTheLastPage(line(containing: "Privacy", in: app), indicator: indicator, in: app, after: "Undo")
+  }
+
+  /// The reader is still on the last page of the sample, with a line of that page on screen.
+  private func assertOnTheLastPage(
+    _ line: XCUIElement, indicator: XCUIElement, in app: XCUIApplication, after step: String,
+    file: StaticString = #filePath, at lineNumber: UInt = #line
+  ) {
+    // Long enough for a page on its way somewhere to get there.
+    Thread.sleep(forTimeInterval: 1.5)
+    let screen = app.windows.firstMatch.frame
+    let isInView = line.exists && screen.contains(line.frame)
+    if !indicator.label.contains("3 of 3") || !isInView {
+      keepEvidence(
+        app, named: "place lost after \(step)",
+        notes: "indicator \(indicator.label); line \(line.exists ? "\(line.frame)" : "gone"); screen \(screen)")
+    }
+    XCTAssertTrue(
+      indicator.label.contains("3 of 3"),
+      "After \(step) the reader left the last page: the indicator says \(indicator.label)", file: file,
+      line: lineNumber)
+    XCTAssertTrue(
+      isInView, "After \(step) the line is off the screen: \(line.exists ? "\(line.frame)" : "gone") in \(screen)",
+      file: file, line: lineNumber)
+  }
+
   /// How long a finger is held on text to put the caret under it.
   ///
   /// `Assumption:` the system's hold to move the caret begins well within a second.
