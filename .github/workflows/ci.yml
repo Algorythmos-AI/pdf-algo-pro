@@ -232,19 +232,26 @@ jobs:
             -destination "id=$device" -derivedDataPath DD CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=
       - name: Pack the test products
         # Artifacts lose file modes, so the products travel as one tar. Debug symbols stay behind:
-        # neither coverage nor the tests need them, and they are most of the size.
+        # neither coverage nor the tests need them, and they are most of the size. The resolved
+        # packages travel too: without them every shard cloned each package from github.com again
+        # before its first test, and run 38000339542's ui-3 ran no test when github.com was unreachable.
         run: |
           count="$(find DD/Build/Products -maxdepth 1 -name '*.xctestrun' | wc -l | tr -d ' ')"
           if [ "$count" != 1 ]; then
             echo "::error::Expected one .xctestrun in DD/Build/Products, found $count"
             exit 1
           fi
-          if command -v zstd >/dev/null; then
-            tar -C DD/Build --exclude='*.dSYM' -cf - Products | zstd -T0 -3 -q -c > products.tar.zst
-          else
-            tar -C DD/Build --exclude='*.dSYM' -cf products.tar Products
+          if [ ! -f DD/SourcePackages/workspace-state.json ]; then
+            echo "::error::The build left no resolved packages in DD/SourcePackages"
+            exit 1
           fi
-          echo "Test products: $(du -h products.tar* | cut -f1) ($(ls products.tar*))" | tee -a "$GITHUB_STEP_SUMMARY"
+          if command -v zstd >/dev/null; then
+            tar -C DD --exclude='*.dSYM' -cf - Build/Products SourcePackages | zstd -T0 -3 -q -c > products.tar.zst
+          else
+            tar -C DD --exclude='*.dSYM' -cf products.tar Build/Products SourcePackages
+          fi
+          echo "Test products: $(du -h products.tar* | cut -f1) ($(ls products.tar*)); of which packages:" \
+            "$(du -sh DD/SourcePackages | cut -f1) before compression" | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Keep the test products for the shards
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -371,15 +378,19 @@ jobs:
           path: products
       - name: Unpack the test products
         run: |
-          mkdir -p DD/Build
+          mkdir -p DD
           if [ -f products/products.tar.zst ]; then
-            zstd -dc products/products.tar.zst | tar -C DD/Build -xf -
+            zstd -dc products/products.tar.zst | tar -C DD -xf -
           else
-            tar -C DD/Build -xf products/products.tar
+            tar -C DD -xf products/products.tar
           fi
           count="$(find DD/Build/Products -maxdepth 1 -name '*.xctestrun' | wc -l | tr -d ' ')"
           if [ "$count" != 1 ]; then
             echo "::error::Expected one .xctestrun in the products, found $count"
+            exit 1
+          fi
+          if [ ! -f DD/SourcePackages/workspace-state.json ]; then
+            echo "::error::The products carry no resolved packages (DD/SourcePackages)"
             exit 1
           fi
       - name: Tests (${{ matrix.shard }})
@@ -400,9 +411,11 @@ jobs:
           xcrun simctl bootstatus "$SIM" -b > /dev/null
           set +e
           # Suites write their reports (OCR accuracy, AI evaluation, performance) to reports/, kept below.
-          # -derivedDataPath DD finds the products ios-build built; nothing is built here.
+          # -derivedDataPath DD finds the products and the resolved packages ios-build left; nothing is
+          # built or fetched here (the two package flags keep xcodebuild off the network).
           TEST_RUNNER_REPORTS_DIR="$GITHUB_WORKSPACE/reports" xcodebuild test-without-building \
             -scheme "$SCHEME" -testPlan "$TEST_PLAN" -derivedDataPath DD -destination "id=$SIM" \
+            -disableAutomaticPackageResolution -skipPackageUpdates \
             -enableCodeCoverage YES -resultBundlePath "$SHARD.xcresult" "${args[@]}" 2>&1 \
             | tee "$RUNNER_TEMP/xcodebuild.log"
           code=${PIPESTATUS[0]}
@@ -427,6 +440,7 @@ jobs:
               echo "Running again: ${retry[*]}"
               TEST_RUNNER_REPORTS_DIR="$GITHUB_WORKSPACE/reports/retry" xcodebuild test-without-building \
                 -scheme "$SCHEME" -testPlan "$TEST_PLAN" -derivedDataPath DD -destination "id=$SIM" \
+                -disableAutomaticPackageResolution -skipPackageUpdates \
                 -resultBundlePath "$SHARD-retry.xcresult" "${retry[@]}" 2>&1 | tee "$RUNNER_TEMP/xcodebuild-retry.log"
               echo "xcodebuild (failed tests again) exited ${PIPESTATUS[0]}"
             fi
@@ -493,7 +507,8 @@ jobs:
         continue-on-error: true
         run: |
           xcodebuild test-without-building -scheme "$SCHEME" -testPlan "$TEST_PLAN" -derivedDataPath DD \
-            -destination "id=$SIM" -enumerate-tests -test-enumeration-format json \
+            -destination "id=$SIM" -disableAutomaticPackageResolution -skipPackageUpdates \
+            -enumerate-tests -test-enumeration-format json \
             -test-enumeration-output-path inventory.json
           # What the listing wrote, so an inventory the check cannot read says why (run 37914825017
           # listed the tests, yet ios-report found the inventory empty).
