@@ -19,6 +19,11 @@ Store notes (see the changelog strategy).
   only ever means a red annotation or Delete.
 
 ### Fixed
+- Annotations: with a shape, a stamp or a signature selected, the page now follows your finger
+  when you drag anywhere else on it, also slowly. Before, it kept still until your finger lifted.
+  Dragging the selected one still moves it, and pinching it still resizes it while the page keeps
+  still. The frame around it no longer shows over the top of the screen once it has scrolled out
+  of view.
 - Editing text (internal builds): when you finish a change, or undo one, the page stays where you
   were. Before, the reader went back to the top of the document after every Done and every Undo,
   which showed on any document longer than a page.

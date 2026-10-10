@@ -116,8 +116,8 @@ struct DrawingToolsTests {
       #expect(host.subviews.compactMap { $0 as? InkCaptureView }.isEmpty)
     }
 
-    @Test("The page's scrolling waits for the resize pinch only while an annotation is selected")
-    func scrollingDoesNotWaitForAPinchWithNothingToResize() throws {
+    @Test("The page's scrolling never waits for the resize pinch, with or without a selection")
+    func scrollingNeverWaitsForTheResizePinch() throws {
       let controller = try document()
       let host = PDFReaderHostView(frame: CGRect(x: 0, y: 0, width: 390, height: 800))
       host.configure(for: controller)
@@ -142,13 +142,90 @@ struct DrawingToolsTests {
       }
       #expect(!delegate.gestureRecognizer(pinch, shouldBeRequiredToFailBy: UITapGestureRecognizer()))
 
+      // The same with an annotation selected, where the wait was kept at first (issue #194).
       #expect(controller.addShape(.arrow, from: CGPoint(x: 100, y: 500), to: CGPoint(x: 400, y: 500), onPage: 0))
       #expect(controller.selectForMoving(at: CGPoint(x: 250, y: 500), onPage: 0))
       #expect(
-        delegate.gestureRecognizer(pinch, shouldBeRequiredToFailBy: scroll),
-        "With an annotation selected the page keeps still while it is resized")
-      controller.clearSelection()
-      #expect(!delegate.gestureRecognizer(pinch, shouldBeRequiredToFailBy: scroll))
+        !delegate.gestureRecognizer(pinch, shouldBeRequiredToFailBy: scroll),
+        "With an annotation selected, a drag off it scrolls the page at once too")
+      #expect(
+        delegate.gestureRecognizer(pan, shouldBeRequiredToFailBy: scroll),
+        "A drag on the selection moves it, and the page waits to see whether it is one")
+      if let zoom = scroller.pinchGestureRecognizer {
+        #expect(
+          delegate.gestureRecognizer(pinch, shouldBeRequiredToFailBy: zoom),
+          "A pinch on the selection resizes it, and the page's zoom waits to see whether it is one")
+      }
+
+      // The page's drag may have begun under the first finger of a pinch. The pinch is not ruled out
+      // by it: the two run together, and the pinch stops the drag when it begins (the test below).
+      #expect(
+        delegate.gestureRecognizer(pinch, shouldRecognizeSimultaneouslyWith: scroll),
+        "The resize pinch can begin while the page is being dragged")
+      #expect(delegate.gestureRecognizer(pinch, shouldRecognizeSimultaneouslyWith: pan), "Move and resize together")
+      #expect(
+        !delegate.gestureRecognizer(pan, shouldRecognizeSimultaneouslyWith: scroll),
+        "A drag moves the selection or the page, never both")
+      if let zoom = scroller.pinchGestureRecognizer {
+        #expect(
+          !delegate.gestureRecognizer(pinch, shouldRecognizeSimultaneouslyWith: zoom),
+          "A pinch resizes the selection or zooms the page, never both")
+      }
+      #expect(!delegate.gestureRecognizer(pinch, shouldRecognizeSimultaneouslyWith: UIPanGestureRecognizer()))
+    }
+
+    @Test("While a pinch resizes the selection the page cannot be dragged, and can again once it is over")
+    func aResizePinchHoldsThePageStill() throws {
+      let controller = try document()
+      let host = PDFReaderHostView(frame: CGRect(x: 0, y: 0, width: 390, height: 800))
+      host.configure(for: controller)
+      host.layoutIfNeeded()
+      let scroll = try #require(host.pageScroller).panGestureRecognizer
+      #expect(controller.addStamp(.tick, onPage: 0), "A stamp is selected as it is placed")
+      let page = try #require(controller.document.page(at: 0))
+      let stamp = try #require(page.annotations.last)
+      let before = stamp.bounds
+      try #require(scroll.isEnabled)
+
+      // Switching a recognizer off cancels a drag it had begun, and none begins while it is off.
+      host.resized(by: 1, state: .began)
+      #expect(!scroll.isEnabled, "The pinch has begun: the page's drag is off")
+      host.resized(by: 2, state: .changed)
+      #expect(!scroll.isEnabled, "And stays off while the fingers move")
+      #expect(abs(stamp.bounds.width - before.width * 2) < 1, "The stamp follows the pinch: \(stamp.bounds)")
+      host.resized(by: 2, state: .ended)
+      #expect(scroll.isEnabled, "The pinch is over: the page can be dragged again")
+      #expect(abs(stamp.bounds.width - before.width * 2) < 1, "The stamp keeps its new size: \(stamp.bounds)")
+      controller.undoManager.undo()
+      #expect(stamp.bounds == before, "One step of Undo for the whole pinch: \(stamp.bounds), was \(before)")
+
+      // A pinch the system takes away gives the page back as well.
+      host.resized(by: 1, state: .began)
+      #expect(!scroll.isEnabled)
+      host.resized(by: 1, state: .cancelled)
+      #expect(scroll.isEnabled, "A cancelled pinch gives the page back too")
+
+      // A drag that something else switched off is not this pinch's to switch back on.
+      scroll.isEnabled = false
+      host.resized(by: 1, state: .began)
+      host.resized(by: 1, state: .ended)
+      #expect(!scroll.isEnabled, "What was off before the pinch is off after it")
+    }
+
+    @Test("The frame around a selection is cut off at the page view's edge, as the page is")
+    func theSelectionFrameIsCutOffAtThePageViewsEdge() throws {
+      let controller = try document()
+      let host = PDFReaderHostView(frame: CGRect(x: 0, y: 0, width: 390, height: 800))
+      host.configure(for: controller)
+      host.layoutIfNeeded()
+      #expect(controller.addStamp(.tick, onPage: 0), "A stamp is selected as it is placed")
+      let frames = (host.layer.sublayers ?? []).compactMap { $0 as? CAShapeLayer }.filter { $0.path != nil }
+      let frame = try #require(frames.first, "The selection has a frame drawn around it")
+      #expect(frames.count == 1)
+      // The frame follows its annotation as the page scrolls. Once the annotation is off the top of
+      // the page view, a frame that is not cut off there shows over the top bar and the status bar.
+      #expect(frame.frame == host.bounds, "The frame's layer covers the page view: \(frame.frame)")
+      #expect(frame.masksToBounds, "And draws nothing outside it")
     }
 
     @Test("A stroke that may not start fails at once, so the touch goes to what waited for it")

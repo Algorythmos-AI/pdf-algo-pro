@@ -37,7 +37,7 @@ Owner: Quality · Reviewed: whenever a build adds a feature that only a device c
 | Signed PDFs (H9) | Edit a signed test PDF: a notice says the changes went into a copy, and the original still validates in Preview |
 | Another app's changes (H5) | With a document open, change it from the Files app on a Mac or iPad (iCloud or AirDrop): the reader reloads, or asks when it has unsaved changes |
 | Version history (FR-EDIT-008) | Save twice, then More › Version history and restore the first; Settings › Storage shows the space |
-| Move and resize annotations (FR-ANN-005) | Drag a shape and pinch a signature; each is one undo step |
+| Move and resize annotations (FR-ANN-005) | Drag a shape and pinch a signature; each is one undo step. The page keeps still under both. With one still selected, drag slowly elsewhere on the page: the page follows the finger ([#194](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/194)) |
 | Links in PDFs (T-02) | Tap a web link: the full address shows before anything opens |
 | App Lock (FR-SET-002) | Turn it on; the app switcher shows no document; Face ID, and the passcode after a failure, unlock it |
 | Siri summary (FR-AI-018) | "Summarise [document] with PDF Algo Pro" on a locked iPhone asks to unlock first |
