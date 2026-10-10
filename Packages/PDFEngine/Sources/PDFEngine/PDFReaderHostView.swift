@@ -407,6 +407,9 @@ final class PDFReaderHostView: PDFView {
         selectionOutline.fillColor = nil
         selectionOutline.lineWidth = 1.5
         selectionOutline.zPosition = 1
+        // Cut off at the page view's edge, as the page is. The frame of an annotation that has
+        // scrolled off the top was drawn above the view, over the top bar and the status bar.
+        selectionOutline.masksToBounds = true
         layer.addSublayer(selectionOutline)
       }
       selectionOutline.strokeColor = tintColor.cgColor
