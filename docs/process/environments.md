@@ -2,9 +2,9 @@
 
 The places a build of PDF Algo Pro runs, which branch and build configuration feed each one, who can
 use it, how signing identity and secrets reach the build without entering git, and which services
-each build may talk to. The Staging set-up below is being put in place for the first internal
-TestFlight build ([#47](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/47), PAP-030); anything
-not yet decided is listed under [open questions](#open-questions).
+each build may talk to. How a Staging build is cut is in the
+[Staging build runbook](runbooks/staging-build.md); anything not yet decided is listed under
+[open questions](#open-questions).
 
 Owner: Release · Reviewed: each milestone
 
@@ -14,7 +14,7 @@ Owner: Release · Reviewed: each milestone
 |---|---|---|---|---|---|
 | Local | Any branch | Debug | See [open questions](#open-questions) | Xcode on the maintainer's Mac | The maintainer; simulators and registered devices |
 | CI | Every pull request and push | Debug, unsigned | — | GitHub Actions `ios` job | Nobody; checks only |
-| Staging | `integration` | Staging | `com.algorythmos.pdfalgopro.staging` | Xcode Cloud, Staging workflow | TestFlight internal testers |
+| Staging | `integration` | Staging | `com.algorythmos.pdfalgopro.staging` | Xcode Cloud, Staging workflow | TestFlight internal testers, and a small external group on the maintainer's word for each build |
 | Production | `main` | Release | `com.algorythmos.pdfalgopro` | Xcode Cloud, Release workflow | TestFlight external testers, then the App Store with phased release |
 
 Identifiers follow ADR-0015 (identifiers and signing): App Group
@@ -47,13 +47,17 @@ secrets. It is not an environment anyone uses; it exists to run the gates in
 
 ## Staging (`integration`)
 
-The Staging workflow is being set up for the first internal TestFlight build (readiness M5, PAP-030).
+The Staging workflow builds the Staging app for TestFlight (readiness M5, PAP-030). The
+[Staging build runbook](runbooks/staging-build.md) is the procedure.
 
-- The `PDFAlgoProStaging` scheme archives the Staging configuration. Xcode Cloud starts it manually
-  until build 1, then nightly from `integration`, rather than on every merge: 25 compute hours a month
-  are included, and a night's work can be a dozen merges
+- The `PDFAlgoProStaging` scheme archives the Staging configuration. Xcode Cloud starts it by hand,
+  on the maintainer's go for each build, rather than on every merge: 25 compute hours a month are
+  included, and a night's work can be a dozen merges
   ([Xcode Cloud workflow reference](https://developer.apple.com/documentation/xcode/xcode-cloud-workflow-reference)).
-  The archive action uploads for internal testing only.
+  The nightly start that PAP-030 and PAP-031 planned for after build 1 is not switched on (PAP-063);
+  "build 1" there is the milestone in [#47](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/47),
+  not Xcode Cloud's build number. The workflow builds whatever `integration`'s newest commit is when
+  it starts; a commit cannot be chosen.
 - The Xcode project is generated, not committed (ADR-0002), so
   [`ci_scripts/ci_post_clone.sh`](../../ci_scripts/ci_post_clone.sh) installs the pinned XcodeGen
   (checksum-verified) and generates it after the clone, before packages resolve
@@ -66,15 +70,19 @@ The Staging workflow is being set up for the first internal TestFlight build (re
 - A different bundle identifier means a separate App Store Connect app record: each app record is
   tied to one bundle ID
   ([Add a new app](https://developer.apple.com/help/app-store-connect/create-an-app-record/add-a-new-app)).
-  The Staging record is used for internal TestFlight only and is never submitted for review.
+  The Staging record is never submitted to App Review. A build that goes to its external group is
+  submitted to Beta App Review first
+  ([TestFlight overview](https://developer.apple.com/help/app-store-connect/test-a-beta-version/testflight-overview)).
 - Internal testers are App Store Connect users; Apple allows up to 100
   ([TestFlight overview](https://developer.apple.com/help/app-store-connect/test-a-beta-version/testflight-overview)).
-  Today that is the maintainer.
+  Today that is the maintainer. A small external group of family testers is also on the Staging app
+  (PAP-053, PAP-063); a build reaches them only on the maintainer's word for that build.
 - Purchases in TestFlight builds use the sandbox, so testers are not charged
   ([Testing In-App Purchases with sandbox](https://developer.apple.com/documentation/storekit/testing-in-app-purchases-with-sandbox)).
 - "What to Test" notes come from `TestFlight/WhatToTest.<locale>.txt` files that Xcode Cloud picks up
   automatically ([Including notes for testers](https://developer.apple.com/documentation/xcode/including-notes-for-testers-with-a-beta-release-of-your-app));
-  see the [changelog strategy](../changelog-strategy.md).
+  see the [changelog strategy](../changelog-strategy.md). There is one file for each locale testers
+  use and one for the app record's primary language: a locale with no file arrives empty.
 
 ## Production (`main`)
 

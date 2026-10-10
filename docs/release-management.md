@@ -12,7 +12,7 @@ Owner: Release · Reviewed: each release, and each milestone
 
 | Train | Source | Cadence | Destination |
 |---|---|---|---|
-| Staging | Every merge into `integration` | Continuous | Xcode Cloud Staging workflow → TestFlight internal (the `.staging` app) |
+| Staging | `integration`, at its newest commit when the build is started | By hand, on the maintainer's go for each build ([Staging build runbook](process/runbooks/staging-build.md), PAP-063) | Xcode Cloud Staging workflow → TestFlight internal, and a small external group on the maintainer's word (the `.staging` app) |
 | App Store | The release pull request `integration` → `main` | Roughly monthly | Xcode Cloud Release workflow → TestFlight external → App Store, phased release |
 | Hotfix | `hotfix/*` → `main` | When an incident needs it | As the App Store train, with an expedited review |
 
@@ -92,6 +92,7 @@ threshold set by this project, reviewed after the first three releases.
 | Cohort | Build | Who | Apple limits |
 |---|---|---|---|
 | Internal | Staging (`.staging` app) | App Store Connect users; today the maintainer | Up to 100 internal testers ([TestFlight overview](https://developer.apple.com/help/app-store-connect/test-a-beta-version/testflight-overview)) |
+| External, on the Staging app | Staging (`.staging` app) | A small group of family testers, on the maintainer's word for each build (PAP-063) | A build is submitted to Beta App Review before external testers can install it ([TestFlight overview](https://developer.apple.com/help/app-store-connect/test-a-beta-version/testflight-overview)) |
 | External | Release build from `main` | Invited testers in groups | Up to 10,000 external testers; the first build in a group is reviewed by Apple; builds can be tested for up to 90 days ([TestFlight overview](https://developer.apple.com/help/app-store-connect/test-a-beta-version/testflight-overview)) |
 
 Proposed external groups, created when recruiting starts: an early-access group, an accessibility group

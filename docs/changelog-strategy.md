@@ -48,7 +48,7 @@ CHANGELOG.md  [Unreleased]  ──── release prep: becomes ## [X.Y.Z] - date
 | Artefact | Audience | Source | Written when | Written by (hat) | Limits |
 |---|---|---|---|---|---|
 | [CHANGELOG.md](../CHANGELOG.md) | Everyone, including the maintainer later | The pull request | In each pull request; curated at release preparation | Author; Release curates | None |
-| TestFlight "What to Test" | Testers | CHANGELOG `[Unreleased]` (Staging) or the version section (Release) plus known issues | Every build | Release | Keep it short. Xcode Cloud reads `TestFlight/WhatToTest.<locale>.txt` from the repository ([Including notes for testers](https://developer.apple.com/documentation/xcode/including-notes-for-testers-with-a-beta-release-of-your-app)) |
+| TestFlight "What to Test" | Testers | CHANGELOG `[Unreleased]` (Staging) or the version section (Release) plus known issues | Every build | Release | Keep it short. Xcode Cloud reads `TestFlight/WhatToTest.<locale>.txt` from the repository, at the commit it builds: one file for each locale testers use and one for the app record's primary language, or that locale arrives empty ([Including notes for testers](https://developer.apple.com/documentation/xcode/including-notes-for-testers-with-a-beta-release-of-your-app)) |
 | App Store "What's New" | Users updating the app | The version section | Release preparation | Release (EN), Release with a French reviewer (FR) | At most 4000 characters per locale ([Platform version information](https://developer.apple.com/help/app-store-connect/reference/app-information/platform-version-information)) |
 | GitHub Release and wiki release notes | Readers of the repository and wiki | The version section | GitHub Release: by `release.yml`; wiki page: in the release preparation pull request | Release | None |
 
@@ -124,7 +124,7 @@ per release for a reader who does not follow the repository, and links to the Gi
 | When | Who (hat) | Writes |
 |---|---|---|
 | Each pull request | Author | A CHANGELOG `[Unreleased]` entry if users will notice |
-| Each Staging build | Release | What to Test from `[Unreleased]`, in `TestFlight/WhatToTest.en-US.txt` once the file exists |
+| Each Staging build | Release | What to Test from `[Unreleased]`, in every `TestFlight/WhatToTest.<locale>.txt`, merged before the build is started ([Staging build runbook](process/runbooks/staging-build.md)) |
 | Release preparation (`release: prepare X.Y.Z`) | Release | The dated version section; What's New EN and FR (in the pull request description); the wiki release notes page |
 | External TestFlight build | Release | What to Test for the Release build |
 | App Store submission | Release | Pastes What's New into App Store Connect for EN and FR |
