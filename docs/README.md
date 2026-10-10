@@ -152,6 +152,7 @@ blocks implementation today?
 | [Device smoke test](process/device-smoke-test.md) | Quality | whenever a build adds a feature only a device can show |
 | [Text editing device test](process/text-editing-device-test.md) | Quality and PDF engine | whenever the editor's supported cases change, and before the release flag is removed |
 | [Localisation](process/localization.md) | Product and Design | each milestone, and whenever a language is added |
+| [Staging build](process/runbooks/staging-build.md) | Release | after each Staging build that went differently from what is written there |
 | [App Store submission](process/runbooks/app-store-submission.md) | Release | after each release |
 | [App Store Connect subscriptions](process/runbooks/app-store-connect-subscriptions.md) | Release | after each change to a subscription product, and before the first release |
 | [iOS hotfix](process/runbooks/ios-hotfix.md) | Release | after each hotfix |

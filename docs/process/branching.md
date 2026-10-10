@@ -147,8 +147,8 @@ branch. The exception is recorded in ADR-0016 ([`docs/adr/0016-two-branch-model.
 [AGENTS.md](../../AGENTS.md) (hard rule 2) and in org decision D-023.
 
 - **Rationale.** An iOS app cannot be rolled back once users have installed it (see
-  [release management](../release-management.md#rolling-back-on-ios)). A staging line that builds
-  continuously to internal TestFlight gives every change a soak period on real devices before it is
+  [release management](../release-management.md#rolling-back-on-ios)). A staging line that is built
+  for internal TestFlight gives every change a soak period on real devices before it is
   promoted, and the release pull request gives the Release hat one reviewable promotion point.
 - **Trade-offs.** Two branches to keep in step; a back-merge after each hotfix; one more concept for
   newcomers than a single trunk.

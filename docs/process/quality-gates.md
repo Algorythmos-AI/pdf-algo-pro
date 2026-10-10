@@ -211,7 +211,8 @@ published.
 The bar the first internal TestFlight build meets before anyone other than the owner installs it
 (PAP-030). Tracking issue [#47](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/47) holds the
 status of each item. "CI" items are proven before build 1; "device" items are proven on build 1 while
-the owner is its only tester.
+the owner is its only tester. "Build 1" is this milestone, not Xcode Cloud's build number, which counts
+every run (PAP-063).
 
 | ID | Item | Where proven |
 |---|---|---|
