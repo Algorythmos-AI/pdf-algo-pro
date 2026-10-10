@@ -24,8 +24,11 @@
     private var names: [ObjectIdentifier: String] = [:]
     /// Where the page was last seen, to note a move no finger made (`pageMoved()`).
     private var lastOffset: CGPoint?
-    /// The touch now on the screen, to list every gesture recognizer it reaches (`recognizers`).
-    private weak var touch: UITouch?
+    /// The gesture recognizers the touch now on the screen reached, with the state each was last
+    /// seen in, to note each one's change on the frame it happens (`pageMoved()`): the last one to
+    /// fail before the page's scroll begins is the one the scroll waited for (issue #188).
+    private var reached: [UIGestureRecognizer] = []
+    private var states: [ObjectIdentifier: UIGestureRecognizer.State] = [:]
     private let logger = Logger(subsystem: "com.algorythmos.pdfalgopro", category: "text-edit.touches")
 
     init(host: PDFReaderHostView) {
@@ -61,6 +64,10 @@
     /// Called on every frame while text is picked (`publishTextEditAnchor()`): a page the person let
     /// go of that then moves was moved by the app, and this says when and to where.
     func pageMoved() {
+      for recognizer in reached where states[ObjectIdentifier(recognizer)] != recognizer.state {
+        states[ObjectIdentifier(recognizer)] = recognizer.state
+        note("\(Self.name(of: recognizer)) \(Self.text(recognizer.state))")
+      }
       guard let scroller = host?.pageScroller else { return }
       let offset = scroller.contentOffset
       defer { lastOffset = offset }
@@ -100,29 +107,22 @@
       guard recognizer.state != .changed else { return }
       let name = names[ObjectIdentifier(recognizer)] ?? "?"
       note("gesture \(name) \(Self.text(recognizer.state)), \(place)")
-      // What else the touch reached as the page began to scroll: a recognizer still possible here is
-      // one the scroll waited for (issue #188).
-      if name == "scroll", recognizer.state == .began { note("as it began: \(recognizers)") }
     }
 
-    /// Every gesture recognizer the touch now on the screen reaches: its type, its view's type, its
-    /// state and its delegate's type.
-    private var recognizers: String {
-      (touch?.gestureRecognizers ?? [])
-        .map { recognizer in
-          let view = recognizer.view.map { String(describing: type(of: $0)) } ?? "none"
-          let delegate = recognizer.delegate.map { String(describing: type(of: $0)) } ?? "none"
-          return "\(type(of: recognizer)) on \(view) \(Self.text(recognizer.state)) (\(delegate))"
-        }
-        .joined(separator: ", ")
+    /// A gesture recognizer's type, its view's type and its delegate's type.
+    private static func name(of recognizer: UIGestureRecognizer) -> String {
+      let view = recognizer.view.map { String(describing: type(of: $0)) } ?? "none"
+      let delegate = recognizer.delegate.map { String(describing: type(of: $0)) } ?? "none"
+      return "\(type(of: recognizer)) on \(view) (\(delegate))"
     }
 
     private func touched(_ touch: UITouch) {
       let view = touch.view.map { String(describing: type(of: $0)) } ?? "none"
       let onPage = host.map { touch.view?.isDescendant(of: $0) ?? false } ?? false
       let y = touch.window.map { Int(touch.location(in: $0).y) } ?? -1
-      self.touch = touch
-      note("touch at y \(y) on \(view), inside the page view \(onPage), \(place); reaches \(recognizers)")
+      reached = (touch.gestureRecognizers ?? []).filter { !($0 is TouchProbe) }
+      states = Dictionary(uniqueKeysWithValues: reached.map { (ObjectIdentifier($0), $0.state) })
+      note("touch at y \(y) on \(view), inside the page view \(onPage), \(place); reaches \(reached.count)")
     }
 
     private static func text(_ state: UIGestureRecognizer.State) -> String {
@@ -162,7 +162,7 @@
       let start = self.start ?? now
       self.start = start
       lines.append(String(format: "%.2f ", now.timeIntervalSince(start)) + line)
-      if lines.count > 80 { lines.removeFirst(lines.count - 80) }
+      if lines.count > 160 { lines.removeFirst(lines.count - 160) }
     }
   }
 
