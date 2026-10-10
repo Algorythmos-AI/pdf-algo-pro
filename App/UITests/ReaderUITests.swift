@@ -34,15 +34,25 @@ final class ReaderUITests: UITestCase {
     XCTAssertTrue(indicator.waitForExistence(timeout: 15))
     let pages = app.descendants(matching: .any)["reader.pages"].firstMatch
     XCTAssertTrue(pages.waitForExistence(timeout: Self.settleTimeout))
-    point(0.5, 0.85, in: pages, of: app).press(
-      forDuration: 0.05, thenDragTo: point(0.5, 0.15, in: pages, of: app), withVelocity: .slow,
-      thenHoldForDuration: 1)
-    let onSecondPage = NSPredicate(format: "label CONTAINS %@", "2 of 3")
-    let moved = XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: onSecondPage, object: indicator)], timeout: 5)
+    // From low on the page, clear of the page strip along the bottom, to near its top: more than a
+    // page's height, so the page under the finger at the end is no longer the first.
+    let area = pages.frame
+    let strip = app.descendants(matching: .any)["reader.pageStrip"].firstMatch
+    let lowest = (strip.exists ? min(area.maxY, strip.frame.minY) : area.maxY) - 24
+    let origin = app.coordinate(withNormalizedOffset: .zero)
+    let from = origin.withOffset(CGVector(dx: area.midX, dy: lowest))
+    let to = origin.withOffset(CGVector(dx: area.midX, dy: area.minY + 40))
+    from.press(forDuration: 0.05, thenDragTo: to, withVelocity: .slow, thenHoldForDuration: 1)
+    let pastTheFirst = NSPredicate(format: "label CONTAINS %@ OR label CONTAINS %@", "2 of 3", "3 of 3")
+    let moved = XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: pastTheFirst, object: indicator)], timeout: 5)
     if moved != .completed {
-      keepEvidence(app, named: "not dragged", notes: "indicator \(indicator.label); pages \(pages.frame)")
+      keepEvidence(
+        app, named: "not dragged",
+        notes: "indicator \(indicator.label); pages \(area); dragged from y \(lowest) to y \(area.minY + 40)")
     }
-    XCTAssertEqual(moved, .completed, "The page did not follow a slow drag: the indicator says \(indicator.label)")
+    XCTAssertEqual(
+      moved, .completed,
+      "The page did not follow a slow drag from y \(lowest) to y \(area.minY + 40): the indicator says \(indicator.label)")
   }
 
   func testGoToPageJumpsToTheNumberTyped() throws {
