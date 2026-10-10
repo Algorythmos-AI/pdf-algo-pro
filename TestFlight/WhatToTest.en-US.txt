@@ -1,6 +1,8 @@
 Internal build of PDF Algo Pro (Staging). Use test documents, not real ones. Please try:
 
-New in this build
+New in this build and the one before
+- With a shape, stamp or signature selected, drag the page slowly anywhere else: it follows your finger. Dragging the selected one still moves it, and pinching it still resizes it.
+- A line you are editing, scrolled up to the top of the screen, goes under the bar and no longer shows over the clock.
 - Edit text: tap Edit, then a line. It opens where it is, at the page's own size, and long text wraps. Nothing is cut off.
 - With a line open, drag the page slowly with one finger, then pinch. The page follows your finger and stays where you leave it. Type: it comes back to the line.
 - Turn the phone on its side with a line open: the line stays above the keyboard. The keyboard button puts the keyboard away and brings it back.
@@ -37,7 +39,6 @@ Assistant and privacy
 - Airplane mode: everything above still works.
 
 Known issues
-- With a shape or signature selected, the page needs a flick to scroll. Tap elsewhere first.
-- A line open and scrolled to the very top can show over the clock.
+- A drag begun straight after a tap may not move the page. Lift your finger, wait a moment and drag again.
 
 Report problems with Settings > Report a problem, or with a TestFlight screenshot.

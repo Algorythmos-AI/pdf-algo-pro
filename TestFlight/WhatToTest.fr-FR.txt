@@ -1,6 +1,8 @@
 Version interne de PDF Algo Pro (Staging). Utilisez des documents de test, pas de vrais documents. À essayer :
 
-Nouveau dans cette version
+Nouveau dans cette version et la précédente
+- Avec une forme, un tampon ou une signature sélectionnés, faites glisser la page lentement ailleurs : elle suit le doigt. Faire glisser l’élément sélectionné le déplace toujours, et le pincer le redimensionne toujours.
+- Une ligne en cours de modification, amenée tout en haut de l’écran, passe sous la barre et ne s’affiche plus par-dessus l’heure.
 - Modifier le texte : touchez Modifier, puis une ligne. Elle s’ouvre à sa place, à la taille de la page, et un texte long passe à la ligne. Rien n’est coupé.
 - Avec une ligne ouverte, faites glisser la page lentement avec un doigt, puis pincez. La page suit le doigt et reste où vous la laissez. Tapez : elle revient à la ligne.
 - Tournez l’iPhone avec une ligne ouverte : la ligne reste au-dessus du clavier. Le bouton clavier masque le clavier et le ramène.
@@ -37,7 +39,6 @@ Assistant et confidentialité
 - Mode Avion : tout ce qui précède fonctionne encore.
 
 Problèmes connus
-- Avec une forme ou une signature sélectionnée, il faut un geste vif pour faire défiler la page. Touchez d’abord ailleurs.
-- Une ligne ouverte et amenée tout en haut peut s’afficher par-dessus l’heure.
+- Un glissement commencé juste après un toucher peut ne pas déplacer la page. Levez le doigt, attendez un instant et recommencez.
 
 Signalez les problèmes avec Réglages > Signaler un problème, ou avec une capture d’écran TestFlight.
