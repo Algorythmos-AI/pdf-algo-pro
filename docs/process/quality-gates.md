@@ -158,6 +158,8 @@ on the `ios` runs of early October 2026). Since PAP-062 they run as a graph of j
 | `ios-tests (unit, ui-1, ui-2, ui-3)` | The test plan in four shards ([test shards](../testing-strategy.md#test-shards-in-ci)), each on its own runner and simulator, against the products of `ios-build`; keeps `ios-shard-<shard>` (result bundle, results, coverage, reports, failed tests' attachments; the unit shard also lists the plan's tests, `-enumerate-tests`, as the inventory) | `ios-build` |
 | `ios-report` | The union of the lines each shard covered, each distinct line counted once ([`coverage_union.py`](../../scripts/ci/coverage_union.py)); checks the union kept every shard's coverage ([`coverage_compare.py`](../../scripts/ci/coverage_compare.py)); the coverage gate; every failed and flaky test across the shards, against the flake budget ([`xcresult_report.py`](../../scripts/ci/xcresult_report.py)); that the shards ran every test of the plan once ([`shard_inventory.py`](../../scripts/ci/shard_inventory.py)) | `ios-tests` |
 | `ios` | The required check: passes only when every job above passed, or none had to run ([`ios_gate.py`](../../scripts/ci/ios_gate.py)) | All of the above |
+| `flaky-issues` | On pushes to `integration` and `main` and the nightly only: an issue per flaky test, labelled `bug` and `flaky`, or a comment on the open one ([`flaky_issues.py`](../../scripts/ci/flaky_issues.py)); the only job that may write issues. Never decides `ios` | `ios-report` |
+| `ci-timings` | Each job's minutes running and queued, and `ios`'s from the run's start, kept 90 days as the `ci-timings` artifact ([`ci_timings.py`](../../scripts/ci/ci_timings.py)); warns when a test shard ran over 20 minutes. Never decides `ios` | `ios` |
 
 - **Retries, UI shards only.** After a UI shard's run, its failed tests run once more, on their own,
   in a second `xcodebuild` run on a relaunched app, and that run is their verdict
@@ -178,8 +180,9 @@ on the `ios` runs of early October 2026). Since PAP-062 they run as a graph of j
   shard on the usual build, without `ios-device` and `ios-report`, and reports as `ios-focused`, so it
   never stands in for `ios` on a pull request's commit.
 - **Time target.** `Assumption:` `ios` reports within 22 minutes at the median (p50) of pull request
-  runs; validated from the run durations of the first 20 pull requests after the split, and the shards
-  rebalanced (`scripts/ci/test_shards.json`) if one shard is regularly the slowest by far.
+  runs; validated from the `ci-timings` records of the first 20 pull requests after the split, and the
+  shards rebalanced (`scripts/ci/test_shards.json`, as `ios-report`'s balance summary proposes) if one
+  shard is regularly the slowest by far.
 - **Rollback.** For one week after the split merges, a manual run with `serial_baseline` also runs the
   old serial pipeline as `ios-serial`. It is run once to show that the merged coverage matches the
   serial run's: the `ios-baseline` job compares `ios-coverage` with `ios-serial-coverage`, both

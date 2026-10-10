@@ -646,7 +646,22 @@ jobs:
           retries=()
           if [ "${#retried[@]}" -gt 0 ]; then retries=(--retries "${retried[@]}"); fi
           python3 scripts/ci/xcresult_report.py shards/ios-shard-*/tests.json "${retries[@]}" --flaky-budget 3 \
-            --summary "$GITHUB_STEP_SUMMARY"
+            --flaky-out flaky.json --summary "$GITHUB_STEP_SUMMARY"
+      - name: Keep the flaky tests for the flaky-issues job
+        if: ${{ !cancelled() && hashFiles('flaky.json') != '' }}
+        continue-on-error: true
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ios-flaky
+          path: flaky.json
+          retention-days: 7
+          overwrite: true
+      - name: How the UI shards would balance on this run's times
+        # Advice only: a proposed test_shards.json when moving classes would shorten the slowest UI shard
+        # by more than 10% (rebalance_shards.py). ci-timings warns when a shard runs over 20 minutes.
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: python3 scripts/ci/rebalance_shards.py shards/ios-shard-*/tests.json --summary "$GITHUB_STEP_SUMMARY"
       - name: The shards ran every test of the plan, each once
         if: ${{ !cancelled() }}
         run: |
@@ -709,6 +724,75 @@ jobs:
           NEEDS_JSON: ${{ toJSON(needs) }}
           ONLY_TESTING: ${{ inputs.only_testing }}
         run: python3 scripts/ci/ios_gate.py
+
+  flaky-issues:
+    # An issue per flaky test seen on integration, main or the nightly, opened or commented on, so no
+    # flake goes untracked (docs/testing-strategy.md#flaky-tests). Not on pull requests, whose flakes
+    # may be the change's own, and not needed by `ios`: tracking never decides the check. The only job
+    # that may write issues.
+    name: flaky-issues
+    needs: [ios-report]
+    if: >-
+      ${{ !cancelled() && (github.event_name == 'push' || github.event_name == 'schedule')
+      && needs.ios-report.result != 'skipped' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: scripts/ci
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        # Missing when the run had no flaky test, or ios-report stopped before keeping it.
+        continue-on-error: true
+        with:
+          name: ios-flaky
+          path: flaky
+      - name: Open or update an issue per flaky test
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SHA: ${{ github.sha }}
+        run: python3 scripts/ci/flaky_issues.py flaky/flaky.json --run-url "$RUN_URL" --sha "$SHA"
+
+  ci-timings:
+    # How long each job took, kept 90 days as `ci-timings`: the data behind the time target (`ios`
+    # within 22 minutes at the median). Warns when a test shard ran over 20 minutes. Not needed by `ios`.
+    name: ci-timings
+    needs: [changes, ios]
+    if: ${{ !cancelled() && needs.changes.outputs.ios == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: scripts/ci
+      - name: Time each job of this run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          gh api "repos/$REPOSITORY/actions/runs/$RUN_ID" > "$RUNNER_TEMP/run.json"
+          gh api --paginate "repos/$REPOSITORY/actions/runs/$RUN_ID/attempts/$ATTEMPT/jobs" --jq '.jobs[]' \
+            > "$RUNNER_TEMP/jobs.jsonl"
+          python3 scripts/ci/ci_timings.py "$RUNNER_TEMP/run.json" "$RUNNER_TEMP/jobs.jsonl" \
+            --out ci-timings.json --summary "$GITHUB_STEP_SUMMARY"
+      - name: Keep the timings
+        continue-on-error: true
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ci-timings
+          path: ci-timings.json
+          retention-days: 90
+          overwrite: true
 
   ios-serial:
     name: ios-serial

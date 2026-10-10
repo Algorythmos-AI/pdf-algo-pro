@@ -475,7 +475,9 @@ A flaky test passes and fails on the same code. It is treated as a bug in the te
 never retried away: a retry lets a run finish, it never clears the test.
 
 1. **Quarantine the same day it is seen.** Open an issue labelled `bug` and `flaky`
-   ([labels.yml](../.github/labels.yml)), then keep the test running without failing the build: in
+   ([labels.yml](../.github/labels.yml)); for a flake on `integration`, `main` or the nightly, the
+   `flaky-issues` job of `ci.yml` opens it, titled `Flaky test: <test>`, or comments on the open one
+   ([flaky_issues.py](../scripts/ci/flaky_issues.py)). Then keep the test running without failing the build: in
    Swift Testing, wrap the unstable part in `withKnownIssue(isIntermittent: true)` and add a `.bug` trait
    linking the issue ([known issues](https://developer.apple.com/documentation/testing/known-issues));
    in XCTest, use a non-strict expected failure. Disabling the test outright is the last resort.
@@ -526,12 +528,16 @@ simulator ([quality gates](process/quality-gates.md#the-ios-job-graph)). The sel
   `PDFAlgoProUITests` that `ui-1` and `ui-2` do not list. `ios-report` checks that the shards together
   ran every test of the plan, each once; the classes the plan skips (`*PerformanceTests`, run by the
   performance plan) are not expected in any shard.
-- **Balance:** measured on 2026-10-09 (seconds in tests): `ui-1` (Reader, LargeText, Assistant, Scan)
-  about 690, `ui-2` (TextEditing, Onboarding) about 560, `ui-3` (Library, Paywall, Settings) about 640.
-  With two UI shards the second took 34 minutes (run 37934833918), the longest job of the run.
-- **Rebalancing:** when one UI shard is regularly much slower than the others (the run summary lists
-  each shard's time in tests), move classes between the `ui-1` and `ui-2` lists in `test_shards.json`.
-  The script's tests check that every listed class exists in `App/UITests` and that none is listed twice.
+- **Balance:** seconds in tests on run 37984144377, the first with three UI shards: `ui-1` (Reader,
+  LargeText, Assistant, Scan) 742, `ui-2` (TextEditing, Onboarding) 689, `ui-3` (Library, Paywall,
+  Settings) 785; each shard's job took 19 to 21 minutes. With two UI shards the second took 34 minutes
+  (run 37934833918), the longest job of the run.
+- **Rebalancing:** `ci-timings` warns on the run when a shard ran over 20 minutes, and `ios-report`'s
+  summary shows how the UI classes would balance on that run's times
+  ([rebalance_shards.py](../scripts/ci/rebalance_shards.py)), with the `test_shards.json` to use when
+  moving classes would shorten the slowest UI shard by more than 10%. Apply it with
+  `python3 scripts/ci/rebalance_shards.py <each shard's tests.json> --write`, in a pull request of its
+  own. The script's tests check that every listed class exists in `App/UITests` and that none is listed twice.
 - **On a Mac:** `scripts/dev/ci_tests.sh --shard unit|ui-1|ui-2|ui-3` makes the same build and runs the same
   shard on the pinned simulator; `--only PDFAlgoProUITests/ReaderUITests` runs a focused set.
 - **One test in CI:** a manual run of `ci.yml` with `only_testing` (for example

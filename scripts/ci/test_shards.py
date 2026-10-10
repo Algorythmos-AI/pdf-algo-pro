@@ -15,10 +15,10 @@ Every shard runs the same build (`ios-build`), each on its own runner and simula
   * focused: on a manual run with `only_testing`, only the identifiers given (Target, Target/Class
     or Target/Class/method, comma-separated), instead of the shards above.
 
-The UI shards are balanced from the classes' measured times (seconds in tests, runs of 2026-10-09):
-ui-1 Reader, LargeText, Assistant and Scan, about 690; ui-2 TextEditing and Onboarding, about 560; ui-3
-Library, Paywall and Settings, about 640. With two UI shards the second took 34 minutes on run
-37934833918, the longest job of the run.
+The UI shards are balanced from the classes' measured times; seconds in tests on run 37984144377:
+ui-1 Reader, LargeText, Assistant and Scan, 742; ui-2 TextEditing and Onboarding, 689; ui-3 Library,
+Paywall and Settings, 785. With two UI shards the second took 34 minutes on run 37934833918, the
+longest job of the run. rebalance_shards.py proposes a new split from any run's times.
 
 UI shards run their failed tests once more, on their own, in a second xcodebuild run (retry-args),
 and only when at most MAX_RETRIED failed: more than that fails the flaky budget even if all pass, so
