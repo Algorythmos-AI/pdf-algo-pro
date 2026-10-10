@@ -17,7 +17,11 @@ struct TextRun {
   let advance: Double?
   /// How much of the advance is spaces at the end of the run, which leave no ink.
   let trailingSpace: Double
-  let characterSpacing: Double
+  /// The extra space after each letter that another letter follows in this operator, in text space.
+  ///
+  /// It is the character spacing in force, less what a number in a `TJ` array takes back before
+  /// the next letter. Spaces are not letters: what surrounds them says how words are spaced.
+  let letterGaps: [Double]
   let wordSpacing: Double
   /// Horizontal scaling as a fraction (1 is normal).
   let horizontalScale: Double
@@ -504,10 +508,14 @@ struct TextInterpreter {
     var text: String? = ""
     var advance: Double? = 0
     var trailingSpace = 0.0
+    var letterGaps: [Double] = []
+    // The extra space after the letter just shown; `nil` at the start and after a space.
+    var gap: Double?
     for element in elements {
       if let adjustment = element.number {
         let shift = -adjustment / 1000 * size * scale
         advance = advance.map { $0 + shift }
+        gap = gap.map { $0 - adjustment / 1000 * size }
         if trailingSpace > 0 { trailingSpace += shift }
         // A gap wider than a fifth of the font size reads as a space, as it does to PDFKit.
         if adjustment < -200, let current = text, !current.isEmpty, current.last != " " { text = current + " " }
@@ -519,6 +527,8 @@ struct TextInterpreter {
         continue
       }
       for glyph in font.glyphs(for: string) {
+        if let gap, glyph.text != " " { letterGaps.append(gap) }
+        gap = glyph.text == " " ? nil : state.characterSpacing
         if let glyphText = glyph.text { text = text.map { $0 + glyphText } } else { text = nil }
         if let width = glyph.width {
           let spacing = state.characterSpacing + (glyph.isWordSpace ? state.wordSpacing : 0)
@@ -540,7 +550,7 @@ struct TextInterpreter {
     runs.append(
       TextRun(
         operation: index, font: font, fontSize: size, transform: textMatrix.concatenating(state.transform),
-        text: text, advance: advance, trailingSpace: max(0, trailingSpace), characterSpacing: state.characterSpacing,
+        text: text, advance: advance, trailingSpace: max(0, trailingSpace), letterGaps: letterGaps,
         wordSpacing: state.wordSpacing,
         horizontalScale: scale, rise: state.rise, renderingMode: state.renderingMode, fill: state.fill,
         hasTransparency: !state.alphaIsOpaque || !state.blendIsNormal || state.hasSoftMask, clip: state.clip,

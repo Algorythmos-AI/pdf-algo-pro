@@ -54,6 +54,7 @@ that does nothing.**
 | N5d | Read the size of the edited text on screen, then pinch to zoom in | The field matches the page text; zooming in makes both bigger together. Text turned on its side is typed in the bar, which shows Cancel and Done in landscape with up to four lines |
 | N6 | Pick five lines in a row on a document in a typeface the iPhone lacks | "The font will be matched…" shows for the first only |
 | N7 | After any refusal, Settings › Report a problem | A line "Text editing proof: …" names the check, and "Text editing session: made, covered, refused" counts what happened. Send that, never the document |
+| N8 | Pick a heading that starts with "Te", "To" or "We". Change a letter and tap Done; do that six times over, the last times changing it back and forth | After every Done the heading is as wide as its words: the letters never close up ([#205](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/205)). A heading left squashed by an earlier build is set right by changing it once |
 
 ## Moving text
 

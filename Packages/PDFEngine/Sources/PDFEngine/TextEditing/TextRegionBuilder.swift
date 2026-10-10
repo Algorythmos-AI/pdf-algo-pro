@@ -31,6 +31,7 @@ struct TextRegion {
   let widthDrawn: Double
   let bounds: CGRect
   let fill: [Double]
+  /// The space added after each letter, in drawing units: see `TextRegionBuilder.letterSpacing`.
   let characterSpacingDrawn: Double
   var alignment = TextAlignment.leading
   /// Whether the line runs margin to margin, so new text is fitted to the same width.
@@ -194,9 +195,36 @@ enum TextRegionBuilder {
       widthDrawn: widthDrawn,
       bounds: TextRegion.pageBox(
         font: first.font, pointSize: first.pointSize, drawing: drawing, fromDrawn: 0, width: widthDrawn),
-      fill: first.run.fill ?? [0], characterSpacingDrawn: first.run.characterSpacing * first.scaleUp)
+      fill: first.run.fill ?? [0],
+      characterSpacingDrawn: letterSpacing(
+        of: group.flatMap { placed in placed.run.letterGaps.map { $0 * placed.scaleUp } }, pointSize: first.pointSize))
     region.refusal = refusal(for: region, group: group, content: content, pageBox: pageBox)
     return region
+  }
+
+  /// A line's letter spacing: the extra space most of its letters have after them, and none when
+  /// they share none.
+  ///
+  /// The character spacing operator alone does not say. Core Graphics, which writes every page
+  /// that has been edited, may put the first letter's extra space there, its kerning with the
+  /// second letter included, and take it back after each of the other letters. Read as letter spacing,
+  /// the kerning of a line starting "Te" was applied to every letter of its replacement, and again
+  /// on the next edit, until the letters sat on top of one another (issue #205).
+  ///
+  /// - Parameters:
+  ///   - gaps: The extra space after each letter that another letter follows, in drawing units.
+  ///   - pointSize: The text's height on the page, in points.
+  /// - Returns: The spacing, in drawing units.
+  static func letterSpacing(of gaps: [Double], pointSize: Double) -> Double {
+    // One letter pair says nothing: its extra space may be its kerning.
+    guard gaps.count >= 2 else { return 0 }
+    let sorted = gaps.sorted()
+    let middle = sorted[sorted.count / 2]
+    // Half a percent of the size takes in the rounding of the numbers a page is written with, and
+    // is half of what `TextRedrawer` takes to be spacing at all.
+    let shared = sorted.filter { abs($0 - middle) <= 0.005 * pointSize }
+    guard shared.count * 2 > sorted.count else { return 0 }
+    return shared.reduce(0, +) / Double(shared.count)
   }
 
   private static func refusal(

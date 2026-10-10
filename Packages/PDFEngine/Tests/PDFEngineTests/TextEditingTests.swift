@@ -687,6 +687,77 @@ struct TextEditorTests {
     #expect(text.contains("Firstline") && text.contains("Otherline") && !text.contains("Second"))
   }
 
+  /// How wide Core Text sets words in one of the device's fonts, in points.
+  private func natural(_ words: String, font: String, size: Double) -> Double {
+    let attributes = [
+      NSAttributedString.Key(kCTFontAttributeName as String): CTFontCreateWithName(font as CFString, size, nil)
+    ]
+    return CTLineGetTypographicBounds(
+      CTLineCreateWithAttributedString(NSAttributedString(string: words, attributes: attributes)), nil, nil, nil)
+  }
+
+  @Test("A line edited again and again stays as wide as its words")
+  func editedAgainAndAgain() async throws {
+    // "Te" is a kerned pair, and Core Graphics writes the short word "Test" with that kerning as
+    // its character spacing.
+    let lines = [
+      Line("Meeting Summary", font: "Helvetica-Bold", size: 20, at: CGPoint(x: 72, y: 700)),
+      Line("A line below the heading", font: "Helvetica", at: CGPoint(x: 72, y: 660)),
+    ]
+    var page = try TextEditFixtures.singlePage(try TextEditFixtures.make(pages: [lines]))
+    var words = "Meeting Summary"
+    for replacement in ["Test", "Test Summery", "Test Summary", "Test Summery", "Test Summary", "Test Summery"] {
+      let regions = await editor.text(ofPage: page).regions
+      let heading = try #require(regions.first { $0.text == words }, "\(words) before \(replacement)")
+      let result = await editor.applying([TextEdit(region: heading, replacement: replacement)], toPage: page)
+      let edited = try #require(result.page, "\(replacement): \(result.outcomes)")
+      // As the reader does: the edited page goes into the document and comes out of it again.
+      page = try TextEditFixtures.singlePage(edited)
+      words = replacement
+    }
+    let regions = await editor.text(ofPage: page).regions
+    let heading = try #require(regions.first { $0.text == words })
+    #expect(abs(heading.bounds.width - natural(words, font: "Helvetica-Bold", size: 20)) < 1)
+  }
+
+  @Test("Letter spacing is what a line's letters share, not what the character spacing operator says")
+  func letterSpacingIsMeasured() throws {
+    // "Test" as Core Graphics writes it: the kerning of "Te" as character spacing, taken back after
+    // every other letter. Then real letter spacing, and letters set on top of one another.
+    let content = """
+      BT -0.0739 Tc 20 0 0 20 72 700 Tm /F1 1 Tf [(Te) -74 (s) -74 (t)] TJ ET
+      BT /F2 11 Tf 1.5 Tc 72 640 Td (Spaced letters) Tj ET
+      BT /F1 20 Tf -7.4 Tc 72 600 Td (Test Summery) Tj ET
+      """
+    let regions = try PageAnalysis(TextEditFixtures.singlePage(TextEditFixtures.raw(content: content))).regions
+    #expect(regions.map(\.text) == ["Test", "Spaced letters", "Test Summery"])
+    #expect(regions.count == 3 && abs(regions[0].characterSpacingDrawn) < 0.01)
+    #expect(regions.count == 3 && abs(regions[1].characterSpacingDrawn - 1.5) < 0.01)
+    #expect(regions.count == 3 && abs(regions[2].characterSpacingDrawn + 7.4) < 0.01)
+  }
+
+  @Test("New words keep a line's letter spacing, unless its letters were set on top of one another")
+  func letterSpacingIsCarriedOn() async throws {
+    let content = """
+      BT /F2 11 Tf 1.5 Tc 72 640 Td (Spaced letters) Tj ET
+      BT /F1 20 Tf -7.4 Tc 72 600 Td (Test Summery) Tj ET
+      """
+    let (page, regions) = try await prepared(TextEditFixtures.raw(content: content))
+    let edits = [
+      TextEdit(region: try region(regions, containing: "Spaced"), replacement: "Spaced words"),
+      TextEdit(region: try region(regions, containing: "Summery"), replacement: "Test Summary"),
+    ]
+    let result = await editor.applying(edits, toPage: page)
+    let after = await editor.text(ofPage: try #require(result.page, "\(result.outcomes)")).regions
+    // Twelve letters with a point and a half after each; the last one's may or may not be counted.
+    let spaced = try region(after, containing: "Spaced words")
+    let unspaced = natural(spaced.text, font: spaced.style.fontName, size: spaced.style.pointSize)
+    #expect(abs(spaced.bounds.width - unspaced - 17.25) < 1.75)
+    // Set apart again: as wide as the words are.
+    let whole = try region(after, containing: "Test Summary")
+    #expect(abs(whole.bounds.width - natural(whole.text, font: "Helvetica", size: 20)) < 1)
+  }
+
   @Test("Only the page asked for is read: the work does not grow with the document", .timeLimit(.minutes(5)))
   func perPage() async throws {
     let short = try TextEditFixtures.make(pages: [[Line("Customer: John Smith", at: CGPoint(x: 72, y: 700))]])
