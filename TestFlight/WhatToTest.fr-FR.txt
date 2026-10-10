@@ -1,47 +1,43 @@
 Version interne de PDF Algo Pro (Staging). Utilisez des documents de test, pas de vrais documents. À essayer :
 
-Premier lancement et formules (nouveau)
+Nouveau dans cette version
+- Modifier le texte : touchez Modifier, puis une ligne. Elle s’ouvre à sa place, à la taille de la page, et un texte long passe à la ligne. Rien n’est coupé.
+- Avec une ligne ouverte, faites glisser la page lentement avec un doigt, puis pincez. La page suit le doigt et reste où vous la laissez. Tapez : elle revient à la ligne.
+- Tournez l’iPhone avec une ligne ouverte : la ligne reste au-dessus du clavier. Le bouton clavier masque le clavier et le ramène.
+- Changez une ligne loin dans un long document et touchez OK : la page reste où vous étiez. Annuler aussi.
+- Lecture : un glissement lent déplace maintenant la page sous le doigt. Avant, il fallait un geste vif.
+
+Premier lancement et formules
 - Chaque nouvelle version s’ouvre d’elle-même sur l’introduction, puis sur les formules. Rien à réinstaller.
-- Balayez ou touchez Continuer sur trois pages. Sur les formules, touchez l’hebdomadaire puis l’annuelle : le prix et le bouton suivent.
+- Sur les formules, touchez l’hebdomadaire puis l’annuelle : le prix et le bouton suivent.
 - Démarrez l’essai annuel (rien n’est facturé dans TestFlight) : la feuille d’Apple, puis « Bienvenue dans Pro ». Essayez aussi de fermer la feuille d’Apple, et Restaurer les achats.
 - Si les formules indiquent que ce compte Apple a déjà Pro, c’est exact : touchez Continuer.
 
-Accueil, Réglages et À propos
-- L’app s’ouvre maintenant sur l’accueil. Touchez Importer et Numériser, ouvrez un document sous Reprendre la lecture, puis revenez.
-- Ouvrez chaque section depuis l’accueil : son nombre correspond aux documents affichés.
-- Réglages : chaque ligne a un symbole. Ouvrez À propos et essayez chaque lien, ainsi que Partager.
-
 Modifier le texte
-- Ouvrez un document, touchez Modifier, touchez une ligne de texte, changez-la, touchez OK. Fermez puis rouvrez : le changement est toujours là.
-- Partagez le document et ouvrez-le dans une autre app PDF : les nouveaux mots y sont, les anciens n’y sont plus.
+- Changez une ligne, touchez OK, fermez puis rouvrez : le changement est toujours là. Partagez vers une autre app PDF : les nouveaux mots y sont.
 - Annulez et rétablissez pendant la modification. Essayez un texte bien plus long : il tient, ou l’app explique pourquoi et ne change rien.
 - Ouvrez un document numérisé et touchez Modifier : l’app indique que la page est une image et propose de reconnaître le texte.
 
 Votre fichier est en sécurité
 - Modifiez un document, enregistrez deux fois, puis Plus > Historique des versions : rétablissez la première.
 - Faites une modification et fermez aussitôt l’app. Rouvrez-la : le document s’ouvre, ancien ou nouveau, jamais endommagé.
-- Ouvrez un PDF signé et ajoutez une note : les modifications vont dans une copie, et un message explique pourquoi.
 
 Outils du quotidien
 - Plus : organiser les pages, réduire la taille, définir ou retirer un mot de passe, aplatir, enregistrer les pages en images.
 - Annotation : tamponnez une page, faites glisser une forme, pincez une signature pour la redimensionner. Chaque action s’annule en une fois.
-- Plus > Ajouter un signet à cette page, Plus > Annotations, et Lire à voix haute sur plusieurs pages.
 - Touchez un lien web dans un PDF : l’adresse complète s’affiche avant toute ouverture.
 
 Bibliothèque et numérisation
-- Depuis Favoris, cherchez un document qui n’est pas un favori : il est trouvé.
-- Sélectionnez plusieurs documents, puis fusionnez-les, partagez-les ou supprimez-les. Ouvrez les Infos de l’un d’eux.
+- Sélectionnez plusieurs documents, puis fusionnez-les, partagez-les ou supprimez-les. Faites-en glisser un vers Mail ou Fichiers.
 - Numérisez deux pages : faites-les pivoter, réordonnez-les et nommez-les avant d’enregistrer.
 
-Assistant
+Assistant et confidentialité
 - Posez une question, puis une question de suivi comme « Quelle est l’échéance ? ». Les deux réponses citent des pages.
-- Extrayez les champs et partagez-les en fichier CSV ; ouvrez-le dans Numbers.
-- Dites à Siri « Résume [document] avec PDF Algo Pro » sur un iPhone verrouillé : il demande le déverrouillage.
-
-Confidentialité
-- Réglages > Exiger Face ID : le sélecteur d’apps ne montre aucun document ; Face ID déverrouille.
-- Réglages > Rapport de confidentialité indique 0 document envoyé à une IA dans le cloud.
-- Réglages iOS > Confidentialité et sécurité > Rapport de confidentialité des apps : aucun domaine réseau pour cette app.
+- Réglages > Exiger Face ID : le sélecteur d’apps ne montre aucun document.
 - Mode Avion : tout ce qui précède fonctionne encore.
+
+Problèmes connus
+- Avec une forme ou une signature sélectionnée, il faut un geste vif pour faire défiler la page. Touchez d’abord ailleurs.
+- Une ligne ouverte et amenée tout en haut peut s’afficher par-dessus l’heure.
 
 Signalez les problèmes avec Réglages > Signaler un problème, ou avec une capture d’écran TestFlight.
