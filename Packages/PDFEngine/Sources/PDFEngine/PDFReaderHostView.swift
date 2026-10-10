@@ -619,8 +619,13 @@ final class PDFReaderHostView: PDFView {
     }
 
     @objc fileprivate func pinched(_ recognizer: UIPinchGestureRecognizer) {
-      transformScale = recognizer.scale
-      transform(recognizer.state)
+      resized(by: recognizer.scale, state: recognizer.state)
+    }
+
+    /// One step of the pinch that resizes the selection: it has begun, changed, or is over.
+    func resized(by scale: CGFloat, state: UIGestureRecognizer.State) {
+      transformScale = scale
+      transform(state)
     }
 
     private func transform(_ state: UIGestureRecognizer.State) {
