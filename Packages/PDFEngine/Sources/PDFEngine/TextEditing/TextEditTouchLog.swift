@@ -24,6 +24,8 @@
     private var names: [ObjectIdentifier: String] = [:]
     /// Where the page was last seen, to note a move no finger made (`pageMoved()`).
     private var lastOffset: CGPoint?
+    /// The touch now on the screen, to list every gesture recognizer it reaches (`recognizers`).
+    private weak var touch: UITouch?
     private let logger = Logger(subsystem: "com.algorythmos.pdfalgopro", category: "text-edit.touches")
 
     init(host: PDFReaderHostView) {
@@ -98,13 +100,29 @@
       guard recognizer.state != .changed else { return }
       let name = names[ObjectIdentifier(recognizer)] ?? "?"
       note("gesture \(name) \(Self.text(recognizer.state)), \(place)")
+      // What else the touch reached as the page began to scroll: a recognizer still possible here is
+      // one the scroll waited for (issue #188).
+      if name == "scroll", recognizer.state == .began { note("as it began: \(recognizers)") }
+    }
+
+    /// Every gesture recognizer the touch now on the screen reaches: its type, its view's type, its
+    /// state and its delegate's type.
+    private var recognizers: String {
+      (touch?.gestureRecognizers ?? [])
+        .map { recognizer in
+          let view = recognizer.view.map { String(describing: type(of: $0)) } ?? "none"
+          let delegate = recognizer.delegate.map { String(describing: type(of: $0)) } ?? "none"
+          return "\(type(of: recognizer)) on \(view) \(Self.text(recognizer.state)) (\(delegate))"
+        }
+        .joined(separator: ", ")
     }
 
     private func touched(_ touch: UITouch) {
       let view = touch.view.map { String(describing: type(of: $0)) } ?? "none"
       let onPage = host.map { touch.view?.isDescendant(of: $0) ?? false } ?? false
       let y = touch.window.map { Int(touch.location(in: $0).y) } ?? -1
-      note("touch at y \(y) on \(view), inside the page view \(onPage), \(place)")
+      self.touch = touch
+      note("touch at y \(y) on \(view), inside the page view \(onPage), \(place); reaches \(recognizers)")
     }
 
     private static func text(_ state: UIGestureRecognizer.State) -> String {
@@ -144,7 +162,7 @@
       let start = self.start ?? now
       self.start = start
       lines.append(String(format: "%.2f ", now.timeIntervalSince(start)) + line)
-      if lines.count > 60 { lines.removeFirst(lines.count - 60) }
+      if lines.count > 80 { lines.removeFirst(lines.count - 80) }
     }
   }
 
