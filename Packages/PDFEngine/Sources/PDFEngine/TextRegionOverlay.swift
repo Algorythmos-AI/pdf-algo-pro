@@ -94,6 +94,11 @@
     /// Where the editor last scrolled the page to, for itself (to show the line, or to keep it clear
     /// of the keyboard); a page found anywhere else when the text is let go of was moved by the person.
     var offsetSetByEditor: CGPoint?
+    /// Where the page was sent as the text was let go of, until the turn ends.
+    ///
+    /// A page swapped in the same turn, as every finished edit does, is put back there and not where
+    /// the page still was.
+    var placeBeingRestored: CGPoint?
     #if DEBUG
       /// Records which view touches reach and what the page's gestures do, while text is picked.
       var touchLog: TextEditTouchLog?
@@ -196,13 +201,46 @@
       clearSelection()
     }
 
+    /// Where the pages are scrolled and zoomed to, read before a page is swapped so that it can be
+    /// put back after: where the page is on its way to when the text was just let go of, or where
+    /// it is.
+    func placeToKeep() -> (offset: CGPoint, scale: CGFloat)? {
+      guard let scroller = pageScroller else { return nil }
+      return (textOverlays.placeBeingRestored ?? scroller.contentOffset, scaleFactor)
+    }
+
     /// Shows a page that has just replaced another, where the other was.
-    func pageSwapped(to page: PDFPage) {
-      // The scrolling layout, which text editing always uses, picks the new page up by itself and
-      // keeps its zoom and position (spike S8). Undo can also swap a page while the paged layout
-      // is showing, and that layout holds on to the page it had, so it is told.
-      if displayMode == .singlePage { go(to: page) }
+    ///
+    /// - Parameters:
+    ///   - page: The page now in the document.
+    ///   - place: Where the pages were before the swap (`placeToKeep()`).
+    func pageSwapped(to page: PDFPage, keeping place: (offset: CGPoint, scale: CGFloat)?) {
+      if displayMode == .singlePage {
+        // Undo can swap a page while the paged layout is showing, and that layout holds on to the
+        // page it had, so it is told.
+        go(to: page)
+      } else if let place {
+        // The scrolling layout picks the new page up by itself, but not where the pages were: with
+        // a page taken out there is less to scroll over, and the view ended at the top of the
+        // document after every finished edit and every Undo. So the place is put back, now and once
+        // more when PDFKit has laid its pages out again.
+        putBack(place)
+        Task { @MainActor [weak self] in self?.putBack(place) }
+      }
       textOverlays.refreshAll()
+    }
+
+    /// Puts the pages back where they were, kept inside what can be scrolled to; never under a finger.
+    private func putBack(_ place: (offset: CGPoint, scale: CGFloat)) {
+      guard let scroller = pageScroller, !Self.isBeingMoved(scroller) else { return }
+      layoutIfNeeded()
+      if abs(scaleFactor - place.scale) >= 0.001 { scaleFactor = place.scale }
+      let inset = scroller.adjustedContentInset
+      let lowest = max(-inset.top, scroller.contentSize.height + inset.bottom - scroller.bounds.height)
+      let rightmost = max(-inset.left, scroller.contentSize.width + inset.right - scroller.bounds.width)
+      let target = CGPoint(
+        x: min(max(place.offset.x, -inset.left), rightmost), y: min(max(place.offset.y, -inset.top), lowest))
+      if target != scroller.contentOffset { scroller.setContentOffset(target, animated: false) }
     }
 
     /// Brings the picked text into view when it is not, at the zoom the person chose.
@@ -311,6 +349,10 @@
       let inset = scroller.adjustedContentInset
       let highest = max(-inset.top, scroller.contentSize.height + inset.bottom - scroller.bounds.height)
       target.y = min(max(target.y, -inset.top), highest)
+      // A finished edit swaps its page in this same turn, and the pages are then put back where they
+      // were: that is here, where the page is being sent, and not where it still is.
+      textOverlays.placeBeingRestored = target
+      Task { @MainActor [weak self] in self?.textOverlays.placeBeingRestored = nil }
       // Off screen (a page view not in a window) there is nothing to watch move.
       if target != scroller.contentOffset { scroller.setContentOffset(target, animated: window != nil) }
     }
