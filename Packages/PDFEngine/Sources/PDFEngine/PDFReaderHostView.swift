@@ -706,7 +706,17 @@ final class PDFReaderHostView: PDFView {
       shouldBeRequiredToFailBy otherGestureRecognizer: UIGestureRecognizer
     ) -> Bool {
       // The page's scrolling and zooming wait: on the selection they give way, elsewhere these fail at once.
-      otherGestureRecognizer.view is UIScrollView
+      guard otherGestureRecognizer.view is UIScrollView else { return false }
+      // All but the pinch, for anything other than the page's own zoom. A pinch that sees one finger
+      // cannot fail until that finger lifts, so a page whose scrolling waited for it did not follow a
+      // drag at all: it glided on after a flick, and a slow drag left it where it was (issue #188).
+      // With nothing selected there is nothing to resize, so the page's scrolling does not wait for
+      // the pinch; with an annotation selected it still does, and the page keeps still while the
+      // annotation is resized.
+      if gestureRecognizer is UIPinchGestureRecognizer, !(otherGestureRecognizer is UIPinchGestureRecognizer) {
+        return MainActor.assumeIsolated { host?.controller?.selected != nil }
+      }
+      return true
     }
 
     func gestureRecognizer(

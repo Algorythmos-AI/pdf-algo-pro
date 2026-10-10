@@ -354,7 +354,11 @@ final class TextEditingUITests: UITestCase {
     let fromY = max(low, (low + high) / 2)
     let from = app.coordinate(withNormalizedOffset: .zero).withOffset(
       CGVector(dx: app.windows.firstMatch.frame.midX, dy: fromY))
-    from.press(forDuration: 0.05, thenDragTo: from.withOffset(CGVector(dx: 0, dy: -180)))
+    // Slowly, and held before the finger lifts: the page is where the finger took it and nothing is
+    // left to glide. A page that only moves on after a flick stays put under this drag (issue #188).
+    from.press(
+      forDuration: 0.05, thenDragTo: from.withOffset(CGVector(dx: 0, dy: -180)), withVelocity: .slow,
+      thenHoldForDuration: 0.5)
     let settled = NSPredicate { _, _ in field.frame.minY < opened.minY - 60 }
     let scrolled = XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: settled, object: nil)], timeout: 10)
     if scrolled != .completed {
@@ -374,15 +378,14 @@ final class TextEditingUITests: UITestCase {
     // Back down, so the pinch below keeps the line on screen: a pinch zooms about the fingers, and
     // a line far from them leaves the screen, as it would in Notes. By as far as the page went up,
     // and more; overshooting only takes the line further down.
-    // Thrown, at speed: on the simulator a synthesized drag on the page with a line open moves it only
-    // by its glide once the finger lifts. The scroll begins at once, but follows the finger only on
-    // lifting (the touch log of runs 38013290818 and 38016557424, issue #188), so the drag up flung the
-    // page 145 points and the same default-speed drag back did not glide and moved it not at all.
+    // Slowly and held again, so it is the drag that brings the page back and not a glide after it.
+    // This drag once moved the page not at all: the page's scrolling waited for a pinch that cannot
+    // fail while one finger is down, so it only began as the finger lifted (issue #188).
     let up = opened.minY - field.frame.minY
     let down = min(up + 40, app.windows.firstMatch.frame.maxY - 20 - fromY)
     from.press(
-      forDuration: 0.05, thenDragTo: from.withOffset(CGVector(dx: 0, dy: down)), withVelocity: .fast,
-      thenHoldForDuration: 0)
+      forDuration: 0.05, thenDragTo: from.withOffset(CGVector(dx: 0, dy: down)), withVelocity: .slow,
+      thenHoldForDuration: 0.5)
     let back = NSPredicate { _, _ in field.frame.minY > opened.minY - 30 }
     let returned = XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: back, object: nil)], timeout: 10)
     if returned != .completed {

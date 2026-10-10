@@ -23,6 +23,40 @@ final class ReaderUITests: UITestCase {
     waitForExpectations(timeout: Self.settleTimeout)
   }
 
+  /// A slow drag moves the page under the finger, and the page stays where the finger leaves it.
+  ///
+  /// The page's scrolling used to wait for a pinch that cannot fail while one finger is down, so the
+  /// page did not follow a drag: it glided on after a flick, and a slow drag left it where it was
+  /// (issue #188). The drag here is slow and held before the finger lifts, so nothing can glide.
+  func testThePageFollowsASlowDrag() throws {
+    let app = launch(["-skip-onboarding", "-seed-library", "sample"])
+    let indicator = app.staticTexts["reader.pageIndicator"]
+    XCTAssertTrue(indicator.waitForExistence(timeout: 15))
+    let pages = app.descendants(matching: .any)["reader.pages"].firstMatch
+    XCTAssertTrue(pages.waitForExistence(timeout: Self.settleTimeout))
+    // From low on the page, clear of the page strip along the bottom, to near its top: more than a
+    // page's height, so the page under the finger at the end is no longer the first.
+    let area = pages.frame
+    let strip = app.descendants(matching: .any)["reader.pageStrip"].firstMatch
+    let lowest = (strip.exists ? min(area.maxY, strip.frame.minY) : area.maxY) - 24
+    let origin = app.coordinate(withNormalizedOffset: .zero)
+    let from = origin.withOffset(CGVector(dx: area.midX, dy: lowest))
+    let to = origin.withOffset(CGVector(dx: area.midX, dy: area.minY + 40))
+    from.press(forDuration: 0.05, thenDragTo: to, withVelocity: .slow, thenHoldForDuration: 1)
+    let pastTheFirst = NSPredicate(format: "label CONTAINS %@ OR label CONTAINS %@", "2 of 3", "3 of 3")
+    let moved = XCTWaiter.wait(
+      for: [XCTNSPredicateExpectation(predicate: pastTheFirst, object: indicator)], timeout: 5)
+    if moved != .completed {
+      keepEvidence(
+        app, named: "not dragged",
+        notes: "indicator \(indicator.label); pages \(area); dragged from y \(lowest) to y \(area.minY + 40)")
+    }
+    XCTAssertEqual(
+      moved, .completed,
+      "The page did not follow a slow drag from y \(lowest) to y \(area.minY + 40): "
+        + "the indicator says \(indicator.label)")
+  }
+
   func testGoToPageJumpsToTheNumberTyped() throws {
     let app = launch(["-skip-onboarding", "-seed-library", "sample"])
     let indicator = app.staticTexts["reader.pageIndicator"]
