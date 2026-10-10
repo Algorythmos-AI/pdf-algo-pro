@@ -84,6 +84,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Links, headings, indexes (blocking); evidence and freshness (warnings)
         run: python3 scripts/ci/check_docs.py
+      - name: Tester notes (a file for every locale, alike in shape, within the limit)
+        run: python3 scripts/ci/check_tester_notes.py
 
   invariants:
     name: invariants

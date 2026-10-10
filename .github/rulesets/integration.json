@@ -52,6 +52,9 @@
           },
           {
             "context": "ios"
+          },
+          {
+            "context": "privacy-impact"
           }
         ]
       }

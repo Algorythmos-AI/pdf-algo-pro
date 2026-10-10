@@ -55,7 +55,7 @@ repository rulesets ([About rulesets](https://docs.github.com/en/repositories/co
 
 | File | Ruleset name | Applies to | Rules |
 |---|---|---|---|
-| [`integration.json`](../.github/rulesets/integration.json) | `protect-integration` | `refs/heads/integration` | No deletion; no force push; pull request required with 0 approvals, stale approvals dismissed, conversations resolved, **squash only**; required checks `pr-title`, `secrets / Secret scan`, `docs`, `invariants`, `dependency-review`, `ios` (`codeql (actions)` is added once CodeQL advanced setup is enabled); not strict about being up to date |
+| [`integration.json`](../.github/rulesets/integration.json) | `protect-integration` | `refs/heads/integration` | No deletion; no force push; pull request required with 0 approvals, stale approvals dismissed, conversations resolved, **squash only**; required checks `pr-title`, `secrets / Secret scan`, `docs`, `invariants`, `dependency-review`, `ios`, `privacy-impact` (`codeql (actions)` is added once CodeQL advanced setup is enabled); not strict about being up to date |
 | [`main.json`](../.github/rulesets/main.json) | `protect-main` | `refs/heads/main` | As above, but **merge or squash** allowed, and the same checks plus `promotion-guard`; not strict, so a release pull request needs its checks green but not to be up to date with `main` ([branching](process/branching.md#keeping-integration-level-with-main)) |
 | [`tags.json`](../.github/rulesets/tags.json) | `protect-release-tags` | `refs/tags/v*` | No deletion, no update, no force push. Creation is allowed, so the release workflow can tag |
 
