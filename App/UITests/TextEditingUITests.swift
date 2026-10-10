@@ -385,9 +385,6 @@ final class TextEditingUITests: UITestCase {
       thenHoldForDuration: 0)
     let back = NSPredicate { _, _ in field.frame.minY > opened.minY - 30 }
     let returned = XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: back, object: nil)], timeout: 10)
-    // Diagnostic for issue #188, printed whether the page came back or not, so a passing run can be
-    // compared with a failing one; taken out with the fix.
-    print("TOUCH-TRACE back down \(returned == .completed ? "moved" : "did not move"): \(traces())")
     if returned != .completed {
       keepEvidence(
         app, named: "not back down",
