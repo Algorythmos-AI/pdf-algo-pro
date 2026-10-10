@@ -44,7 +44,8 @@ final class ReaderUITests: UITestCase {
     let to = origin.withOffset(CGVector(dx: area.midX, dy: area.minY + 40))
     from.press(forDuration: 0.05, thenDragTo: to, withVelocity: .slow, thenHoldForDuration: 1)
     let pastTheFirst = NSPredicate(format: "label CONTAINS %@ OR label CONTAINS %@", "2 of 3", "3 of 3")
-    let moved = XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: pastTheFirst, object: indicator)], timeout: 5)
+    let moved = XCTWaiter.wait(
+      for: [XCTNSPredicateExpectation(predicate: pastTheFirst, object: indicator)], timeout: 5)
     if moved != .completed {
       keepEvidence(
         app, named: "not dragged",
@@ -52,7 +53,8 @@ final class ReaderUITests: UITestCase {
     }
     XCTAssertEqual(
       moved, .completed,
-      "The page did not follow a slow drag from y \(lowest) to y \(area.minY + 40): the indicator says \(indicator.label)")
+      "The page did not follow a slow drag from y \(lowest) to y \(area.minY + 40): "
+        + "the indicator says \(indicator.label)")
   }
 
   func testGoToPageJumpsToTheNumberTyped() throws {
