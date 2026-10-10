@@ -23,6 +23,28 @@ final class ReaderUITests: UITestCase {
     waitForExpectations(timeout: Self.settleTimeout)
   }
 
+  /// A slow drag moves the page under the finger, and the page stays where the finger leaves it.
+  ///
+  /// The page's scrolling used to wait for a pinch that cannot fail while one finger is down, so the
+  /// page did not follow a drag: it glided on after a flick, and a slow drag left it where it was
+  /// (issue #188). The drag here is slow and held before the finger lifts, so nothing can glide.
+  func testThePageFollowsASlowDrag() throws {
+    let app = launch(["-skip-onboarding", "-seed-library", "sample"])
+    let indicator = app.staticTexts["reader.pageIndicator"]
+    XCTAssertTrue(indicator.waitForExistence(timeout: 15))
+    let pages = app.descendants(matching: .any)["reader.pages"].firstMatch
+    XCTAssertTrue(pages.waitForExistence(timeout: Self.settleTimeout))
+    point(0.5, 0.85, in: pages, of: app).press(
+      forDuration: 0.05, thenDragTo: point(0.5, 0.15, in: pages, of: app), withVelocity: .slow,
+      thenHoldForDuration: 1)
+    let onSecondPage = NSPredicate(format: "label CONTAINS %@", "2 of 3")
+    let moved = XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: onSecondPage, object: indicator)], timeout: 5)
+    if moved != .completed {
+      keepEvidence(app, named: "not dragged", notes: "indicator \(indicator.label); pages \(pages.frame)")
+    }
+    XCTAssertEqual(moved, .completed, "The page did not follow a slow drag: the indicator says \(indicator.label)")
+  }
+
   func testGoToPageJumpsToTheNumberTyped() throws {
     let app = launch(["-skip-onboarding", "-seed-library", "sample"])
     let indicator = app.staticTexts["reader.pageIndicator"]

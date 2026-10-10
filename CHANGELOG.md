@@ -19,6 +19,9 @@ Store notes (see the changelog strategy).
   only ever means a red annotation or Delete.
 
 ### Fixed
+- Reading and editing text: the page now follows your finger when you drag it, also slowly, and
+  stays where you leave it. Before, it kept still under the finger and only moved on after a
+  flick, so a slow drag did nothing.
 - On the plans screen, the soft red wash at the top now stays behind the title, so the line under
   it and the note for an account that already has Pro read against plain white, for every
   accessibility check.

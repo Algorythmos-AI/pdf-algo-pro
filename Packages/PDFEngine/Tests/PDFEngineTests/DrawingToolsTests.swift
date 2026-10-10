@@ -116,6 +116,41 @@ struct DrawingToolsTests {
       #expect(host.subviews.compactMap { $0 as? InkCaptureView }.isEmpty)
     }
 
+    @Test("The page's scrolling waits for the resize pinch only while an annotation is selected")
+    func scrollingDoesNotWaitForAPinchWithNothingToResize() throws {
+      let controller = try document()
+      let host = PDFReaderHostView(frame: CGRect(x: 0, y: 0, width: 390, height: 800))
+      host.configure(for: controller)
+      host.layoutIfNeeded()
+      let scroller = try #require(host.pageScroller)
+      let ours = host.gestureRecognizers ?? []
+      let pinch = try #require(ours.first { $0 is UIPinchGestureRecognizer && $0.delegate is TransformGestureDelegate })
+      let pan = try #require(ours.first { $0 is UIPanGestureRecognizer && $0.delegate is TransformGestureDelegate })
+      let delegate = try #require(pinch.delegate as? TransformGestureDelegate)
+      let scroll = scroller.panGestureRecognizer
+
+      // A pinch that sees one finger cannot fail until the finger lifts: a page that waited for it
+      // would not follow a drag, only glide on after a flick (issue #188).
+      #expect(
+        !delegate.gestureRecognizer(pinch, shouldBeRequiredToFailBy: scroll),
+        "With nothing selected, a drag on the page scrolls it at once")
+      #expect(
+        delegate.gestureRecognizer(pan, shouldBeRequiredToFailBy: scroll),
+        "The move drag is still waited for: it fails at once off a selection")
+      if let zoom = scroller.pinchGestureRecognizer {
+        #expect(delegate.gestureRecognizer(pinch, shouldBeRequiredToFailBy: zoom), "Like waits for like")
+      }
+      #expect(!delegate.gestureRecognizer(pinch, shouldBeRequiredToFailBy: UITapGestureRecognizer()))
+
+      #expect(controller.addShape(.arrow, from: CGPoint(x: 100, y: 500), to: CGPoint(x: 400, y: 500), onPage: 0))
+      #expect(controller.selectForMoving(at: CGPoint(x: 250, y: 500), onPage: 0))
+      #expect(
+        delegate.gestureRecognizer(pinch, shouldBeRequiredToFailBy: scroll),
+        "With an annotation selected the page keeps still while it is resized")
+      controller.clearSelection()
+      #expect(!delegate.gestureRecognizer(pinch, shouldBeRequiredToFailBy: scroll))
+    }
+
     @Test("A stroke that may not start fails at once, so the touch goes to what waited for it")
     func strokeDeclines() {
       let recognizer = InkStrokeRecognizer()
