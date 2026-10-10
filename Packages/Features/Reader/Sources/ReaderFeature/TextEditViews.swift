@@ -95,6 +95,9 @@ struct TextEditField: UIViewRepresentable {
   /// The document the field is laid over, for a field on the page itself; its page view hands the
   /// field the touches inside it. `nil` for the field in the bar.
   var overPage: PDFDocumentController?
+  /// How much of the field's top is cut off, for a field on the page that has gone up under the bars
+  /// at the top of the screen (`TextEditPlacement.hiddenTop`); 0 for a field drawn whole.
+  var hiddenTop: CGFloat = 0
 
   func makeUIView(context: Context) -> TextEditTextView {
     let field = TextEditTextView()
@@ -119,6 +122,7 @@ struct TextEditField: UIViewRepresentable {
     context.coordinator.parent = self
     field.onEscape = onCancel
     if let overPage, overPage.fieldOverPage !== field { overPage.fieldOverPage = field }
+    if field.hiddenTop != hiddenTop { field.hiddenTop = hiddenTop }
     if field.text != draft.text {
       field.text = draft.text
       field.invalidateIntrinsicContentSize()
@@ -230,6 +234,12 @@ final class TextEditTextView: UITextView {
   private var laidOutSize = CGSize.zero
   /// What Escape on a hardware keyboard does: Cancel, as in the bar.
   var onEscape: (() -> Void)?
+  /// How much of the view's top is cut off by the layer it is laid in, where its line has gone up
+  /// under the bars at the top of the screen (`TextEditLayer`); 0 for a view drawn whole.
+  ///
+  /// The view stays where its line is, at its full size, and keeps the keyboard: only what is drawn
+  /// of it, where it can be touched and where VoiceOver finds it follow this.
+  var hiddenTop: CGFloat = 0
 
   init() {
     super.init(frame: .zero, textContainer: nil)
@@ -255,6 +265,27 @@ final class TextEditTextView: UITextView {
   /// Scrolls the caret, or the end of the selection, into view.
   func revealSelection() {
     scrollRangeToVisible(selectedRange)
+  }
+
+  /// The part of the view that is drawn, in its own space: all of it, less `hiddenTop` at the top.
+  ///
+  /// For a view cut off whole it is empty, and at the edge the view went under, below the view
+  /// itself: not where the view is, which is under the bars.
+  var drawnBounds: CGRect {
+    let hidden = max(0, hiddenTop)
+    return CGRect(
+      x: bounds.minX, y: bounds.minY + hidden, width: bounds.width, height: max(0, bounds.height - hidden))
+  }
+
+  /// A touch on the part that is cut off is not a touch on the field: it is for the bar drawn there.
+  override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+    super.point(inside: point, with: event) && drawnBounds.contains(point)
+  }
+
+  /// VoiceOver outlines the part that is drawn, and taps inside it.
+  override var accessibilityFrame: CGRect {
+    get { UIAccessibility.convertToScreenCoordinates(drawnBounds, in: self) }
+    set { super.accessibilityFrame = newValue }
   }
 
   /// Escape cancels the text in hand, unless it is ending an input method's composition.
@@ -334,12 +365,15 @@ struct TextEditLayer: View {
 
   var body: some View {
     GeometryReader { geometry in
+      let drawn = Self.drawnArea(in: geometry)
       // Nothing here but the field takes touches: the page under it scrolls and zooms as usual.
       ZStack(alignment: .topLeading) {
         if draft.isInPlace == true, let anchor = model.controller?.textEditAnchor, anchor.selection == selection {
           let visible = Self.visibleArea(in: geometry, below: draft.barFrame)
+          // The field starts at its line's top, so what is above the part it is drawn in is cut off.
+          let hiddenTop = TextEditPlacement.hiddenTop(ofEditorAt: anchor.lineFrame.minY, drawnIn: drawn)
           TextEditPlacementLayout(line: anchor.lineFrame, column: anchor.columnFrame) {
-            field(scale: anchor.scale) { caret in
+            field(scale: anchor.scale, hiddenTop: hiddenTop) { caret in
               // The caret, from the text view's space into the layer's: the text view sits inside
               // the cover, `coverOutset` in from its left edge, at its top. Worked out here, in the
               // layer, rather than through the window, whose space need not match SwiftUI's in a
@@ -377,6 +411,10 @@ struct TextEditLayer: View {
       }
       .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
       .coordinateSpace(.named(Self.space))
+      // A line scrolled up under the bars at the top goes under them, as the page's own text does.
+      // The layer is over the page view, not inside it, and the field was drawn in full there, over
+      // the status bar and its clock (issue #195).
+      .clipShape(Path(drawn))
     }
     .accessibilityElement(children: .contain)
   }
@@ -457,7 +495,7 @@ struct TextEditLayer: View {
   }
 
   /// The field, and its cover over the old words.
-  private func field(scale: CGFloat, onCaretMoved: @escaping (CGRect) -> Void) -> some View {
+  private func field(scale: CGFloat, hiddenTop: CGFloat, onCaretMoved: @escaping (CGRect) -> Void) -> some View {
     TextEditField(
       draft: draft, font: Self.font(for: selection.region, scale: scale),
       color: Self.color(for: selection.region),
@@ -465,7 +503,8 @@ struct TextEditLayer: View {
       onCancel: { if !model.isCommittingTextEdit { model.cancelTextEdit() } },
       isLocked: model.isCommittingTextEdit,
       onCaretMoved: onCaretMoved,
-      overPage: model.controller
+      overPage: model.controller,
+      hiddenTop: hiddenTop
     )
     #if DEBUG
       .modifier(TextEditGeometryOverlay.Measure(role: .textView))
@@ -494,6 +533,13 @@ struct TextEditLayer: View {
     TextEditPlacement.visibleArea(
       size: geometry.size, top: geometry.frame(in: .global).minY, barsBottom: geometry.safeAreaInsets.top,
       barTop: bar?.minY)
+  }
+
+  /// The part of the layer the field is drawn in: all of it, less what the bars at its top cover
+  /// (`TextEditPlacement.drawnArea`).
+  static func drawnArea(in geometry: GeometryProxy) -> CGRect {
+    TextEditPlacement.drawnArea(
+      size: geometry.size, top: geometry.frame(in: .global).minY, barsBottom: geometry.safeAreaInsets.top)
   }
 
   /// Whether the region's text is light, so it needs a dark field to be seen while it is typed.

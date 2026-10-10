@@ -27,6 +27,10 @@ Store notes (see the changelog strategy).
 - Editing text (internal builds): when you finish a change, or undo one, the page stays where you
   were. Before, the reader went back to the top of the document after every Done and every Undo,
   which showed on any document longer than a page.
+- Editing text (internal builds): a line you are editing no longer shows over the clock. Scrolled
+  up to the top of the screen, it now goes under the bar there, as the rest of the page does.
+  Before, it stayed drawn over the bar and the status bar. The keyboard stays up, and typing still
+  brings the line back.
 - Reading and editing text: the page now follows your finger when you drag it, also slowly, and
   stays where you leave it. Before, it kept still under the finger and only moved on after a
   flick, so a slow drag did nothing.
