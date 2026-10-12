@@ -1,17 +1,17 @@
-Version interne de PDF Algo Pro (Staging). Utilisez des documents de test, pas de vrais documents. À essayer :
+Version interne de PDF Algo Pro (Staging). Utilisez des documents de test, pas des vrais. À essayer :
 
 Nouveau dans cette version et les deux précédentes
-- Nouveau : dans Modifier, changez plusieurs fois le même titre, en touchant OK à chaque fois. Il garde sa largeur. Avant, ses lettres se resserraient un peu plus à chaque fois. Un titre resté écrasé se répare en le changeant une fois.
+- Nouveau : dans Modifier, changez plusieurs fois le même titre, en touchant OK à chaque fois. Il garde sa largeur. Un titre resté écrasé se répare en le changeant une fois.
 - Avec une forme, un tampon ou une signature sélectionnés, faites glisser la page lentement ailleurs : elle suit le doigt. L’élément sélectionné se déplace et se redimensionne comme avant.
-- Une ligne en cours de modification, amenée tout en haut de l’écran, passe sous la barre et ne s’affiche plus par-dessus l’heure.
+- Une ligne ouverte, amenée tout en haut de l’écran, passe sous la barre et non par-dessus l’heure.
 - Modifier le texte : touchez Modifier, puis une ligne. Elle s’ouvre à sa place, à la taille de la page, et un texte long passe à la ligne. Rien n’est coupé.
-- Avec une ligne ouverte, faites glisser la page lentement avec un doigt, puis pincez. La page suit le doigt et reste où vous la laissez. Tapez : elle revient à la ligne.
+- Avec une ligne ouverte, faites glisser la page lentement avec un doigt, puis pincez. La page suit le doigt et y reste. Tapez : elle revient à la ligne.
 - Tournez l’iPhone avec une ligne ouverte : la ligne reste au-dessus du clavier. Le bouton clavier masque le clavier et le ramène.
 - Changez une ligne loin dans un long document et touchez OK : la page reste où vous étiez. Annuler aussi.
-- Lecture : un glissement lent déplace maintenant la page sous le doigt. Avant, il fallait un geste vif.
+- Lecture : un glissement lent déplace maintenant la page sous le doigt.
 
 Premier lancement et formules
-- Chaque nouvelle version s’ouvre d’elle-même sur l’introduction, puis sur les formules. Rien à réinstaller.
+- Chaque nouvelle version s’ouvre d’elle-même sur l’introduction, puis sur les formules.
 - Sur les formules, touchez l’hebdomadaire puis l’annuelle : le prix et le bouton suivent.
 - Démarrez l’essai annuel (rien n’est facturé dans TestFlight) : la feuille d’Apple, puis « Bienvenue dans Pro ». Essayez aussi de fermer la feuille d’Apple, et Restaurer les achats.
 - Si les formules indiquent que ce compte Apple a déjà Pro, c’est exact : touchez Continuer.
@@ -42,4 +42,7 @@ Assistant et confidentialité
 Problèmes connus
 - Un glissement commencé juste après un toucher peut ne pas déplacer la page. Levez le doigt, attendez un instant et recommencez.
 
-Signalez les problèmes avec Réglages > Signaler un problème, ou avec une capture d’écran TestFlight.
+Envoyer un retour
+- Faites une capture d’écran dans l’app, ouvrez-la, touchez X ou OK en haut, puis Partager un avis bêta, et décrivez le problème.
+- Ou ouvrez l’app TestFlight, touchez PDF Algo β, puis Envoyer un avis bêta.
+- Ou dans l’app : Réglages > Signaler un problème.
