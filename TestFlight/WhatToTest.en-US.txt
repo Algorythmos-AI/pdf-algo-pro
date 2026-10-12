@@ -42,4 +42,7 @@ Assistant and privacy
 Known issues
 - A drag begun straight after a tap may not move the page. Lift your finger, wait a moment and drag again.
 
-Report problems with Settings > Report a problem, or with a TestFlight screenshot.
+Send feedback
+- Take a screenshot in the app, open it, tap the X or Done at the top, then Share Beta Feedback, and say what happened.
+- Or open the TestFlight app, tap PDF Algo β, then Send Beta Feedback.
+- Or in the app: Settings > Report a problem.
