@@ -422,7 +422,10 @@ public struct ReaderView<Assistant: View>: View {
       if model.isPastingAnnotations {
         PasteBar(
           onPasteHere: { Task { await model.pasteAnnotationOnCurrentPage() } },
-          onDone: { model.setPastingAnnotations(false) })
+          onDone: { model.setPastingAnnotations(false) },
+          canUndo: model.canUndo, canRedo: model.canRedo,
+          onUndo: { Task { await model.undo() } },
+          onRedo: { Task { await model.redo() } })
       }
       if model.isDrawing {
         Label {

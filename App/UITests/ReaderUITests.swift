@@ -456,6 +456,13 @@ final class ReaderUITests: UITestCase {
       point(0.3, row, in: pages, of: app).tap()
     }
     XCTAssertTrue(pasteBar.exists, "Pasting goes on until Done")
+    // A fourth paste in the wrong place, taken back from the bar without leaving pasting.
+    point(0.7, 0.5, in: pages, of: app).tap()
+    let undo = app.buttons["reader.paste.undo"]
+    XCTAssertTrue(undo.isEnabled)
+    undo.tap()
+    XCTAssertTrue(pasteBar.exists, "Undo keeps pasting on")
+    XCTAssertTrue(app.buttons["reader.paste.redo"].waitForExistence(timeout: Self.settleTimeout))
     app.buttons["reader.paste.done"].tap()
     XCTAssertFalse(pasteBar.waitForExistence(timeout: 2), "Done ends pasting")
     let annotations = app.navigationBars["Annotations"]
