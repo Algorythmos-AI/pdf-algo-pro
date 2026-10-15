@@ -5,6 +5,10 @@ import SwiftUI
 struct PasteBar: View {
   let onPasteHere: () -> Void
   let onDone: () -> Void
+  var canUndo = false
+  var canRedo = false
+  var onUndo: () -> Void = {}
+  var onRedo: () -> Void = {}
 
   var body: some View {
     HStack(spacing: Spacing.s150) {
@@ -19,6 +23,19 @@ struct PasteBar: View {
       // A tap on the page is not open to VoiceOver or Switch Control; this pastes on the page on screen.
       .accessibilityAction(named: Text("Paste on this page", bundle: .module), onPasteHere)
       Spacer(minLength: Spacing.s100)
+      // A paste in the wrong place is taken back here, without leaving pasting.
+      Button(action: onUndo) {
+        Image(systemName: "arrow.uturn.backward").minimumTarget()
+      }
+      .disabled(!canUndo)
+      .accessibilityLabel(Text("Undo", bundle: .module))
+      .accessibilityIdentifier("reader.paste.undo")
+      Button(action: onRedo) {
+        Image(systemName: "arrow.uturn.forward").minimumTarget()
+      }
+      .disabled(!canRedo)
+      .accessibilityLabel(Text("Redo", bundle: .module))
+      .accessibilityIdentifier("reader.paste.redo")
       Button(action: onDone) { Text("Done", bundle: .module).minimumTarget() }
         .accessibilityIdentifier("reader.paste.done")
     }
