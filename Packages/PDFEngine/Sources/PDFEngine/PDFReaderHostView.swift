@@ -455,6 +455,13 @@ final class PDFReaderHostView: PDFView {
         controller.clearSelection()
         return
       }
+      // After Copy or Cut, each tap puts a copy where it lands, until Done.
+      if controller.isPastingAnnotations {
+        if controller.pasteAnnotation(at: convert(point, to: page), onPage: document.index(for: page)) {
+          controller.onAnnotationTransformed?()
+        }
+        return
+      }
       controller.selectAnnotation(at: convert(point, to: page), onPage: document.index(for: page))
     }
 

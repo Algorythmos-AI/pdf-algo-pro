@@ -213,6 +213,18 @@ struct ReaderToolbar: ToolbarContent {
               Image(systemName: "seal")
             }
           }
+          if model.canPasteAnnotation {
+            Button {
+              model.setPastingAnnotations(true)
+            } label: {
+              Label {
+                Text("Paste", bundle: .module)
+              } icon: {
+                Image(systemName: "doc.on.clipboard")
+              }
+            }
+            .accessibilityIdentifier("reader.markup.paste")
+          }
           Button {
             Task { await model.undo() }
           } label: {

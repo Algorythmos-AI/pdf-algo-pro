@@ -11,6 +11,9 @@ struct SelectionBar: View {
   let onMove: (CGSize) -> Void
   let onResize: (CGFloat) -> Void
   let onColor: (AnnotationColor) -> Void
+  var onCopy: () -> Void = {}
+  var onCut: () -> Void = {}
+  var onDuplicate: () -> Void = {}
 
   /// How far one step of "Move" goes, in points; page space runs up, so up is positive.
   private static let step: CGFloat = 12
@@ -82,6 +85,37 @@ struct SelectionBar: View {
           Text("Style", bundle: .module).minimumTarget()
         }
         .accessibilityIdentifier("reader.selection.style")
+      }
+      if selection.isMovable {
+        Menu {
+          Button(action: onCopy) {
+            Label {
+              Text("Copy", bundle: .module)
+            } icon: {
+              Image(systemName: "doc.on.doc")
+            }
+          }
+          .accessibilityIdentifier("reader.selection.copyAction")
+          Button(action: onCut) {
+            Label {
+              Text("Cut", bundle: .module)
+            } icon: {
+              Image(systemName: "scissors")
+            }
+          }
+          .accessibilityIdentifier("reader.selection.cut")
+          Button(action: onDuplicate) {
+            Label {
+              Text("Duplicate", bundle: .module)
+            } icon: {
+              Image(systemName: "plus.square.on.square")
+            }
+          }
+          .accessibilityIdentifier("reader.selection.duplicate")
+        } label: {
+          Text("Copy", bundle: .module).minimumTarget()
+        }
+        .accessibilityIdentifier("reader.selection.copy")
       }
       if selection.isTextEditable {
         Button(action: onEdit) { Text("Edit text", bundle: .module).minimumTarget() }

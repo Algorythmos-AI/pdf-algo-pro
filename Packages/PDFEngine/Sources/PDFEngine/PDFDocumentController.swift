@@ -82,6 +82,10 @@ public final class PDFDocumentController {
   #endif
   /// A link to outside the document that the person tapped, waiting for them to confirm (T-02).
   public var tappedLink: DocumentLink?
+  /// Whether taps paste what was copied; read and set through `isPastingAnnotations`.
+  var isPasting = false
+  /// Counts copies and cuts, so that what shows whether anything can be pasted is drawn again.
+  public internal(set) var clipboardGeneration = 0
   /// The selected annotation itself; PDFKit objects stay out of `selection`.
   @ObservationIgnored var selected: (annotation: PDFAnnotation, page: PDFPage)? {
     didSet { view?.selectionChanged() }

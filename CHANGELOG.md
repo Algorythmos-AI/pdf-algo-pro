@@ -61,6 +61,10 @@ Store notes (see the changelog strategy).
   line was missing.
 
 ### Added
+- Annotations: copy, cut and paste. Select a tick, a stamp, a shape, a drawing or a text box and
+  choose Copy, Cut or Duplicate in its bar. After Copy or Cut, each tap on a page puts a copy where
+  you tap, so one tick can fill a whole column of boxes; Done ends it. Paste in the Markup menu
+  starts again, also in another document. Each paste is undone on its own.
 - Scanning (internal builds): a page set in columns is now read one column after the other, and a
   table row by row, so searching for a phrase and asking about a scan work on the text as you
   would read it.

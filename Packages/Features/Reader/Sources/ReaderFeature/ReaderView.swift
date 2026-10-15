@@ -414,7 +414,15 @@ public struct ReaderView<Assistant: View>: View {
           onDone: { model.clearSelection() },
           onMove: { offset in Task { await model.moveSelection(by: offset) } },
           onResize: { factor in Task { await model.resizeSelection(by: factor) } },
-          onColor: { color in Task { await model.setSelectionColor(color) } })
+          onColor: { color in Task { await model.setSelectionColor(color) } },
+          onCopy: { model.copySelection() },
+          onCut: { Task { await model.cutSelection() } },
+          onDuplicate: { Task { await model.duplicateSelection() } })
+      }
+      if model.isPastingAnnotations {
+        PasteBar(
+          onPasteHere: { Task { await model.pasteAnnotationOnCurrentPage() } },
+          onDone: { model.setPastingAnnotations(false) })
       }
       if model.isDrawing {
         Label {
