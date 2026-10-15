@@ -448,8 +448,8 @@ fake passes it too, so feature tests rely on a fake that behaves like the real e
   so a closure's lines count again for each enclosing function: on run 37920045109
   `AssistantView.swift`, 394 lines long, had 359 executable lines in the archive and 958 in the
   report. The union cannot be taken on the report's counts, so the gate now judges distinct lines.
-  `ios-report` prints both percentages on every run, and the `ios-serial` baseline counts its own
-  run the same way, so the two pipelines are compared on one measure.
+  `ios-report` prints both percentages on every run. The serial baseline, before `ios-serial` was
+  removed, counted its own run the same way: 92.5% against the shards' 92.4% (run 37964126995).
 - **Exclusions**, as the script applies them: test bundles (targets ending in `.xctest` or
   `Tests`); files ending in `Previews.swift`; paths containing `/Generated/`, `/Tests/`, `/.build/`
   or `/DerivedData/`. Previews therefore go in `<View>+Previews.swift`

@@ -33,8 +33,7 @@ Owner: Quality · Reviewed: each milestone, and with any change to a workflow, r
 | `ios` | `ci.yml` → `ios`, standing for `ios-build`, `ios-device`, `ios-tests (unit, ui-1, ui-2, ui-3)` and `ios-report` ([job graph](#the-ios-job-graph)) | Xcode 26.6 (build 17F113) and the iOS 26.5 simulator, pinned exactly (interim, PAP-029), XcodeGen 2.46.0 (checksum-verified), `swift-format`, `xcodebuild`, `.xctestplan`, [`coverage_gate.py`](../../scripts/ci/coverage_gate.py), [`ios_gate.py`](../../scripts/ci/ios_gate.py) | When `changes` reports Swift or project input changes | Yes | Yes | Lockfile unchanged; format clean (strict); build with warnings as errors, for the simulator and for a device in the optimised Staging configuration; unit, UI, accessibility-audit and snapshot tests pass; line coverage at least 80% overall and per first-party target (ADR-0014); no single XCTest test runs longer than 5 minutes (the test plan's execution time allowance); every job in the graph ran and passed, or none had to; at most 3 distinct flaky UI tests per run, each named | Active; skipped on pull requests that change no Swift or project input |
 | `ios-build`, `ios-device`, `ios-tests (…)`, `ios-report` | `ci.yml` → the jobs of the same names | As `ios` | As `ios` | No | No | Not required themselves: `ios` passes only when each passed ([job graph](#the-ios-job-graph)) | Active |
 | `ios-focused` | `ci.yml` → `ios`, on a manual run with `only_testing` | As `ios` | Manual runs only | No | No | The named tests pass on the usual build; never reported as `ios` | Active |
-| `ios-manual` | `ci.yml` → `ios`, on any other manual run (`serial_baseline`, `record_snapshots`) | As `ios` | Manual runs only | No | No | As `ios`, for the run's own record; never reported as `ios`, because a manual run's check would replace the pull request's own on the same commit (run 37939544303) | Active |
-| `ios-serial` | `ci.yml` → `ios-serial` | The serial pipeline from before the split | Manual runs with `serial_baseline` only | No | No | As `ios` before the split, with 90 minutes instead of 60 (its tests ran past 60 on run 37939544303); keeps `ios-serial-coverage` to compare with the shards | Rollback until one week after the split merges, then removed |
+| `ios-manual` | `ci.yml` → `ios`, on any other manual run (`record_snapshots`, or none) | As `ios` | Manual runs only | No | No | As `ios`, for the run's own record; never reported as `ios`, because a manual run's check would replace the pull request's own on the same commit (run 37939544303) | Active |
 | `codeql (actions)` | `codeql.yml` → `actions` | CodeQL, `security-extended` queries | Pull requests, pushes, nightly | Not yet | Not yet | Analysis completes; findings appear as code-scanning alerts | Runs, but its upload is rejected while CodeQL default setup is enabled on the repository; becomes required when the repository switches to advanced setup |
 | `performance` | `ci.yml` → `performance` | The `Performance` test plan on the pinned simulator, optimised build; [`scripts/ci/perf_gate.py`](../../scripts/ci/perf_gate.py) | Nightly on `integration`, and on request (not on a recording or focused run) | No | No | Median of three iterations within 120% of each p50 budget (`Assumption:`, [performance budgets](../performance-budgets.md)); reported in the run summary, never blocking | Active |
 | `codeql (swift)` | `codeql.yml` → `swift` | CodeQL, `security-extended`, manual build (one architecture) | Nightly on `integration`, on demand, and release pushes to `main` that change Swift | No | No | Analysis completes; findings appear as code-scanning alerts | Active; 30–50 minutes under the tracer, so not per pull request |
@@ -183,14 +182,12 @@ on the `ios` runs of early October 2026). Since PAP-062 they run as a graph of j
   runs; validated from the `ci-timings` records of the first 20 pull requests after the split, and the
   shards rebalanced (`scripts/ci/test_shards.json`, as `ios-report`'s balance summary proposes) if one
   shard is regularly the slowest by far.
-- **Rollback.** For one week after the split merges, a manual run with `serial_baseline` also runs the
-  old serial pipeline as `ios-serial`. It is run once to show that the merged coverage matches the
-  serial run's: the `ios-baseline` job compares `ios-coverage` with `ios-serial-coverage`, both
-  counted in distinct lines
-  ([`coverage_compare.py --baseline`](../../scripts/ci/coverage_compare.py)), lists every file the
-  merge covers less of, and fails when the merge is more than half a point below the serial run.
-  It is also the rollback if the graph misbehaves: restore the old `ios` job from it. It is removed
-  after that week.
+- **Rollback.** For one week after the split merged, a manual run with `serial_baseline` also ran
+  the old serial pipeline as `ios-serial`, and an `ios-baseline` job compared the two coverage
+  reports, both counted in distinct lines. The baseline run 37964126995 on `integration` matched
+  (serial 92.5%, shards 92.4%, of 17365 lines), the shards then ran green for the week, and
+  `ios-serial`, `ios-baseline` and the `serial_baseline` input were removed on 2026-10-16. To roll
+  back now, restore the old `ios` job from `ci.yml` as it was before that removal.
 
 ## Warnings never fail the build
 
