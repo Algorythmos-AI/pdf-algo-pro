@@ -457,7 +457,7 @@ final class ReaderUITests: UITestCase {
     }
     XCTAssertTrue(pasteBar.exists, "Pasting goes on until Done")
     // A fourth paste in the wrong place, taken back from the bar without leaving pasting.
-    point(0.7, 0.75, in: pages, of: app).tap()
+    point(0.7, 0.5, in: pages, of: app).tap()
     let undo = app.buttons["reader.paste.undo"]
     XCTAssertTrue(undo.isEnabled)
     undo.tap()
