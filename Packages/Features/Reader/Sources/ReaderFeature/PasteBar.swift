@@ -18,6 +18,9 @@ struct PasteBar: View {
         Image(systemName: "doc.on.clipboard")
       }
       .font(.subheadline.weight(.semibold))
+      // With Undo and Redo beside it, the words wrap onto more lines rather than being cut off.
+      .fixedSize(horizontal: false, vertical: true)
+      .layoutPriority(1)
       // It carries an action, so it gets a full-size target like any control (the audit's rule).
       .minimumTarget()
       // A tap on the page is not open to VoiceOver or Switch Control; this pastes on the page on screen.
