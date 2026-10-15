@@ -24,7 +24,7 @@ def job(name: str, start: str, end: str | None, conclusion: str | None = "succes
 JOBS = [job("ios-build", "10:00:30", "10:09:30"),
         job("ios-tests (ui-2)", "10:11:00", "10:33:00", created="10:09:40"),
         job("ios-tests (unit)", "10:10:00", "10:20:00"),
-        job("ios-serial", "10:00:00", "10:00:00", conclusion="skipped"),
+        job("publish-snapshots", "10:00:00", "10:00:00", conclusion="skipped"),
         job("ios", "10:40:00", "10:42:00"),
         job("ci-timings", "10:42:10", None, conclusion=None)]
 
