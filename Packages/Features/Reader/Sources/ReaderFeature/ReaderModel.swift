@@ -488,6 +488,52 @@ public final class ReaderModel {
     controller?.clearSelection()
   }
 
+  // MARK: Copy and paste
+
+  /// Whether Copy or Cut has put an annotation aside to paste.
+  public var canPasteAnnotation: Bool { controller?.canPasteAnnotation ?? false }
+
+  /// Whether taps on the page paste what was copied, until Done.
+  public var isPastingAnnotations: Bool { controller?.isPastingAnnotations ?? false }
+
+  /// Copies the selected annotation, then lets each tap on a page paste it.
+  public func copySelection() {
+    guard let controller, checkAnnotatingIsAllowed(controller), controller.copySelection() else { return }
+    controller.isPastingAnnotations = true
+  }
+
+  /// Cuts the selected annotation and saves, then lets each tap on a page paste it.
+  public func cutSelection() async {
+    guard let controller, checkAnnotatingIsAllowed(controller), controller.cutSelection() else { return }
+    controller.isPastingAnnotations = true
+    updateUndoState()
+    await save()
+  }
+
+  /// Puts a copy of the selected annotation beside it, selected, and saves.
+  public func duplicateSelection() async {
+    guard let controller, checkAnnotatingIsAllowed(controller), controller.duplicateSelection() else { return }
+    updateUndoState()
+    await save()
+  }
+
+  /// Lets each tap on a page paste what was copied, or stops it.
+  public func setPastingAnnotations(_ isOn: Bool) {
+    guard let controller else { return }
+    if isOn, !checkAnnotatingIsAllowed(controller) { return }
+    controller.isPastingAnnotations = isOn
+  }
+
+  /// Pastes what was copied in the middle of the page on screen and saves; for VoiceOver and Switch Control.
+  public func pasteAnnotationOnCurrentPage() async {
+    guard let controller, checkAnnotatingIsAllowed(controller), controller.pasteAnnotationOnCurrentPage() else {
+      return
+    }
+    controller.isPastingAnnotations = false
+    updateUndoState()
+    await save()
+  }
+
   /// Whether a stamp's text (initials, "Paid" and the like) is being asked for.
   public var isAddingStampText = false
 

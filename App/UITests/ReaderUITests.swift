@@ -439,6 +439,32 @@ final class ReaderUITests: UITestCase {
     XCTAssertFalse(bar.waitForExistence(timeout: 2), "Deleting clears the selection")
   }
 
+  func testACopiedTickIsPastedWhereverThePageIsTapped() throws {
+    let app = launch(["-skip-onboarding", "-seed-library", "sample"])
+    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
+    tapMenuItem(app.buttons["Stamp"], in: app.buttons["reader.markup"], until: app.buttons["Tick"])
+    app.buttons["Tick"].tap()
+    let bar = app.descendants(matching: .any)["reader.selection.actionBar"].firstMatch
+    XCTAssertTrue(bar.waitForExistence(timeout: Self.settleTimeout), "A placed stamp is selected")
+    let pasteBar = app.descendants(matching: .any)["reader.paste.bar"].firstMatch
+    tapMenuItem(
+      app.buttons["reader.selection.copyAction"], in: app.buttons["reader.selection.copy"], until: pasteBar)
+    XCTAssertFalse(bar.exists, "Copying lets go of the selection, so that a tap pastes")
+    try audit(app)
+    let pages = app.descendants(matching: .any)["reader.pages"].firstMatch
+    for row in [0.45, 0.55, 0.65] {
+      point(0.3, row, in: pages, of: app).tap()
+    }
+    XCTAssertTrue(pasteBar.exists, "Pasting goes on until Done")
+    app.buttons["reader.paste.done"].tap()
+    XCTAssertFalse(pasteBar.waitForExistence(timeout: 2), "Done ends pasting")
+    let annotations = app.navigationBars["Annotations"]
+    tapMenuItem(app.buttons["reader.annotations"], in: app.buttons["reader.more"], until: annotations)
+    let stamps = app.staticTexts.matching(NSPredicate(format: "label == %@", "Stamp"))
+    XCTAssertTrue(stamps.firstMatch.waitForExistence(timeout: Self.settleTimeout))
+    XCTAssertEqual(stamps.count, 4, "The tick and three pasted copies")
+  }
+
   func testAWrongPasswordSaysSoAndTheRightOneOpensTheDocument() throws {
     let app = launch(["-skip-onboarding", "-seed-library", "locked"])
     let field = app.secureTextFields["reader.password"]
