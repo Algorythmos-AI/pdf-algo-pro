@@ -14,6 +14,8 @@ struct PasteBar: View {
         Image(systemName: "doc.on.clipboard")
       }
       .font(.subheadline.weight(.semibold))
+      // It carries an action, so it gets a full-size target like any control (the audit's rule).
+      .minimumTarget()
       // A tap on the page is not open to VoiceOver or Switch Control; this pastes on the page on screen.
       .accessibilityAction(named: Text("Paste on this page", bundle: .module), onPasteHere)
       Spacer(minLength: Spacing.s100)
