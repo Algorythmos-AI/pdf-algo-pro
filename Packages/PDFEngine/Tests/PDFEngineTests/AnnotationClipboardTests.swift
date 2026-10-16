@@ -123,4 +123,31 @@ struct AnnotationClipboardTests {
     #expect(second.pasteAnnotationOnCurrentPage())
     #expect(second.annotationCount(onPage: 0) == 1 && second.selection?.kind == .stamp)
   }
+
+  @Test("A stamp from the menu is picked up, not placed, and each tap puts one where it lands")
+  func stampIsPickedUp() throws {
+    let controller = try document()
+    #expect(controller.pickUpStamp(.tick))
+    #expect(controller.isPastingAnnotations && controller.annotationCount(onPage: 0) == 0)
+    #expect(controller.pasteAnnotation(at: CGPoint(x: 300, y: 300), onPage: 0))
+    let page = try #require(controller.document.page(at: 0))
+    let tick = try #require(page.annotations.last)
+    #expect(PDFDocumentController.kind(of: tick) == .stamp && tick.contents == "✓")
+    #expect(abs(tick.bounds.midX - 300) < 0.5 && abs(tick.bounds.midY - 300) < 0.5)
+    #expect(!controller.pickUpStamp(.text("  ")))
+  }
+
+  @Test("Placing, drawing, marking and editing text are one mode at a time")
+  func oneModeAtATime() throws {
+    let controller = try document()
+    #expect(controller.pickUpStamp(.tick))
+    controller.setDrawing(true)
+    #expect(!controller.isPastingAnnotations, "Drawing ends placing")
+    controller.isPastingAnnotations = true
+    #expect(controller.isPastingAnnotations && !controller.isDrawing, "Placing ends drawing")
+    controller.setMarkupTool(.highlight)
+    #expect(!controller.isPastingAnnotations, "A marker ends placing")
+    controller.isPastingAnnotations = true
+    #expect(controller.markupTool == nil)
+  }
 }

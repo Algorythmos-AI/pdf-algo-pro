@@ -59,6 +59,7 @@ extension PDFDocumentController {
     guard isEditing != isEditingText else { return }
     if isEditing {
       if isDrawing { setDrawing(false) }
+      isPastingAnnotations = false
       clearSelection()
       view?.endEditing()
       prepareIncomingLinks()

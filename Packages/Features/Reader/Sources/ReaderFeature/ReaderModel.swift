@@ -164,7 +164,8 @@ public final class ReaderModel {
     let interval = Signposts.begin("Document.FirstPage")
     defer { interval.end() }
     // A document that is shown again starts with no tool in hand: the page it had is gone.
-    markupTool = nil
+    controller?.setMarkupTool(nil)
+    controller?.isPastingAnnotations = false
     watchRecognition()
     canRestorePreviousVersion = await library.hasPreviousVersion(of: documentID)
     do {
@@ -315,13 +316,14 @@ public final class ReaderModel {
   }
 
   /// The markup applied to text as it is selected, or `nil` when no markup tool is in hand.
-  public private(set) var markupTool: TextMarkup?
+  ///
+  /// Read from the document, so that another mode ending it (placing a stamp) is seen here too.
+  public var markupTool: TextMarkup? { controller?.markupTool }
 
   /// Takes a markup tool in hand: dragging across text marks it, until Done.
   public func startMarkupTool(_ markup: TextMarkup) {
     guard let controller, checkAnnotatingIsAllowed(controller) else { return }
     controller.clearTextSelection()
-    markupTool = markup
     controller.setMarkupTool(markup) { [weak self] in
       self?.updateUndoState()
       Task { await self?.save() }
@@ -330,7 +332,6 @@ public final class ReaderModel {
 
   /// Puts the markup tool down.
   public func stopMarkupTool() {
-    markupTool = nil
     controller?.setMarkupTool(nil)
   }
 
@@ -537,13 +538,13 @@ public final class ReaderModel {
   /// Whether a stamp's text (initials, "Paid" and the like) is being asked for.
   public var isAddingStampText = false
 
-  /// Puts a stamp on the page on screen and saves (FR-ANN-006).
+  /// Picks up a stamp (FR-ANN-006): each tap on a page then puts it where the finger lands, until Done.
+  ///
+  /// Nothing is placed until a tap, so nothing has to be dragged from a corner into place.
   public func addStamp(_ stamp: PDFDocumentController.Stamp) async {
-    guard let controller, checkAnnotatingIsAllowed(controller),
-      controller.addStamp(stamp, onPage: controller.currentPageIndex)
-    else { return }
-    updateUndoState()
-    await save()
+    guard let controller, checkAnnotatingIsAllowed(controller) else { return }
+    controller.clearSelection()
+    controller.pickUpStamp(stamp)
   }
 
   /// The bookmarked pages, kept in the file's outline (FR-READ-009).
