@@ -368,15 +368,19 @@ struct ReaderModelTests {
     reader.stopWatching()
   }
 
-  @Test("Stamps are added to the page on screen and saved (FR-ANN-006)")
+  @Test("A chosen stamp is placed where the page is tapped, and saved (FR-ANN-006)")
   func stamps() async throws {
     let harness = Harness()
     let document = await harness.seed(try SyntheticPDF.makeSample())
     let reader = harness.reader(for: document)
     await reader.load()
     await reader.addStamp(.tick)
+    #expect(reader.isPastingAnnotations, "A chosen stamp waits for a tap on the page")
+    await reader.pasteAnnotationOnCurrentPage()
     await reader.addStamp(.text("SK"))
+    await reader.pasteAnnotationOnCurrentPage()
     await reader.addStamp(.text("  "))
+    #expect(!reader.isPastingAnnotations, "An empty stamp is not picked up")
     let url = try await harness.library.fileURL(for: document.id)
     #expect(try PDFDocumentController(url: url).annotationCount(onPage: 0) == 2)
     #expect(reader.canUndo)

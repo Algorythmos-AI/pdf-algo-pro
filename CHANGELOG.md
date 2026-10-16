@@ -61,6 +61,9 @@ Store notes (see the changelog strategy).
   line was missing.
 
 ### Added
+- Stamps: a tick, a cross, today's date or initials chosen from Markup › Stamp now goes where you
+  tap the page, as many times as you tap, until Done. Before, it was dropped near the top right
+  corner of the page and had to be dragged into place.
 - Annotations: copy, cut and paste. Select a tick, a stamp, a shape, a drawing or a text box and
   choose Copy, Cut or Duplicate in its bar. After Copy or Cut, each tap on a page puts a copy where
   you tap, so one tick can fill a whole column of boxes; Done ends it. Paste in the Markup menu

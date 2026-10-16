@@ -537,13 +537,13 @@ public final class ReaderModel {
   /// Whether a stamp's text (initials, "Paid" and the like) is being asked for.
   public var isAddingStampText = false
 
-  /// Puts a stamp on the page on screen and saves (FR-ANN-006).
+  /// Picks up a stamp (FR-ANN-006): each tap on a page then puts it where the finger lands, until Done.
+  ///
+  /// Nothing is placed until a tap, so nothing has to be dragged from a corner into place.
   public func addStamp(_ stamp: PDFDocumentController.Stamp) async {
-    guard let controller, checkAnnotatingIsAllowed(controller),
-      controller.addStamp(stamp, onPage: controller.currentPageIndex)
-    else { return }
-    updateUndoState()
-    await save()
+    guard let controller, checkAnnotatingIsAllowed(controller) else { return }
+    controller.clearSelection()
+    controller.pickUpStamp(stamp)
   }
 
   /// The bookmarked pages, kept in the file's outline (FR-READ-009).

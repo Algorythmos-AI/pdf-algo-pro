@@ -257,6 +257,45 @@ extension PDFDocumentController {
     }
   }
 
+  /// A stamp's annotation, framed and coloured as it is placed, in a box of the given place.
+  static func stampAnnotation(_ stamp: Stamp, bounds: CGRect, fontSize: CGFloat) -> PDFAnnotation {
+    let text = stamp.text
+    let isMark = stamp == .tick || stamp == .cross
+    let annotation = PDFAnnotation(bounds: bounds, forType: .freeText, withProperties: nil)
+    annotation.contents = text
+    annotation.font = AnnotationPalette.font(size: fontSize, bold: true)
+    // Text and frame share one colour; PDFKit draws a free-text frame in black.
+    annotation.fontColor =
+      stamp == .cross ? AnnotationPalette.red : (isMark ? AnnotationPalette.ink : AnnotationPalette.text)
+    annotation.alignment = .center
+    // A framed stamp is opaque, so it stays readable over whatever the page has there.
+    annotation.color = isMark ? .clear : PlatformColor.white
+    let border = PDFBorder()
+    border.lineWidth = isMark ? 0 : 2
+    annotation.border = border
+    // The standard "subject" entry says what the annotation is, so a stamp is not taken for a text box.
+    annotation.setValue(Self.stampSubject, forAnnotationKey: Self.subjectKey)
+    return annotation
+  }
+
+  /// Puts a stamp aside to paste, so that each tap on a page then places it where the finger lands.
+  ///
+  /// This is how the Stamp menu works: a tick chosen there is not dropped at a corner of the page to be
+  /// dragged into place. Returns whether the stamp could be made.
+  @discardableResult
+  public func pickUpStamp(_ stamp: Stamp) -> Bool {
+    let text = stamp.text
+    guard !text.isEmpty, text.count <= 60 else { return false }
+    let isMark = stamp == .tick || stamp == .cross
+    let width = isMark ? 44 : CGFloat(text.count) * 10 + 28
+    let height: CGFloat = isMark ? 44 : 30
+    AnnotationClipboard.shared.annotation = Self.stampAnnotation(
+      stamp, bounds: CGRect(x: 0, y: 0, width: width, height: height), fontSize: isMark ? 28 : 16)
+    clipboardGeneration += 1
+    isPastingAnnotations = true
+    return true
+  }
+
   /// Puts a stamp near the top right of a page (FR-ANN-006).
   ///
   /// It is a framed text annotation, which other PDF apps show and can edit. Returns whether it was
@@ -278,20 +317,7 @@ extension PDFDocumentController {
     {
       bounds.origin.y -= height + 6
     }
-    let annotation = PDFAnnotation(bounds: bounds, forType: .freeText, withProperties: nil)
-    annotation.contents = text
-    annotation.font = AnnotationPalette.font(size: fontSize, bold: true)
-    // Text and frame share one colour; PDFKit draws a free-text frame in black.
-    annotation.fontColor =
-      stamp == .cross ? AnnotationPalette.red : (isMark ? AnnotationPalette.ink : AnnotationPalette.text)
-    annotation.alignment = .center
-    // A framed stamp is opaque, so it stays readable over whatever the page has there.
-    annotation.color = isMark ? .clear : PlatformColor.white
-    let border = PDFBorder()
-    border.lineWidth = isMark ? 0 : 2
-    annotation.border = border
-    // The standard "subject" entry says what the annotation is, so a stamp is not taken for a text box.
-    annotation.setValue(Self.stampSubject, forAnnotationKey: Self.subjectKey)
+    let annotation = Self.stampAnnotation(stamp, bounds: bounds, fontSize: fontSize)
     add([(annotation, page)])
     // Selected straight away, so it can be dragged to where it belongs.
     select(annotation, on: page)
