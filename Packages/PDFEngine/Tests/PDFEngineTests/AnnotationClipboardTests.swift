@@ -136,4 +136,18 @@ struct AnnotationClipboardTests {
     #expect(abs(tick.bounds.midX - 300) < 0.5 && abs(tick.bounds.midY - 300) < 0.5)
     #expect(!controller.pickUpStamp(.text("  ")))
   }
+
+  @Test("Placing, drawing, marking and editing text are one mode at a time")
+  func oneModeAtATime() throws {
+    let controller = try document()
+    #expect(controller.pickUpStamp(.tick))
+    controller.setDrawing(true)
+    #expect(!controller.isPastingAnnotations, "Drawing ends placing")
+    controller.isPastingAnnotations = true
+    #expect(controller.isPastingAnnotations && !controller.isDrawing, "Placing ends drawing")
+    controller.setMarkupTool(.highlight)
+    #expect(!controller.isPastingAnnotations, "A marker ends placing")
+    controller.isPastingAnnotations = true
+    #expect(controller.markupTool == nil)
+  }
 }

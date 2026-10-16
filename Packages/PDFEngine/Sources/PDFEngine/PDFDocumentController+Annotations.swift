@@ -54,6 +54,8 @@ extension PDFDocumentController {
   /// While a tool is in hand, dragging a finger across text marks it as it goes: the reader calls
   /// `onMarked` after each drag so it can save.
   public func setMarkupTool(_ markup: TextMarkup?, onMarked: (@MainActor () -> Void)? = nil) {
+    // One mode at a time: a marker in hand ends placing a stamp or a copy.
+    if markup != nil { isPastingAnnotations = false }
     markupTool = markup
     onMarkup = markup == nil ? nil : onMarked
   }
@@ -109,6 +111,7 @@ extension PDFDocumentController {
   ) {
     // Drawing and editing text are separate modes; turning one on turns the other off.
     if isDrawing, isEditingText { setEditingText(false) }
+    if isDrawing { isPastingAnnotations = false }
     self.isDrawing = isDrawing
     drawingTool = tool
     onInk = isDrawing ? onStroke : nil

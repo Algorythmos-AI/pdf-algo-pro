@@ -475,7 +475,8 @@ final class ReaderUITests: UITestCase {
     XCTAssertTrue(bar.waitForExistence(timeout: Self.settleTimeout), "A tap on a placed tick selects it")
     tapMenuItem(
       app.buttons["reader.selection.copyAction"], in: app.buttons["reader.selection.copy"], until: pasteBar)
-    point(0.3, 0.75, in: pages, of: app).tap()
+    // Above the bar, which covers the bottom of the screen.
+    point(0.7, 0.35, in: pages, of: app).tap()
     app.buttons["reader.paste.done"].tap()
     let annotations = app.navigationBars["Annotations"]
     tapMenuItem(app.buttons["reader.annotations"], in: app.buttons["reader.more"], until: annotations)

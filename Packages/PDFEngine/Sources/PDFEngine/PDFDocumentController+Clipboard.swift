@@ -101,7 +101,13 @@ extension PDFDocumentController {
     get { isPasting && canPasteAnnotation }
     set {
       isPasting = newValue && canPasteAnnotation
-      if isPasting { clearSelection() }
+      if isPasting {
+        clearSelection()
+        // One mode at a time: placing ends drawing, marking and editing text.
+        if isDrawing { setDrawing(false) }
+        if markupTool != nil { setMarkupTool(nil) }
+        if isEditingText { setEditingText(false) }
+      }
     }
   }
 
