@@ -129,13 +129,9 @@ targets:
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
         UILaunchScreen: {}
+        # iPhone only for 1.0 (PAP-067), so there are no iPad orientations; iPad-first is V2.
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
-          - UIInterfaceOrientationLandscapeLeft
-          - UIInterfaceOrientationLandscapeRight
-        UISupportedInterfaceOrientations~ipad:
-          - UIInterfaceOrientationPortrait
-          - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         NSCameraUsageDescription: PDF Algo Pro uses the camera only when you scan a document. Scans stay on this device.
@@ -162,7 +158,8 @@ targets:
         # (Info.plist reads these because GENERATE_INFOPLIST_FILE is NO).
         APP_DISPLAY_NAME: PDF Algo Pro
         APP_URL_SCHEME: pdfalgopro
-        TARGETED_DEVICE_FAMILY: "1,2"
+        # iPhone only for 1.0 (PAP-067); layouts stay adaptive, and iPad returns with V2.
+        TARGETED_DEVICE_FAMILY: "1"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
@@ -194,7 +191,7 @@ targets:
       base:
         GENERATE_INFOPLIST_FILE: YES
         PRODUCT_BUNDLE_IDENTIFIER: com.algorythmos.pdfalgopro.tests
-        TARGETED_DEVICE_FAMILY: "1,2"
+        TARGETED_DEVICE_FAMILY: "1"  # as the app (PAP-067)
         # StoreKitTest's own header uses a symbol Apple deprecated in iOS 18, and warnings are errors
         # here: that one warning, in the SDK's module, is let through for the tests alone.
         OTHER_SWIFT_FLAGS: $(inherited) -Xcc -Wno-error=deprecated-declarations
@@ -215,7 +212,7 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         PRODUCT_BUNDLE_IDENTIFIER: com.algorythmos.pdfalgopro.uitests
         TEST_TARGET_NAME: PDFAlgoPro
-        TARGETED_DEVICE_FAMILY: "1,2"
+        TARGETED_DEVICE_FAMILY: "1"  # as the app (PAP-067)
 schemes:
   PDFAlgoPro:
     build:
