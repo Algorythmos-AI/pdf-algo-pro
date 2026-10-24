@@ -363,6 +363,35 @@ struct AppLockTests {
     #expect(!lock.isLocked, "Unlock must not fail for good either")
   }
 
+  @Test("App Lock turns itself off only when the passcode is gone, and says so; with one it always asks (#221)")
+  func turnsOffOnlyWithoutPasscode() async {
+    let device = FakeAuthenticator()
+    device.confirms = false
+    var enabled = true
+    var turnedOff = 0
+    let lock = AppLock(
+      authenticator: device, isEnabled: { enabled },
+      turnOff: {
+        turnedOff += 1
+        enabled = false
+      })
+    await lock.scenePhaseChanged(to: .active)
+    await lock.unlock()
+    #expect(lock.isLocked && turnedOff == 0 && !lock.wasTurnedOffWithoutPasscode, "No way around a passcode")
+    #expect(device.asked == 2)
+
+    // The passcode is removed while the app is away.
+    device.available = nil
+    await lock.scenePhaseChanged(to: .background)
+    await lock.scenePhaseChanged(to: .active)
+    #expect(!lock.isLocked && turnedOff == 1 && lock.wasTurnedOffWithoutPasscode)
+    #expect(device.asked == 2, "Nothing to ask without a passcode")
+    lock.turnedOffNoticeShown()
+    #expect(!lock.wasTurnedOffWithoutPasscode)
+    await lock.scenePhaseChanged(to: .background)
+    #expect(!lock.isLocked, "Off now, so it doesn't lock again")
+  }
+
   @Test("With App Lock off, nothing is covered or asked")
   func off() async {
     let device = FakeAuthenticator()

@@ -45,10 +45,15 @@ final class AppModel {
   @ObservationIgnored var storePatience: Duration = .seconds(3)
   let container: AppContainer
   let library: LibraryModel
-  /// App Lock (FR-SET-002).
-  let lock: AppLock
-  /// How this device confirms its owner, read once at launch; `nil` without a passcode.
-  let lockMethod: AppLockMethod?
+  /// App Lock (FR-SET-002); made in `init`, lazily only so it can tell the model it turned off.
+  @ObservationIgnored private(set) lazy var lock = AppLock(
+    authenticator: container.authenticator,
+    isEnabled: { [store = container.settings] in store.load().isAppLockEnabled },
+    turnOff: { [weak self] in self?.turnOffAppLock() })
+  /// How this device confirms its owner now; `nil` without a passcode.
+  ///
+  /// Asked each time, because the passcode can be set or removed while the app runs (#221).
+  var lockMethod: AppLockMethod? { container.authenticator.method() }
   /// Asks for a rating after real successes, at a calm moment (plan §6).
   let reviews: ReviewPrompter
   @ObservationIgnored private var reader: (selection: DocumentSelection, model: ReaderModel)?
@@ -77,9 +82,6 @@ final class AppModel {
       }
     #endif
     settings = container.settings.load()
-    let store = container.settings
-    lock = AppLock(authenticator: container.authenticator) { store.load().isAppLockEnabled }
-    lockMethod = container.authenticator.method()
     let reviews = ReviewPrompter(
       defaults: container.environment.isUITesting
         ? UserDefaults(suiteName: "ui-testing-reviews") ?? .standard : .standard,
@@ -92,6 +94,8 @@ final class AppModel {
       library: container.library, intake: container.intake, index: container.index, settings: container.settings,
       telemetry: container.telemetry, thumbnails: container.thumbnails,
       offersDragging: AppTextEditingAccess.isInternalBuild || ReleaseFlag.documentDragging.compiledDefault)
+    // Whether App Lock is on is read before anything can show.
+    _ = lock
     IntentRouter.shared.attach(
       library: container.library, intelligence: container.meteredIntelligence, index: container.index
     ) { [weak self] route in self?.navigate(to: route) }
@@ -391,6 +395,17 @@ final class AppModel {
     #else
       nil
     #endif
+  }
+
+  /// Turns App Lock off when the device has no passcode, so nothing could confirm its owner (#221).
+  private func turnOffAppLock() {
+    var current = container.settings.load()
+    guard current.isAppLockEnabled else { return }
+    current.isAppLockEnabled = false
+    container.settings.save(current)
+    let textSettingChanged = current.indexesTextInSpotlight != settings.indexesTextInSpotlight
+    settings = current
+    if textSettingChanged { Task { await container.reindexSpotlight() } }
   }
 
   func makeSettings() -> SettingsModel {

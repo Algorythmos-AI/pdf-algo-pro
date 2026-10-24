@@ -130,6 +130,22 @@ struct RootView: View {
         "Your PDF Algo Pro trial ends on \(endsAt, format: .dateTime.day().month(.wide)). You can manage or cancel it in Settings, under Subscription."
       )
     }
+    // App Lock turned itself off: the device has no passcode, so nothing could confirm its owner (#221).
+    .alert(
+      Text("App Lock is off"),
+      isPresented: Binding(
+        get: { app.lock.wasTurnedOffWithoutPasscode }, set: { if !$0 { app.lock.turnedOffNoticeShown() } })
+    ) {
+      Button(role: .cancel) {
+      } label: {
+        Text("OK")
+      }
+      .accessibilityIdentifier("appLock.turnedOff.ok")
+    } message: {
+      Text(
+        "This device has no passcode, so App Lock can't confirm it's you. To use App Lock again, set a passcode in the Settings app, then turn App Lock on in PDF Algo Pro."
+      )
+    }
     .onOpenURL { app.handle($0) }
     .onContinueUserActivity(CSSearchableItemActionType) { app.handleSpotlight($0) }
   }

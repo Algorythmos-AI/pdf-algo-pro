@@ -11,6 +11,16 @@
         }
       }
     },
+    "App Lock is off" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le verrouillage de l’app est désactivé"
+          }
+        }
+      }
+    },
     "Document" : {
       "localizations" : {
         "fr" : {
@@ -189,6 +199,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Le résumé n’a pas pu être créé. Réessayez dans l’app."
+          }
+        }
+      }
+    },
+    "This device has no passcode, so App Lock can't confirm it's you. To use App Lock again, set a passcode in the Settings app, then turn App Lock on in PDF Algo Pro." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cet appareil n’a pas de code, donc le verrouillage de l’app ne peut pas confirmer votre identité. Pour l’utiliser de nouveau, définissez un code dans l’app Réglages, puis activez le verrouillage de l’app dans PDF Algo Pro."
           }
         }
       }
