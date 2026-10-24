@@ -110,8 +110,12 @@ public enum PurchaseOutcome: Sendable, Equatable {
   case pending
   /// The person closed the App Store's sheet without buying.
   case cancelled
-  /// The purchase could not be made, or the App Store's answer could not be verified.
+  /// The purchase could not be made.
   case failed
+  /// The App Store reported the purchase as made, but StoreKit could not verify its signed
+  /// transaction. Whether the person was charged is not known here, and the purchase gives no Pro
+  /// until StoreKit verifies it.
+  case unverified
 }
 
 /// The plans on sale and the way to buy one: the App Store in the app, a fixture in tests.
@@ -174,12 +178,15 @@ public struct StoreKitOffering: StoreOffering {
 extension PurchaseOutcome {
   /// How a purchase ends once the App Store has answered it with a signed transaction.
   ///
-  /// A transaction StoreKit verified is finished, and the purchase is made. This is apart from
-  /// `StoreKitOffering` so that tests can reach it with a stand-in transaction, since a StoreKit
-  /// `Transaction` cannot be made outside the App Store.
+  /// A transaction StoreKit verified is finished, and the purchase is made. One it could not verify
+  /// is unverified, never a failure: the App Store has just said the purchase went through, so the
+  /// app cannot say that nothing was charged. It is left unfinished, for StoreKit to deliver again.
+  ///
+  /// This is apart from `StoreKitOffering` so that tests can reach it with a stand-in transaction,
+  /// since a StoreKit `Transaction` cannot be made outside the App Store.
   init(settling verification: VerificationResult<some PurchaseTransaction>) async {
     guard case .verified(let transaction) = verification else {
-      self = .failed
+      self = .unverified
       return
     }
     await transaction.finish()

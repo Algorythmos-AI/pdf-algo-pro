@@ -86,6 +86,14 @@ public struct PaywallFlowView: View {
           title: Text("The purchase didn’t go through", bundle: .module),
           message: Text("Nothing has been charged. You can try again.", bundle: .module),
           dismissButton: .default(Text("OK", bundle: .module)))
+      case .unverified:
+        // Never "nothing has been charged": the App Store said the purchase went through (#228).
+        Alert(
+          title: Text("The purchase couldn’t be confirmed", bundle: .module),
+          message: Text(
+            "The App Store reported the purchase as made, but this device couldn’t verify it, so Pro isn’t on yet. Before buying again, tap Restore purchases, or check your purchase history in the App Store.",
+            bundle: .module),
+          dismissButton: .default(Text("OK", bundle: .module)))
       }
     }
   }

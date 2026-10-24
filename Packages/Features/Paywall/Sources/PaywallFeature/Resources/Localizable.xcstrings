@@ -411,6 +411,16 @@
         }
       }
     },
+    "The App Store reported the purchase as made, but this device couldn’t verify it, so Pro isn’t on yet. Before buying again, tap Restore purchases, or check your purchase history in the App Store." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L’App Store a indiqué que l’achat a été effectué, mais cet appareil n’a pas pu le vérifier : Pro n’est donc pas encore activé. Avant d’acheter à nouveau, touchez Restaurer les achats ou consultez votre historique d’achats dans l’App Store."
+          }
+        }
+      }
+    },
     "The feature you chose is part of Pro. Everything you already use stays free." : {
       "localizations" : {
         "fr" : {
@@ -427,6 +437,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Impossible de charger les formules"
+          }
+        }
+      }
+    },
+    "The purchase couldn’t be confirmed" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L’achat n’a pas pu être confirmé"
           }
         }
       }

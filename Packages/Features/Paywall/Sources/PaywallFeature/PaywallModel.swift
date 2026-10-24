@@ -37,6 +37,9 @@ public final class PaywallModel {
     case pending
     /// The purchase could not be made; nothing has been charged.
     case failed
+    /// The App Store reported the purchase as made, but it could not be verified on this device:
+    /// whether it was charged is not known, so the notice says what is and how to check.
+    case unverified
 
     /// The notice's name.
     public var id: String { rawValue }
@@ -175,6 +178,13 @@ public final class PaywallModel {
       break
     case .failed:
       notice = .failed
+      await telemetry.record("commerce.purchase.failed")
+    case .unverified:
+      // StoreKit may have verified it since; if not, the person is told what is known.
+      await entitlements.refresh()
+      await entitlementChanged()
+      guard phase == .offer else { return }
+      notice = .unverified
       await telemetry.record("commerce.purchase.failed")
     }
   }

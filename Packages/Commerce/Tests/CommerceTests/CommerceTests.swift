@@ -261,7 +261,7 @@ struct PurchaseTransactionTests {
     let unconfirmed = FakeTransaction("pro.annual", expirationDate: end)
     let outcome = await PurchaseOutcome(settling: .unverified(unconfirmed, .invalidSignature))
     #expect(
-      outcome != .failed,
+      outcome == .unverified,
       "A failure tells the person nothing was charged, and the App Store has just reported a purchase")
     #expect(unconfirmed.finishCount == 0, "It is left for StoreKit to deliver again")
   }
