@@ -18,12 +18,30 @@ struct LaunchEnvironment {
   let isUITesting: Bool
   /// Start with onboarding already done.
   let skipsOnboarding: Bool
-  /// Add the synthetic sample document at launch (`-seed-library sample`).
-  let seedsSample: Bool
-  /// Add a synthetic password-protected document at launch (`-seed-library locked`), for the unlock tests.
-  let seedsLocked: Bool
-  /// Add a document whose file is then damaged (`-seed-library damaged`), for the error-recovery test.
-  let seedsDamaged: Bool
+  /// What a UI test's private library starts with (`-seed-library sample,tags`), comma-separated:
+  /// `sample` (the synthetic sample document), `locked` (a password-protected document, for the unlock
+  /// tests), `damaged` (a document whose file is then overwritten, for error recovery), `scanned` (an
+  /// image-only page, for text recognition), `many` (twelve titled documents), and, applied to the
+  /// sample, `tags`, `favourite` and `deleted`.
+  let seeds: Set<String>
+  /// Whether the synthetic sample is seeded (`-seed-library sample`).
+  var seedsSample: Bool { seeds.contains("sample") }
+  /// Whether a password-protected document is seeded (`-seed-library locked`).
+  var seedsLocked: Bool { seeds.contains("locked") }
+  /// Whether a damaged document is seeded (`-seed-library damaged`).
+  var seedsDamaged: Bool { seeds.contains("damaged") }
+  /// Whether the last document seeded opens at launch; `-start home` keeps Home in front, and
+  /// `-start list` shows All documents.
+  let opensSeededDocument: Bool
+  /// Show All documents at launch (`-start list`).
+  let startsOnList: Bool
+  /// Whether App Lock is on at launch with a scripted confirmation that succeeds or is refused
+  /// (`-app-lock confirms` or `-app-lock refuses`); `nil` leaves App Lock off and the device's own
+  /// authentication in place.
+  let appLockConfirms: Bool?
+  /// Where the app goes once it has started (`-open-route pdfalgopro://settings`), as if the link had been
+  /// opened; any link the app accepts.
+  let route: Route?
   /// Make the scripted intelligence router report that Apple Intelligence is unavailable.
   let intelligenceUnavailable: Bool
   /// Turn off UIKit animations so UI tests do not wait on them.
@@ -65,12 +83,20 @@ struct LaunchEnvironment {
     #if DEBUG
       isUITesting = arguments.contains("-ui-testing")
       skipsOnboarding = arguments.contains("-skip-onboarding")
-      let seed = arguments.firstIndex(of: "-seed-library").flatMap {
-        arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil
+      func value(of name: String) -> String? {
+        arguments.firstIndex(of: name).flatMap { arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil }
       }
-      seedsSample = seed == "sample"
-      seedsLocked = seed == "locked"
-      seedsDamaged = seed == "damaged"
+      seeds = Set((value(of: "-seed-library") ?? "").split(separator: ",").map(String.init))
+      let start = value(of: "-start")
+      opensSeededDocument = start != "home" && start != "list"
+      startsOnList = start == "list"
+      appLockConfirms =
+        switch value(of: "-app-lock") {
+        case "confirms": true
+        case "refuses": false
+        default: nil
+        }
+      route = value(of: "-open-route").flatMap(URL.init(string:)).flatMap(DeepLink.route(for:))
       intelligenceUnavailable = arguments.contains("-intelligence-unavailable")
       disablesAnimations = arguments.contains("-disable-animations")
       let editing = arguments.firstIndex(of: "-text-editing").flatMap {
@@ -140,9 +166,11 @@ struct LaunchEnvironment {
     #else
       isUITesting = false
       skipsOnboarding = false
-      seedsSample = false
-      seedsLocked = false
-      seedsDamaged = false
+      seeds = []
+      opensSeededDocument = false
+      startsOnList = false
+      appLockConfirms = nil
+      route = nil
       intelligenceUnavailable = false
       disablesAnimations = false
       textEditing = nil
@@ -185,8 +213,8 @@ final class AppContainer {
   ///
   /// UI tests use their own Keychain service, so they never see or change real signatures.
   let signatures: any SignatureStoring
-  /// Face ID, Touch ID or the passcode, for App Lock (FR-SET-002).
-  let authenticator: any DeviceAuthenticating = LocalAuthenticator()
+  /// Face ID, Touch ID or the passcode, for App Lock (FR-SET-002); under test, a scripted answer.
+  let authenticator: any DeviceAuthenticating
   let thumbnails = ThumbnailCache()
   /// Whether editing existing text is offered: the release flag and the Pro entitlement (FR-EDIT-001).
   let textEditing: any TextEditingAccessProviding
@@ -258,13 +286,22 @@ final class AppContainer {
     let suite = environment.keptState.map { "ui-testing-kept-\($0)" } ?? "ui-testing-\(UUID().uuidString)"
     if environment.isUITesting, let defaults = UserDefaults(suiteName: suite) {
       settings = UserDefaultsSettingsStore(defaults: defaults)
-      if environment.skipsOnboarding { settings.save(AppSettings(hasCompletedOnboarding: true)) }
+      if environment.skipsOnboarding || environment.appLockConfirms != nil {
+        settings.save(
+          AppSettings(
+            hasCompletedOnboarding: environment.skipsOnboarding, isAppLockEnabled: environment.appLockConfirms != nil))
+      }
       self.defaults = defaults
     } else {
       settings = UserDefaultsSettingsStore()
       defaults = .standard
     }
     self.settings = settings
+    #if DEBUG
+      authenticator = environment.appLockConfirms.map { ScriptedAuthenticator(confirms: $0) } ?? LocalAuthenticator()
+    #else
+      authenticator = LocalAuthenticator()
+    #endif
 
     let libraryIndex = LibraryIndex(storeURL: folders.indexStore)
     indexLevel = libraryIndex.level
