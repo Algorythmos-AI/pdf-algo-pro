@@ -1380,8 +1380,16 @@ public final class ReaderModel {
   /// Hears how recognition ended, and blocks replacing the file while there are unsaved changes.
   private func watchRecognition() {
     recognition.watch(
-      documentID, canReplace: { [weak self] in self?.controller?.needsSaving != true },
+      documentID, canReplace: { [weak self] in self?.canReplaceWithRecognizedText() ?? true },
       onFinish: { [weak self] outcome in await self?.recognitionFinished(outcome) })
+  }
+
+  /// Whether recognition may replace the file: not while there are unsaved changes, counting text
+  /// still being typed into a form field, which PDFKit puts in the field only when editing ends (#220).
+  private func canReplaceWithRecognizedText() -> Bool {
+    guard let controller else { return true }
+    controller.endEditing()
+    return !controller.needsSaving
   }
 
   private func recognitionFinished(_ outcome: RecognitionCoordinator.Outcome) async {
