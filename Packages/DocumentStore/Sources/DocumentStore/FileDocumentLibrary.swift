@@ -12,7 +12,7 @@ public actor FileDocumentLibrary: DocumentLibrary {
   private let documentsFolder: URL
   private let deletedFolder: URL
   private let previousVersionsFolder: URL?
-  private let index: LibraryIndex
+  private let index: any LibraryStore
   private let now: @Sendable () -> Date
   private let fileManager = FileManager.default
   private var isChanging = false
@@ -28,10 +28,10 @@ public actor FileDocumentLibrary: DocumentLibrary {
   ///   - deletedFolder: Where Recently Deleted keeps files; not shown in Files.
   ///   - previousVersionsFolder: Where each document's version from before its last save is kept, not
   ///     shown in Files; `nil` keeps none.
-  ///   - index: The metadata index.
+  ///   - index: The metadata index, a `LibraryIndex` in the app.
   ///   - now: The clock, injected so tests never wait.
   public init(
-    documentsFolder: URL, deletedFolder: URL, previousVersionsFolder: URL? = nil, index: LibraryIndex,
+    documentsFolder: URL, deletedFolder: URL, previousVersionsFolder: URL? = nil, index: any LibraryStore,
     now: @escaping @Sendable () -> Date = { Date() }
   ) {
     self.documentsFolder = documentsFolder

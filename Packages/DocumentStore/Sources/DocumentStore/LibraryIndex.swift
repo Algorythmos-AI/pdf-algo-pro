@@ -83,6 +83,21 @@ public enum LibraryMigrationPlan: SchemaMigrationPlan {
   public static var stages: [MigrationStage] { [] }
 }
 
+/// Where the library keeps its index (ADR-0006).
+///
+/// The app uses `LibraryIndex`. The library reads and writes the index only through these calls, so
+/// a test can stand in a store whose writes fail.
+public protocol LibraryStore: Sendable {
+  /// Every entry.
+  func all() async throws -> [Document]
+  /// One entry, or `nil`.
+  func document(_ id: DocumentID) async throws -> Document?
+  /// Inserts or replaces an entry.
+  func upsert(_ document: Document) async throws
+  /// Deletes an entry if it exists.
+  func delete(_ id: DocumentID) async throws
+}
+
 /// The SwiftData store, isolated to its own model actor.
 @ModelActor
 actor SwiftDataIndexStore {
@@ -125,7 +140,7 @@ actor SwiftDataIndexStore {
 /// that exist nowhere else, and it may simply be newer than this build, as when a tester installs
 /// an older TestFlight build (plan item H6). The last few are kept in a `Kept` folder beside the
 /// store, so they can be recovered.
-public actor LibraryIndex {
+public actor LibraryIndex: LibraryStore {
   /// How the index was opened.
   public enum StoreLevel: Sendable, Equatable {
     /// The store on disk opened normally.
@@ -152,7 +167,8 @@ public actor LibraryIndex {
     (store, level) = Self.opening.withLock { _ in Self.open(storeURL) }
   }
 
-  private static let opening = Mutex(())
+  /// Held while a store opens; tests that make a store of their own hold it too.
+  static let opening = Mutex(())
 
   private static func open(_ storeURL: URL?) -> (SwiftDataIndexStore?, StoreLevel) {
     let schema = Schema(versionedSchema: LibrarySchemaV1.self)
