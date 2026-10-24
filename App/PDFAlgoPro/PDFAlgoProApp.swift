@@ -141,7 +141,7 @@ struct RootView: View {
       } label: {
         Text("OK")
       }
-      .accessibilityIdentifier("appLock.turnedOff.ok")
+      .accessibilityIdentifier(AccessibilityID.AppLock.TurnedOff.ok)
     } message: {
       Text(
         "This device has no passcode, so App Lock can't confirm it's you. To use App Lock again, set a passcode in the Settings app, then turn App Lock on in PDF Algo Pro."
