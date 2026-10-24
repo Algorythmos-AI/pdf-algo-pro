@@ -1085,10 +1085,18 @@ public final class ReaderModel {
   private func saveSignedAsCopy(_ controller: PDFDocumentController) async throws {
     let staged = FileManager.default.temporaryDirectory.appendingPathComponent("signed-\(UUID().uuidString).pdf")
     defer { try? FileManager.default.removeItem(at: staged) }
+    let unsaved = controller.unsavedChanges
     try controller.save(to: staged)
-    let data = try Data(contentsOf: staged, options: .mappedIfSafe)
-    let title = document?.title ?? ""
-    let copy = try await intake.add(data: data, title: String(localized: "\(title) (edited)", bundle: .module))
+    let copy: Document
+    do {
+      let data = try Data(contentsOf: staged, options: .mappedIfSafe)
+      let title = document?.title ?? ""
+      copy = try await intake.add(data: data, title: String(localized: "\(title) (edited)", bundle: .module))
+    } catch {
+      // The copy isn't in the library, so the changes are still only here (#223).
+      controller.countAsUnsaved(unsaved)
+      throw error
+    }
     documentID = copy.id
     document = copy
     let copyURL = try await library.fileURL(for: copy.id)
@@ -1167,6 +1175,7 @@ public final class ReaderModel {
     guard let controller else { return }
     let staged = FileManager.default.temporaryDirectory.appendingPathComponent("mine-\(UUID().uuidString).pdf")
     defer { try? FileManager.default.removeItem(at: staged) }
+    let unsaved = controller.unsavedChanges
     do {
       try controller.save(to: staged)
       let data = try Data(contentsOf: staged, options: .mappedIfSafe)
@@ -1175,6 +1184,8 @@ public final class ReaderModel {
       await reload()
       notice = String(localized: "Your version is saved as “\(copy.title)”.", bundle: .module)
     } catch {
+      // The copy isn't in the library, so this version is still only here, unsaved (#223).
+      controller.countAsUnsaved(unsaved)
       errorMessage = String(
         localized: "Couldn't keep your version. It is still open here; share it to keep it.", bundle: .module)
     }
