@@ -57,6 +57,8 @@ public final class ReaderModel {
   }
   /// Saving before recognition starts, so progress shows at once.
   private var isPreparingRecognition = false
+  /// The page shown when recognition replaced the file, where the searchable version opens.
+  @ObservationIgnored private var pageBeforeRecognition: Int?
   /// A message for the last failed action.
   public var errorMessage: String?
   /// A notice that an action did something other than the obvious, such as making a new document, or
@@ -1372,7 +1374,8 @@ public final class ReaderModel {
     }
   }
 
-  /// Stops recognition; the document is left as it was.
+  /// Stops recognition; the document is left as it was, unless the file was already replaced, in which
+  /// case the searchable version opens.
   public func cancelRecognition() {
     recognition.cancel(documentID)
   }
@@ -1381,7 +1384,17 @@ public final class ReaderModel {
   private func watchRecognition() {
     recognition.watch(
       documentID, canReplace: { [weak self] in self?.canReplaceWithRecognizedText() ?? true },
+      willReplace: { [weak self] in self?.recognitionReplacedFile() },
       onFinish: { [weak self] outcome in await self?.recognitionFinished(outcome) })
+  }
+
+  /// Lets go of the document shown once recognition has replaced its file, so no save writes it over
+  /// the searchable version; the reader shows the new file when recognition has finished (#219).
+  private func recognitionReplacedFile() {
+    pageBeforeRecognition = controller?.currentPageIndex
+    speech.stop()
+    controller = nil
+    phase = .loading
   }
 
   /// Whether recognition may replace the file: not while there are unsaved changes, counting text
@@ -1396,7 +1409,12 @@ public final class ReaderModel {
     switch outcome {
     case .replaced:
       // Opens the searchable version on the page the reader showed.
-      await recordPosition()
+      if let page = pageBeforeRecognition {
+        pageBeforeRecognition = nil
+        try? await library.recordOpened(documentID, pageIndex: page)
+      } else {
+        await recordPosition()
+      }
       await load()
       updateUndoState()
     case .fileChanged:
