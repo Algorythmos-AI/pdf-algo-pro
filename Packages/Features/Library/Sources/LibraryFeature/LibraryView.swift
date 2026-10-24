@@ -546,6 +546,7 @@ public struct LibraryView<Detail: View>: View {
             Image(systemName: "arrow.up.arrow.down")
           }
         }
+        .accessibilityIdentifier(AccessibilityID.Library.sort)
         Button(action: onScan) {
           Label {
             Text("Scan", bundle: .module)
@@ -565,6 +566,7 @@ public struct LibraryView<Detail: View>: View {
               Image(systemName: "folder")
             }
           }
+          .accessibilityIdentifier(AccessibilityID.Library.Import.files)
           Button {
             isPickingPhotos = true
           } label: {
@@ -574,6 +576,7 @@ public struct LibraryView<Detail: View>: View {
               Image(systemName: "photo.on.rectangle")
             }
           }
+          .accessibilityIdentifier(AccessibilityID.Library.Import.photos)
         } label: {
           Label {
             Text("Import", bundle: .module)
@@ -616,6 +619,7 @@ public struct LibraryView<Detail: View>: View {
         Image(systemName: "square.and.arrow.up")
       }
     }
+    .accessibilityIdentifier(AccessibilityID.Library.Selection.share)
     .disabled(shareURLs.isEmpty)
     Button {
       let allFavourite = model.documents.filter { chosen.contains($0.id) }.allSatisfy(\.isFavorite)
@@ -627,6 +631,7 @@ public struct LibraryView<Detail: View>: View {
         Image(systemName: "star")
       }
     }
+    .accessibilityIdentifier(AccessibilityID.Library.Selection.favourite)
     .disabled(ids.isEmpty)
     Button {
       Task {
@@ -656,6 +661,7 @@ public struct LibraryView<Detail: View>: View {
         Image(systemName: "trash")
       }
     }
+    .accessibilityIdentifier(AccessibilityID.Library.Selection.delete)
     .disabled(ids.isEmpty)
   }
 
@@ -739,6 +745,7 @@ public struct LibraryView<Detail: View>: View {
             Image(systemName: "trash")
           }
         }
+        .accessibilityIdentifier(AccessibilityID.Library.Row.deleteNow)
         Button {
           Task { await model.restore(document.id) }
         } label: {
@@ -748,6 +755,7 @@ public struct LibraryView<Detail: View>: View {
             Image(systemName: "arrow.uturn.backward")
           }
         }
+        .accessibilityIdentifier(AccessibilityID.Library.Row.restore)
       } else {
         Button(role: .destructive) {
           Task { await model.delete(document.id) }
@@ -758,6 +766,7 @@ public struct LibraryView<Detail: View>: View {
             Image(systemName: "trash")
           }
         }
+        .accessibilityIdentifier(AccessibilityID.Library.Row.delete)
       }
     }
     .swipeActions(edge: .leading) {
@@ -772,6 +781,7 @@ public struct LibraryView<Detail: View>: View {
             Image(systemName: document.isFavorite ? "star.slash" : "star")
           }
         }
+        .accessibilityIdentifier(AccessibilityID.Library.Row.favourite)
         .tint(Color.ds.brandTint)
       }
     }
@@ -787,6 +797,7 @@ public struct LibraryView<Detail: View>: View {
             Image(systemName: "arrow.uturn.backward")
           }
         }
+        .accessibilityIdentifier(AccessibilityID.Library.Context.restore)
         Button(role: .destructive) {
           confirmingPermanentDelete = document
         } label: {
@@ -796,6 +807,7 @@ public struct LibraryView<Detail: View>: View {
             Image(systemName: "trash")
           }
         }
+        .accessibilityIdentifier(AccessibilityID.Library.Context.deleteNow)
       }
       if !document.isDeleted {
         Button {
@@ -808,6 +820,7 @@ public struct LibraryView<Detail: View>: View {
             Image(systemName: "pencil")
           }
         }
+        .accessibilityIdentifier(AccessibilityID.Library.Context.rename)
         Button {
           Task { await model.toggleFavorite(document) }
         } label: {
@@ -818,6 +831,7 @@ public struct LibraryView<Detail: View>: View {
             Image(systemName: "star")
           }
         }
+        .accessibilityIdentifier(AccessibilityID.Library.Context.favourite)
         Button {
           tagging = document
         } label: {
@@ -827,6 +841,7 @@ public struct LibraryView<Detail: View>: View {
             Image(systemName: "tag")
           }
         }
+        .accessibilityIdentifier(AccessibilityID.Library.Context.tags)
         Button {
           Task { showingInfo = InfoSheet(document: document, details: await model.details(for: document)) }
         } label: {
@@ -836,6 +851,7 @@ public struct LibraryView<Detail: View>: View {
             Image(systemName: "info.circle")
           }
         }
+        .accessibilityIdentifier(AccessibilityID.Library.Context.info)
         Button(role: .destructive) {
           Task { await model.delete(document.id) }
         } label: {
@@ -845,6 +861,7 @@ public struct LibraryView<Detail: View>: View {
             Image(systemName: "trash")
           }
         }
+        .accessibilityIdentifier(AccessibilityID.Library.Context.delete)
       }
     }
   }
@@ -880,6 +897,7 @@ public struct LibraryView<Detail: View>: View {
           .buttonStyle(.primary)
           .accessibilityIdentifier(AccessibilityID.Library.Empty.Primary.import)
           Button(action: onScan) { Text("Scan a document", bundle: .module).minimumTarget() }
+            .accessibilityIdentifier(AccessibilityID.Library.Empty.scan)
         }
         Button {
           Task { await model.addSample(task: model.primaryTask) }
@@ -906,18 +924,21 @@ public struct LibraryView<Detail: View>: View {
         switch action {
         case .scanDocument:
           Button(action: onScan) { Text("Scan", bundle: .module) }.buttonStyle(.primary)
+            .accessibilityIdentifier(AccessibilityID.Library.PrimaryAction.scan)
         case .importDocument:
           Button {
             pick(task: nil)
           } label: {
             Text("Import a PDF", bundle: .module)
           }.buttonStyle(.primary)
+            .accessibilityIdentifier(AccessibilityID.Library.PrimaryAction.import)
         case .openAssistant:
           Button {
             pick(task: model.primaryTask)
           } label: {
             Text("Choose a PDF", bundle: .module)
           }.buttonStyle(.primary)
+            .accessibilityIdentifier(AccessibilityID.Library.PrimaryAction.choose)
         }
       }
     }

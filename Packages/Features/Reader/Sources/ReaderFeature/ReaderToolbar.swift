@@ -94,6 +94,7 @@ struct ReaderToolbar: ToolbarContent {
                 Image(systemName: "text.append")
               }
             }
+            .accessibilityIdentifier(AccessibilityID.Reader.Ask.summarise)
             Button {
               model.assistantTask = .ask
             } label: {
@@ -103,6 +104,7 @@ struct ReaderToolbar: ToolbarContent {
                 Image(systemName: "bubble.left.and.text.bubble.right")
               }
             }
+            .accessibilityIdentifier(AccessibilityID.Reader.Ask.question)
             Button {
               model.assistantTask = .extract
             } label: {
@@ -112,6 +114,7 @@ struct ReaderToolbar: ToolbarContent {
                 Image(systemName: "tablecells")
               }
             }
+            .accessibilityIdentifier(AccessibilityID.Reader.Ask.extract)
             Button {
               model.assistantTask = .explainContract
             } label: {
@@ -121,6 +124,7 @@ struct ReaderToolbar: ToolbarContent {
                 Image(systemName: "doc.text.magnifyingglass")
               }
             }
+            .accessibilityIdentifier(AccessibilityID.Reader.Ask.contract)
           } label: {
             Label {
               Text("Ask", bundle: .module)
@@ -137,6 +141,7 @@ struct ReaderToolbar: ToolbarContent {
             } label: {
               Self.label(for: markup)
             }
+            .accessibilityIdentifier(AccessibilityID.Reader.Markup.text(markup.rawValue))
           }
           Button {
             model.setDrawing(true)
@@ -147,6 +152,7 @@ struct ReaderToolbar: ToolbarContent {
               Image(systemName: "pencil.tip")
             }
           }
+          .accessibilityIdentifier(AccessibilityID.Reader.Markup.draw)
           Menu {
             ForEach([DrawingTool.rectangle, .oval, .arrow], id: \.self) { tool in
               Button {
@@ -154,6 +160,7 @@ struct ReaderToolbar: ToolbarContent {
               } label: {
                 Self.label(for: tool)
               }
+              .accessibilityIdentifier(AccessibilityID.Reader.Markup.shape(tool.rawValue))
             }
           } label: {
             Label {
@@ -162,6 +169,7 @@ struct ReaderToolbar: ToolbarContent {
               Image(systemName: "square.on.circle")
             }
           }
+          .accessibilityIdentifier(AccessibilityID.Reader.Markup.shapes)
           Button {
             isAddingTextBox = true
           } label: {
@@ -171,6 +179,7 @@ struct ReaderToolbar: ToolbarContent {
               Image(systemName: "character.textbox")
             }
           }
+          .accessibilityIdentifier(AccessibilityID.Reader.Markup.textBox)
           Button {
             model.showSignatures()
           } label: {
@@ -180,6 +189,7 @@ struct ReaderToolbar: ToolbarContent {
               Image(systemName: "signature")
             }
           }
+          .accessibilityIdentifier(AccessibilityID.Reader.Markup.signature)
           Button {
             isAddingNote = true
           } label: {
@@ -189,27 +199,32 @@ struct ReaderToolbar: ToolbarContent {
               Image(systemName: "note.text.badge.plus")
             }
           }
+          .accessibilityIdentifier(AccessibilityID.Reader.Markup.note)
           Menu {
             Button {
               Task { await model.addStamp(.date(Date())) }
             } label: {
               Text("Today's date", bundle: .module)
             }
+            .accessibilityIdentifier(AccessibilityID.Reader.Markup.Stamp.date)
             Button {
               Task { await model.addStamp(.tick) }
             } label: {
               Text("Tick", bundle: .module)
             }
+            .accessibilityIdentifier(AccessibilityID.Reader.Markup.Stamp.tick)
             Button {
               Task { await model.addStamp(.cross) }
             } label: {
               Text("Cross", bundle: .module)
             }
+            .accessibilityIdentifier(AccessibilityID.Reader.Markup.Stamp.cross)
             Button {
               model.isAddingStampText = true
             } label: {
               Text("Text or initials…", bundle: .module)
             }
+            .accessibilityIdentifier(AccessibilityID.Reader.Markup.Stamp.text)
           } label: {
             Label {
               Text("Stamp", bundle: .module)
@@ -217,6 +232,7 @@ struct ReaderToolbar: ToolbarContent {
               Image(systemName: "seal")
             }
           }
+          .accessibilityIdentifier(AccessibilityID.Reader.Markup.stamp)
           if model.canPasteAnnotation {
             Button {
               model.setPastingAnnotations(true)
@@ -238,6 +254,7 @@ struct ReaderToolbar: ToolbarContent {
               Image(systemName: "arrow.uturn.backward")
             }
           }
+          .accessibilityIdentifier(AccessibilityID.Reader.Markup.undo)
           .disabled(!model.canUndo)
           Button {
             Task { await model.redo() }
@@ -248,6 +265,7 @@ struct ReaderToolbar: ToolbarContent {
               Image(systemName: "arrow.uturn.forward")
             }
           }
+          .accessibilityIdentifier(AccessibilityID.Reader.Markup.redo)
           .disabled(!model.canRedo)
         } label: {
           Label {
@@ -270,6 +288,7 @@ struct ReaderToolbar: ToolbarContent {
                 Image(systemName: "magnifyingglass")
               }
             }
+            .accessibilityIdentifier(AccessibilityID.Reader.More.find)
             .keyboardShortcut("f")
             Button {
               Task { await model.share() }
@@ -280,6 +299,7 @@ struct ReaderToolbar: ToolbarContent {
                 Image(systemName: "square.and.arrow.up")
               }
             }
+            .accessibilityIdentifier(AccessibilityID.Reader.More.share)
             if model.allowsPrinting {
               Button {
                 Task {
@@ -295,6 +315,7 @@ struct ReaderToolbar: ToolbarContent {
                   Image(systemName: "printer")
                 }
               }
+              .accessibilityIdentifier(AccessibilityID.Reader.More.print)
               .keyboardShortcut("p")
             }
           }
@@ -307,6 +328,7 @@ struct ReaderToolbar: ToolbarContent {
               Image(systemName: "number")
             }
           }
+          .accessibilityIdentifier(AccessibilityID.Reader.More.goToPage)
           Button {
             model.showsPages = true
           } label: {
@@ -316,6 +338,7 @@ struct ReaderToolbar: ToolbarContent {
               Image(systemName: "square.grid.2x2")
             }
           }
+          .accessibilityIdentifier(AccessibilityID.Reader.More.pages)
           Button {
             model.showsOutline = true
           } label: {
@@ -325,6 +348,7 @@ struct ReaderToolbar: ToolbarContent {
               Image(systemName: "list.bullet.indent")
             }
           }
+          .accessibilityIdentifier(AccessibilityID.Reader.More.contents)
           Button {
             Task { await model.toggleBookmark() }
           } label: {
@@ -355,11 +379,13 @@ struct ReaderToolbar: ToolbarContent {
               } label: {
                 Text("Smallest, for email", bundle: .module)
               }
+              .accessibilityIdentifier(AccessibilityID.Reader.More.Reduce.smallest)
               Button {
                 Task { await model.reduceSize(.balanced) }
               } label: {
                 Text("Balanced, for printing", bundle: .module)
               }
+              .accessibilityIdentifier(AccessibilityID.Reader.More.Reduce.balanced)
             } label: {
               Label {
                 Text("Reduce file size", bundle: .module)
@@ -367,6 +393,7 @@ struct ReaderToolbar: ToolbarContent {
                 Image(systemName: "arrow.down.right.and.arrow.up.left")
               }
             }
+            .accessibilityIdentifier(AccessibilityID.Reader.More.reduce)
             if model.isPasswordProtected {
               if model.canRemovePassword {
                 Button {
@@ -378,6 +405,7 @@ struct ReaderToolbar: ToolbarContent {
                     Image(systemName: "lock.open")
                   }
                 }
+                .accessibilityIdentifier(AccessibilityID.Reader.More.removePassword)
               }
             } else {
               Button {
@@ -389,6 +417,7 @@ struct ReaderToolbar: ToolbarContent {
                   Image(systemName: "lock")
                 }
               }
+              .accessibilityIdentifier(AccessibilityID.Reader.More.addPassword)
             }
             Button {
               Task { await model.shareFlattened() }
@@ -399,6 +428,7 @@ struct ReaderToolbar: ToolbarContent {
                 Image(systemName: "square.stack.3d.down.forward")
               }
             }
+            .accessibilityIdentifier(AccessibilityID.Reader.More.flattened)
             Button {
               Task { await model.sharePageImage() }
             } label: {
@@ -408,6 +438,7 @@ struct ReaderToolbar: ToolbarContent {
                 Image(systemName: "photo")
               }
             }
+            .accessibilityIdentifier(AccessibilityID.Reader.More.pageImage)
           } label: {
             Label {
               Text("Export and protect", bundle: .module)
@@ -415,6 +446,7 @@ struct ReaderToolbar: ToolbarContent {
               Image(systemName: "lock.doc")
             }
           }
+          .accessibilityIdentifier(AccessibilityID.Reader.More.export)
           LayoutMenu(model: model)
           Button {
             model.toggleReadAloud()
@@ -425,6 +457,7 @@ struct ReaderToolbar: ToolbarContent {
               Image(systemName: model.speech.isSpeaking ? "stop.circle" : "speaker.wave.2")
             }
           }
+          .accessibilityIdentifier(AccessibilityID.Reader.More.readAloud)
           if model.canRecognizeText {
             Button {
               model.recognizeText()
@@ -435,6 +468,7 @@ struct ReaderToolbar: ToolbarContent {
                 Image(systemName: "text.viewfinder")
               }
             }
+            .accessibilityIdentifier(AccessibilityID.Reader.More.recognise)
           }
           if model.canRestorePreviousVersion {
             Button {
@@ -600,11 +634,14 @@ struct LayoutMenu: View {
         Toggle(isOn: Binding(get: { model.wantsPageStrip }, set: { model.setWantsPageStrip($0) })) {
           Text("Page strip", bundle: .module)
         }
+        .accessibilityIdentifier(AccessibilityID.Reader.More.Layout.pageStrip)
       } label: {
         title
       }
+      .accessibilityIdentifier(AccessibilityID.Reader.More.layout)
     } else {
       layout.pickerStyle(.menu)
+        .accessibilityIdentifier(AccessibilityID.Reader.More.layout)
     }
   }
 

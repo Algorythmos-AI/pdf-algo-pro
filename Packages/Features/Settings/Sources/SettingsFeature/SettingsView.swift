@@ -79,6 +79,7 @@ public struct SettingsView: View {
                   Toggle(isOn: Binding(get: { model.isChosen(intent) }, set: { _ in model.toggle(intent) })) {
                     Self.intentTitle(intent)
                   }
+                  .accessibilityIdentifier(AccessibilityID.Settings.intent(intent.rawValue))
                 }
               } footer: {
                 Text("The first choice leads the home screen.", bundle: .module)
@@ -101,6 +102,7 @@ public struct SettingsView: View {
           } label: {
             TileLabel(Text("Page layout", bundle: .module), systemImage: "book.pages")
           }
+          .accessibilityIdentifier(AccessibilityID.Settings.pageLayout)
         } header: {
           Text("Reading", bundle: .module).foregroundStyle(Color.ds.labelSecondary)
         }
@@ -169,6 +171,7 @@ public struct SettingsView: View {
           Toggle(isOn: $model.includesDiagnostics) {
             TileLabel(Text("Include a diagnostics summary", bundle: .module), systemImage: "stethoscope")
           }
+          .accessibilityIdentifier(AccessibilityID.Settings.diagnostics)
           Button {
             Task {
               guard let url = await model.supportEmailURL() else { return }
@@ -255,6 +258,7 @@ public struct SettingsView: View {
           } label: {
             Text("Done", bundle: .module)
           }
+          .accessibilityIdentifier(AccessibilityID.Settings.done)
         }
       }
     }

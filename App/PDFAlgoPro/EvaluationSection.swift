@@ -144,6 +144,7 @@
               ShareLink(item: reportFile) {
                 Text(verbatim: "Share the report")
               }
+              .accessibilityIdentifier(AccessibilityID.Evaluation.share)
             }
           }
         }

@@ -36,6 +36,7 @@ public struct ScanView: View {
             } label: {
               Text("Cancel", bundle: .module)
             }
+            .accessibilityIdentifier(AccessibilityID.Scan.cancel)
           }
         }
         .fullScreenCover(isPresented: $showsCamera) {
@@ -84,6 +85,7 @@ public struct ScanView: View {
         } label: {
           Text("Try again", bundle: .module).minimumTarget()
         }
+        .accessibilityIdentifier(AccessibilityID.Scan.tryAgain)
       }
     }
   }
@@ -160,6 +162,7 @@ public struct ScanView: View {
                   Image(systemName: "rotate.right")
                 }
               }
+              .accessibilityIdentifier(AccessibilityID.Scan.Page.rotate)
               if index > 0 {
                 Button {
                   model.movePage(at: index, earlier: true)
@@ -170,6 +173,7 @@ public struct ScanView: View {
                     Image(systemName: "arrow.left")
                   }
                 }
+                .accessibilityIdentifier(AccessibilityID.Scan.Page.moveEarlier)
               }
               if index < model.pages.count - 1 {
                 Button {
@@ -181,6 +185,7 @@ public struct ScanView: View {
                     Image(systemName: "arrow.right")
                   }
                 }
+                .accessibilityIdentifier(AccessibilityID.Scan.Page.moveLater)
               }
               if model.pages.count > 1 {
                 Button(role: .destructive) {
@@ -192,6 +197,7 @@ public struct ScanView: View {
                     Image(systemName: "trash")
                   }
                 }
+                .accessibilityIdentifier(AccessibilityID.Scan.Page.delete)
               }
             } label: {
               VStack(spacing: Spacing.s050) {
@@ -199,6 +205,7 @@ public struct ScanView: View {
                 Text("\(index + 1)").font(.caption.monospacedDigit())
               }
             }
+            .accessibilityIdentifier(AccessibilityID.Scan.page(index + 1))
             .accessibilityLabel(Text("Page \(index + 1)", bundle: .module))
           }
         }
@@ -214,6 +221,7 @@ public struct ScanView: View {
         } label: {
           Text("Discard", bundle: .module).minimumTarget().frame(maxWidth: .infinity)
         }
+        .accessibilityIdentifier(AccessibilityID.Scan.discard)
       }
       .readableWidth()
     }
@@ -227,6 +235,7 @@ public struct ScanView: View {
       } label: {
         Text("Stop", bundle: .module).minimumTarget()
       }
+      .accessibilityIdentifier(AccessibilityID.Scan.stop)
     }
     .readableWidth()
     .centeredScrolling()

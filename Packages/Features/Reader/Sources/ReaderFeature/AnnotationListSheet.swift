@@ -34,6 +34,7 @@ struct AnnotationListSheet: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .contentShape(Rectangle())
                   }
+                  .accessibilityIdentifier(AccessibilityID.Annotations.row(summary.pageIndex + 1))
                   .buttonStyle(.plain)
                 }
               } header: {
@@ -52,6 +53,7 @@ struct AnnotationListSheet: View {
           } label: {
             Text("Done", bundle: .module)
           }
+          .accessibilityIdentifier(AccessibilityID.Annotations.done)
         }
         if !model.annotationSummaries.isEmpty {
           ToolbarItem(placement: .primaryAction) {

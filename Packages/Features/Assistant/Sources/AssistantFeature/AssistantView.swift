@@ -53,6 +53,7 @@ public struct AssistantView: View {
           } label: {
             Text("Done", bundle: .module)
           }
+          .accessibilityIdentifier(AccessibilityID.Assistant.done)
         }
         if let text = model.shareableText {
           ToolbarItem(placement: .primaryAction) {
@@ -63,6 +64,7 @@ public struct AssistantView: View {
                 Image(systemName: "square.and.arrow.up")
               }
             }
+            .accessibilityIdentifier(AccessibilityID.Assistant.share)
             .simultaneousGesture(TapGesture().onEnded { Task { await model.recordKept() } })
           }
         }
@@ -118,6 +120,7 @@ public struct AssistantView: View {
       } label: {
         Image(systemName: "arrow.up.circle.fill").font(.title2).minimumTarget()
       }
+      .accessibilityIdentifier(AccessibilityID.Assistant.send)
       .accessibilityLabel(Text("Ask", bundle: .module))
       .disabled(model.question.trimmingCharacters(in: .whitespaces).isEmpty || model.isWorking)
     }
@@ -186,6 +189,7 @@ public struct AssistantView: View {
         } label: {
           Text("Try again", bundle: .module).minimumTarget()
         }
+        .accessibilityIdentifier(AccessibilityID.Assistant.retry)
       }
     }
   }
@@ -243,6 +247,7 @@ public struct AssistantView: View {
             Image(systemName: "doc.on.doc")
           }
         }
+        .accessibilityIdentifier(AccessibilityID.Assistant.copy)
         if answer.omittedClaims > 0 {
           Label {
             Text("Part of the answer wasn't supported by this document, so it was left out.", bundle: .module)
@@ -303,6 +308,7 @@ public struct AssistantView: View {
           ) {
             Self.fieldName(field.key)
           }
+          .accessibilityIdentifier(AccessibilityID.Assistant.field(field.key))
           .lineLimit(1...)
           .textFieldStyle(.roundedBorder)
         }
@@ -317,6 +323,7 @@ public struct AssistantView: View {
           Image(systemName: "tablecells")
         }
       }
+      .accessibilityIdentifier(AccessibilityID.Assistant.copyCSV)
       ShareLink(
         item: CSVFile(extraction, name: String(localized: "Extracted fields", bundle: .module)),
         preview: SharePreview(Text("Extracted fields", bundle: .module))

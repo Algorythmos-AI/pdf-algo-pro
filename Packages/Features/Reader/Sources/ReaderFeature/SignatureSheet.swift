@@ -24,6 +24,7 @@ struct SignatureSheet: View {
               } label: {
                 SignaturePreview(signature: signature).frame(height: 64)
               }
+              .accessibilityIdentifier(AccessibilityID.Signature.saved)
               .accessibilityLabel(
                 Text(
                   "Saved signature from \(signature.createdAt.formatted(date: .abbreviated, time: .omitted))",
@@ -47,6 +48,7 @@ struct SignatureSheet: View {
             } label: {
               Text("Clear", bundle: .module).readableWhenDisabled()
             }
+            .accessibilityIdentifier(AccessibilityID.Signature.clear)
             .disabled(strokes.isEmpty)
             Spacer()
             Button {
@@ -88,6 +90,7 @@ struct SignatureSheet: View {
           } label: {
             Text("Cancel", bundle: .module)
           }
+          .accessibilityIdentifier(AccessibilityID.Signature.cancel)
         }
       }
       .task { await model.loadSignatures() }

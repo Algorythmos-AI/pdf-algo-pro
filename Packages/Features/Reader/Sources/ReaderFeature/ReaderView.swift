@@ -393,6 +393,7 @@ public struct ReaderView<Assistant: View>: View {
       } label: {
         Text("Open", bundle: .module)
       }
+      .accessibilityIdentifier(AccessibilityID.Reader.unlock)
       .buttonStyle(.primary)
     }
     .padding(Spacing.s300)
@@ -472,6 +473,7 @@ public struct ReaderView<Assistant: View>: View {
           } label: {
             Text("Cancel", bundle: .module)
           }
+          .accessibilityIdentifier(AccessibilityID.Reader.Recognition.cancel)
         }
         .padding(Spacing.s150)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))

@@ -72,6 +72,7 @@ struct TagEditor: View {
             } label: {
               Image(systemName: "plus.circle.fill").minimumTarget()
             }
+            .accessibilityIdentifier(AccessibilityID.Tags.add)
             .accessibilityLabel(Text("Add", bundle: .module))
             .disabled(editing.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
           }
@@ -97,6 +98,7 @@ struct TagEditor: View {
               } label: {
                 Label(tag, systemImage: "plus")
               }
+              .accessibilityIdentifier(AccessibilityID.Tags.suggestion)
             }
           } header: {
             Text("In use", bundle: .module).foregroundStyle(Color.ds.labelSecondary)
@@ -112,6 +114,7 @@ struct TagEditor: View {
           } label: {
             Text("Cancel", bundle: .module)
           }
+          .accessibilityIdentifier(AccessibilityID.Tags.cancel)
         }
         ToolbarItem(placement: .confirmationAction) {
           Button {

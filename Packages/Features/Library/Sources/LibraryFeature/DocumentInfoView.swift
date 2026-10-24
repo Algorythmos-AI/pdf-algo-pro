@@ -71,6 +71,7 @@ struct DocumentInfoView: View {
           } label: {
             Text("Done", bundle: .module)
           }
+          .accessibilityIdentifier(AccessibilityID.Library.Info.done)
         }
       }
     }

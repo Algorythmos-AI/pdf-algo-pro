@@ -12,6 +12,16 @@ public enum AccessibilityID {
     public static let version = "about.version"
   }
 
+  /// The identifiers under `annotations`.
+  public enum Annotations {
+    /// The identifier `annotations.done`.
+    public static let done = "annotations.done"
+    /// The identifier `annotations.row.{page:Int}`, for the `page` given.
+    public static func row(_ page: Int) -> String {
+      "annotations.row.\(page)"
+    }
+  }
+
   /// The identifiers under `appLock`.
   public enum AppLock {
     /// The identifier `appLock.cover`.
@@ -26,22 +36,48 @@ public enum AccessibilityID {
     public static let allowanceUsed = "assistant.allowanceUsed"
     /// The identifier `assistant.answer`.
     public static let answer = "assistant.answer"
+    /// The identifier `assistant.copy`.
+    public static let copy = "assistant.copy"
+    /// The identifier `assistant.copyCSV`.
+    public static let copyCSV = "assistant.copyCSV"
+    /// The identifier `assistant.done`.
+    public static let done = "assistant.done"
     /// The identifier `assistant.earlier`.
     public static let earlier = "assistant.earlier"
+    /// The identifier `assistant.field.{key}`, for the `key` given.
+    public static func field(_ key: String) -> String {
+      "assistant.field.\(key)"
+    }
     /// The identifier `assistant.notFound`.
     public static let notFound = "assistant.notFound"
     /// The identifier `assistant.omitted`.
     public static let omitted = "assistant.omitted"
     /// The identifier `assistant.question`.
     public static let question = "assistant.question"
+    /// The identifier `assistant.retry`.
+    public static let retry = "assistant.retry"
     /// The identifier `assistant.seePlans`.
     public static let seePlans = "assistant.seePlans"
+    /// The identifier `assistant.send`.
+    public static let send = "assistant.send"
+    /// The identifier `assistant.share`.
+    public static let share = "assistant.share"
     /// The identifier `assistant.shareCSV`.
     public static let shareCSV = "assistant.shareCSV"
     /// The identifier `assistant.task`.
     public static let task = "assistant.task"
     /// The identifier `assistant.unavailable`.
     public static let unavailable = "assistant.unavailable"
+  }
+
+  /// The identifiers under `contents`.
+  public enum Contents {
+    /// The identifier `contents.done`.
+    public static let done = "contents.done"
+    /// The identifier `contents.row.{page:Int}`, for the `page` given.
+    public static func row(_ page: Int) -> String {
+      "contents.row.\(page)"
+    }
   }
 
   /// The identifiers under `evaluation`.
@@ -52,6 +88,8 @@ public enum AccessibilityID {
     public static let result = "evaluation.result"
     /// The identifier `evaluation.run`.
     public static let run = "evaluation.run"
+    /// The identifier `evaluation.share`.
+    public static let share = "evaluation.share"
   }
 
   /// The identifiers under `internal`.
@@ -100,8 +138,28 @@ public enum AccessibilityID {
     public static let select = "library.select"
     /// The identifier `library.settings`.
     public static let settings = "library.settings"
+    /// The identifier `library.sort`.
+    public static let sort = "library.sort"
     /// The identifier `library.undoDelete`.
     public static let undoDelete = "library.undoDelete"
+
+    /// The identifiers under `library.context`.
+    public enum Context {
+      /// The identifier `library.context.delete`.
+      public static let delete = "library.context.delete"
+      /// The identifier `library.context.deleteNow`.
+      public static let deleteNow = "library.context.deleteNow"
+      /// The identifier `library.context.favourite`.
+      public static let favourite = "library.context.favourite"
+      /// The identifier `library.context.info`.
+      public static let info = "library.context.info"
+      /// The identifier `library.context.rename`.
+      public static let rename = "library.context.rename"
+      /// The identifier `library.context.restore`.
+      public static let restore = "library.context.restore"
+      /// The identifier `library.context.tags`.
+      public static let tags = "library.context.tags"
+    }
 
     /// The identifiers under `library.empty`.
     public enum Empty {
@@ -109,6 +167,8 @@ public enum AccessibilityID {
       public static let `import` = "library.empty.import"
       /// The identifier `library.empty.sample`.
       public static let sample = "library.empty.sample"
+      /// The identifier `library.empty.scan`.
+      public static let scan = "library.empty.scan"
 
       /// The identifiers under `library.empty.primary`.
       public enum Primary {
@@ -143,10 +203,56 @@ public enum AccessibilityID {
       }
     }
 
+    /// The identifiers under `library.import`.
+    public enum Import {
+      /// The identifier `library.import.files`.
+      public static let files = "library.import.files"
+      /// The identifier `library.import.photos`.
+      public static let photos = "library.import.photos"
+    }
+
+    /// The identifiers under `library.info`.
+    public enum Info {
+      /// The identifier `library.info.done`.
+      public static let done = "library.info.done"
+    }
+
+    /// The identifiers under `library.primaryAction`.
+    public enum PrimaryAction {
+      /// The identifier `library.primaryAction.choose`.
+      public static let choose = "library.primaryAction.choose"
+      /// The identifier `library.primaryAction.import`.
+      public static let `import` = "library.primaryAction.import"
+      /// The identifier `library.primaryAction.scan`.
+      public static let scan = "library.primaryAction.scan"
+    }
+
+    /// The identifiers under `library.row`.
+    public enum Row {
+      /// The identifier `library.row.delete`.
+      public static let delete = "library.row.delete"
+      /// The identifier `library.row.deleteNow`.
+      public static let deleteNow = "library.row.deleteNow"
+      /// The identifier `library.row.favourite`.
+      public static let favourite = "library.row.favourite"
+      /// The identifier `library.row.restore`.
+      public static let restore = "library.row.restore"
+    }
+
     /// The identifiers under `library.search`.
     public enum Search {
       /// The identifier `library.search.unavailable`.
       public static let unavailable = "library.search.unavailable"
+    }
+
+    /// The identifiers under `library.selection`.
+    public enum Selection {
+      /// The identifier `library.selection.delete`.
+      public static let delete = "library.selection.delete"
+      /// The identifier `library.selection.favourite`.
+      public static let favourite = "library.selection.favourite"
+      /// The identifier `library.selection.share`.
+      public static let share = "library.selection.share"
     }
 
     /// The identifiers under `library.sidebar`.
@@ -172,10 +278,32 @@ public enum AccessibilityID {
 
   /// The identifiers under `pages`.
   public enum Pages {
+    /// The identifier `pages.done`.
+    public static let done = "pages.done"
     /// The identifier `pages.more`.
     public static let more = "pages.more"
+    /// The identifier `pages.moveEarlier`.
+    public static let moveEarlier = "pages.moveEarlier"
+    /// The identifier `pages.moveLater`.
+    public static let moveLater = "pages.moveLater"
+    /// The identifier `pages.page.{page:Int}`, for the `page` given.
+    public static func page(_ page: Int) -> String {
+      "pages.page.\(page)"
+    }
+    /// The identifier `pages.rotateLeft`.
+    public static let rotateLeft = "pages.rotateLeft"
+    /// The identifier `pages.rotateRight`.
+    public static let rotateRight = "pages.rotateRight"
     /// The identifier `pages.select`.
     public static let select = "pages.select"
+
+    /// The identifiers under `pages.more`.
+    public enum More {
+      /// The identifier `pages.more.copy`.
+      public static let copy = "pages.more.copy"
+      /// The identifier `pages.more.delete`.
+      public static let delete = "pages.more.delete"
+    }
   }
 
   /// The identifiers under `paywall`.
@@ -296,6 +424,8 @@ public enum AccessibilityID {
     public static let password = "reader.password"
     /// The identifier `reader.restorePrevious`.
     public static let restorePrevious = "reader.restorePrevious"
+    /// The identifier `reader.unlock`.
+    public static let unlock = "reader.unlock"
     /// The identifier `reader.versions`.
     public static let versions = "reader.versions"
     /// The identifier `reader.wrongPassword`.
@@ -307,6 +437,18 @@ public enum AccessibilityID {
       public static let list = "reader.annotations.list"
       /// The identifier `reader.annotations.share`.
       public static let share = "reader.annotations.share"
+    }
+
+    /// The identifiers under `reader.ask`.
+    public enum Ask {
+      /// The identifier `reader.ask.contract`.
+      public static let contract = "reader.ask.contract"
+      /// The identifier `reader.ask.extract`.
+      public static let extract = "reader.ask.extract"
+      /// The identifier `reader.ask.question`.
+      public static let question = "reader.ask.question"
+      /// The identifier `reader.ask.summarise`.
+      public static let summarise = "reader.ask.summarise"
     }
 
     /// The identifiers under `reader.drawing`.
@@ -331,8 +473,44 @@ public enum AccessibilityID {
 
     /// The identifiers under `reader.markup`.
     public enum Markup {
+      /// The identifier `reader.markup.draw`.
+      public static let draw = "reader.markup.draw"
+      /// The identifier `reader.markup.note`.
+      public static let note = "reader.markup.note"
       /// The identifier `reader.markup.paste`.
       public static let paste = "reader.markup.paste"
+      /// The identifier `reader.markup.redo`.
+      public static let redo = "reader.markup.redo"
+      /// The identifier `reader.markup.shape.{tool}`, for the `tool` given.
+      public static func shape(_ tool: String) -> String {
+        "reader.markup.shape.\(tool)"
+      }
+      /// The identifier `reader.markup.shapes`.
+      public static let shapes = "reader.markup.shapes"
+      /// The identifier `reader.markup.signature`.
+      public static let signature = "reader.markup.signature"
+      /// The identifier `reader.markup.stamp`.
+      public static let stamp = "reader.markup.stamp"
+      /// The identifier `reader.markup.text.{kind}`, for the `kind` given.
+      public static func text(_ kind: String) -> String {
+        "reader.markup.text.\(kind)"
+      }
+      /// The identifier `reader.markup.textBox`.
+      public static let textBox = "reader.markup.textBox"
+      /// The identifier `reader.markup.undo`.
+      public static let undo = "reader.markup.undo"
+
+      /// The identifiers under `reader.markup.stamp`.
+      public enum Stamp {
+        /// The identifier `reader.markup.stamp.cross`.
+        public static let cross = "reader.markup.stamp.cross"
+        /// The identifier `reader.markup.stamp.date`.
+        public static let date = "reader.markup.stamp.date"
+        /// The identifier `reader.markup.stamp.text`.
+        public static let text = "reader.markup.stamp.text"
+        /// The identifier `reader.markup.stamp.tick`.
+        public static let tick = "reader.markup.stamp.tick"
+      }
     }
 
     /// The identifiers under `reader.markupTool`.
@@ -341,6 +519,54 @@ public enum AccessibilityID {
       public static let redo = "reader.markupTool.redo"
       /// The identifier `reader.markupTool.undo`.
       public static let undo = "reader.markupTool.undo"
+    }
+
+    /// The identifiers under `reader.more`.
+    public enum More {
+      /// The identifier `reader.more.addPassword`.
+      public static let addPassword = "reader.more.addPassword"
+      /// The identifier `reader.more.contents`.
+      public static let contents = "reader.more.contents"
+      /// The identifier `reader.more.export`.
+      public static let export = "reader.more.export"
+      /// The identifier `reader.more.find`.
+      public static let find = "reader.more.find"
+      /// The identifier `reader.more.flattened`.
+      public static let flattened = "reader.more.flattened"
+      /// The identifier `reader.more.goToPage`.
+      public static let goToPage = "reader.more.goToPage"
+      /// The identifier `reader.more.layout`.
+      public static let layout = "reader.more.layout"
+      /// The identifier `reader.more.pageImage`.
+      public static let pageImage = "reader.more.pageImage"
+      /// The identifier `reader.more.pages`.
+      public static let pages = "reader.more.pages"
+      /// The identifier `reader.more.print`.
+      public static let print = "reader.more.print"
+      /// The identifier `reader.more.readAloud`.
+      public static let readAloud = "reader.more.readAloud"
+      /// The identifier `reader.more.recognise`.
+      public static let recognise = "reader.more.recognise"
+      /// The identifier `reader.more.reduce`.
+      public static let reduce = "reader.more.reduce"
+      /// The identifier `reader.more.removePassword`.
+      public static let removePassword = "reader.more.removePassword"
+      /// The identifier `reader.more.share`.
+      public static let share = "reader.more.share"
+
+      /// The identifiers under `reader.more.layout`.
+      public enum Layout {
+        /// The identifier `reader.more.layout.pageStrip`.
+        public static let pageStrip = "reader.more.layout.pageStrip"
+      }
+
+      /// The identifiers under `reader.more.reduce`.
+      public enum Reduce {
+        /// The identifier `reader.more.reduce.balanced`.
+        public static let balanced = "reader.more.reduce.balanced"
+        /// The identifier `reader.more.reduce.smallest`.
+        public static let smallest = "reader.more.reduce.smallest"
+      }
     }
 
     /// The identifiers under `reader.paste`.
@@ -353,6 +579,12 @@ public enum AccessibilityID {
       public static let redo = "reader.paste.redo"
       /// The identifier `reader.paste.undo`.
       public static let undo = "reader.paste.undo"
+    }
+
+    /// The identifiers under `reader.recognition`.
+    public enum Recognition {
+      /// The identifier `reader.recognition.cancel`.
+      public static let cancel = "reader.recognition.cancel"
     }
 
     /// The identifiers under `reader.selection`.
@@ -422,18 +654,42 @@ public enum AccessibilityID {
   public enum Scan {
     /// The identifier `scan.camera`.
     public static let camera = "scan.camera"
+    /// The identifier `scan.cancel`.
+    public static let cancel = "scan.cancel"
+    /// The identifier `scan.discard`.
+    public static let discard = "scan.discard"
     /// The identifier `scan.images`.
     public static let images = "scan.images"
     /// The identifier `scan.noCamera`.
     public static let noCamera = "scan.noCamera"
     /// The identifier `scan.notice`.
     public static let notice = "scan.notice"
+    /// The identifier `scan.page.{page:Int}`, for the `page` given.
+    public static func page(_ page: Int) -> String {
+      "scan.page.\(page)"
+    }
     /// The identifier `scan.photos`.
     public static let photos = "scan.photos"
     /// The identifier `scan.save`.
     public static let save = "scan.save"
+    /// The identifier `scan.stop`.
+    public static let stop = "scan.stop"
     /// The identifier `scan.title`.
     public static let title = "scan.title"
+    /// The identifier `scan.tryAgain`.
+    public static let tryAgain = "scan.tryAgain"
+
+    /// The identifiers under `scan.page`.
+    public enum Page {
+      /// The identifier `scan.page.delete`.
+      public static let delete = "scan.page.delete"
+      /// The identifier `scan.page.moveEarlier`.
+      public static let moveEarlier = "scan.page.moveEarlier"
+      /// The identifier `scan.page.moveLater`.
+      public static let moveLater = "scan.page.moveLater"
+      /// The identifier `scan.page.rotate`.
+      public static let rotate = "scan.page.rotate"
+    }
   }
 
   /// The identifiers under `settings`.
@@ -446,10 +702,20 @@ public enum AccessibilityID {
     public static let company = "settings.company"
     /// The identifier `settings.deleteVersions`.
     public static let deleteVersions = "settings.deleteVersions"
+    /// The identifier `settings.diagnostics`.
+    public static let diagnostics = "settings.diagnostics"
+    /// The identifier `settings.done`.
+    public static let done = "settings.done"
     /// The identifier `settings.hideAI`.
     public static let hideAI = "settings.hideAI"
+    /// The identifier `settings.intent.{intent}`, for the `intent` given.
+    public static func intent(_ intent: String) -> String {
+      "settings.intent.\(intent)"
+    }
     /// The identifier `settings.intents`.
     public static let intents = "settings.intents"
+    /// The identifier `settings.pageLayout`.
+    public static let pageLayout = "settings.pageLayout"
     /// The identifier `settings.privacyPolicy`.
     public static let privacyPolicy = "settings.privacyPolicy"
     /// The identifier `settings.privacyReport`.
@@ -484,27 +750,47 @@ public enum AccessibilityID {
 
   /// The identifiers under `signature`.
   public enum Signature {
+    /// The identifier `signature.cancel`.
+    public static let cancel = "signature.cancel"
+    /// The identifier `signature.clear`.
+    public static let clear = "signature.clear"
     /// The identifier `signature.pad`.
     public static let pad = "signature.pad"
     /// The identifier `signature.placeTyped`.
     public static let placeTyped = "signature.placeTyped"
     /// The identifier `signature.savePlace`.
     public static let savePlace = "signature.savePlace"
+    /// The identifier `signature.saved`.
+    public static let saved = "signature.saved"
     /// The identifier `signature.typedName`.
     public static let typedName = "signature.typedName"
   }
 
   /// The identifiers under `tags`.
   public enum Tags {
+    /// The identifier `tags.add`.
+    public static let add = "tags.add"
+    /// The identifier `tags.cancel`.
+    public static let cancel = "tags.cancel"
     /// The identifier `tags.done`.
     public static let done = "tags.done"
     /// The identifier `tags.new`.
     public static let new = "tags.new"
+    /// The identifier `tags.suggestion`.
+    public static let suggestion = "tags.suggestion"
   }
 
   /// The identifiers under `trialNotice`.
   public enum TrialNotice {
     /// The identifier `trialNotice.settings`.
     public static let settings = "trialNotice.settings"
+  }
+
+  /// The identifiers under `versions`.
+  public enum Versions {
+    /// The identifier `versions.done`.
+    public static let done = "versions.done"
+    /// The identifier `versions.row`.
+    public static let row = "versions.row"
   }
 }
