@@ -78,6 +78,8 @@ section and drafts the store text. Then the release pull request is opened from 
 
 ### After merging (before App Store submission)
 - [ ] Release build is the merge commit; build number noted
+- [ ] Release build from external TestFlight smoke-tested on a phone with the flags as they ship
+      (device smoke test, store rows with a sandbox account, text editing off or locked; release flags)
 - [ ] External TestFlight for at least 3 days; crash-free sessions at least 99.8%
 - [ ] Screenshots and store listing current in EN and FR
 - [ ] App Review notes written (consent screens for cloud AI tiers, how to reach new features)
