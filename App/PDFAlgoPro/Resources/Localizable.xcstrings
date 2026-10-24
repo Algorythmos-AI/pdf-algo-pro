@@ -123,6 +123,16 @@
         }
       }
     },
+    "PDF Algo Pro is locked. Open it and unlock it, then try again." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PDF Algo Pro est verrouillé. Ouvrez-le et déverrouillez-le, puis réessayez."
+          }
+        }
+      }
+    },
     "PDF Algo Pro is still starting. Try again in a moment." : {
       "localizations" : {
         "fr" : {

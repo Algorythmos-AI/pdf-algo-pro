@@ -166,6 +166,30 @@ struct AppTests {
     let query = DocumentEntityQuery()
     #expect(try await query.suggestedEntities().isEmpty, "The Shortcuts picker lists no titles while locked")
     #expect(try await query.entities(matching: "welcome").isEmpty, "Nor does a search by title")
+
+    // Siri says why, and a saved shortcut still opens the app, where the lock asks first.
+    await #expect(throws: IntentFailure.locked) { try await IntentRouter.shared.summary(of: id) }
+    let summarize = SummarizeDocumentIntent()
+    summarize.target = try #require(try await query.entities(for: [id.description]).first)
+    await #expect(throws: IntentFailure.locked) { _ = try await summarize.perform() }
+    #expect(String(localized: IntentFailure.locked.localizedStringResource).contains("locked"))
+  }
+
+  @Test("Once App Lock is unlocked, intents answer again")
+  func intentsAfterUnlock() async throws {
+    var locked = true
+    let router = IntentRouter()
+    let app = makeApp()
+    await app.library.addSample()
+    router.attach(
+      library: app.container.library, intelligence: app.container.meteredIntelligence, index: app.container.index,
+      isLocked: { locked }, handler: { _ in })
+    let id = try #require(await router.documents().first?.id)
+    await #expect(throws: IntentFailure.locked) { try await router.summary(of: id) }
+    #expect(await router.listedDocuments().isEmpty)
+    locked = false
+    #expect(try await router.summary(of: id).contains("Generated on this device"))
+    #expect(await router.listedDocuments().map(\.id) == [id])
   }
 
   @Test("A route that arrives before the app attaches is delivered on attach")
@@ -174,7 +198,7 @@ struct AppTests {
     var delivered: [Route] = []
     router.open(.scan)
     #expect(await router.documents().isEmpty)
-    router.attach(library: FakeLibrary()) { delivered.append($0) }
+    router.attach(library: FakeLibrary(), isLocked: { false }, handler: { delivered.append($0) })
     router.open(.settings)
     #expect(delivered == [.scan, .settings])
   }

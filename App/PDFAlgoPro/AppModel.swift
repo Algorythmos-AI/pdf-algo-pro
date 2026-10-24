@@ -97,8 +97,9 @@ final class AppModel {
     // Whether App Lock is on is read before anything can show.
     _ = lock
     IntentRouter.shared.attach(
-      library: container.library, intelligence: container.meteredIntelligence, index: container.index
-    ) { [weak self] route in self?.navigate(to: route) }
+      library: container.library, intelligence: container.meteredIntelligence, index: container.index,
+      isLocked: { [weak self] in self?.lock.isLocked ?? true },
+      handler: { [weak self] route in self?.navigate(to: route) })
     if container.environment.seedsSample {
       Task { await library.addSample() }
     }
