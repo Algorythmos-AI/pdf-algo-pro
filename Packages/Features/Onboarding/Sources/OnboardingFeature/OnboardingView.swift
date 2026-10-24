@@ -1,3 +1,4 @@
+import AccessibilityIDs
 import Core
 import DesignSystem
 import SwiftUI
@@ -38,12 +39,12 @@ public struct OnboardingView: View {
           }
           .buttonStyle(.primary)
           .disabled(model.isFinishing)
-          .accessibilityIdentifier("onboarding.continue")
+          .accessibilityIdentifier(AccessibilityID.Onboarding.continue)
         }
         .padding(Spacing.s200)
         .background(.bar)
         .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("onboarding.actionBar")
+        .accessibilityIdentifier(AccessibilityID.Onboarding.actionBar)
       }
       .background(alignment: .top) { BrandGlow().frame(height: 360).ignoresSafeArea() }
       .background(Color.ds.backgroundPrimary)
@@ -55,7 +56,7 @@ public struct OnboardingView: View {
             Text("Skip", bundle: .module)
           }
           .disabled(model.isFinishing)
-          .accessibilityIdentifier("onboarding.skip")
+          .accessibilityIdentifier(AccessibilityID.Onboarding.skip)
         }
       }
       .task { await model.load() }
@@ -79,7 +80,7 @@ public struct OnboardingView: View {
           .accessibilityAddTraits(.isHeader)
           // Where the person is, read with the headline: the dots below are only to look at.
           .accessibilityValue(Text("Page \(model.index + 1) of \(model.pages.count)", bundle: .module))
-          .accessibilityIdentifier("onboarding.page.\(model.page.rawValue)")
+          .accessibilityIdentifier(AccessibilityID.Onboarding.page(model.page.rawValue))
         model.page.detail
           .font(.body)
           .foregroundStyle(Color.ds.labelSecondary)

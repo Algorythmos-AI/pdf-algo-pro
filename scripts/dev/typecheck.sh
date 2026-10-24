@@ -42,6 +42,7 @@ run() { # emit|check module isolation dir [bundle] [file to leave out]
   fi
 }
 
+run emit AccessibilityIDs non Packages/Core/Sources/AccessibilityIDs
 run emit Core non Packages/Core/Sources/Core
 run emit CoreTestSupport non Packages/Core/Sources/CoreTestSupport
 run emit DesignSystem main Packages/DesignSystem/Sources/DesignSystem bundle

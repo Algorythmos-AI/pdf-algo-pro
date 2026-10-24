@@ -1,3 +1,4 @@
+import AccessibilityIDs
 import Core
 import DesignSystem
 import LocalAuthentication
@@ -120,12 +121,12 @@ struct LockScreen: View {
           }
           .buttonStyle(.borderedProminent)
           .disabled(lock.isAuthenticating)
-          .accessibilityIdentifier("appLock.unlock")
+          .accessibilityIdentifier(AccessibilityID.AppLock.unlock)
         }
         .padding(Spacing.s300)
       }
     }
-    .accessibilityIdentifier("appLock.cover")
+    .accessibilityIdentifier(AccessibilityID.AppLock.cover)
   }
 
   static func unlockTitle(for method: AppLockMethod?) -> LocalizedStringKey {

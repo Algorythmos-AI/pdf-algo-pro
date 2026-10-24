@@ -1,3 +1,4 @@
+import AccessibilityIDs
 import DesignSystem
 import PDFEngine
 import SwiftUI
@@ -84,7 +85,7 @@ struct SelectionBar: View {
         } label: {
           Text("Style", bundle: .module).minimumTarget()
         }
-        .accessibilityIdentifier("reader.selection.style")
+        .accessibilityIdentifier(AccessibilityID.Reader.Selection.style)
       }
       if selection.isMovable {
         Menu {
@@ -95,7 +96,7 @@ struct SelectionBar: View {
               Image(systemName: "doc.on.doc")
             }
           }
-          .accessibilityIdentifier("reader.selection.copyAction")
+          .accessibilityIdentifier(AccessibilityID.Reader.Selection.copyAction)
           Button(action: onCut) {
             Label {
               Text("Cut", bundle: .module)
@@ -103,7 +104,7 @@ struct SelectionBar: View {
               Image(systemName: "scissors")
             }
           }
-          .accessibilityIdentifier("reader.selection.cut")
+          .accessibilityIdentifier(AccessibilityID.Reader.Selection.cut)
           Button(action: onDuplicate) {
             Label {
               Text("Duplicate", bundle: .module)
@@ -111,30 +112,30 @@ struct SelectionBar: View {
               Image(systemName: "plus.square.on.square")
             }
           }
-          .accessibilityIdentifier("reader.selection.duplicate")
+          .accessibilityIdentifier(AccessibilityID.Reader.Selection.duplicate)
         } label: {
           Text("Copy", bundle: .module).minimumTarget()
         }
-        .accessibilityIdentifier("reader.selection.copy")
+        .accessibilityIdentifier(AccessibilityID.Reader.Selection.copy)
       }
       if selection.isTextEditable {
         Button(action: onEdit) { Text("Edit text", bundle: .module).minimumTarget() }
-          .accessibilityIdentifier("reader.selection.edit")
+          .accessibilityIdentifier(AccessibilityID.Reader.Selection.edit)
       }
       // systemRed is below 4.5:1 on the material; the token keeps the contrast in every appearance.
       Button(role: .destructive, action: onDelete) {
         Text("Delete", bundle: .module).foregroundStyle(Color.ds.destructiveText).minimumTarget()
       }
-      .accessibilityIdentifier("reader.selection.delete")
+      .accessibilityIdentifier(AccessibilityID.Reader.Selection.delete)
       Button(action: onDone) { Text("Done", bundle: .module).minimumTarget() }
-        .accessibilityIdentifier("reader.selection.done")
+        .accessibilityIdentifier(AccessibilityID.Reader.Selection.done)
     }
     // Plain labels, so that the only red on this bar is Delete (the app's accent is red too).
     .tint(Color.ds.labelPrimary)
     .padding(Spacing.s150)
     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     .accessibilityElement(children: .contain)
-    .accessibilityIdentifier("reader.selection.actionBar")
+    .accessibilityIdentifier(AccessibilityID.Reader.Selection.actionBar)
   }
 
   static func name(of color: AnnotationColor) -> Text {

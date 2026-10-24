@@ -1,3 +1,4 @@
+import AccessibilityIDs
 import DesignSystem
 import PDFEngine
 import SwiftUI
@@ -33,6 +34,7 @@ struct AnnotationListSheet: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .contentShape(Rectangle())
                   }
+                  .accessibilityIdentifier(AccessibilityID.Annotations.row(summary.pageIndex + 1))
                   .buttonStyle(.plain)
                 }
               } header: {
@@ -40,7 +42,7 @@ struct AnnotationListSheet: View {
               }
             }
           }
-          .accessibilityIdentifier("reader.annotations.list")
+          .accessibilityIdentifier(AccessibilityID.Reader.Annotations.list)
         }
       }
       .navigationTitle(Text("Annotations", bundle: .module))
@@ -51,6 +53,7 @@ struct AnnotationListSheet: View {
           } label: {
             Text("Done", bundle: .module)
           }
+          .accessibilityIdentifier(AccessibilityID.Annotations.done)
         }
         if !model.annotationSummaries.isEmpty {
           ToolbarItem(placement: .primaryAction) {
@@ -61,7 +64,7 @@ struct AnnotationListSheet: View {
                 Image(systemName: "square.and.arrow.up")
               }
             }
-            .accessibilityIdentifier("reader.annotations.share")
+            .accessibilityIdentifier(AccessibilityID.Reader.Annotations.share)
           }
         }
       }

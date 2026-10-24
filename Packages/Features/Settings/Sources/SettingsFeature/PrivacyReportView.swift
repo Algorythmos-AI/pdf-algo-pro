@@ -1,3 +1,4 @@
+import AccessibilityIDs
 import Core
 import DesignSystem
 import SwiftUI
@@ -18,7 +19,7 @@ struct PrivacyReportView: View {
         } label: {
           Text("Documents sent to cloud AI", bundle: .module)
         }
-        .accessibilityIdentifier("privacy.sentToCloud")
+        .accessibilityIdentifier(AccessibilityID.Privacy.sentToCloud)
       } footer: {
         Text(
           "Summaries, answers and extraction run on this iPhone. A cloud option only ever runs after you turn it on.",

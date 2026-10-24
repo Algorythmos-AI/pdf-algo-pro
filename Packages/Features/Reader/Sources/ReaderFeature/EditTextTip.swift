@@ -1,3 +1,4 @@
+import AccessibilityIDs
 import DesignSystem
 import SwiftUI
 import TipKit
@@ -109,7 +110,7 @@ struct EditTipCardBody: View {
           .contentShape(Rectangle())
       }
       .accessibilityLabel(Text("Close", bundle: .module))
-      .accessibilityIdentifier("reader.editTip.close")
+      .accessibilityIdentifier(AccessibilityID.Reader.EditTip.close)
     }
     .padding(.leading, Spacing.s200)
     .padding(.vertical, Spacing.s050)
@@ -123,6 +124,6 @@ struct EditTipCardBody: View {
     }
     .overlay { RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color.ds.separator) }
     .accessibilityElement(children: .contain)
-    .accessibilityIdentifier("reader.editTip")
+    .accessibilityIdentifier(AccessibilityID.Reader.editTip)
   }
 }

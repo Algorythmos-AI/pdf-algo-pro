@@ -1,3 +1,4 @@
+import AccessibilityIDs
 import DesignSystem
 import SwiftUI
 
@@ -31,7 +32,7 @@ public struct AboutView: View {
         }
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("about.version")
+        .accessibilityIdentifier(AccessibilityID.About.version)
         .listRowBackground(Color.clear)
         .listRowInsets(EdgeInsets())
       }
@@ -39,15 +40,15 @@ public struct AboutView: View {
         Link(destination: link(.privacyPolicy)) {
           TileLabel(Text("Privacy Policy", bundle: .module), systemImage: "hand.raised")
         }
-        .accessibilityIdentifier("settings.privacyPolicy")
+        .accessibilityIdentifier(AccessibilityID.Settings.privacyPolicy)
         Link(destination: link(.termsOfUse)) {
           TileLabel(Text("Terms of Use", bundle: .module), systemImage: "doc.plaintext")
         }
-        .accessibilityIdentifier("settings.termsOfUse")
+        .accessibilityIdentifier(AccessibilityID.Settings.termsOfUse)
         Link(destination: link(.support)) {
           TileLabel(Text("Support", bundle: .module), systemImage: "questionmark.circle")
         }
-        .accessibilityIdentifier("settings.support")
+        .accessibilityIdentifier(AccessibilityID.Settings.support)
       } footer: {
         Text("These open in your browser.", bundle: .module).foregroundStyle(Color.ds.labelSecondary)
       }
@@ -55,7 +56,7 @@ public struct AboutView: View {
         ShareLink(item: AppLinks.product(languageCode: languageCode)) {
           TileLabel(Text("Share PDF Algo Pro", bundle: .module), systemImage: "square.and.arrow.up")
         }
-        .accessibilityIdentifier("settings.share")
+        .accessibilityIdentifier(AccessibilityID.Settings.share)
       }
       Section {
         Link(destination: AppLinks.company) {
@@ -69,7 +70,7 @@ public struct AboutView: View {
           }
           .accessibilityElement(children: .combine)
         }
-        .accessibilityIdentifier("settings.company")
+        .accessibilityIdentifier(AccessibilityID.Settings.company)
       } footer: {
         Text("PDF Algo Pro is published by Algorythmos Pty Ltd.", bundle: .module)
           .foregroundStyle(Color.ds.labelSecondary)
