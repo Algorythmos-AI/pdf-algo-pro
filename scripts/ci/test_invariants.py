@@ -92,6 +92,26 @@ def test_network_pattern_covers_cloudkit_and_the_allow_list_names_remote_config(
     assert "Packages/RemoteConfig/" in invariants.ALLOWED["network"]
 
 
+def test_identifiers_given_as_constants_pass():
+    text = (
+        ".accessibilityIdentifier(AccessibilityID.Reader.more)\n"
+        ".accessibilityIdentifier(AccessibilityID.Library.section(Self.identifier(for: .tag(tag))))\n"
+        "field.accessibilityIdentifier = AccessibilityID.Reader.TextEdit.field\n"
+        "/// Sets `accessibilityIdentifier` from the list.\n"
+    )
+    assert invariants.identifier_literals(text) == []
+
+
+def test_identifiers_given_as_literals_are_reported():
+    text = (
+        '.accessibilityIdentifier("reader.more")\n'
+        '.accessibilityIdentifier(isOn ? "a.on" : "a.off")\n'
+        'view.accessibilityIdentifier = "reader.drawing"\n'
+        '.accessibilityIdentifier("library.document.\\(title)")\n'
+    )
+    assert invariants.identifier_literals(text) == [1, 2, 3, 4]
+
+
 def test_the_replay_named_inside_internal_tools_passes():
     text = "#if INTERNAL_TOOLS\n  let replay = InternalFirstRunReplay()\n#endif\n/// InternalFirstRunReplay in a comment\n"
     assert invariants.outside_internal_tools(text) == []

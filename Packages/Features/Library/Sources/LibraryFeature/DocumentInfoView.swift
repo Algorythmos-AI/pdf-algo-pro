@@ -1,3 +1,4 @@
+import AccessibilityIDs
 import Core
 import DesignSystem
 import PDFEngine
@@ -70,10 +71,11 @@ struct DocumentInfoView: View {
           } label: {
             Text("Done", bundle: .module)
           }
+          .accessibilityIdentifier(AccessibilityID.Library.Info.done)
         }
       }
     }
-    .accessibilityIdentifier("library.info")
+    .accessibilityIdentifier(AccessibilityID.Library.info)
   }
 
   private func row(_ label: Text, _ value: String) -> some View {

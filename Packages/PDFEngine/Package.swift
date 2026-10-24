@@ -20,7 +20,7 @@ let package = Package(
   targets: [
     .target(
       name: "PDFEngine",
-      dependencies: [.product(name: "Core", package: "Core")],
+      dependencies: [.product(name: "AccessibilityIDs", package: "Core"), .product(name: "Core", package: "Core")],
       swiftSettings: settings
     ),
     .target(

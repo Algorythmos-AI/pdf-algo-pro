@@ -1,4 +1,5 @@
 #if canImport(UIKit)
+  import AccessibilityIDs
   import UIKit
   import UIKit.UIGestureRecognizerSubclass
 
@@ -38,7 +39,7 @@
       // The engine has no resource bundle, so the label is looked up in the app's string catalog.
       accessibilityLabel = String(localized: "Drawing area", comment: "VoiceOver label for the layer that draws ink")
       accessibilityTraits = .allowsDirectInteraction
-      accessibilityIdentifier = "reader.drawing"
+      accessibilityIdentifier = AccessibilityID.Reader.drawing
     }
 
     @available(*, unavailable)

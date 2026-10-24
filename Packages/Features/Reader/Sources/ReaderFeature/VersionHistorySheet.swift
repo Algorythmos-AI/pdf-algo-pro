@@ -1,3 +1,4 @@
+import AccessibilityIDs
 import Core
 import DesignSystem
 import SwiftUI
@@ -21,6 +22,7 @@ struct VersionHistorySheet: View {
                 Text(version.savedAt.formatted(date: .abbreviated, time: .shortened))
               }
             }
+            .accessibilityIdentifier(AccessibilityID.Versions.row)
           }
         } footer: {
           Text(
@@ -39,6 +41,7 @@ struct VersionHistorySheet: View {
           } label: {
             Text("Done", bundle: .module)
           }
+          .accessibilityIdentifier(AccessibilityID.Versions.done)
         }
       }
       .confirmationDialog(
