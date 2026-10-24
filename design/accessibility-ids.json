@@ -5,6 +5,7 @@
     "annotations.done",
     "annotations.row.{page:Int}",
     "appLock.cover",
+    "appLock.turnedOff.ok",
     "appLock.unlock",
     "assistant.allowanceUsed",
     "assistant.answer",
