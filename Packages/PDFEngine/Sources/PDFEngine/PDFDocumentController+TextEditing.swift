@@ -769,6 +769,13 @@ extension PDFDocumentController {
     textPages[ObjectIdentifier(old)] = nil
     contentEditedPages.removeAll { $0 === old }
     contentEditedPages.append(new)
+    // The page as it was saved is what an edit that cannot be kept goes back to; undo brings it
+    // back, and then nothing is left to put back.
+    if let original = textEditOriginals.removeValue(forKey: ObjectIdentifier(old)) {
+      if original !== new { textEditOriginals[ObjectIdentifier(new)] = original }
+    } else {
+      textEditOriginals[ObjectIdentifier(new)] = old
+    }
     structureGeneration += 1
     hasUnsavedChanges = true
     #if canImport(UIKit)
@@ -978,13 +985,40 @@ extension PDFDocumentController {
   /// The proof before a swap checks the edited page on its own. This checks what PDFKit actually
   /// wrote, before it replaces the document.
   func contentEdits(areIntactIn staged: PDFDocument) -> Bool {
-    for page in contentEditedPages {
+    contentEditedPages.allSatisfy { isIntact($0, in: staged) }
+  }
+
+  /// Whether an edited page reads in a staged file as it does here; a page no longer in the
+  /// document has nothing to check.
+  private func isIntact(_ page: PDFPage, in staged: PDFDocument) -> Bool {
+    let index = document.index(for: page)
+    guard index != NSNotFound else { return true }
+    guard let written = staged.page(at: index) else { return false }
+    return EditProof.squeezed(written.string ?? "") == EditProof.squeezed(page.string ?? "")
+  }
+
+  /// Puts back, as they were when the document was last opened or saved, the pages whose text
+  /// edits do not read in the staged file as they do here (issue #232).
+  ///
+  /// PDFKit can read a written page differently, through a fallback font, a ligature or a
+  /// reordering. Such an edit cannot be proven kept, so it is taken out rather than left to fail
+  /// every save after it. The undo history is cleared, because its steps refer to the pages taken
+  /// out.
+  ///
+  /// - Parameter staged: The file as written, read back.
+  /// - Returns: The indexes of the pages put back.
+  func putBackTextEdits(notIntactIn staged: PDFDocument) -> [Int] {
+    var putBack: [Int] = []
+    for page in contentEditedPages where !isIntact(page, in: staged) {
+      guard let original = textEditOriginals[ObjectIdentifier(page)] else { continue }
       let index = document.index(for: page)
-      guard index != NSNotFound else { continue }
-      guard let written = staged.page(at: index),
-        EditProof.squeezed(written.string ?? "") == EditProof.squeezed(page.string ?? "")
-      else { return false }
+      swap(page, for: original, keeping: nil, links: incomingLinks ?? [:])
+      putBack.append(index)
     }
-    return true
+    if !putBack.isEmpty {
+      undoManager.removeAllActions()
+      textUndoBytes = 0
+    }
+    return putBack.sorted()
   }
 }

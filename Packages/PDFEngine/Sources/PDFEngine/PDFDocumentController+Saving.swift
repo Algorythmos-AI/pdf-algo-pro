@@ -6,6 +6,8 @@ extension PDFDocumentController {
   /// Writes the document atomically with coordinated access; a failed save leaves the file unchanged (NFR-REL-002).
   ///
   /// An encrypted document stays encrypted, with the same restrictions (see `protectionOptions()`).
+  /// A text edit whose page does not read in the written file as it does here is put back, and the
+  /// rest is saved; `textEditsPutBack` then says which pages (issue #232).
   ///
   /// - Parameters:
   ///   - url: The document's file.
@@ -36,22 +38,18 @@ extension PDFDocumentController {
       if folder != fileManager.temporaryDirectory { try? fileManager.removeItem(at: folder) }
     }
     let fault = Self.saveFault
+    textEditsPutBack = []
     document.repairAttributesIfNeeded()
-    // PDFKit keeps an encrypted document encrypted whatever the options, so a document whose password
-    // is being (or was) removed is written as a fresh copy of its pages.
-    let source = pendingProtection == .remove || (document.isEncrypted && !wasEncrypted) ? unencryptedCopy() : document
-    guard source.write(to: staging, withOptions: options) else { throw PDFEngineError.saveFailed }
-    do { try fault?(.staged) } catch { throw PDFEngineError.saveFailed }
-    // PDFKit maps the staged file rather than reading it into memory, so this stays cheap for large files.
-    guard let check = PDFDocument(url: staging), check.isLocked || check.pageCount == source.pageCount else {
-      throw PDFEngineError.saveFailed
-    }
-    // Pages whose text was edited must read in the written file as they do here (FR-EDIT-001).
-    if !contentEditedPages.isEmpty {
-      if check.isLocked, let key = options[.userPasswordOption] as? String ?? password {
-        check.unlock(withPassword: key)
-      }
-      guard check.isLocked || contentEdits(areIntactIn: check) else { throw PDFEngineError.saveFailed }
+    var check = try stage(to: staging, options: options, fault: fault)
+    // Pages whose text was edited must read in the written file as they do here (FR-EDIT-001). An
+    // edit that does not is put back and the rest written again, so it cannot block every save
+    // after it (issue #232).
+    if !contentEditedPages.isEmpty, !editsAreIntact(in: check, options: options) {
+      textEditsPutBack = putBackTextEdits(notIntactIn: check)
+      guard !textEditsPutBack.isEmpty else { throw PDFEngineError.saveFailed }
+      try? fileManager.removeItem(at: staging)
+      check = try stage(to: staging, options: options, fault: fault)
+      guard editsAreIntact(in: check, options: options) else { throw PDFEngineError.saveFailed }
     }
     do { try fault?(.validated) } catch { throw PDFEngineError.saveFailed }
     try? fileManager.setAttributes(
@@ -94,7 +92,34 @@ extension PDFDocumentController {
     pendingProtection = nil
     hasUnsavedChanges = false
     contentEditedPages = []
+    // What was just written is what a later edit that cannot be kept goes back to.
+    textEditOriginals = [:]
     recordFormValues()
+  }
+
+  /// Writes the document to `staging` and reads it back.
+  ///
+  /// PDFKit keeps an encrypted document encrypted whatever the options, so a document whose
+  /// password is being (or was) removed is written as a fresh copy of its pages. PDFKit maps the
+  /// staged file rather than reading it into memory, so this stays cheap for large files.
+  private func stage(
+    to staging: URL, options: [PDFDocumentWriteOption: Any], fault: (@Sendable (SaveStep) throws -> Void)?
+  ) throws -> PDFDocument {
+    let source = pendingProtection == .remove || (document.isEncrypted && !wasEncrypted) ? unencryptedCopy() : document
+    guard source.write(to: staging, withOptions: options) else { throw PDFEngineError.saveFailed }
+    do { try fault?(.staged) } catch { throw PDFEngineError.saveFailed }
+    guard let check = PDFDocument(url: staging), check.isLocked || check.pageCount == source.pageCount else {
+      throw PDFEngineError.saveFailed
+    }
+    return check
+  }
+
+  /// Whether the edited pages read in the staged file as they do here, once it is unlocked.
+  private func editsAreIntact(in check: PDFDocument, options: [PDFDocumentWriteOption: Any]) -> Bool {
+    if check.isLocked, let key = options[.userPasswordOption] as? String ?? password {
+      check.unlock(withPassword: key)
+    }
+    return check.isLocked || contentEdits(areIntactIn: check)
   }
 
   /// The steps of a save, for the fault-injection tests of the Trust suite (plan §4.1).

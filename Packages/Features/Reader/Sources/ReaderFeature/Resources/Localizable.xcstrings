@@ -115,6 +115,16 @@
         }
       }
     },
+    "A change to the text couldn't be saved safely, so the text was put back as it was. Your other changes are saved." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Une modification du texte n’a pas pu être enregistrée en toute sécurité : le texte a été remis tel qu’il était. Vos autres modifications sont enregistrées."
+          }
+        }
+      }
+    },
     "A document needs at least one page." : {
       "localizations" : {
         "fr" : {
