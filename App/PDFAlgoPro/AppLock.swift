@@ -10,7 +10,13 @@ import UIKit
 struct LocalAuthenticator: DeviceAuthenticating {
   func method() -> AppLockMethod? {
     let context = LAContext()
-    guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: nil) else { return nil }
+    var error: NSError?
+    guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else {
+      // Only a missing passcode means nothing can confirm the owner (App Lock then turns itself
+      // off, #221). Any other refusal keeps App Lock asking, so it is never a way around the lock.
+      let noPasscode = error?.domain == LAError.errorDomain && error?.code == LAError.Code.passcodeNotSet.rawValue
+      return noPasscode ? nil : .passcode
+    }
     switch context.biometryType {
     case .faceID: return .faceID
     case .touchID: return .touchID
@@ -39,15 +45,22 @@ final class AppLock {
   private(set) var isCovered = false
   /// Whether a confirmation is on screen.
   private(set) var isAuthenticating = false
+  /// Set when App Lock turned itself off because the device has no passcode; the app says why.
+  private(set) var wasTurnedOffWithoutPasscode = false
 
   @ObservationIgnored private let authenticator: any DeviceAuthenticating
   @ObservationIgnored private let isEnabled: () -> Bool
+  /// Turns the App Lock setting off.
+  @ObservationIgnored private let turnOff: () -> Void
   /// Set when the app locks in the background; the next activation asks once, not after every failure.
   @ObservationIgnored private var promptsOnActivation: Bool
 
-  init(authenticator: any DeviceAuthenticating, isEnabled: @escaping () -> Bool) {
+  init(
+    authenticator: any DeviceAuthenticating, isEnabled: @escaping () -> Bool, turnOff: @escaping () -> Void = {}
+  ) {
     self.authenticator = authenticator
     self.isEnabled = isEnabled
+    self.turnOff = turnOff
     let locked = isEnabled()
     isLocked = locked
     promptsOnActivation = locked
@@ -79,8 +92,21 @@ final class AppLock {
   }
 
   /// Asks the owner to confirm, and unlocks when they do.
+  ///
+  /// Without a device passcode nothing can confirm the owner: LocalAuthentication fails at once, every
+  /// time, and the lock would keep them out of their documents for good (#221). The device itself is
+  /// then unlocked for anyone holding it, so App Lock turns off and the app says why. With a passcode
+  /// the lock always asks.
   func unlock() async {
     guard isLocked, !isAuthenticating else { return }
+    guard authenticator.method() != nil else {
+      turnOff()
+      wasTurnedOffWithoutPasscode = true
+      isLocked = false
+      isCovered = false
+      promptsOnActivation = false
+      return
+    }
     isAuthenticating = true
     let confirmed = await authenticator.authenticate(
       reason: String(localized: "Unlock your documents", comment: "Why App Lock asks for Face ID"))
@@ -89,6 +115,11 @@ final class AppLock {
       isLocked = false
       isCovered = false
     }
+  }
+
+  /// The person has read why App Lock turned off.
+  func turnedOffNoticeShown() {
+    wasTurnedOffWithoutPasscode = false
   }
 
   /// Turning App Lock off unlocks at once.
