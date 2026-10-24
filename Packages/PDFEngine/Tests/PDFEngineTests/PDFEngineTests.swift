@@ -929,7 +929,7 @@ struct SaveFaultTests {
     let controller = try PDFDocumentController(url: url)
     controller.addNote("Interrupted", onPage: 0)
 
-    PDFDocumentController.saveFault = { if $0 == step { throw Injected() } }
+    PDFDocumentController.saveFault = { if $0 == step && $1 == url { throw Injected() } }
     defer { PDFDocumentController.saveFault = nil }
     #expect(throws: PDFEngineError.saveFailed) { try controller.save(to: url, keepingPreviousAt: previous) }
     #expect(controller.hasUnsavedChanges, "The edit is still there to save again")

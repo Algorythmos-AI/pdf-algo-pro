@@ -381,13 +381,29 @@ confirm the signature is still valid after an annotation-only save, or that the 
 Saved files are also checked by a reader other than PDFKit (plan revision 3, §3 B2). In CI the
 `pdf-export` job saves every golden-corpus document through the engine and uploads the files, and
 `pdf-validation` runs `qpdf --check` on each with qpdf 12.4.2 (Apache-2.0), downloaded by pinned
-version and SHA-256 (`scripts/ci/validate_pdfs.sh`). Warnings are reported; errors fail the job. Both
-jobs are advisory for their first two weeks, then become required. The same job then renders every
+version and SHA-256 (`scripts/ci/validate_pdfs.sh`). Errors fail the job, and so do warnings, except
+those listed for one named file in `scripts/ci/qpdf_allowed_warnings.txt`, each with the issue that
+explains it (today only issue #96's, for the synthetic right-to-left and CJK file, whose input
+already has the entries qpdf warns about). Both jobs were advisory for their first two weeks and are
+part of the required `ios` check since PAP-065. The same job then renders every
 page of every file with PDFium (pypdfium2 5.13.0, BSD-3-Clause and Apache-2.0, pinned by the wheel's
 hash; `scripts/ci/pdfium_render.py`). A Core Graphics parse of each saved file runs in the corpus
 tests themselves. The export job also runs the controller, toolkit and save fault-injection suites under
 Thread Sanitizer (plan H4), because `PDFDocument` isn't thread-safe and saving is due to move off the
-main actor.
+main actor. Nightly and on request, `ci-sanitizers` runs the save, fault-injection, malformed-input
+and text-editing suites under Address Sanitizer and Undefined Behavior Sanitizer on the pinned
+simulator; it never blocks a pull request.
+
+The fault-injection suites (`SaveFaultTests`, `SaveFaultInjectionTests` and the text-editing
+`interruptedSave` test) stop a save at each of its steps through one seam,
+`PDFDocumentController.saveFault`, matched to the test's own file: after the free-space check,
+after the staged write, after its check, once write access is coordinated, after the earlier
+version is kept, and after the replace. At each step the file on disk must be a whole document (the
+original until the replace, the new one after it) with nothing half-written beside it, which is
+what a process killed at that point leaves. The same suite fills the disk before and during the
+write (`PDFDocumentController.availableCapacity` and the file system's out-of-space errors, which
+the person is told about as a full disk) and replaces the file underneath between opening and
+saving, where the other writer's version must be kept as the earlier version or left untouched.
 
 ### True-redaction verification
 
@@ -410,7 +426,11 @@ A redaction feature that fails any of these does not ship.
 Documents are untrusted (NFR-SEC-002). A seeded mutator produces variants of corpus files (bit
 flips, truncation, duplicated and deleted objects, oversized values). Every variant must open with a
 typed error or render, within a time limit (Swift Testing's `.timeLimit` trait), without a crash.
-Pull requests run a small fixed seed set; the nightly run uses many more seeds, and a nightly
+The corpus also holds files written to break readers in known ways: a zero-byte file and a JPEG
+named `.pdf` (which every entry point must refuse with the engine's error), a truncated
+cross-reference table, an object stream that contains itself, an outline of 10 000 entries and a
+page tree 2 000 levels deep (`GoldenCorpus.malformed()`, checked by `MalformedInputTests` and the
+golden-corpus suite). Pull requests run a small fixed seed set; the nightly run uses many more seeds, and a nightly
 configuration adds Address Sanitizer, because the vendor SDK is likely to contain C or C++ code
 ([Diagnosing memory, thread, and crash issues early](https://developer.apple.com/documentation/xcode/diagnosing-memory-thread-and-crash-issues-early)).
 Every crash found becomes a permanent corpus file.
