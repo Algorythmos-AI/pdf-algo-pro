@@ -14,9 +14,9 @@ Owner: Product · Reviewed: at the end of each phase
 |---|---|---|---|
 | **Foundation** | Planning package, readiness gate cleared, toolchain and repository ready | — | No open Critical blocker in the [readiness review](../readiness-review.md) |
 | **MVP** | First TestFlight build proving the core loop: capture or open, read, understand, fill and sign | iPhone | MVP requirements met; performance budgets met on reference iPhones; internal TestFlight crash-free ≥ 99.8% |
-| **V1** | First App Store release: edit, organise, subscribe, in English and French | iPhone (adaptive on iPad) | V1 requirements met; external TestFlight beta complete; App Store approval |
+| **1.0** | First App Store release: what is built (PAP-065), in English and French; the GitHub milestone keeps the name V1 | iPhone only (PAP-067) | 1.0 release criterion in the [PRD](../prd.md#release-criteria) met; external TestFlight beta complete; App Store approval |
 | **V1.1** | Refinement from real use: quality, performance, accessibility, top requested gaps | iPhone (adaptive on iPad) | Crash-free and rating objectives held for a full release cycle |
-| **V2** | iPad-first experience; Mac; the opt-in Claude tier at general availability (Private Cloud Compute arrives in V1) | iPad, Mac | iPad and Mac exit criteria in [platform strategy](../platform-strategy.md); relay in production |
+| **V2** | iPad-first experience; Mac; the opt-in Claude tier at general availability (Private Cloud Compute arrives in V1.1, PAP-065) | iPad, Mac | iPad and Mac exit criteria in [platform strategy](../platform-strategy.md); relay in production |
 | **Later** | Compatible app on Apple Vision Pro; native visionOS only with evidence | visionOS | Entry criteria in [platform strategy](../platform-strategy.md) |
 
 ## Foundation
@@ -27,7 +27,7 @@ Owner: Product · Reviewed: at the end of each phase
 | PDF SDK vendor spike and licence (C1) | PIL-1, PIL-2, PIL-3 |
 | Xcode 27 toolchain locally and in CI (C2) | PIL-7 |
 | Apple Developer Program prerequisites and identifiers (C3) | PIL-7 |
-| Information architecture, key flows and the Figma library (C5) | PIL-7 |
+| Information architecture, key flows and the design pass (C5) | PIL-7 |
 | Document-identity spike; golden PDF and OCR corpora | PIL-1, PIL-3, PIL-6 |
 
 ## MVP (iPhone, internal TestFlight)
@@ -44,26 +44,30 @@ Owner: Product · Reviewed: at the end of each phase
 | Share extension, App Intents, Spotlight, Files integration, drag and drop | PIL-7 |
 | Privacy manifest, MetricKit, on-device diagnostics | PIL-5 |
 
-## V1 (App Store)
+## 1.0 (App Store)
+
+The first release ships what is built (PAP-065), on iPhone only (PAP-067), with the release flags
+of PAP-066.
 
 | Item | Pillars |
 |---|---|
-| Edit existing text, images and links (PDF SDK) | PIL-2 |
-| Organise pages: merge, split, reorder, rotate, delete, extract | PIL-2 |
-| True redaction | PIL-2, PIL-5 |
-| Convert to Word, Excel and PowerPoint (on device if the chosen SDK supports it) | PIL-2 |
+| Edit existing text, natively for the safe subset ([ADR-0025](../adr/0025-native-text-editing-for-the-safe-subset.md)), as Pro, if its device test is signed off (PAP-066) | PIL-2 |
+| Organise pages: merge, reorder, rotate, delete; compress | PIL-2 |
 | Password protection and app lock | PIL-5 |
 | "Analyse Contract" with a not-legal-advice disclosure | PIL-4 |
-| Opt-in Private Cloud Compute tier for long documents | PIL-4, PIL-5 |
+| Reading controls, wider and document recognition, base-form search, dragging documents out (PAP-066) | PIL-1, PIL-3, PIL-7 |
 | First-run introduction pages | PIL-4, PIL-7 |
 | Subscriptions (StoreKit 2): weekly and annual plans, a closable offer at the end of first run, a free daily allowance, a confirmation after purchase | PIL-5, PIL-7 |
-| Widgets, Control Center scan control, Action extension | PIL-7 |
 | English and French throughout | PIL-7 |
 
 ## V1.1
 
 | Item | Pillars |
 |---|---|
+| Moved from V1 by PAP-065: editing images and links, split and extract pages, true redaction, conversion to Word, Excel and PowerPoint (each needs the PDF SDK, C1) | PIL-2, PIL-5 |
+| Moved from V1 by PAP-065: the opt-in Private Cloud Compute tier and the privacy centre | PIL-4, PIL-5 |
+| Moved from V1 by PAP-065: widgets, the Control Center scan control, the Action extension, creating PDFs through the Share sheet | PIL-2, PIL-7 |
+| Moved from V1 by PAP-065: the library in iCloud Drive, after the document-identity spike (M4) | PIL-1, PIL-6 |
 | Performance and accessibility improvements from MetricKit and support | PIL-1, PIL-7 |
 | Translation of documents on device | PIL-4, PIL-6 |
 | Compare two versions of a document | PIL-1, PIL-4 |

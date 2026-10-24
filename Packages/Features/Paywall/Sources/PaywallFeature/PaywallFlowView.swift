@@ -1,3 +1,4 @@
+import AccessibilityIDs
 import Commerce
 import DesignSystem
 import StoreKit
@@ -40,7 +41,7 @@ public struct PaywallFlowView: View {
             } label: {
               Text("Close", bundle: .module)
             }
-            .accessibilityIdentifier("paywall.close")
+            .accessibilityIdentifier(AccessibilityID.Paywall.close)
           }
         }
       }
@@ -107,7 +108,7 @@ struct PaywallHeader: View {
           .multilineTextAlignment(.center)
           .fixedSize(horizontal: false, vertical: true)
           .accessibilityAddTraits(.isHeader)
-          .accessibilityIdentifier("paywall.headline.\(trigger.rawValue)")
+          .accessibilityIdentifier(AccessibilityID.Paywall.headline(trigger.rawValue))
         // The primary label, not the secondary: over the brand glow the secondary grey falls below
         // the contrast minimum, which the accessibility audit found on the offer.
         trigger.explanation
@@ -152,7 +153,7 @@ struct BenefitList: View {
           Spacer(minLength: 0)
         }
         .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("paywall.benefit.\(benefit.rawValue)")
+        .accessibilityIdentifier(AccessibilityID.Paywall.benefit(benefit.rawValue))
       }
     }
     .frame(maxWidth: .infinity, alignment: .leading)

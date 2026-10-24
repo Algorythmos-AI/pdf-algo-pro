@@ -104,7 +104,15 @@ citations, subscribe and restore, and the privacy centre.
 - **Deterministic data.** Libraries are seeded from generated fixtures, dates from an injected
   clock, AI answers from the scripted router. No network.
 - **Stable identifiers.** Accessibility identifiers are constants shared by the app and the tests,
-  never user-visible text, so French runs use the same tests.
+  never user-visible text, so French runs use the same tests. The one list is
+  [`design/accessibility-ids.json`](../design/accessibility-ids.json); `python3
+  scripts/design/generate_accessibility_ids.py` turns it into the `AccessibilityID` enum in the
+  `AccessibilityIDs` product of the Core package, which every feature package, the app and the UI
+  test target link. Each identifier's value is its dotted path: `reader.markup.paste` is
+  `AccessibilityID.Reader.Markup.paste`, and `library.document.{title}` is
+  `AccessibilityID.Library.document(_:)`. The `invariants` job fails on an identifier written as a
+  string literal in a view, and on a generated file that has drifted from the list; a new control
+  gets its identifier by adding it to the list and running the script.
 
 ## Snapshot tests
 
@@ -385,7 +393,7 @@ version and SHA-256 (`scripts/ci/validate_pdfs.sh`). Errors fail the job, and so
 those listed for one named file in `scripts/ci/qpdf_allowed_warnings.txt`, each with the issue that
 explains it (today only issue #96's, for the synthetic right-to-left and CJK file, whose input
 already has the entries qpdf warns about). Both jobs were advisory for their first two weeks and are
-part of the required `ios` check since PAP-065. The same job then renders every
+part of the required `ios` check since PAP-068. The same job then renders every
 page of every file with PDFium (pypdfium2 5.13.0, BSD-3-Clause and Apache-2.0, pinned by the wheel's
 hash; `scripts/ci/pdfium_render.py`). A Core Graphics parse of each saved file runs in the corpus
 tests themselves. The export job also runs the controller, toolkit and save fault-injection suites under

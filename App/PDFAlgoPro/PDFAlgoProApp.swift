@@ -1,3 +1,4 @@
+import AccessibilityIDs
 import AssistantFeature
 import CoreSpotlight
 import DesignSystem
@@ -120,7 +121,7 @@ struct RootView: View {
       } label: {
         Text("Open Settings")
       }
-      .accessibilityIdentifier("trialNotice.settings")
+      .accessibilityIdentifier(AccessibilityID.TrialNotice.settings)
       Button(role: .cancel) {
       } label: {
         Text("OK")

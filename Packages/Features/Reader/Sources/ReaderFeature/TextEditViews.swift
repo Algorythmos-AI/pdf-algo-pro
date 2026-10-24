@@ -1,3 +1,4 @@
+import AccessibilityIDs
 import Core
 import DesignSystem
 import PDFEngine
@@ -112,7 +113,7 @@ struct TextEditField: UIViewRepresentable {
     field.returnKeyType = .done
     field.adjustsFontForContentSizeCategory = font == nil
     field.font = resolvedFont
-    field.accessibilityIdentifier = "reader.textEdit.field"
+    field.accessibilityIdentifier = AccessibilityID.Reader.TextEdit.field
     field.accessibilityLabel = String(localized: "Text to change", bundle: .module)
     draft.field = field
     return field
@@ -643,7 +644,7 @@ struct TextEditBar: View {
         // and the page would still change.
         .disabled(model.isCommittingTextEdit)
         .keyboardShortcut(.cancelAction)
-        .accessibilityIdentifier("reader.textEdit.cancel")
+        .accessibilityIdentifier(AccessibilityID.Reader.TextEdit.cancel)
         if showsField {
           TextEditField(
             draft: draft, maximumLines: Self.maximumLines, onSubmit: commit,
@@ -665,7 +666,7 @@ struct TextEditBar: View {
           }
           .minimumTarget()
           .keyboardShortcut(.defaultAction)
-          .accessibilityIdentifier("reader.textEdit.done")
+          .accessibilityIdentifier(AccessibilityID.Reader.TextEdit.done)
         }
       }
       .frame(minHeight: Sizes.targetMinimum)
@@ -676,7 +677,7 @@ struct TextEditBar: View {
     .padding(.horizontal, Spacing.s200)
     .padding(.bottom, Spacing.s100)
     .accessibilityElement(children: .contain)
-    .accessibilityIdentifier("reader.textEdit.actionBar")
+    .accessibilityIdentifier(AccessibilityID.Reader.TextEdit.actionBar)
   }
 
   /// Puts the keyboard away to look over the page, or brings it back, as the button in Notes does;
@@ -701,7 +702,7 @@ struct TextEditBar: View {
     }
     .labelStyle(.iconOnly)
     .minimumTarget()
-    .accessibilityIdentifier("reader.textEdit.keyboard")
+    .accessibilityIdentifier(AccessibilityID.Reader.TextEdit.keyboard)
   }
 
   private func commit() {
@@ -716,7 +717,7 @@ struct TextEditMessageLabel: View {
 
   var body: some View {
     text.font(.footnote).fixedSize(horizontal: false, vertical: true)
-      .accessibilityIdentifier("reader.textEdit.message")
+      .accessibilityIdentifier(AccessibilityID.Reader.TextEdit.message)
   }
 
   private var text: Text {
@@ -764,7 +765,7 @@ struct TextEditHint: View {
             }
             .buttonStyle(.bordered)
             .minimumTarget()
-            .accessibilityIdentifier("reader.textEdit.recognise")
+            .accessibilityIdentifier(AccessibilityID.Reader.TextEdit.recognise)
           }
         }
         .padding(Spacing.s150)
@@ -781,7 +782,7 @@ struct TextEditHint: View {
         .background(.regularMaterial, in: Capsule())
       }
     }
-    .accessibilityIdentifier("reader.textEdit.hint")
+    .accessibilityIdentifier(AccessibilityID.Reader.TextEdit.hint)
   }
 }
 
@@ -799,21 +800,21 @@ struct TextEditNoticeCard: View {
         .font(.subheadline)
         .foregroundStyle(Color.ds.labelPrimary)
         .fixedSize(horizontal: false, vertical: true)
-        .accessibilityIdentifier("reader.textEdit.notice")
+        .accessibilityIdentifier(AccessibilityID.Reader.TextEdit.notice)
       HStack(spacing: Spacing.s150) {
         Button {
           Task { await model.undoCoverInstead() }
         } label: {
           Text("Undo", bundle: .module)
         }
-        .accessibilityIdentifier("reader.textEdit.notice.undo")
+        .accessibilityIdentifier(AccessibilityID.Reader.TextEdit.Notice.undo)
         Spacer(minLength: 0)
         Button {
           model.dismissTextEditNotice()
         } label: {
           Text("OK", bundle: .module).bold()
         }
-        .accessibilityIdentifier("reader.textEdit.notice.ok")
+        .accessibilityIdentifier(AccessibilityID.Reader.TextEdit.Notice.ok)
       }
       .frame(minHeight: Sizes.targetMinimum)
     }

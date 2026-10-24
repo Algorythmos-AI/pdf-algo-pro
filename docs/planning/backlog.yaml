@@ -254,7 +254,7 @@ items:
   - id: V-001
     title: Text and image editing, redaction and password protection
     type: epic
-    milestone: V1
+    milestone: V1.1  # moved out of 1.0 by PAP-065
     priority: p0
     size: xl
     pillars: [PIL-2, PIL-5]
@@ -265,7 +265,7 @@ items:
   - id: V-002
     title: Organise pages and convert to Office formats
     type: epic
-    milestone: V1
+    milestone: V1.1  # moved out of 1.0 by PAP-065
     priority: p0
     size: l
     pillars: [PIL-2]
@@ -288,7 +288,7 @@ items:
   - id: V-004
     title: Private Cloud Compute tier with consent
     type: epic
-    milestone: V1
+    milestone: V1.1  # moved out of 1.0 by PAP-065
     priority: p1
     size: m
     pillars: [PIL-4, PIL-5]
@@ -310,7 +310,7 @@ items:
   - id: V-006
     title: Widgets, Control Center scan and Action extension
     type: epic
-    milestone: V1
+    milestone: V1.1  # moved out of 1.0 by PAP-065
     priority: p1
     size: m
     pillars: [PIL-7]

@@ -1,3 +1,4 @@
+import AccessibilityIDs
 import Core
 import DesignSystem
 import PDFEngine
@@ -152,7 +153,7 @@ public struct ReaderView<Assistant: View>: View {
       .alert(Text("Go to page", bundle: .module), isPresented: $model.showsGoToPage) {
         TextField(text: $pageNumber) { Text("Page number", bundle: .module) }
           .keyboardType(.numberPad)
-          .accessibilityIdentifier("reader.goToPage.number")
+          .accessibilityIdentifier(AccessibilityID.Reader.GoToPage.number)
         Button {
           model.goToPage(pageNumber)
           pageNumber = ""
@@ -169,7 +170,7 @@ public struct ReaderView<Assistant: View>: View {
       }
       .alert(Text("Add a password", bundle: .module), isPresented: $model.isAddingPassword) {
         SecureField(text: $newPassword) { Text("Password", bundle: .module) }
-          .accessibilityIdentifier("reader.newPassword")
+          .accessibilityIdentifier(AccessibilityID.Reader.newPassword)
         Button {
           let password = newPassword
           newPassword = ""
@@ -241,7 +242,7 @@ public struct ReaderView<Assistant: View>: View {
           Button(action: onSeePlans) {
             Text("See plans", bundle: .module)
           }
-          .accessibilityIdentifier("reader.textEdit.seePlans")
+          .accessibilityIdentifier(AccessibilityID.Reader.TextEdit.seePlans)
         }
         Button(role: .cancel) {
         } label: {
@@ -329,7 +330,7 @@ public struct ReaderView<Assistant: View>: View {
             Text("Restore the version before the last save", bundle: .module)
           }
           .buttonStyle(.borderedProminent)
-          .accessibilityIdentifier("reader.restorePrevious")
+          .accessibilityIdentifier(AccessibilityID.Reader.restorePrevious)
         }
       }
     case .ready:
@@ -338,7 +339,7 @@ public struct ReaderView<Assistant: View>: View {
           PDFReaderView(controller: controller)
             .ignoresSafeArea(edges: .bottom)
             .accessibilityLabel(Text("Document pages", bundle: .module))
-            .accessibilityIdentifier("reader.pages")
+            .accessibilityIdentifier(AccessibilityID.Reader.pages)
             .overlay(alignment: .bottom) { indicator }
             .overlay {
               if let selection = model.selectedTextRegion {
@@ -376,7 +377,7 @@ public struct ReaderView<Assistant: View>: View {
         .textFieldStyle(.roundedBorder)
         .submitLabel(.go)
         .onSubmit { tryPassword() }
-        .accessibilityIdentifier("reader.password")
+        .accessibilityIdentifier(AccessibilityID.Reader.password)
       if wrongPassword {
         Label {
           Text("That password didn't open the document.", bundle: .module)
@@ -385,13 +386,14 @@ public struct ReaderView<Assistant: View>: View {
           Image(systemName: "xmark.octagon").foregroundStyle(Color.ds.statusError)
         }
         .font(.footnote)
-        .accessibilityIdentifier("reader.wrongPassword")
+        .accessibilityIdentifier(AccessibilityID.Reader.wrongPassword)
       }
       Button {
         tryPassword()
       } label: {
         Text("Open", bundle: .module)
       }
+      .accessibilityIdentifier(AccessibilityID.Reader.unlock)
       .buttonStyle(.primary)
     }
     .padding(Spacing.s300)
@@ -445,7 +447,7 @@ public struct ReaderView<Assistant: View>: View {
         .padding(.horizontal, Spacing.s200)
         .padding(.vertical, Spacing.s100)
         .background(.regularMaterial, in: Capsule())
-        .accessibilityIdentifier("reader.drawingHint")
+        .accessibilityIdentifier(AccessibilityID.Reader.drawingHint)
       }
       if let tool = model.markupTool {
         Label {
@@ -461,7 +463,7 @@ public struct ReaderView<Assistant: View>: View {
         .padding(.horizontal, Spacing.s200)
         .padding(.vertical, Spacing.s100)
         .background(.regularMaterial, in: Capsule())
-        .accessibilityIdentifier("reader.markupHint")
+        .accessibilityIdentifier(AccessibilityID.Reader.markupHint)
       }
       if let progress = model.recognitionProgress {
         HStack {
@@ -471,6 +473,7 @@ public struct ReaderView<Assistant: View>: View {
           } label: {
             Text("Cancel", bundle: .module)
           }
+          .accessibilityIdentifier(AccessibilityID.Reader.Recognition.cancel)
         }
         .padding(Spacing.s150)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -481,7 +484,7 @@ public struct ReaderView<Assistant: View>: View {
         .padding(.vertical, Spacing.s050)
         .background(.regularMaterial, in: Capsule())
         .accessibilityLabel(Text("Page \(model.pageLabel)", bundle: .module))
-        .accessibilityIdentifier("reader.pageIndicator")
+        .accessibilityIdentifier(AccessibilityID.Reader.pageIndicator)
       if model.showsPageStrip {
         PageStrip(model: model)
       }

@@ -1,3 +1,4 @@
+import AccessibilityIDs
 import Core
 import DesignSystem
 import SwiftUI
@@ -52,6 +53,7 @@ public struct AssistantView: View {
           } label: {
             Text("Done", bundle: .module)
           }
+          .accessibilityIdentifier(AccessibilityID.Assistant.done)
         }
         if let text = model.shareableText {
           ToolbarItem(placement: .primaryAction) {
@@ -62,6 +64,7 @@ public struct AssistantView: View {
                 Image(systemName: "square.and.arrow.up")
               }
             }
+            .accessibilityIdentifier(AccessibilityID.Assistant.share)
             .simultaneousGesture(TapGesture().onEnded { Task { await model.recordKept() } })
           }
         }
@@ -84,7 +87,7 @@ public struct AssistantView: View {
       Text("Task", bundle: .module)
     }
     .pickerStyle(.segmented)
-    .accessibilityIdentifier("assistant.task")
+    .accessibilityIdentifier(AccessibilityID.Assistant.task)
   }
 
   private var questionField: some View {
@@ -111,12 +114,13 @@ public struct AssistantView: View {
         if sends { ask() }
       }
       .onSubmit { ask() }
-      .accessibilityIdentifier("assistant.question")
+      .accessibilityIdentifier(AccessibilityID.Assistant.question)
       Button {
         ask()
       } label: {
         Image(systemName: "arrow.up.circle.fill").font(.title2).minimumTarget()
       }
+      .accessibilityIdentifier(AccessibilityID.Assistant.send)
       .accessibilityLabel(Text("Ask", bundle: .module))
       .disabled(model.question.trimmingCharacters(in: .whitespaces).isEmpty || model.isWorking)
     }
@@ -159,15 +163,15 @@ public struct AssistantView: View {
             Text("See plans", bundle: .module)
           }
           .buttonStyle(.primary)
-          .accessibilityIdentifier("assistant.seePlans")
+          .accessibilityIdentifier(AccessibilityID.Assistant.seePlans)
         }
       }
-      .accessibilityIdentifier("assistant.allowanceUsed")
+      .accessibilityIdentifier(AccessibilityID.Assistant.allowanceUsed)
     case .unavailable(let reason):
       EmptyState(Text("Document intelligence isn't available", bundle: .module), systemImage: "sparkles") {
         Self.explanation(for: reason)
       }
-      .accessibilityIdentifier("assistant.unavailable")
+      .accessibilityIdentifier(AccessibilityID.Assistant.unavailable)
     case .noText:
       EmptyState(Text("No text to read yet", bundle: .module), systemImage: "text.viewfinder") {
         Text(
@@ -185,6 +189,7 @@ public struct AssistantView: View {
         } label: {
           Text("Try again", bundle: .module).minimumTarget()
         }
+        .accessibilityIdentifier(AccessibilityID.Assistant.retry)
       }
     }
   }
@@ -209,7 +214,7 @@ public struct AssistantView: View {
     .padding(Spacing.s150)
     .frame(maxWidth: .infinity, alignment: .leading)
     .background(Color.ds.backgroundGroupedElevated.opacity(0.6), in: RoundedRectangle(cornerRadius: 12))
-    .accessibilityIdentifier("assistant.earlier")
+    .accessibilityIdentifier(AccessibilityID.Assistant.earlier)
   }
 
   private func answerCard(_ answer: Answer) -> some View {
@@ -222,7 +227,7 @@ public struct AssistantView: View {
         // Plain text, not selectable: selection made the one-line answer an interactive element
         // below the 44-point target. Copy (below) copies the whole answer.
         Text(answer.text).font(.body).fixedSize(horizontal: false, vertical: true)
-          .accessibilityIdentifier("assistant.answer")
+          .accessibilityIdentifier(AccessibilityID.Assistant.answer)
         ScrollView(.horizontal, showsIndicators: false) {
           HStack(spacing: Spacing.s100) {
             ForEach(answer.citations) { citation in
@@ -242,6 +247,7 @@ public struct AssistantView: View {
             Image(systemName: "doc.on.doc")
           }
         }
+        .accessibilityIdentifier(AccessibilityID.Assistant.copy)
         if answer.omittedClaims > 0 {
           Label {
             Text("Part of the answer wasn't supported by this document, so it was left out.", bundle: .module)
@@ -250,7 +256,7 @@ public struct AssistantView: View {
           }
           .font(.footnote)
           .foregroundStyle(Color.ds.labelSecondary)
-          .accessibilityIdentifier("assistant.omitted")
+          .accessibilityIdentifier(AccessibilityID.Assistant.omitted)
         }
         GeneratedFootnote()
       } else {
@@ -260,7 +266,7 @@ public struct AssistantView: View {
           Image(systemName: "questionmark.circle")
         }
         .font(.headline)
-        .accessibilityIdentifier("assistant.notFound")
+        .accessibilityIdentifier(AccessibilityID.Assistant.notFound)
         Text("The answer isn't in the text of this document, so nothing was guessed.", bundle: .module)
           .font(.callout).foregroundStyle(Color.ds.labelSecondary)
       }
@@ -302,6 +308,7 @@ public struct AssistantView: View {
           ) {
             Self.fieldName(field.key)
           }
+          .accessibilityIdentifier(AccessibilityID.Assistant.field(field.key))
           .lineLimit(1...)
           .textFieldStyle(.roundedBorder)
         }
@@ -316,6 +323,7 @@ public struct AssistantView: View {
           Image(systemName: "tablecells")
         }
       }
+      .accessibilityIdentifier(AccessibilityID.Assistant.copyCSV)
       ShareLink(
         item: CSVFile(extraction, name: String(localized: "Extracted fields", bundle: .module)),
         preview: SharePreview(Text("Extracted fields", bundle: .module))
@@ -327,7 +335,7 @@ public struct AssistantView: View {
         }
       }
       .simultaneousGesture(TapGesture().onEnded { Task { await model.recordKept() } })
-      .accessibilityIdentifier("assistant.shareCSV")
+      .accessibilityIdentifier(AccessibilityID.Assistant.shareCSV)
       GeneratedFootnote()
     }
     .cardStyle()

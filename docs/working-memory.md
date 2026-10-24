@@ -11,24 +11,42 @@ Last updated: 2026-10-24
 
 ## Current phase
 
-**MVP → V1.** The native iOS app is on `integration`, built under the owner's exception PAP-028, on
-the interim Xcode 26 toolchain (PAP-029) and an iOS 26 floor that stays (ADR-0023, PAP-033). The owner
-installed the validation build on 2026-09-30. Build 1 waits for the bar in
-[#47](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/47)
-([quality gates](process/quality-gates.md#build-1-bar)). V1 scope and the operating authority for
-building it are PAP-031 and PAP-032. The readiness gate is still **NOT READY** for the App Store
-([readiness review](readiness-review.md)).
+**V1 → 1.0 on the App Store.** The native iOS app is on `integration` and in internal TestFlight
+(Staging build 27, 2026-10-11). On 2026-10-24 the owner approved the 1.0 plan: 1.0 ships what is
+built (PAP-065), with the release flags of PAP-066, on iPhone only, in every storefront, with English
+(U.S.) as the primary language (PAP-067). The readiness verdict is **READY for 1.0 submission once C2
+and C5 close** ([readiness review](readiness-review.md)). Defects come first: while any p0 or p1 bug
+is open, no visual-refresh pull request merges (owner, 2026-10-10).
+
+## The 1.0 plan
+
+Four tracks; each pull request keeps `ios` green and is squash-merged into `integration`.
+
+| Track | What it delivers | State (2026-10-24) |
+|---|---|---|
+| **R, robustness** | An adversarial review of every path that can lose a document; sanitizers and fault injection in CI; the open defects fixed, each with a regression test; a device bug bash and a 30-minute device soak; the release gate (zero open p0 and p1 bugs, five green nightlies with no flaky retries, device run clean, budgets met) | The review and the sanitizer work have started |
+| **T, tests** | The flaky UI journeys fixed; one package of accessibility identifiers on every control; screen objects; scripted test worlds; a controls suite per screen; a French UI run nightly; a `Device` test plan and `scripts/dev/device_tests.sh` recording a row per run on the owner's iPhone | Not started |
+| **U, visual refresh** | Design-system foundations (radii, elevation, haptics, motion); Home, reader, first run, assistant, scan and settings refreshed inside PAP-037, PAP-040, PAP-045, PAP-047, PAP-052 and ADR-0026/0027; targets, rotors and the PDFEngine catalog; the design pass that closes C5 | Not started; waits for the identifier package |
+| **L, launch** | This scope record (PAP-065 to PAP-067); Xcode 27 in CI and Xcode Cloud (C2); the release flags (PAP-066) and the AI-text footer; the quality-bar evidence on the phone; App Review notes; the production app record, products, listing and screenshots; the Release workflow, release pull request, external TestFlight and submission; the legal review | Scope recorded in this pull request |
+
+Owner actions on the critical path: free at least 8 GiB on the development Mac so the device run can
+start; create the production app record and read its App Store ID; set Xcode Cloud Staging to
+Xcode 27 and create the Release workflow; send the legal brief and book a French reviewer; then the
+device sign-offs (text editing, smoke test, VoiceOver, performance, live evaluation, MetricKit).
 
 ## In flight
 
 | Item | State | Next step |
 |---|---|---|
+| 1.0 scope (PAP-065 to PAP-067) | Recorded in the [decision register](decision-register.md), the [PRD](prd.md), the [roadmap](product/roadmap.md), the [backlog](planning/backlog.yaml), the [App Store strategy](app-store-strategy.md) and the [compliance roadmap](compliance-roadmap.md); `project.yml` targets iPhone only | The owner runs the backlog sync so V-001, V-002, V-004 and V-006 move to the V1.1 milestone on GitHub |
+| Release flags for 1.0 (PAP-066) | Decided: five flags on, text editing on only after its device test is signed off on an Xcode 27 Staging build | The code change in its own pull request |
 | First run, subscription and free allowance ([ADR-0026](adr/0026-first-run-subscription-offer-and-plans.md), PAP-042 to PAP-045, PAP-048 to PAP-050) | Built: the store foundation is on `integration`; the three-page introduction, the offer after first run, its confirmation, the trial reminder, the enforced daily allowance and the Settings section are in review. The Staging products exist (2026-10-08) and the offer has been seen with them on the simulator; first run and the offer are redrawn (PAP-052). Buying has not been tried on a device | The owner tries the flow on a phone from TestFlight (Settings › Internal testing › Show first run again), then buying, restoring and Family Sharing: the [App Store Connect subscriptions runbook](process/runbooks/app-store-connect-subscriptions.md), Verify, and the store rows of the [device smoke test](process/device-smoke-test.md). The owner adds the information for one Business compliance item (Australia's Sharing Economy Reporting Regime). Production's products follow once Staging passes. |
 | Editing existing text (FR-EDIT-001, [ADR-0025](adr/0025-native-text-editing-for-the-safe-subset.md)) | On `integration` since 2026-10-04 and in the Staging build of 2026-10-05, behind the `textEditing` release flag (on in Debug and Staging, off in Release) and the Pro access value; no purchase flow yet | ADR-0025 accepted (PAP-036). Owner's first device run (2026-10-05) found Edit dead after a document was opened a second time: the page view stayed bound to the first load. Fixed on `fix/dependable-text-editing` with one picking path, outlines that cannot go stale, time limits and a content-free editing summary in Report a problem. The owner confirmed editing on the phone; a second defect (edits to documents in a typeface the device lacks were refused; no way to finish) was fixed in #145 with a guarantee of no dead ends (PAP-039), and a synthetic corpus now checks every line of fifteen kinds of document. A long line was cut off at the screen's edge while edited (owner's report, 2026-10-08); after a first fix the owner asked for Preview-like editing, then for a page that moves as in Notes: the line is edited in place and wraps, the page keeps its zoom and scrolls and zooms freely with a line open, and the field is kept above the keyboard, also after the phone turns (see [editor layout](pdf-text-editing-architecture.md#editor-layout)); one change, awaiting the owner's check on the phone. Next: the owner sweeps a folder of their own PDFs with the local probe, then runs the [text editing device test](process/text-editing-device-test.md), including its new "Staying dependable" rows; the flag goes on in Release only after it is signed off |
 | TestFlight readiness ([#47](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/47)) | On `integration`: version history, signed PDFs saved as a copy, one writer per document, App Lock, follow-up questions, the privacy report, whole-library search, document info, multi-select and merge, moving and resizing annotations, read aloud across pages, link confirmation, stamps, bookmarks, the annotation list, scan review, CSV file, the Siri summary, the rating request, app icon v2 with Liquid Glass. Foundations not yet used by a screen: the kill-switch package, the AI routing policy with consent, and the Commerce package (now with the product catalogue, one entitlement store followed from launch, and the free daily allowance). First run is now three introduction pages and, when the plans load, the subscription offer once; Scan and the assistant ask the allowance before they start (the Siri summary too); Settings opens with a subscription section; the purchase confirmation can schedule the trial reminder. People who decline notifications are told in the app when the trial is a day from its end. Nothing can be bought until the owner creates the products in App Store Connect; until then internal builds have "Pro without a purchase" in Settings › Internal testing | The owner gives the go for the Staging build; device checks in the [device smoke test](process/device-smoke-test.md) |
-| Independent PDF validation (plan B2) and sanitizers (R2) | qpdf and PDFium in CI, and Core Graphics in the corpus tests; the save suites run under Thread Sanitizer. Since PAP-065 `pdf-export` and `pdf-validation` are part of the required `ios` check, qpdf warnings fail except [#96](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/96)'s for the synthetic right-to-left and CJK file, and `ci-sanitizers` runs the save, fault-injection, malformed-input and text-editing suites under Address and Undefined Behavior Sanitizers nightly | Read the first nightly `ci-sanitizers` results and file each finding as a `bug`; the owner decides whether to close #96 or to make the generator write a clean cross-reference table |
+| Independent PDF validation (plan B2) and sanitizers (R2) | qpdf and PDFium in CI, and Core Graphics in the corpus tests; the save suites run under Thread Sanitizer. Since PAP-068 `pdf-export` and `pdf-validation` are part of the required `ios` check, qpdf warnings fail except [#96](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/96)'s for the synthetic right-to-left and CJK file, and `ci-sanitizers` runs the save, fault-injection, malformed-input and text-editing suites under Address and Undefined Behavior Sanitizers nightly | Read the first nightly `ci-sanitizers` results and file each finding as a `bug`; the owner decides whether to close #96 or to make the generator write a clean cross-reference table |
 | The `ios` gate as a job graph (PAP-062) | Build once, device builds beside it, tests in four shards (unit, ui-1, ui-2, ui-3) with one retry for UI tests, a merged coverage gate and a flake budget of 3; flaky tests on `integration` get an issue each (`flaky-issues`) and every run's job times are kept (`ci-timings`). The `serial_baseline` run 37964126995 on `integration` matched: serial 92.5% (16054/17365 lines), shards 92.4% (16051/17365). Done: `ios-serial`, `ios-baseline` and the `serial_baseline` input removed on 2026-10-16, after a week of green `integration` push and nightly runs | Check the time target from `ci-timings` after 20 pull requests |
 | `privacy-impact` as a required check (PAP-064) | In both ruleset files; the live rulesets are brought in line as this merges ([applying rulesets](github-governance.md#applying-rulesets)). Tester notes are now checked in the required `docs` job (`scripts/ci/check_tester_notes.py`). `apply_rulesets.sh` stops when it cannot list the live rulesets, where it used to go on and would have created each a second time | Remove the duplicate privacy step from `invariants` with the `ios-serial` removal due 2026-10-16 |
+| One list of accessibility identifiers (step T1a of the 1.0 plan) | Every identifier the app sets is in `design/accessibility-ids.json`, generated into `AccessibilityID` (Core package, `AccessibilityIDs` product) and linked by the features, the app and the UI test target; 271 identifiers, 101 of them new, on the reader's Ask, Markup and More menus, the sheets' rows and buttons, the library's sort, import, selection, swipe and context actions, Scan, the assistant and Settings. `invariants` refuses a literal identifier and a stale generated file | T1b: screen objects, the journeys on these constants, and system alert titles in English and French |
 | Flaky UI journeys ([#215](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/215), [#211](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/211), [#197](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/197), [#126](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/126)) | Causes found in the tests, not the app: the moved line was dragged from a frame still settling at the default speed (#215); a back tap from the list to Home was lost on a slow runner (#211); the device was asked to turn to portrait before every launch and the request itself timed out (#197); the first launch of a run timed out while the simulator warmed up (#126). `UITestCase` now drags slowly from a steady frame (`dragSlowly`), goes back with a second tap only while the screen being left is still showing (`goBack`), turns the device only when it is not upright, and tries the run's first launch once more; `ReaderUITests.testThePageFollowsASlowDragBegunRightAfterATap` pins [#202](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/202) as a named expected failure | Close the four issues after five green nightlies; fix #202 and make its test strict |
 | Flaky large-text audits and Markup menu tap ([#76](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/76)) | Stricter still-screen wait; bar-button contrast quarantined | Remove the quarantine if possible, by 2026-10-07 |
 | Flaky audit timeout ([#53](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/53)) | Quarantined | Fix or delete with the debt recorded |
@@ -42,7 +60,7 @@ building it are PAP-031 and PAP-032. The readiness gate is still **NOT READY** f
 | Organisation catalog entry | Catalog entry pending owner review | Owner review and merge |
 | Backlog issues | 36 issues synced from `docs/planning/backlog.yaml`, on the project board | Owner creates the project views and built-in workflows in the web interface |
 | Xcode Cloud Staging workflow (readiness M5) | Started by hand on the owner's go for each build (PAP-063), on Xcode 26.6; the [Staging build runbook](process/runbooks/staging-build.md) is the procedure. **Build 27** (2026-10-11, from `integration` at 6ccb255) is in internal testing. It has not gone to the family testers, which needs the owner's word for this build; they have build 26 (2026-10-11, at 0268933). Since build 26 it adds a line of text keeping its width however often it is changed ([#205](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/205), fixed in #206) and the tester note for it (#207). Checked before it was called ready: the fix walked by hand on a Staging-configuration simulator build of the same code, where a heading squashed on purpose was set right by one change and then kept its width through six more; the other screens were not walked again, because nothing but the text-editing engine changed since build 26; the new tests failed before the fix on the pinned toolchain and CI was green on both commits; its source commit was the commit checked; it was added to the internal testers' group by hand; the notes arrived for all three locales with the committed text. Known and said in the notes: a drag begun straight after a tap may not move the page ([#202](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/202)) | The owner's phone check: the [device smoke test](process/device-smoke-test.md) and the [text editing device test](process/text-editing-device-test.md), then their sign-off tables. Release workflow before V1 |
-| Xcode 27 toolchain (readiness C2) | The development Mac lacks the disk space; CI and Xcode Cloud can run it | One pull request moves CI and Xcode Cloud to Xcode 27 after build 1 (ADR-0023) |
+| Xcode 27 toolchain (readiness C2) | The development Mac has Xcode 27 but no simulator runtime and little free disk; CI and Xcode Cloud still build with Xcode 26.6 | One pull request moves CI to Xcode 27 (ADR-0023, track L); the owner moves Xcode Cloud Staging and cuts one build |
 
 ## Top risks
 
@@ -63,8 +81,9 @@ building it are PAP-031 and PAP-032. The readiness gate is still **NOT READY** f
 - Whether Private Cloud Compute counts as "third-party AI" under Guideline 5.1.2(i); consent is
   shown regardless.
 - Development language of the String Catalogs (English variant).
-- "Rate PDF Algo Pro" in Settings › About: not built, because the link needs the public App Store
-  identifier, which exists only once the app is on the store. Add it in the release pull request.
+- "Rate PDF Algo Pro" in Settings › About: not built, because the link needs the App Store ID,
+  which exists once the owner creates the production app record. It lands in its own pull request
+  as soon as the ID is known.
 
 ## Recent decisions
 
@@ -72,6 +91,11 @@ The last ten, newest first; all decisions are in the [decision register](decisio
 
 | ID | Decision |
 |---|---|
+| PAP-067 | 1.0 is iPhone-only; every storefront, with the owner declaring EU trader status; English (U.S.) is the primary App Store language |
+| PAP-066 | Five release flags on for 1.0; text editing on as Pro only once its device test is signed off on an Xcode 27 Staging build |
+| PAP-065 | 1.0 ships what is built; redaction, conversion, image editing, split and extract, Share-sheet creation, PCC, the privacy centre, widgets and the iCloud library move to V1.1 or later; C1 closed for 1.0, C3 closed |
+| PAP-064 | `privacy-impact` is a required check on `integration` and `main` |
+| PAP-063 | Staging builds start by hand on the maintainer's go; a family testers group on the Staging app |
 | PAP-062 | The `ios` check stands for a graph of jobs: one build, device builds beside it, three test shards and a merged report; UI tests retry once in CI, every flake is named, and more than three fail the run |
 | PAP-060 | Every new Staging build replays first run and the offer without a reinstall; presentation state only, absent from App Store builds; the introduction tells one story with richer pictures |
 | PAP-061 | The offer is the app's own screen over StoreKit 2: plan cards, trial shown only when eligible, every purchase outcome handled (ADR-0027) |
@@ -115,5 +139,6 @@ The last ten, newest first; all decisions are in the [decision register](decisio
   Intelligence turned off, and CI runners have no model. Run them with `PDFALGOPRO_LIVE_MODEL=1`.
 - The simulator reports the on-device model as available but has no model assets, so real answers
   fail there with the "didn't finish" message; UI tests use the scripted router instead.
-- Release and performance test plans run in Xcode Cloud, not GitHub Actions; the performance-budget
-  comparison script is still to be written ([testing strategy](testing-strategy.md)).
+- The `Performance` test plan runs nightly in CI on the simulator, and
+  [`perf_gate.py`](../scripts/ci/perf_gate.py) compares it with the budgets, never blocking
+  ([performance budgets](performance-budgets.md)); timings on a device have not been taken yet.

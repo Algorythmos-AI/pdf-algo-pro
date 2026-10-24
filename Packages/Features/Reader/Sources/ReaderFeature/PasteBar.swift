@@ -1,3 +1,4 @@
+import AccessibilityIDs
 import DesignSystem
 import SwiftUI
 
@@ -32,20 +33,20 @@ struct PasteBar: View {
       }
       .disabled(!canUndo)
       .accessibilityLabel(Text("Undo", bundle: .module))
-      .accessibilityIdentifier("reader.paste.undo")
+      .accessibilityIdentifier(AccessibilityID.Reader.Paste.undo)
       Button(action: onRedo) {
         Image(systemName: "arrow.uturn.forward").minimumTarget()
       }
       .disabled(!canRedo)
       .accessibilityLabel(Text("Redo", bundle: .module))
-      .accessibilityIdentifier("reader.paste.redo")
+      .accessibilityIdentifier(AccessibilityID.Reader.Paste.redo)
       Button(action: onDone) { Text("Done", bundle: .module).minimumTarget() }
-        .accessibilityIdentifier("reader.paste.done")
+        .accessibilityIdentifier(AccessibilityID.Reader.Paste.done)
     }
     .tint(Color.ds.labelPrimary)
     .padding(Spacing.s150)
     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     .accessibilityElement(children: .contain)
-    .accessibilityIdentifier("reader.paste.bar")
+    .accessibilityIdentifier(AccessibilityID.Reader.Paste.bar)
   }
 }
