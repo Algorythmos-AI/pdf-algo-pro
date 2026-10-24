@@ -20,16 +20,88 @@ class UITestCase: XCTestCase {
   /// nothing when things work.
   static let settleTimeout: TimeInterval = 30
 
+  /// Whether a test in this process has launched the app yet: the first launch warms the simulator up.
+  private static var hasLaunchedOnce = false
+
   func launch(_ arguments: [String]) -> XCUIApplication {
     continueAfterFailure = false
     // Every journey starts upright, whatever the one before it left. A test that stops on a failure
     // does not run its own clean-up: on CI (2026-10-09) the test after one that failed in landscape
-    // ran in landscape, and audited its screen there.
-    XCUIDevice.shared.orientation = .portrait
+    // ran in landscape, and audited its screen there. The device is asked to turn only when it is not
+    // upright already: on a loaded runner the request itself timed out, "Timed out waiting for
+    // confirmation of orientation change", and failed a journey before it began (issue #197). When the
+    // request is needed and still times out, the journey goes on upright or not, and says so.
+    if XCUIDevice.shared.orientation != .portrait {
+      tolerating("Quarantined flaky orientation change, issue #197") { XCUIDevice.shared.orientation = .portrait }
+    }
     let app = XCUIApplication()
     app.launchArguments = ["-ui-testing", "-disable-animations"] + arguments
-    app.launch()
+    if Self.hasLaunchedOnce {
+      app.launch()
+    } else {
+      // The first launch of a run can time out while the simulator is still warming up (issue #126:
+      // "Timed out while launching application via Xcode" after 75 seconds, then green on the next
+      // run). That one launch is tried once more before the journey fails.
+      Self.hasLaunchedOnce = true
+      tolerating("Quarantined flaky first launch, issue #126") { app.launch() }
+      if app.state != .runningForeground {
+        app.terminate()
+        app.launch()
+      }
+    }
     return app
+  }
+
+  /// Runs `body`, recording any failure it reports as a non-strict expected failure named `reason`, so
+  /// a flake that is quarantined with an issue is visible in the results without failing the journey.
+  func tolerating(_ reason: String, _ body: () -> Void) {
+    let options = XCTExpectedFailure.Options()
+    options.isStrict = false
+    let stopsOnFailure = !continueAfterFailure
+    continueAfterFailure = true
+    XCTExpectFailure(reason, options: options, failingBlock: body)
+    continueAfterFailure = !stopsOnFailure
+  }
+
+  /// Holds a finger on the middle of `element`, then drags it by `offset` slowly and holds before the
+  /// finger lifts, so that nothing can glide and the drop lands where the finger stopped.
+  ///
+  /// The element's frame is read once it has kept still for a second, and the gesture runs on a
+  /// coordinate relative to the app (see `point(_:_:in:of:)`): a coordinate relative to the element
+  /// looks it up again for every event, which on a busy runner stretched a drag so that it drew
+  /// nothing (issue #68), and a hold that began on a frame still settling dropped a moved line short of
+  /// where it was dragged (issue #215). `holding` is how long the finger rests before it moves: long
+  /// enough for a long press where the gesture needs one, short where it does not.
+  /// - Returns: The frame the element had when the gesture began.
+  @discardableResult
+  func dragSlowly(
+    _ element: XCUIElement, by offset: CGVector, holding: TimeInterval, in app: XCUIApplication
+  ) -> CGRect {
+    let frame = waitUntilSteady(element)
+    let from = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: frame.midX, dy: frame.midY))
+    from.press(forDuration: holding, thenDragTo: from.withOffset(offset), withVelocity: .slow, thenHoldForDuration: 0.5)
+    return frame
+  }
+
+  /// Taps the bar's back button and waits for `target`, the screen Back leads to; taps once more only
+  /// while `leaving`, something of the screen being left, is still there.
+  ///
+  /// A back tap made while the screen is still settling can be lost (issue #211: Back from the list
+  /// did not show Home). The screen behind has a back button of its own, so a second tap is made only
+  /// when the first plainly did nothing: the screen being left is still showing.
+  func goBack(
+    in app: XCUIApplication, leaving: XCUIElement, to target: XCUIElement, file: StaticString = #filePath,
+    line: UInt = #line
+  ) {
+    let back = app.navigationBars.firstMatch.buttons.element(boundBy: 0)
+    XCTAssertTrue(
+      back.waitForExistence(timeout: Self.settleTimeout), "The bar has a back button", file: file, line: line)
+    back.tap()
+    if !target.waitForExistence(timeout: 10), leaving.exists {
+      app.navigationBars.firstMatch.buttons.element(boundBy: 0).tap()
+    }
+    XCTAssertTrue(
+      target.waitForExistence(timeout: Self.settleTimeout), "Back shows the screen before", file: file, line: line)
   }
 
   /// Keeps the screen as it is, for a failure about to be reported: a screenshot, and `notes` followed by
@@ -343,15 +415,8 @@ class UITestCase: XCTestCase {
 
   /// Records a quarantined flake as a non-strict expected failure: visible in the results, not failing the
   /// build, and without stopping the test, so the rest of the journey still runs and is checked.
-  private func recordQuarantined(_ reason: String, details: String, file: StaticString, line: UInt) {
-    let options = XCTExpectedFailure.Options()
-    options.isStrict = false
-    let stopsOnFailure = !continueAfterFailure
-    continueAfterFailure = true
-    XCTExpectFailure(reason, options: options) {
-      XCTFail(details, file: file, line: line)
-    }
-    continueAfterFailure = !stopsOnFailure
+  func recordQuarantined(_ reason: String, details: String, file: StaticString, line: UInt) {
+    tolerating(reason) { XCTFail(details, file: file, line: line) }
   }
 
   /// One line per finding: what the audit found, which element it is about, and the audit's explanation.

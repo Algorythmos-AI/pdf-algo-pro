@@ -242,10 +242,10 @@ final class TextEditingUITests: UITestCase {
     XCTAssertTrue(app.staticTexts["Tap text to change it. Hold and drag to move it."].waitForExistence(timeout: 10))
     let heading = line(containing: "Try these", in: app)
     XCTAssertTrue(heading.waitForExistence(timeout: 15))
-    let before = heading.frame
-    // Down into the empty lower half of the page.
-    let start = heading.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-    start.press(forDuration: 0.9, thenDragTo: start.withOffset(CGVector(dx: 30, dy: 220)))
+    // Down into the empty lower half of the page: held until the line lifts, dragged slowly, and held
+    // again before the finger goes, once the line's frame has settled (issue #215: a drag begun on a
+    // frame still moving, at the default speed, left the line short of where it was dropped).
+    let before = dragSlowly(heading, by: CGVector(dx: 30, dy: 220), holding: 0.9, in: app)
 
     let undo = app.buttons["reader.textEdit.undo"]
     XCTAssertTrue(undo.waitForExistence(timeout: 5))
