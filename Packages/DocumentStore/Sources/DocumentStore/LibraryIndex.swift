@@ -193,22 +193,7 @@ public actor LibraryIndex: LibraryStore {
     let schema = Schema(versionedSchema: LibrarySchemaV1.self)
     var level = StoreLevel.inMemory
     if let storeURL {
-      // A second try before anything else (ADR-0006): a failure can be momentary.
-      for _ in 0..<2 {
-        if let container = try? makeContainer(schema: schema, url: storeURL) {
-          return (SwiftDataIndexStore(modelContainer: container), .onDisk)
-        }
-      }
-      switch condition(of: storeURL) {
-      case .notAStore:
-        if keepAside(storeURL), let container = try? makeContainer(schema: schema, url: storeURL) {
-          return (SwiftDataIndexStore(modelContainer: container), .recreated)
-        }
-      case .newer:
-        level = .newerStore
-      case .missing, .unavailable:
-        break
-      }
+      if let opened = openOnDisk(schema: schema, url: storeURL, level: &level) { return opened }
     }
     let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
     if let container = try? ModelContainer(for: schema, configurations: configuration) {
@@ -217,7 +202,36 @@ public actor LibraryIndex: LibraryStore {
     return (nil, .withoutStore)
   }
 
-  /// What is at a store's URL when the store won't open.
+  /// Opens the store on disk, or returns `nil` with the level the index in memory is on instead.
+  private static func openOnDisk(
+    schema: Schema, url: URL, level: inout StoreLevel
+  ) -> (SwiftDataIndexStore?, StoreLevel)? {
+    // A newer build's store is never opened: SwiftData would migrate it down to this build's schema,
+    // losing what this build doesn't know, and the newer build would find it changed (B11, H6).
+    guard condition(of: url) != .newer else {
+      level = .newerStore
+      return nil
+    }
+    // A second try before anything else (ADR-0006): a failure can be momentary.
+    for _ in 0..<2 {
+      if let container = try? makeContainer(schema: schema, url: url) {
+        return (SwiftDataIndexStore(modelContainer: container), .onDisk)
+      }
+    }
+    switch condition(of: url) {
+    case .notAStore:
+      if keepAside(url), let container = try? makeContainer(schema: schema, url: url) {
+        return (SwiftDataIndexStore(modelContainer: container), .recreated)
+      }
+    case .newer:
+      level = .newerStore
+    case .missing, .unavailable:
+      break
+    }
+    return nil
+  }
+
+  /// What is at a store's URL, looked at without opening or changing it.
   enum Condition: Equatable {
     /// Nothing.
     case missing
@@ -229,7 +243,7 @@ public actor LibraryIndex: LibraryStore {
     case unavailable
   }
 
-  /// Looks at a store that won't open, without changing it.
+  /// Looks at a store without opening or changing it.
   static func condition(of storeURL: URL) -> Condition {
     guard FileManager.default.fileExists(atPath: storeURL.path) else { return .missing }
     guard let handle = try? FileHandle(forReadingFrom: storeURL) else { return .unavailable }
@@ -239,6 +253,8 @@ public actor LibraryIndex: LibraryStore {
     guard let metadata = try? NSPersistentStoreCoordinator.metadataForPersistentStore(type: .sqlite, at: storeURL)
     else { return .unavailable }
     let known = LibraryMigrationPlan.schemas.compactMap { NSManagedObjectModel.makeManagedObjectModel(for: $0.models) }
+    // Without a model to compare with, the store is taken to be this build's, and opened as usual.
+    guard known.count == LibraryMigrationPlan.schemas.count else { return .unavailable }
     let readable = known.contains { $0.isConfiguration(withName: nil, compatibleWithStoreMetadata: metadata) }
     return readable ? .unavailable : .newer
   }
