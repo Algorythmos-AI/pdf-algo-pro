@@ -1,4 +1,5 @@
 import Core
+import CoreData
 import Foundation
 import SwiftData
 import Synchronization
@@ -147,18 +148,25 @@ actor SwiftDataIndexStore {
 /// app: on disk, then recreated, then in memory, then a plain dictionary. The index can always be
 /// rebuilt from the files, so no step loses a document.
 ///
-/// A store that won't open is moved aside, never deleted: it may hold tags, favourites and titles
-/// that exist nowhere else, and it may simply be newer than this build, as when a tester installs
-/// an older TestFlight build (plan item H6). The last few are kept in a `Kept` folder beside the
-/// store, so they can be recovered.
+/// The store holds tags, favourites, reading positions and deletion dates that exist nowhere else,
+/// so a store that won't open is never replaced while it may still open later (#226). It gets a
+/// second try first. A store written by a newer build, as when a tester installs an older TestFlight
+/// build (plan item H6), and a store that can't be read at the moment, are left as they are, and the
+/// launch uses an index in memory (bar item B11). Only a file that isn't a store at all is moved
+/// aside, never deleted, into a `Kept` folder beside the store, and a new store made; the last few
+/// are kept, so they can be recovered.
 public actor LibraryIndex: LibraryStore {
   /// How the index was opened.
   public enum StoreLevel: Sendable, Equatable {
     /// The store on disk opened normally.
     case onDisk
-    /// The store on disk could not be opened, so it was deleted and recreated.
+    /// The file on disk was not a store, so it was kept aside and a new store made.
     case recreated
-    /// Nothing could be opened on disk; a SwiftData store in memory is used for this launch.
+    /// The store on disk was written by a newer build. It is left untouched, and this launch uses an
+    /// index in memory, so nothing done now is kept (B11).
+    case newerStore
+    /// Nothing could be opened on disk; a SwiftData store in memory is used for this launch. A store
+    /// on disk is left as it is, to be tried again at the next launch.
     case inMemory
     /// SwiftData is unavailable; entries are kept in a dictionary for this launch.
     case withoutStore
@@ -183,20 +191,56 @@ public actor LibraryIndex: LibraryStore {
 
   private static func open(_ storeURL: URL?) -> (SwiftDataIndexStore?, StoreLevel) {
     let schema = Schema(versionedSchema: LibrarySchemaV1.self)
-    if let storeURL, let container = try? makeContainer(schema: schema, url: storeURL) {
-      return (SwiftDataIndexStore(modelContainer: container), .onDisk)
-    }
+    var level = StoreLevel.inMemory
     if let storeURL {
-      keepAside(storeURL)
-      if let container = try? makeContainer(schema: schema, url: storeURL) {
-        return (SwiftDataIndexStore(modelContainer: container), .recreated)
+      // A second try before anything else (ADR-0006): a failure can be momentary.
+      for _ in 0..<2 {
+        if let container = try? makeContainer(schema: schema, url: storeURL) {
+          return (SwiftDataIndexStore(modelContainer: container), .onDisk)
+        }
+      }
+      switch condition(of: storeURL) {
+      case .notAStore:
+        if keepAside(storeURL), let container = try? makeContainer(schema: schema, url: storeURL) {
+          return (SwiftDataIndexStore(modelContainer: container), .recreated)
+        }
+      case .newer:
+        level = .newerStore
+      case .missing, .unavailable:
+        break
       }
     }
     let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
     if let container = try? ModelContainer(for: schema, configurations: configuration) {
-      return (SwiftDataIndexStore(modelContainer: container), .inMemory)
+      return (SwiftDataIndexStore(modelContainer: container), level)
     }
     return (nil, .withoutStore)
+  }
+
+  /// What is at a store's URL when the store won't open.
+  enum Condition: Equatable {
+    /// Nothing.
+    case missing
+    /// A file that isn't a SQLite database; it can never open.
+    case notAStore
+    /// A store none of this build's schema versions can read: a newer build wrote it.
+    case newer
+    /// A store this build can read, or a file that can't be read at the moment; it may open next time.
+    case unavailable
+  }
+
+  /// Looks at a store that won't open, without changing it.
+  static func condition(of storeURL: URL) -> Condition {
+    guard FileManager.default.fileExists(atPath: storeURL.path) else { return .missing }
+    guard let handle = try? FileHandle(forReadingFrom: storeURL) else { return .unavailable }
+    defer { try? handle.close() }
+    guard let header = try? handle.read(upToCount: 16) else { return .unavailable }
+    guard header == Data("SQLite format 3\u{0}".utf8) else { return .notAStore }
+    guard let metadata = try? NSPersistentStoreCoordinator.metadataForPersistentStore(type: .sqlite, at: storeURL)
+    else { return .unavailable }
+    let known = LibraryMigrationPlan.schemas.compactMap { NSManagedObjectModel.makeManagedObjectModel(for: $0.models) }
+    let readable = known.contains { $0.isConfiguration(withName: nil, compatibleWithStoreMetadata: metadata) }
+    return readable ? .unavailable : .newer
   }
 
   /// How many stores that wouldn't open are kept; older ones are removed.
@@ -208,25 +252,35 @@ public actor LibraryIndex: LibraryStore {
   }
 
   /// Moves a store that won't open, with its `-shm` and `-wal` files, into its own folder under `Kept`.
-  private static func keepAside(_ storeURL: URL) {
+  ///
+  /// Returns `false`, with every file back where it was, when one can't be moved: nothing is deleted,
+  /// since the `-wal` holds the latest changes, and no new store is made beside what is left.
+  private static func keepAside(_ storeURL: URL) -> Bool {
     let fileManager = FileManager.default
     let kept = keptFolder(for: storeURL)
     // Microseconds since 1970, zero-padded, so the names sort in the order the stores were kept.
     let stamp = String(format: "%017lld", Int64(Date().timeIntervalSince1970 * 1_000_000))
     let folder = kept.appendingPathComponent("\(stamp)-\(UUID().uuidString.prefix(8))", isDirectory: true)
     try? fileManager.createDirectory(at: folder, withIntermediateDirectories: true)
+    var moved: [(from: URL, to: URL)] = []
     for suffix in ["", "-shm", "-wal"] {
       let file = URL(fileURLWithPath: storeURL.path + suffix)
       guard fileManager.fileExists(atPath: file.path) else { continue }
-      if (try? fileManager.moveItem(at: file, to: folder.appendingPathComponent(file.lastPathComponent))) == nil {
-        // A file that can't be moved still mustn't stop the app from opening a new store.
-        try? fileManager.removeItem(at: file)
+      let destination = folder.appendingPathComponent(file.lastPathComponent)
+      guard (try? fileManager.moveItem(at: file, to: destination)) != nil else {
+        for (from, to) in moved.reversed() { try? fileManager.moveItem(at: to, to: from) }
+        if (try? fileManager.contentsOfDirectory(atPath: folder.path))?.isEmpty == true {
+          try? fileManager.removeItem(at: folder)
+        }
+        return false
       }
+      moved.append((file, destination))
     }
     let folders = (try? fileManager.contentsOfDirectory(at: kept, includingPropertiesForKeys: nil)) ?? []
     for old in folders.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }).dropLast(keptLimit) {
       try? fileManager.removeItem(at: old)
     }
+    return true
   }
 
   private static func makeContainer(schema: Schema, url: URL) throws -> ModelContainer {

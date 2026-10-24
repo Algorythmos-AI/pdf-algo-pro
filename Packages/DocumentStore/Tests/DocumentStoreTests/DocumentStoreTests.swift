@@ -395,6 +395,13 @@ struct LibraryIndexTests {
     }
   }
 
+  @Test("A store this build wrote is one it can read")
+  func ownStoreIsReadable() async throws {
+    let url = FileManager.default.temporaryDirectory.appendingPathComponent("index-\(UUID())/library.store")
+    try await LibraryIndex(storeURL: url).upsert(Document(title: "Mine", fileName: "m.pdf", addedAt: .now))
+    #expect(LibraryIndex.condition(of: url) == .unavailable)
+  }
+
   @Test func withoutAURLTheIndexLivesInMemory() async throws {
     let index = LibraryIndex(storeURL: nil)
     #expect(index.level == .inMemory)
@@ -570,8 +577,9 @@ struct OpeningTheIndexTests {
       try context.save()
     }
 
+    #expect(LibraryIndex.condition(of: url) == .newer)
     let index = LibraryIndex(storeURL: url)
-    #expect(index.level != .recreated)
+    #expect(index.level == .newerStore)
     try await index.upsert(Document(title: "Added in an older build", fileName: "a.pdf", addedAt: .now))
 
     #expect(!FileManager.default.fileExists(atPath: LibraryIndex.keptFolder(for: url).path))
@@ -587,7 +595,7 @@ struct OpeningTheIndexTests {
     let unreadable = LibraryIndex(storeURL: url)
     try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: url.path)
 
-    #expect(unreadable.level != .recreated)
+    #expect(unreadable.level == .inMemory)
     #expect(!FileManager.default.fileExists(atPath: LibraryIndex.keptFolder(for: url).path))
     #expect(try await LibraryIndex(storeURL: url).document(document.id) == document)
   }
