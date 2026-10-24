@@ -115,13 +115,24 @@ actor SwiftDataIndexStore {
     } else {
       modelContext.insert(LibrarySchemaV1.DocumentEntry(document))
     }
-    try modelContext.save()
+    try save()
   }
 
   func delete(_ id: DocumentID) throws {
     guard let existing = try entry(id) else { return }
     modelContext.delete(existing)
-    try modelContext.save()
+    try save()
+  }
+
+  /// Saves, or puts the context back as it was saved last: a change that failed must not be saved
+  /// later by an unrelated one (#225).
+  private func save() throws {
+    do {
+      try modelContext.save()
+    } catch {
+      modelContext.rollback()
+      throw error
+    }
   }
 
   private func entry(_ id: DocumentID) throws -> LibrarySchemaV1.DocumentEntry? {

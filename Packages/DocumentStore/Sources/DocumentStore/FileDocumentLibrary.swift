@@ -112,9 +112,16 @@ public actor FileDocumentLibrary: DocumentLibrary {
     guard data.starts(with: Data("%PDF-".utf8)) else { throw LibraryError.notAPDF }
     let cleanTitle = Self.cleanTitle(title)
     let fileName = uniqueFileName(for: cleanTitle, in: documentsFolder)
-    try write(data, to: documentsFolder.appendingPathComponent(fileName))
+    let url = documentsFolder.appendingPathComponent(fileName)
+    try write(data, to: url)
     let document = Document(title: cleanTitle, fileName: fileName, addedAt: now())
-    try await index.upsert(document)
+    do {
+      try await index.upsert(document)
+    } catch {
+      // Not added after all: the file would otherwise turn up as a new document at the next launch.
+      try? fileManager.removeItem(at: url)
+      throw error
+    }
     return document
   }
 
@@ -138,13 +145,14 @@ public actor FileDocumentLibrary: DocumentLibrary {
       let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
       guard !trimmed.isEmpty else { throw LibraryError.emptyTitle }
       let cleanTitle = Self.cleanTitle(trimmed)
+      var moved: Move?
       if !document.isDeleted, cleanTitle != document.title {
         let newName = uniqueFileName(for: cleanTitle, in: documentsFolder)
-        try move(location(of: document), to: documentsFolder.appendingPathComponent(newName))
+        moved = try move(location(of: document), to: documentsFolder.appendingPathComponent(newName))
         document.fileName = newName
       }
       document.title = cleanTitle
-      try await index.upsert(document)
+      try await upsert(document, undoing: moved)
       return document
     }
   }
@@ -194,10 +202,10 @@ public actor FileDocumentLibrary: DocumentLibrary {
       var document = try await existing(id)
       guard !document.isDeleted else { return }
       let newName = uniqueFileName(for: document.title, in: deletedFolder)
-      try move(location(of: document), to: deletedFolder.appendingPathComponent(newName))
+      let moved = try move(location(of: document), to: deletedFolder.appendingPathComponent(newName))
       document.fileName = newName
       document.deletedAt = now()
-      try await index.upsert(document)
+      try await upsert(document, undoing: moved)
     }
   }
 
@@ -207,10 +215,10 @@ public actor FileDocumentLibrary: DocumentLibrary {
       var document = try await existing(id)
       guard document.isDeleted else { return }
       let newName = uniqueFileName(for: document.title, in: documentsFolder)
-      try move(location(of: document), to: documentsFolder.appendingPathComponent(newName))
+      let moved = try move(location(of: document), to: documentsFolder.appendingPathComponent(newName))
       document.fileName = newName
       document.deletedAt = nil
-      try await index.upsert(document)
+      try await upsert(document, undoing: moved)
     }
   }
 
@@ -518,7 +526,13 @@ public actor FileDocumentLibrary: DocumentLibrary {
     guard coordinationError == nil, writeError == nil else { throw LibraryError.fileAccessFailed }
   }
 
-  private func move(_ source: URL, to destination: URL) throws {
+  /// A file move that has happened, so it can be undone.
+  private struct Move {
+    let source: URL
+    let destination: URL
+  }
+
+  private func move(_ source: URL, to destination: URL) throws -> Move {
     var coordinationError: NSError?
     var moveError: (any Error)?
     NSFileCoordinator(filePresenter: nil).coordinate(
@@ -528,6 +542,18 @@ public actor FileDocumentLibrary: DocumentLibrary {
       do { try FileManager.default.moveItem(at: from, to: to) } catch { moveError = error }
     }
     guard coordinationError == nil, moveError == nil else { throw LibraryError.fileAccessFailed }
+    return Move(source: source, destination: destination)
+  }
+
+  /// Writes an entry whose file was just moved; when the write fails, the file is moved back first, so
+  /// the files still match the index and the change is undone as a whole, as the message says.
+  private func upsert(_ document: Document, undoing moved: Move?) async throws {
+    do {
+      try await index.upsert(document)
+    } catch {
+      if let moved { _ = try? move(moved.destination, to: moved.source) }
+      throw error
+    }
   }
 
   private func uniqueFileName(for title: String, in folder: URL) -> String {
