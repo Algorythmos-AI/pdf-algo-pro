@@ -19,6 +19,11 @@ Store notes (see the changelog strategy).
   only ever means a red annotation or Delete.
 
 ### Fixed
+- App Lock: removing the device passcode no longer locks you out of the app for good. Without a
+  passcode nothing can confirm it is you, so App Lock now turns itself off and the app tells you
+  why; set a passcode and turn it on again in Settings. With a passcode it always asks.
+- App Lock: while the app is locked, Siri and Shortcuts no longer read out document summaries or
+  list your document titles. Siri asks you to open the app and unlock it first.
 - Recognise text: a note or drawing added while recognition was finishing could save the old
   document over the new searchable one, and cancelling at that moment left the reader on the old
   document. The reader now opens the searchable version as soon as the file is replaced.

@@ -109,6 +109,8 @@ jobs:
           python3 scripts/ci/privacy_impact.py --base HEAD^1 --body-file "$RUNNER_TEMP/pr-body.md"
       - name: Design tokens match the generated Swift (drift and contrast)
         run: python3 scripts/design/generate_tokens.py --check
+      - name: Accessibility identifiers match the generated Swift (drift and naming)
+        run: python3 scripts/design/generate_accessibility_ids.py --check
       - name: Script unit tests (sync, docs gate, coverage gate)
         run: |
           python3 -m venv "$RUNNER_TEMP/venv"

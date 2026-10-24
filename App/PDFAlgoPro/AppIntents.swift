@@ -6,6 +6,8 @@ import Foundation
 ///
 /// Intents can run before the window exists, so a route that arrives early waits until the app model
 /// attaches. Intents only navigate; the user still acts.
+///
+/// While App Lock is locked, intents return nothing of a document: no summary and no titles (FR-AI-018).
 @MainActor
 final class IntentRouter {
   static let shared = IntentRouter()
@@ -14,17 +16,20 @@ final class IntentRouter {
   /// On-device intelligence and the documents' recognised text, for intents that return results.
   private(set) var intelligence: (any DocumentIntelligence)?
   private(set) var index: (any DocumentIndexing)?
+  /// Whether App Lock is keeping the library closed until its owner confirms (FR-SET-002).
+  private var isLocked: () -> Bool = { false }
   private var handler: ((Route) -> Void)?
   private var pending: Route?
 
   /// Connects the running app; a route that arrived first is delivered now.
   func attach(
     library: any DocumentLibrary, intelligence: (any DocumentIntelligence)? = nil,
-    index: (any DocumentIndexing)? = nil, handler: @escaping (Route) -> Void
+    index: (any DocumentIndexing)? = nil, isLocked: @escaping () -> Bool, handler: @escaping (Route) -> Void
   ) {
     self.library = library
     self.intelligence = intelligence
     self.index = index
+    self.isLocked = isLocked
     self.handler = handler
     if let pending {
       self.pending = nil
@@ -44,8 +49,11 @@ final class IntentRouter {
   /// A summary of a document, made on this device, for Siri and Shortcuts (FR-AI-018).
   ///
   /// The text says it was generated, and names the pages it cites. It throws a message to show when
-  /// the summary can't be made: AI hidden or unavailable, the document gone, or no text in it.
+  /// the summary can't be made: App Lock locked, AI hidden or unavailable, the document gone, or no
+  /// text in it.
   func summary(of id: DocumentID) async throws -> String {
+    // The intent asks for the device to be unlocked; App Lock is the app's own lock on top (#222).
+    guard !isLocked() else { throw IntentFailure.locked }
     guard let intelligence, let index, let library else { throw IntentFailure.notReady }
     guard try await library.document(withID: id) != nil else { throw IntentFailure.documentMissing }
     let answer: Answer
@@ -72,6 +80,11 @@ final class IntentRouter {
   func documents() async -> [Document] {
     (try? await library?.documents(in: .all, sortedBy: .recentlyOpened)) ?? []
   }
+
+  /// The documents Siri and Shortcuts may list or find by title: none while App Lock is locked (#222).
+  func listedDocuments() async -> [Document] {
+    isLocked() ? [] : await documents()
+  }
 }
 
 /// A library document as Siri, Shortcuts and Spotlight see it (FR-LIB-005).
@@ -94,17 +107,22 @@ nonisolated struct DocumentEntity: AppEntity {
 
 /// Finds documents by identifier or title for intents.
 nonisolated struct DocumentEntityQuery: EntityStringQuery {
+  /// The documents with these identifiers, even while App Lock is locked.
+  ///
+  /// The system already holds them (a saved shortcut), so nothing new is disclosed, and Open Document
+  /// still opens the app, where the lock asks first.
   func entities(for identifiers: [String]) async throws -> [DocumentEntity] {
     let wanted = Set(identifiers)
     return await IntentRouter.shared.documents().filter { wanted.contains($0.id.description) }.map(DocumentEntity.init)
   }
 
   func entities(matching string: String) async throws -> [DocumentEntity] {
-    await IntentRouter.shared.documents().filter { $0.title.localizedStandardContains(string) }.map(DocumentEntity.init)
+    await IntentRouter.shared.listedDocuments().filter { $0.title.localizedStandardContains(string) }.map(
+      DocumentEntity.init)
   }
 
   func suggestedEntities() async throws -> [DocumentEntity] {
-    Array(await IntentRouter.shared.documents().prefix(10)).map(DocumentEntity.init)
+    Array(await IntentRouter.shared.listedDocuments().prefix(10)).map(DocumentEntity.init)
   }
 }
 
@@ -140,11 +158,12 @@ nonisolated struct ScanDocumentIntent: AppIntent {
 
 /// Why an intent that returns a result couldn't, in words Siri can say.
 nonisolated enum IntentFailure: Error, CustomLocalizedStringResourceConvertible {
-  case notReady, documentMissing, noText, intelligenceUnavailable, allowanceUsed, failed
+  case notReady, locked, documentMissing, noText, intelligenceUnavailable, allowanceUsed, failed
 
   var localizedStringResource: LocalizedStringResource {
     switch self {
     case .notReady: "PDF Algo Pro is still starting. Try again in a moment."
+    case .locked: "PDF Algo Pro is locked. Open it and unlock it, then try again."
     case .documentMissing: "That document is no longer in your library."
     case .noText: "That document has no text to summarise yet. Open it and recognise its text first."
     case .intelligenceUnavailable: "Summaries need Apple Intelligence on this device, and AI features turned on."
@@ -156,7 +175,8 @@ nonisolated enum IntentFailure: Error, CustomLocalizedStringResourceConvertible 
 
 /// Summarises a document on this device and returns the summary (FR-AI-018).
 ///
-/// Nothing leaves the device. Because it returns what a document says, it needs the device unlocked (H3).
+/// Nothing leaves the device. Because it returns what a document says, it needs the device unlocked (H3),
+/// and with App Lock on, the app unlocked too (FR-AI-018).
 struct SummarizeDocumentIntent: AppIntent {
   static let title: LocalizedStringResource = "Summarise Document"
   static let description = IntentDescription(

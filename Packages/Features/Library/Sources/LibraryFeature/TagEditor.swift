@@ -1,3 +1,4 @@
+import AccessibilityIDs
 import Core
 import DesignSystem
 import SwiftUI
@@ -65,12 +66,13 @@ struct TagEditor: View {
             TextField(text: $editing.draft) { Text("Add a tag", bundle: .module) }
               .submitLabel(.done)
               .onSubmit { editing.addDraft() }
-              .accessibilityIdentifier("tags.new")
+              .accessibilityIdentifier(AccessibilityID.Tags.new)
             Button {
               editing.addDraft()
             } label: {
               Image(systemName: "plus.circle.fill").minimumTarget()
             }
+            .accessibilityIdentifier(AccessibilityID.Tags.add)
             .accessibilityLabel(Text("Add", bundle: .module))
             .disabled(editing.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
           }
@@ -96,6 +98,7 @@ struct TagEditor: View {
               } label: {
                 Label(tag, systemImage: "plus")
               }
+              .accessibilityIdentifier(AccessibilityID.Tags.suggestion)
             }
           } header: {
             Text("In use", bundle: .module).foregroundStyle(Color.ds.labelSecondary)
@@ -111,6 +114,7 @@ struct TagEditor: View {
           } label: {
             Text("Cancel", bundle: .module)
           }
+          .accessibilityIdentifier(AccessibilityID.Tags.cancel)
         }
         ToolbarItem(placement: .confirmationAction) {
           Button {
@@ -121,7 +125,7 @@ struct TagEditor: View {
           } label: {
             Text("Done", bundle: .module)
           }
-          .accessibilityIdentifier("tags.done")
+          .accessibilityIdentifier(AccessibilityID.Tags.done)
         }
       }
     }
