@@ -129,6 +129,7 @@ blocks implementation today?
 | [Swift style guide](swift-style-guide.md) | Architecture | after each WWDC, when a new Xcode or Swift version is adopted, and each milestone |
 | [Code review guide](code-review-guide.md) | Maintainer | each milestone, and whenever a role is assigned to a new person |
 | [Testing strategy](testing-strategy.md) | Quality | each milestone, and when a new Xcode version is adopted |
+| [R1 adversarial review, 2026-10-24](reviews/2026-10-24-r1-adversarial-review.md) | Quality | once, at the commit it names; superseded by the R3 fixes |
 
 ### GitHub operating system and knowledge
 
