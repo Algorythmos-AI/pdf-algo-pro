@@ -71,9 +71,9 @@ targets are only defined here; their values are held privately.
 - **ID:** `FR-<AREA>-NNN` for functional and `NFR-<AREA>-NNN` for non-functional requirements. IDs
   are never reused.
 - **Priority (MoSCoW):** Must, Should, Could, Won't (this phase).
-- **Phase:** MVP (iPhone, internal TestFlight), V1 (first App Store release), V1.1, V2 (iPad-first,
-  Mac, the Claude tier at general availability; Private Cloud Compute arrives in V1). See the
-  [roadmap](product/roadmap.md).
+- **Phase:** MVP (iPhone, internal TestFlight), V1 (first App Store release, shipped as 1.0 on
+  iPhone only), V1.1, V2 (iPad-first, Mac, the Claude tier at general availability). A requirement
+  marked "V1.1 (PAP-065)" was V1 and moved out of 1.0. See the [roadmap](product/roadmap.md).
 - **Pillars:** PIL-1 Document Reading · PIL-2 Document Editing · PIL-3 OCR & Scanning · PIL-4 AI
   Document Intelligence · PIL-5 Privacy · PIL-6 Offline Capability · PIL-7 Native Apple Experience.
 - **Apple-first:** each feature area lists the Apple capabilities it must adopt
@@ -125,7 +125,7 @@ targets are only defined here; their values are held privately.
 
 | ID | Requirement | Priority | Phase | Pillars |
 |---|---|---|---|---|
-| FR-LIB-001 | Documents live in the app's iCloud Drive folder (or on the device when iCloud is off) and open in place from Files and other apps without copying | Must | MVP | PIL-1, PIL-6, PIL-7 |
+| FR-LIB-001 | Documents live in the app's iCloud Drive folder (or on the device when iCloud is off) and open in place from Files and other apps without copying | Must | MVP; the iCloud Drive library V1.1 (PAP-030, PAP-065) | PIL-1, PIL-6, PIL-7 |
 | FR-LIB-002 | Library with folders, tags, recents and favourites; sort and filter | Must | MVP | PIL-1 |
 | FR-LIB-003 | Search across titles, tags and document text, including OCR text | Must | MVP | PIL-1, PIL-3 |
 | FR-LIB-004 | Import from Files, the Share sheet, drag and drop, and the document camera | Must | MVP | PIL-7 |
@@ -204,7 +204,7 @@ shortcuts (next page, find, zoom); pointer and trackpad support.
 | FR-SCAN-002 | On-device text recognition producing searchable PDFs with an invisible text layer, English and French first | Must | MVP | PIL-3, PIL-5, PIL-6 |
 | FR-SCAN-003 | OCR existing image-only PDFs on demand, in the background with progress | Must | MVP | PIL-3 |
 | FR-SCAN-004 | Recognise tables and data (dates, amounts, emails, phone numbers) for extraction | Should | V1 | PIL-3, PIL-4 |
-| FR-SCAN-005 | Control Center control and widget to start a scan | Must | V1 | PIL-7 |
+| FR-SCAN-005 | Control Center control and widget to start a scan | Must | V1.1 (PAP-065) | PIL-7 |
 | FR-SCAN-006 | Review a scan before saving: crop, rotate, reorder, retake and delete pages; the app suggests a name and tags from the recognised text, on device, which the user can change | Must | V1 | PIL-3, PIL-4 |
 
 **Acceptance (Must):**
@@ -230,7 +230,7 @@ control; widget; background continued processing.
 | FR-AI-003 | Extract data to structured fields (for example invoice number, dates, amounts, parties), editable before export as CSV or to the clipboard | Must | MVP | PIL-4 |
 | FR-AI-004 | Analyse a contract: parties, dates, obligations, renewal and termination terms, with citations and the not-legal-advice disclosure | Must | V1 | PIL-4 |
 | FR-AI-005 | Default processing is on device. When a request does not fit the on-device model: in the MVP the app says so and suggests a shorter request or the non-AI tools; the opt-in tiers are offered once they ship (Private Cloud Compute in V1, Claude in V2) | Must | MVP | PIL-4, PIL-5, PIL-6 |
-| FR-AI-006 | Private Cloud Compute tier, opt-in, for long documents and harder reasoning | Must | V1 | PIL-4, PIL-5 |
+| FR-AI-006 | Private Cloud Compute tier, opt-in, for long documents and harder reasoning | Must | V1.1 (PAP-065) | PIL-4, PIL-5 |
 | FR-AI-007 | Claude tier through the relay, opt-in with consent that names the provider and the data sent; revocable in Settings | Should | V2 | PIL-4 |
 | FR-AI-008 | Ask across the whole library with on-device retrieval; citations name the document and page | Should | V1.1 | PIL-4, PIL-6 |
 | FR-AI-009 | Every AI feature can be hidden in Settings; hidden AI never appears uninvited | Must | MVP | PIL-5, PIL-7 |
@@ -241,7 +241,7 @@ control; widget; background continued processing.
 | FR-AI-014 | Follow-up questions in the same conversation; each citation stores the quoted text and a fingerprint of its page, so it still opens the right passage after pages move, or says the document changed | Must | V1 | PIL-4 |
 | FR-AI-015 | Invoice and receipt templates extract fields and line items with Vision tables; values are checked against the page, dates and amounts follow the locale, line items must add up to the total, and the result is saved as a CSV file that is safe to open in spreadsheets | Should | V1 | PIL-3, PIL-4 |
 | FR-AI-016 | Due soon: deadlines and amounts found in documents appear in a widget; nothing is added to Reminders or Calendar until the user confirms | Should | V1.1 | PIL-4, PIL-7 |
-| FR-AI-017 | Suggest content to redact: pattern rules (account and card numbers, IBANs, emails, phone numbers) in V1; on-device AI suggestions, judged on recall, from V1.1; the user confirms every redaction | Must | V1 | PIL-4, PIL-5 |
+| FR-AI-017 | Suggest content to redact: pattern rules (account and card numbers, IBANs, emails, phone numbers) in V1; on-device AI suggestions, judged on recall, from V1.1; the user confirms every redaction | Must | V1.1 (PAP-065) | PIL-4, PIL-5 |
 | FR-AI-018 | Siri and Shortcuts actions that return results (summary, answer, extracted fields): on device only, labelled as AI output, and requiring authentication when App Lock is on | Should | V1 | PIL-4, PIL-7 |
 
 **Acceptance (Must):**
@@ -276,11 +276,11 @@ applicable.
 
 | ID | Requirement | Priority | Phase | Pillars |
 |---|---|---|---|---|
-| FR-EDIT-001 | Edit existing text (font matching where possible), images and links | Must | V1 | PIL-2 |
-| FR-EDIT-002 | Add text, images and shapes | Must | V1 | PIL-2 |
+| FR-EDIT-001 | Edit existing text (font matching where possible), images and links | Must | V1 for existing text if PAP-066 lets it ship, else V1.1; images and links V1.1 (PAP-065) | PIL-2 |
+| FR-EDIT-002 | Add text, images and shapes | Must | V1 for text and shapes (annotations); images V1.1 (PAP-065) | PIL-2 |
 | FR-EDIT-003 | Fill forms (AcroForms), with AutoFill for contact fields | Must | MVP | PIL-2, PIL-7 |
 | FR-EDIT-004 | Sign with saved ink signatures stored in the Keychain | Must | MVP | PIL-2, PIL-5 |
-| FR-EDIT-005 | True redaction that removes content, including text under the redaction and metadata | Must | V1 | PIL-2, PIL-5 |
+| FR-EDIT-005 | True redaction that removes content, including text under the redaction and metadata | Must | V1.1 (PAP-065) | PIL-2, PIL-5 |
 | FR-EDIT-006 | Password-protect and remove protection | Must | V1 | PIL-5 |
 | FR-EDIT-007 | Undo and redo for every edit; autosave | Must | MVP | PIL-2 |
 | FR-EDIT-008 | Revert history: before any save that changes a document, a copy of the previous version is kept for 30 days within a storage limit, and "Revert to before…" restores it; redaction never keeps one; if a copy cannot be kept, the app offers "Save as copy" or cancel instead | Must | MVP | PIL-2, PIL-5 |
@@ -318,9 +318,9 @@ manager and keyboard shortcuts.
 
 | ID | Requirement | Priority | Phase | Pillars |
 |---|---|---|---|---|
-| FR-ORG-001 | Merge, split, reorder, rotate, delete and extract pages | Must | V1 | PIL-2 |
-| FR-ORG-002 | Convert PDF to Word, Excel and PowerPoint on device; if the chosen SDK cannot convert on device, conversion moves to V1.1, and V1 has no cloud conversion (PAP-032) | Must | V1 | PIL-2, PIL-5 |
-| FR-ORG-003 | Create PDFs from images, documents and web pages through the Share sheet | Should | V1 | PIL-2, PIL-7 |
+| FR-ORG-001 | Merge, split, reorder, rotate, delete and extract pages | Must | V1 for merge, reorder, rotate and delete; split and extract V1.1 (PAP-065) | PIL-2 |
+| FR-ORG-002 | Convert PDF to Word, Excel and PowerPoint on device; if the chosen SDK cannot convert on device, conversion moves to V1.1, and V1 has no cloud conversion (PAP-032) | Must | V1.1 (PAP-065) | PIL-2, PIL-5 |
+| FR-ORG-003 | Create PDFs from images, documents and web pages through the Share sheet | Should | V1.1 (PAP-065) | PIL-2, PIL-7 |
 | FR-ORG-004 | Compress PDFs with presets (for example "for email"), always saving a copy by default | Must | V1 | PIL-2 |
 | FR-ORG-005 | Compare two versions of a document | Could | V1.1 | PIL-1, PIL-4 |
 | FR-ORG-006 | Flatten annotations and form fields, on share or into a copy | Must | V1 | PIL-2 |
@@ -377,7 +377,7 @@ App Store Server Notifications V2 (after the relay exists).
 
 | ID | Requirement | Priority | Phase | Pillars |
 |---|---|---|---|---|
-| FR-SET-001 | Privacy centre showing each cloud tier, its consent state and what it sends; revoke with one tap | Must | V1 | PIL-5 |
+| FR-SET-001 | Privacy centre showing each cloud tier, its consent state and what it sends; revoke with one tap | Must | V1.1 (PAP-065) | PIL-5 |
 | FR-SET-002 | App lock with Face ID or Touch ID | Should | V1 | PIL-5 |
 | FR-SET-003 | "Report a problem" composing an email whose draft includes a diagnostics summary with no document content; the summary is on by default, can be turned off in Settings (the choice is kept), and is in the draft to be read or deleted before sending (PAP-041) | Must | MVP | PIL-5 |
 | FR-SET-004 | Opt-in, aggregated usage telemetry: off by default everywhere; sent only after the user opts in ([analytics strategy](analytics-strategy.md)) | Must | V2 | PIL-5 |
@@ -433,7 +433,11 @@ or the release checklist in [release management](release-management.md).
 
 - **MVP (internal TestFlight):** every Must requirement in phase MVP meets its acceptance criteria;
   NFR gates pass; no open Critical issue.
-- **V1 (App Store):** every Must in MVP and V1 passes; external TestFlight complete with crash-free
+- **1.0 (first App Store release, V1 as scoped by PAP-065 to PAP-067):** every Must in MVP and V1
+  passes, where a requirement marked "V1.1 (PAP-065)" is out of scope; the release flags are as
+  PAP-066 sets them, and text editing ships only with its device test signed off; the app runs on
+  iPhone only (PAP-067); the readiness review shows no open Critical blocker; the device sign-off
+  tables have a row for the release commit; external TestFlight complete with crash-free
   sessions at least 99.8% over at least three days; privacy label and manifest verified; release
   checklist signed ([release management](release-management.md)).
 - **Later phases:** as above for their Musts, plus the platform exit criteria in
