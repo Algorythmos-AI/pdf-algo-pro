@@ -1514,6 +1514,32 @@ struct ReaderTextEditingTests {
     #expect(await harness.index.stored[document.id] == nil, "The page's own text did not change")
   }
 
+  /// A character no one sees in what was typed or pasted leaves the rest of the page editable
+  /// (issue #231).
+  ///
+  /// A soft hyphen, a zero-width space or a direction control came with a name pasted from a web
+  /// page; the edit failed its proof, the line was covered, and every other line of the page was
+  /// then marked as only coverable until the document was opened again.
+  @Test(
+    "An invisible character in the replacement is not blamed on the page",
+    arguments: ["Jane\u{AD}Smith", "Jane\u{200B}Smith", "Jane\u{202E}Smith"])
+  func invisibleCharacterKeepsThePageEditable(typed: String) async throws {
+    let harness = Harness()
+    let document = await harness.seed(try TextEditFixtures.invoice())
+    let reader = harness.reader(for: document)
+    await reader.load()
+    await reader.beginTextEditing()
+    await reader.controller?.finishTextRehearsal(onPage: 0)
+    try await pick("John Smith", in: reader)
+    _ = await reader.commitTextEdit(typed)
+    #expect(reader.textEditNotice != .coveredInstead, "The line was covered rather than edited")
+
+    try await pick("Materials", in: reader)
+    #expect(reader.textEditMessage != .coversOriginal, "The rest of the page was marked as only coverable")
+    reader.cancelTextEdit()
+    await reader.endTextEditing()
+  }
+
   @Test("The notice's Undo takes the cover back, and OK only puts the notice away")
   func coveredInsteadUndo() async throws {
     let harness = Harness()
