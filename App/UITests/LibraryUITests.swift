@@ -12,8 +12,7 @@ final class LibraryUITests: UITestCase {
     XCTAssertTrue(app.buttons["reader.ask"].exists)
     XCTAssertFalse(app.buttons["Subscribe"].exists, "No paywall before value (FR-ONB-004)")
     // The sample was filed in All documents, so that is where Back leads.
-    app.navigationBars.buttons.firstMatch.tap()
-    XCTAssertTrue(app.navigationBars["All documents"].waitForExistence(timeout: Self.settleTimeout))
+    goBack(in: app, leaving: app.staticTexts["reader.pageIndicator"], to: app.navigationBars["All documents"])
   }
 
   /// Taps the sample and waits for the reader; taps again only if the first tap was lost, with the
@@ -44,11 +43,10 @@ final class LibraryUITests: UITestCase {
     let app = launch(["-skip-onboarding", "-seed-library", "sample"])
     let page = app.staticTexts["reader.pageIndicator"]
     XCTAssertTrue(page.waitForExistence(timeout: 15))
-    app.navigationBars.buttons.firstMatch.tap()
-    XCTAssertTrue(app.buttons["library.settings"].waitForExistence(timeout: Self.settleTimeout), "Back to the list")
-    app.navigationBars.buttons.firstMatch.tap()
+    let settings = app.buttons["library.settings"]
+    goBack(in: app, leaving: page, to: settings)
     let scan = app.buttons["library.home.scan"]
-    XCTAssertTrue(scan.waitForExistence(timeout: Self.settleTimeout), "Back from the list shows Home")
+    goBack(in: app, leaving: settings, to: scan)
     XCTAssertFalse(app.buttons["library.home.sample"].exists, "The sample is offered to an empty library only")
     try audit(app)
     // Several buttons share a row here: a tap on one must not press its neighbours.
@@ -63,10 +61,7 @@ final class LibraryUITests: UITestCase {
     let recent = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "library.home.recent."))
       .firstMatch
     tap(recent, until: page)
-    app.navigationBars.buttons.firstMatch.tap()
-    XCTAssertTrue(
-      app.navigationBars["Recents"].waitForExistence(timeout: Self.settleTimeout),
-      "Back from a recent document shows Recents")
+    goBack(in: app, leaving: page, to: app.navigationBars["Recents"])
   }
 
   /// The back button on the document list once did nothing: the list bounced straight back.
@@ -74,33 +69,29 @@ final class LibraryUITests: UITestCase {
     let app = launch(["-skip-onboarding", "-seed-library", "sample"])
     let page = app.staticTexts["reader.pageIndicator"]
     XCTAssertTrue(page.waitForExistence(timeout: 15))
+    let row = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "library.document.")).firstMatch
     for _ in 0..<2 {
-      app.navigationBars.buttons.firstMatch.tap()
-      let row = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "library.document.")).firstMatch
-      XCTAssertTrue(row.waitForExistence(timeout: Self.settleTimeout), "Back to the list")
+      goBack(in: app, leaving: page, to: row)
       XCTAssertTrue(page.waitForNonExistence(timeout: Self.settleTimeout))
-      row.tap()
-      XCTAssertTrue(page.waitForExistence(timeout: Self.settleTimeout), "The same document opens again")
+      // The list reloads as the reader goes; a row tapped while the rows are being replaced can be lost.
+      waitUntilSteady(row)
+      tap(row, until: page)
     }
   }
 
   func testBackFromTheDocumentListShowsTheSectionsAndEachOpens() throws {
     let app = launch(["-skip-onboarding", "-seed-library", "sample"])
-    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
-    let back = app.navigationBars.buttons.firstMatch
-    back.tap()
-    // On a slow runner the tap can be lost (seen once on integration after pull request 167). It is
-    // made again only while the reader is still showing: the list has a back button of its own.
+    let page = app.staticTexts["reader.pageIndicator"]
+    XCTAssertTrue(page.waitForExistence(timeout: 15))
+    // Each back tap is made again only while the screen being left is still showing (issue #211: the
+    // tap from the list to Home was lost on a slow runner).
     let settings = app.buttons["library.settings"]
-    if !settings.waitForExistence(timeout: 10), app.staticTexts["reader.pageIndicator"].exists { back.tap() }
-    XCTAssertTrue(settings.waitForExistence(timeout: Self.settleTimeout), "Back to the list")
-    app.navigationBars.buttons.firstMatch.tap()
+    goBack(in: app, leaving: page, to: settings)
     let deleted = app.descendants(matching: .any)["library.section.deleted"].firstMatch
-    XCTAssertTrue(deleted.waitForExistence(timeout: Self.settleTimeout), "Back from the list shows the sections")
+    goBack(in: app, leaving: settings, to: deleted)
     try audit(app)
-    deleted.tap()
-    XCTAssertTrue(app.navigationBars["Recently deleted"].waitForExistence(timeout: Self.settleTimeout))
-    app.navigationBars.buttons.firstMatch.tap()
-    XCTAssertTrue(deleted.waitForExistence(timeout: Self.settleTimeout), "And back again")
+    let recentlyDeleted = app.navigationBars["Recently deleted"]
+    tap(deleted, until: recentlyDeleted)
+    goBack(in: app, leaving: recentlyDeleted, to: deleted)
   }
 }

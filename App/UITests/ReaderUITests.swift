@@ -57,6 +57,26 @@ final class ReaderUITests: UITestCase {
         + "the indicator says \(indicator.label)")
   }
 
+  /// A slow drag that begins right after a tap moves the page like any other (issue #202).
+  ///
+  /// Seen on the simulator on 2026-10-11: a tap on bare page, then at once a slow drag held before the
+  /// finger lifted, and the page kept still; the same drag a few seconds later moved it. The cause is
+  /// not yet known, so this stays a non-strict expected failure named for the issue until the fix
+  /// lands: the result shows whether the defect is still there, and the run stays green.
+  func testThePageFollowsASlowDragBegunRightAfterATap() throws {
+    let app = launch(["-skip-onboarding", "-seed-library", "sample"])
+    let indicator = app.staticTexts["reader.pageIndicator"]
+    XCTAssertTrue(indicator.waitForExistence(timeout: 15))
+    let pages = app.descendants(matching: .any)["reader.pages"].firstMatch
+    waitUntilSteady(pages)
+    // Bare page, left of the text, below the first page's heading.
+    point(0.12, 0.5, in: pages, of: app).tap()
+    let drag = dragThePagesUpSlowly(app, evidence: "not dragged right after a tap")
+    tolerating("Known defect, issue #202: a drag begun right after a tap does not move the page") {
+      XCTAssertTrue(drag.moved, "The page did not follow a slow drag begun right after a tap: \(drag.notes)")
+    }
+  }
+
   /// With an annotation selected, a slow drag that starts off it still moves the page (issue #194).
   ///
   /// With a selection, the page's scrolling went on waiting for the pinch that resizes it, so that
