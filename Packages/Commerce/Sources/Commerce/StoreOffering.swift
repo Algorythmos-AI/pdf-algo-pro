@@ -160,10 +160,7 @@ public struct StoreKitOffering: StoreOffering {
     guard let product = try? await Product.products(for: [planID]).first else { return .failed }
     do {
       switch try await product.purchase() {
-      case .success(let verification):
-        guard case .verified(let transaction) = verification else { return .failed }
-        await transaction.finish()
-        return .purchased
+      case .success(let verification): return await PurchaseOutcome(settling: verification)
       case .pending: return .pending
       case .userCancelled: return .cancelled
       @unknown default: return .failed
@@ -171,6 +168,22 @@ public struct StoreKitOffering: StoreOffering {
     } catch {
       return .failed
     }
+  }
+}
+
+extension PurchaseOutcome {
+  /// How a purchase ends once the App Store has answered it with a signed transaction.
+  ///
+  /// A transaction StoreKit verified is finished, and the purchase is made. This is apart from
+  /// `StoreKitOffering` so that tests can reach it with a stand-in transaction, since a StoreKit
+  /// `Transaction` cannot be made outside the App Store.
+  init(settling verification: VerificationResult<some PurchaseTransaction>) async {
+    guard case .verified(let transaction) = verification else {
+      self = .failed
+      return
+    }
+    await transaction.finish()
+    self = .purchased
   }
 }
 
