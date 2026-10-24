@@ -1,3 +1,4 @@
+import AccessibilityIDs
 import XCTest
 
 /// Editing the text already in a PDF (FR-EDIT-001).
@@ -10,28 +11,28 @@ final class TextEditingUITests: UITestCase {
 
   func testEditingALineChangesTheWordsOnThePage() throws {
     let app = launch(["-skip-onboarding", "-seed-library", "sample", "-text-editing", "available"])
-    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
-    let done = app.buttons["reader.doneEditingText"]
-    XCTAssertEqual(app.buttons["reader.edit"].label, "Edit", "The button says what it does")
-    tap(app.buttons["reader.edit"], until: done)
+    XCTAssertTrue(app.staticTexts[ID.Reader.pageIndicator].waitForExistence(timeout: 15))
+    let done = app.buttons[ID.Reader.doneEditingText]
+    XCTAssertEqual(app.buttons[ID.Reader.edit].label, "Edit", "The button says what it does")
+    tap(app.buttons[ID.Reader.edit], until: done)
     XCTAssertTrue(
-      app.descendants(matching: .any)["reader.textEdit.hint"].firstMatch.waitForExistence(timeout: 10),
+      app.descendants(matching: .any)[ID.Reader.TextEdit.hint].firstMatch.waitForExistence(timeout: 10),
       "Text editing says how to start")
     try audit(app)
 
     // One tap on a line opens its editor, with the line's text in it.
     let heading = line(containing: "Try these", in: app)
     XCTAssertTrue(heading.waitForExistence(timeout: 15), "Editable text is offered line by line")
-    let field = app.textViews["reader.textEdit.field"]
+    let field = app.textViews[ID.Reader.TextEdit.field]
     tap(heading, until: field)
     XCTAssertEqual(field.value as? String, "Try these:")
     XCTAssertFalse(done.isEnabled, "Leaving waits until the text in hand is finished or cancelled")
     field.typeText(" now")
-    app.buttons["reader.textEdit.done"].tap()
+    app.buttons[ID.Reader.TextEdit.done].tap()
 
     // The page now reads the new words, and the change can be undone.
     XCTAssertTrue(line(containing: "Try these: now", in: app).waitForExistence(timeout: 20), "The line was changed")
-    let undo = app.buttons["reader.textEdit.undo"]
+    let undo = app.buttons[ID.Reader.TextEdit.undo]
     XCTAssertTrue(undo.waitForExistence(timeout: 5) && undo.isEnabled, "The edit can be undone")
     undo.tap()
     XCTAssertTrue(line(containing: "Try these:", in: app).waitForExistence(timeout: 20))
@@ -40,18 +41,18 @@ final class TextEditingUITests: UITestCase {
     // Cancel leaves the text as it was.
     tap(line(containing: "Try these", in: app), until: field)
     field.typeText(" never")
-    app.buttons["reader.textEdit.cancel"].tap()
+    app.buttons[ID.Reader.TextEdit.cancel].tap()
     XCTAssertFalse(field.waitForExistence(timeout: 2))
     XCTAssertFalse(line(containing: "never", in: app).exists)
 
     done.tap()
-    XCTAssertTrue(app.buttons["reader.edit"].waitForExistence(timeout: 5), "Done leaves text editing")
+    XCTAssertTrue(app.buttons[ID.Reader.edit].waitForExistence(timeout: 5), "Done leaves text editing")
   }
 
   func testEditingWorksInTheSinglePageLayout() throws {
     let app = launch(["-skip-onboarding", "-seed-library", "sample", "-text-editing", "available"])
-    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
-    app.buttons["reader.more"].tap()
+    XCTAssertTrue(app.staticTexts[ID.Reader.pageIndicator].waitForExistence(timeout: 15))
+    app.buttons[ID.Reader.more].tap()
     let layout = app.buttons["Layout"]
     XCTAssertTrue(layout.waitForExistence(timeout: 5))
     layout.tap()
@@ -59,16 +60,16 @@ final class TextEditingUITests: UITestCase {
     XCTAssertTrue(single.waitForExistence(timeout: 5))
     single.tap()
 
-    tap(app.buttons["reader.edit"], until: app.buttons["reader.doneEditingText"])
+    tap(app.buttons[ID.Reader.edit], until: app.buttons[ID.Reader.doneEditingText])
     let heading = line(containing: "Try these", in: app)
     XCTAssertTrue(heading.waitForExistence(timeout: 15))
-    let field = app.textViews["reader.textEdit.field"]
+    let field = app.textViews[ID.Reader.TextEdit.field]
     tap(heading, until: field)
     field.typeText(" now")
-    app.buttons["reader.textEdit.done"].tap()
+    app.buttons[ID.Reader.TextEdit.done].tap()
     // The paged layout holds on to the page it was showing; the new page must take its place.
     XCTAssertTrue(line(containing: "Try these: now", in: app).waitForExistence(timeout: 20), "The page shows the edit")
-    let indicator = app.staticTexts["reader.pageIndicator"]
+    let indicator = app.staticTexts[ID.Reader.pageIndicator]
     XCTAssertTrue(indicator.label.contains("1 of 3"), "Still on the page that was edited, not \(indicator.label)")
   }
 
@@ -76,10 +77,10 @@ final class TextEditingUITests: UITestCase {
   /// Edit turned on with nothing outlined and every tap ignored.
   func testEditingWorksAfterTheDocumentIsOpenedAgain() throws {
     let app = launch(["-skip-onboarding", "-seed-library", "sample", "-text-editing", "available"])
-    let indicator = app.staticTexts["reader.pageIndicator"]
+    let indicator = app.staticTexts[ID.Reader.pageIndicator]
     XCTAssertTrue(indicator.waitForExistence(timeout: 15))
     // Leave on another page, so the document is opened again where it was left.
-    tapMenuItem(app.buttons["Go to page"], in: app.buttons["reader.more"], until: app.alerts.firstMatch)
+    tapMenuItem(app.buttons[ID.Reader.More.goToPage], in: app.buttons[ID.Reader.more], until: app.alerts.firstMatch)
     let number = app.alerts.firstMatch.textFields.firstMatch
     number.tap()
     number.typeText("3")
@@ -93,45 +94,45 @@ final class TextEditingUITests: UITestCase {
     document.tap()
     XCTAssertTrue(indicator.waitForExistence(timeout: 15))
 
-    app.buttons["reader.edit"].tap()
-    XCTAssertTrue(app.buttons["reader.doneEditingText"].waitForExistence(timeout: 10))
+    app.buttons[ID.Reader.edit].tap()
+    XCTAssertTrue(app.buttons[ID.Reader.doneEditingText].waitForExistence(timeout: 10))
     let target = line(containing: "Your documents stay", in: app)
     XCTAssertTrue(target.waitForExistence(timeout: 15))
     // One tap, and no second try: a tap that is ignored is exactly the defect.
     target.tap()
     XCTAssertTrue(
-      app.textViews["reader.textEdit.field"].waitForExistence(timeout: 10), "A tap on a line opens its editor")
+      app.textViews[ID.Reader.TextEdit.field].waitForExistence(timeout: 10), "A tap on a line opens its editor")
   }
 
   func testEditingGoesOnAfterAnEditAfterLeavingAndAfterTheAppWasAway() throws {
     let app = launch(["-skip-onboarding", "-seed-library", "sample", "-text-editing", "available"])
-    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
-    let done = app.buttons["reader.doneEditingText"]
-    let field = app.textViews["reader.textEdit.field"]
-    tap(app.buttons["reader.edit"], until: done)
+    XCTAssertTrue(app.staticTexts[ID.Reader.pageIndicator].waitForExistence(timeout: 15))
+    let done = app.buttons[ID.Reader.doneEditingText]
+    let field = app.textViews[ID.Reader.TextEdit.field]
+    tap(app.buttons[ID.Reader.edit], until: done)
 
     // One edit, then another line straight after it.
     tap(line(containing: "Try these", in: app), until: field)
     field.typeText(" now")
-    app.buttons["reader.textEdit.done"].tap()
+    app.buttons[ID.Reader.TextEdit.done].tap()
     XCTAssertTrue(line(containing: "Try these: now", in: app).waitForExistence(timeout: 20))
     let paragraph = line(containing: "This sample shows", in: app)
     XCTAssertTrue(paragraph.waitForExistence(timeout: 15))
     paragraph.tap()
     XCTAssertTrue(field.waitForExistence(timeout: 10), "A second line can be picked after an edit")
-    app.buttons["reader.textEdit.cancel"].tap()
+    app.buttons[ID.Reader.TextEdit.cancel].tap()
 
     // The line that was edited can be edited again.
     tap(line(containing: "Try these: now", in: app), until: field)
     XCTAssertEqual(field.value as? String, "Try these: now")
-    app.buttons["reader.textEdit.cancel"].tap()
+    app.buttons[ID.Reader.TextEdit.cancel].tap()
 
     // Leaving text editing and coming back.
     done.tap()
-    tap(app.buttons["reader.edit"], until: done)
+    tap(app.buttons[ID.Reader.edit], until: done)
     line(containing: "Try these: now", in: app).tap()
     XCTAssertTrue(field.waitForExistence(timeout: 10), "Text can be picked after leaving and coming back")
-    app.buttons["reader.textEdit.cancel"].tap()
+    app.buttons[ID.Reader.TextEdit.cancel].tap()
 
     // The app going away and coming back, still in text editing.
     XCUIDevice.shared.press(.home)
@@ -148,7 +149,7 @@ final class TextEditingUITests: UITestCase {
 
   /// Leaves the reader and opens the sample document again.
   private func reopen(_ app: XCUIApplication) {
-    let indicator = app.staticTexts["reader.pageIndicator"]
+    let indicator = app.staticTexts[ID.Reader.pageIndicator]
     app.navigationBars.buttons.firstMatch.tap()
     XCTAssertTrue(indicator.waitForNonExistence(timeout: 10), "Back in the library")
     let document = app.staticTexts["Welcome to PDF Algo Pro"].firstMatch
@@ -159,19 +160,19 @@ final class TextEditingUITests: UITestCase {
 
   func testTheEditTipShowsOnceAndStopsOnceEditIsUsed() throws {
     let app = launch(["-skip-onboarding", "-seed-library", "sample", "-text-editing", "available", "-show-tips"])
-    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
+    XCTAssertTrue(app.staticTexts[ID.Reader.pageIndicator].waitForExistence(timeout: 15))
     let tip = editTip(in: app)
     XCTAssertTrue(tip.waitForExistence(timeout: 10), "A first open points at Edit")
     XCTAssertTrue(app.staticTexts["Edit this PDF"].exists)
     try audit(app)
 
     // The tip is not in the way: one tap on Edit enters text editing, and the tip is gone.
-    app.buttons["reader.edit"].tap()
-    let done = app.buttons["reader.doneEditingText"]
+    app.buttons[ID.Reader.edit].tap()
+    let done = app.buttons[ID.Reader.doneEditingText]
     XCTAssertTrue(done.waitForExistence(timeout: 10), "One tap on Edit, with the tip showing")
     XCTAssertTrue(tip.waitForNonExistence(timeout: 5))
     done.tap()
-    XCTAssertTrue(app.buttons["reader.edit"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.buttons[ID.Reader.edit].waitForExistence(timeout: 5))
 
     // It has done its work, and does not come back.
     reopen(app)
@@ -180,10 +181,10 @@ final class TextEditingUITests: UITestCase {
 
   func testTheEditTipStaysClosedAndIsNeverShownForALockedOrAbsentFeature() throws {
     let app = launch(["-skip-onboarding", "-seed-library", "sample", "-text-editing", "available", "-show-tips"])
-    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
+    XCTAssertTrue(app.staticTexts[ID.Reader.pageIndicator].waitForExistence(timeout: 15))
     let tip = editTip(in: app)
     XCTAssertTrue(tip.waitForExistence(timeout: 10))
-    app.buttons["reader.editTip.close"].tap()
+    app.buttons[ID.Reader.EditTip.close].tap()
     XCTAssertTrue(tip.waitForNonExistence(timeout: 5), "Its close button closes it")
     reopen(app)
     XCTAssertFalse(tip.waitForExistence(timeout: 4), "A tip that was closed stays closed")
@@ -191,7 +192,7 @@ final class TextEditingUITests: UITestCase {
 
     for access in ["locked", "hidden"] {
       let other = launch(["-skip-onboarding", "-seed-library", "sample", "-text-editing", access, "-show-tips"])
-      XCTAssertTrue(other.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
+      XCTAssertTrue(other.staticTexts[ID.Reader.pageIndicator].waitForExistence(timeout: 15))
       XCTAssertFalse(editTip(in: other).waitForExistence(timeout: 4), "No tip when editing is \(access)")
       other.terminate()
     }
@@ -203,23 +204,23 @@ final class TextEditingUITests: UITestCase {
     let app = launch([
       "-skip-onboarding", "-seed-library", "sample", "-text-editing", "available", "-text-editor", "unprovable",
     ])
-    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
-    let done = app.buttons["reader.doneEditingText"]
-    tap(app.buttons["reader.edit"], until: done)
-    let field = app.textViews["reader.textEdit.field"]
+    XCTAssertTrue(app.staticTexts[ID.Reader.pageIndicator].waitForExistence(timeout: 15))
+    let done = app.buttons[ID.Reader.doneEditingText]
+    tap(app.buttons[ID.Reader.edit], until: done)
+    let field = app.textViews[ID.Reader.TextEdit.field]
     tap(line(containing: "Try these", in: app), until: field)
     field.typeText(" now")
 
     // One tap on Done finishes: the typing is not lost, and the reader says what it did.
-    app.buttons["reader.textEdit.done"].tap()
-    let notice = app.staticTexts["reader.textEdit.notice"]
+    app.buttons[ID.Reader.TextEdit.done].tap()
+    let notice = app.staticTexts[ID.Reader.TextEdit.notice]
     XCTAssertTrue(notice.waitForExistence(timeout: 20), "The reader says the text was covered")
     XCTAssertTrue(notice.label.contains("still in the file"))
     XCTAssertFalse(field.exists, "The editor is not left open on a dead end")
     try audit(app)
 
     // Undo takes the cover away, and the notice with it.
-    app.buttons["reader.textEdit.notice.undo"].tap()
+    app.buttons[ID.Reader.TextEdit.Notice.undo].tap()
     XCTAssertTrue(notice.waitForNonExistence(timeout: 10))
     XCTAssertTrue(done.isEnabled, "Text editing goes on")
     XCTAssertFalse(
@@ -228,7 +229,7 @@ final class TextEditingUITests: UITestCase {
 
     // The next line on this page says it will be covered before anything is typed.
     tap(line(containing: "This sample shows", in: app), until: field)
-    let message = app.staticTexts["reader.textEdit.message"]
+    let message = app.staticTexts[ID.Reader.TextEdit.message]
     XCTAssertTrue(message.waitForExistence(timeout: 5))
     XCTAssertTrue(message.label.contains("cover"), "Said before typing")
   }
@@ -236,9 +237,9 @@ final class TextEditingUITests: UITestCase {
   /// A tester asked to move the page's own text about with a finger.
   func testALineIsMovedByHoldingAndDraggingIt() throws {
     let app = launch(["-skip-onboarding", "-seed-library", "sample", "-text-editing", "available"])
-    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
-    let done = app.buttons["reader.doneEditingText"]
-    tap(app.buttons["reader.edit"], until: done)
+    XCTAssertTrue(app.staticTexts[ID.Reader.pageIndicator].waitForExistence(timeout: 15))
+    let done = app.buttons[ID.Reader.doneEditingText]
+    tap(app.buttons[ID.Reader.edit], until: done)
     XCTAssertTrue(app.staticTexts["Tap text to change it. Hold and drag to move it."].waitForExistence(timeout: 10))
     let heading = line(containing: "Try these", in: app)
     XCTAssertTrue(heading.waitForExistence(timeout: 15))
@@ -247,7 +248,7 @@ final class TextEditingUITests: UITestCase {
     // frame still moving, at the default speed, left the line short of where it was dropped).
     let before = dragSlowly(heading, by: CGVector(dx: 30, dy: 220), holding: 0.9, in: app)
 
-    let undo = app.buttons["reader.textEdit.undo"]
+    let undo = app.buttons[ID.Reader.TextEdit.undo]
     XCTAssertTrue(undo.waitForExistence(timeout: 5))
     let moved = NSPredicate { _, _ in
       abs(self.line(containing: "Try these", in: app).frame.minY - before.minY - 220) < 30
@@ -255,7 +256,7 @@ final class TextEditingUITests: UITestCase {
     XCTAssertEqual(
       XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: moved, object: nil)], timeout: 20), .completed,
       "The line is where it was dropped, not at \(line(containing: "Try these", in: app).frame)")
-    XCTAssertFalse(app.textViews["reader.textEdit.field"].exists, "Moving opens no editor")
+    XCTAssertFalse(app.textViews[ID.Reader.TextEdit.field].exists, "Moving opens no editor")
     XCTAssertTrue(undo.isEnabled, "The move can be undone")
 
     undo.tap()
@@ -273,9 +274,9 @@ final class TextEditingUITests: UITestCase {
     let app = launch([
       "-skip-onboarding", "-seed-library", "sample", "-text-editing", "available", "-text-edit-geometry",
     ])
-    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
-    tap(app.buttons["reader.edit"], until: app.buttons["reader.doneEditingText"])
-    let field = app.textViews["reader.textEdit.field"]
+    XCTAssertTrue(app.staticTexts[ID.Reader.pageIndicator].waitForExistence(timeout: 15))
+    tap(app.buttons[ID.Reader.edit], until: app.buttons[ID.Reader.doneEditingText])
+    let field = app.textViews[ID.Reader.TextEdit.field]
     tap(line(containing: "Try these", in: app), until: field)
 
     // Far more words than one line of a phone has room for, as in the owner's screenshot. Typed once the
@@ -318,7 +319,7 @@ final class TextEditingUITests: UITestCase {
     waitUntilSteady(field)
     attach(app, named: "Long line, upright again")
     assertWhollyInView(field, in: app)
-    app.buttons["reader.textEdit.cancel"].tap()
+    app.buttons[ID.Reader.TextEdit.cancel].tap()
   }
 
   /// With a line open, the page scrolls and zooms under the finger, and typing goes on after.
@@ -334,15 +335,15 @@ final class TextEditingUITests: UITestCase {
       "-text-edit-touches",
     ])
     func traces() -> String {
-      let touches = app.descendants(matching: .any)["reader.textEdit.touchTrace"].firstMatch
-      let room = app.descendants(matching: .any)["reader.textEdit.roomTrace"].firstMatch
+      let touches = app.descendants(matching: .any)[ID.Reader.TextEdit.touchTrace].firstMatch
+      let room = app.descendants(matching: .any)[ID.Reader.TextEdit.roomTrace].firstMatch
       return "touches: \(touches.exists ? touches.label : "none"); room: \(room.exists ? room.label : "none")"
     }
-    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
-    tap(app.buttons["reader.edit"], until: app.buttons["reader.doneEditingText"])
-    let field = app.textViews["reader.textEdit.field"]
+    XCTAssertTrue(app.staticTexts[ID.Reader.pageIndicator].waitForExistence(timeout: 15))
+    tap(app.buttons[ID.Reader.edit], until: app.buttons[ID.Reader.doneEditingText])
+    let field = app.textViews[ID.Reader.TextEdit.field]
     tap(line(containing: "Try these", in: app), until: field)
-    let bar = app.descendants(matching: .any)["reader.textEdit.actionBar"].firstMatch
+    let bar = app.descendants(matching: .any)[ID.Reader.TextEdit.actionBar].firstMatch
     XCTAssertTrue(bar.waitForExistence(timeout: Self.settleTimeout))
     let opened = field.frame
     attach(app, named: "Line open")
@@ -401,7 +402,7 @@ final class TextEditingUITests: UITestCase {
         + "and the field is at \(field.frame), opened at \(opened); \(traces())")
 
     // The keyboard can be put away to look over the page, and the line stays open.
-    let keyboardButton = app.buttons["reader.textEdit.keyboard"]
+    let keyboardButton = app.buttons[ID.Reader.TextEdit.keyboard]
     XCTAssertTrue(keyboardButton.waitForExistence(timeout: 5))
     keyboardButton.tap()
     XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: Self.settleTimeout), "The keyboard went")
@@ -414,7 +415,7 @@ final class TextEditingUITests: UITestCase {
     // counts too; a page that does not zoom leaves the field as it was. Not a larger pinch: it
     // zooms about the fingers, and would carry the line off the top of the screen.
     let before = field.frame
-    let pages = app.descendants(matching: .any)["reader.pages"].firstMatch
+    let pages = app.descendants(matching: .any)[ID.Reader.pages].firstMatch
     pages.pinch(withScale: 1.5, velocity: 1)
     let zoomed = NSPredicate { _, _ in
       field.frame.width > before.width * 1.05 || field.frame.height > before.height * 1.25
@@ -442,7 +443,7 @@ final class TextEditingUITests: UITestCase {
       XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: shown, object: nil)], timeout: 10), .completed,
       "What was typed is out of sight: the field is at \(field.frame)")
     attach(app, named: "Typing after scrolling and zooming")
-    app.buttons["reader.textEdit.done"].tap()
+    app.buttons[ID.Reader.TextEdit.done].tap()
     XCTAssertTrue(line(containing: "Try these: now", in: app).waitForExistence(timeout: 20), "The line was changed")
   }
 
@@ -458,15 +459,15 @@ final class TextEditingUITests: UITestCase {
       "-skip-onboarding", "-seed-library", "sample", "-text-editing", "available", "-text-edit-geometry",
       "-text-edit-touches",
     ])
-    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
-    tap(app.buttons["reader.edit"], until: app.buttons["reader.doneEditingText"])
-    let field = app.textViews["reader.textEdit.field"]
+    XCTAssertTrue(app.staticTexts[ID.Reader.pageIndicator].waitForExistence(timeout: 15))
+    tap(app.buttons[ID.Reader.edit], until: app.buttons[ID.Reader.doneEditingText])
+    let field = app.textViews[ID.Reader.TextEdit.field]
     // The line as the page has it, which PDFKit goes on exposing under the field: where the line
     // is, whatever is drawn of the field.
     let onPage = line(containing: "Try these", in: app)
     tap(onPage, until: field)
     XCTAssertTrue(waitForKeyboardFocus(field), "The open line takes the keyboard")
-    let bar = app.descendants(matching: .any)["reader.textEdit.actionBar"].firstMatch
+    let bar = app.descendants(matching: .any)[ID.Reader.TextEdit.actionBar].firstMatch
     XCTAssertTrue(bar.waitForExistence(timeout: Self.settleTimeout))
     let top = app.navigationBars.firstMatch
     XCTAssertTrue(top.exists, "The reader has a bar at the top")
@@ -513,14 +514,14 @@ final class TextEditingUITests: UITestCase {
     waitUntilSteady(field)
     attach(app, named: "Back in view after typing")
     assertWhollyInView(field, in: app)
-    app.buttons["reader.textEdit.cancel"].tap()
+    app.buttons[ID.Reader.TextEdit.cancel].tap()
   }
 
   /// What the editor's room request and the page's gestures did, in Debug builds launched with
   /// `-text-edit-geometry` and `-text-edit-touches`, for a failure message.
   private func traces(in app: XCUIApplication) -> String {
-    let touches = app.descendants(matching: .any)["reader.textEdit.touchTrace"].firstMatch
-    let room = app.descendants(matching: .any)["reader.textEdit.roomTrace"].firstMatch
+    let touches = app.descendants(matching: .any)[ID.Reader.TextEdit.touchTrace].firstMatch
+    let room = app.descendants(matching: .any)[ID.Reader.TextEdit.roomTrace].firstMatch
     return "touches: \(touches.exists ? touches.label : "none"); room: \(room.exists ? room.label : "none")"
   }
 
@@ -533,11 +534,11 @@ final class TextEditingUITests: UITestCase {
   /// 2026-10-10).
   func testThePageKeepsItsPlaceWhenAnEditIsFinishedAndUndone() throws {
     let app = launch(["-skip-onboarding", "-seed-library", "sample", "-text-editing", "available"])
-    let indicator = app.staticTexts["reader.pageIndicator"]
+    let indicator = app.staticTexts[ID.Reader.pageIndicator]
     XCTAssertTrue(indicator.waitForExistence(timeout: 15))
     // To the last page, as far from the top of the document as it goes.
-    app.buttons["reader.more"].tap()
-    app.buttons["Go to page"].tap()
+    app.buttons[ID.Reader.more].tap()
+    app.buttons[ID.Reader.More.goToPage].tap()
     let number = app.alerts.firstMatch.textFields.firstMatch
     XCTAssertTrue(number.waitForExistence(timeout: Self.settleTimeout))
     number.tap()
@@ -546,18 +547,18 @@ final class TextEditingUITests: UITestCase {
     expectation(for: NSPredicate(format: "label CONTAINS %@", "3 of 3"), evaluatedWith: indicator)
     waitForExpectations(timeout: Self.settleTimeout)
 
-    tap(app.buttons["reader.edit"], until: app.buttons["reader.doneEditingText"])
-    let field = app.textViews["reader.textEdit.field"]
+    tap(app.buttons[ID.Reader.edit], until: app.buttons[ID.Reader.doneEditingText])
+    let field = app.textViews[ID.Reader.TextEdit.field]
     let heading = line(containing: "Privacy", in: app)
     XCTAssertTrue(heading.waitForExistence(timeout: 15), "The last page's heading can be picked")
     tap(heading, until: field)
     field.typeText(" kept")
-    app.buttons["reader.textEdit.done"].tap()
+    app.buttons[ID.Reader.TextEdit.done].tap()
     let changed = line(containing: "Privacy kept", in: app)
     XCTAssertTrue(changed.waitForExistence(timeout: 20), "The line was changed")
     assertOnTheLastPage(changed, indicator: indicator, in: app, after: "Done")
 
-    let undo = app.buttons["reader.textEdit.undo"]
+    let undo = app.buttons[ID.Reader.TextEdit.undo]
     XCTAssertTrue(undo.waitForExistence(timeout: 5) && undo.isEnabled, "The edit can be undone")
     undo.tap()
     XCTAssertTrue(changed.waitForNonExistence(timeout: 20), "Undo put the old words back")
@@ -600,7 +601,7 @@ final class TextEditingUITests: UITestCase {
     let frame = field.frame
     // What the room request did, in Debug builds launched with -text-edit-geometry, so a field out of
     // view says why in one round (AGENTS.md rule 9).
-    let trace = app.descendants(matching: .any)["reader.textEdit.roomTrace"].firstMatch
+    let trace = app.descendants(matching: .any)[ID.Reader.TextEdit.roomTrace].firstMatch
     let room = trace.exists ? "; room: \(trace.label)" : ""
     XCTAssertTrue(screen.contains(frame), "\(frame) is inside \(screen)\(room)", file: file, line: line)
     let top = app.navigationBars.firstMatch
@@ -609,9 +610,9 @@ final class TextEditingUITests: UITestCase {
         frame.minY, top.frame.maxY - 1,
         "Below the top bar: field \(frame), top bar \(top.frame), screen \(screen)\(room)", file: file, line: line)
     }
-    let bar = app.descendants(matching: .any)["reader.textEdit.actionBar"].firstMatch
+    let bar = app.descendants(matching: .any)[ID.Reader.TextEdit.actionBar].firstMatch
     // Text the field cannot sit over is typed in the bar itself.
-    if bar.exists, !bar.textViews["reader.textEdit.field"].exists {
+    if bar.exists, !bar.textViews[ID.Reader.TextEdit.field].exists {
       XCTAssertLessThanOrEqual(
         frame.maxY, bar.frame.minY + 1, "Above the bar: field \(frame), bar \(bar.frame), screen \(screen)\(room)",
         file: file, line: line)
@@ -634,16 +635,16 @@ final class TextEditingUITests: UITestCase {
 
   func testEditingIsLockedWithoutProAndAbsentWhenTheBuildDoesNotHaveIt() throws {
     let locked = launch(["-skip-onboarding", "-seed-library", "sample", "-text-editing", "locked"])
-    XCTAssertTrue(locked.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
+    XCTAssertTrue(locked.staticTexts[ID.Reader.pageIndicator].waitForExistence(timeout: 15))
     let explanation = locked.alerts["Editing text needs Pro"]
-    tap(locked.buttons["reader.edit"], until: explanation)
+    tap(locked.buttons[ID.Reader.edit], until: explanation)
     explanation.buttons["OK"].tap()
-    XCTAssertFalse(locked.buttons["reader.doneEditingText"].exists, "Nothing was entered")
+    XCTAssertFalse(locked.buttons[ID.Reader.doneEditingText].exists, "Nothing was entered")
     locked.terminate()
 
     let hidden = launch(["-skip-onboarding", "-seed-library", "sample", "-text-editing", "hidden"])
-    XCTAssertTrue(hidden.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
-    XCTAssertTrue(hidden.buttons["reader.markup"].waitForExistence(timeout: 5))
-    XCTAssertFalse(hidden.buttons["reader.edit"].exists, "A build without the feature shows nothing of it")
+    XCTAssertTrue(hidden.staticTexts[ID.Reader.pageIndicator].waitForExistence(timeout: 15))
+    XCTAssertTrue(hidden.buttons[ID.Reader.markup].waitForExistence(timeout: 5))
+    XCTAssertFalse(hidden.buttons[ID.Reader.edit].exists, "A build without the feature shows nothing of it")
   }
 }

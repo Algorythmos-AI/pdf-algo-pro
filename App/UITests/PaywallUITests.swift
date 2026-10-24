@@ -1,3 +1,4 @@
+import AccessibilityIDs
 import XCTest
 
 /// The subscription offer: when it shows, that it always closes at once, and when it stays away
@@ -12,17 +13,17 @@ import XCTest
 final class PaywallUITests: UITestCase {
   /// Leaves first run by Skip.
   private func skipFirstRun(_ app: XCUIApplication) {
-    XCTAssertTrue(app.buttons["onboarding.skip"].waitForExistence(timeout: Self.settleTimeout))
-    app.buttons["onboarding.skip"].tap()
+    XCTAssertTrue(app.buttons[ID.Onboarding.skip].waitForExistence(timeout: Self.settleTimeout))
+    app.buttons[ID.Onboarding.skip].tap()
   }
 
   func testTheOfferAfterFirstRunHasCloseAtOnceAndOneTapLeadsHome() throws {
     let app = launch([])
     skipFirstRun(app)
-    let close = app.buttons["paywall.close"]
+    let close = app.buttons[ID.Paywall.close]
     XCTAssertTrue(close.waitForExistence(timeout: Self.settleTimeout), "The offer follows first run")
     XCTAssertTrue(close.isHittable, "Close can be tapped as soon as the offer is up")
-    leave(by: close, for: app.buttons["library.home.sample"])
+    leave(by: close, for: app.buttons[ID.Library.Home.sample])
     XCTAssertFalse(close.exists, "One tap closes the offer")
   }
 
@@ -32,13 +33,13 @@ final class PaywallUITests: UITestCase {
 
   func testTheWholeJourneyFromFirstRunThroughAPurchaseToHome() throws {
     let app = launch([])
-    let next = app.buttons["onboarding.continue"]
+    let next = app.buttons[ID.Onboarding.continue]
     tap(next, until: element("onboarding.page.sign", in: app))
     tap(next, until: element("onboarding.page.ask", in: app))
-    let yearly = app.buttons["paywall.plan.yearly"]
-    let weekly = app.buttons["paywall.plan.weekly"]
+    let yearly = app.buttons[ID.Paywall.Plan.yearly]
+    let weekly = app.buttons[ID.Paywall.Plan.weekly]
     leave(by: next, for: yearly)
-    XCTAssertTrue(app.buttons["paywall.close"].isHittable, "Close is there from the first frame")
+    XCTAssertTrue(app.buttons[ID.Paywall.close].isHittable, "Close is there from the first frame")
     XCTAssertTrue(yearly.isSelected && !weekly.isSelected, "The annual plan is the one recommended")
     XCTAssertTrue(element("paywall.terms.trial", in: app).exists, "An eligible account is shown the trial")
     try audit(app, onSheet: true)
@@ -52,136 +53,137 @@ final class PaywallUITests: UITestCase {
     XCTAssertTrue(yearly.isSelected && !weekly.isSelected)
 
     let welcome = element("paywall.welcome", in: app)
-    leave(by: app.buttons["paywall.purchase"], for: welcome)
+    leave(by: app.buttons[ID.Paywall.purchase], for: welcome)
     XCTAssertTrue(element("paywall.welcome.trialEnd", in: app).exists, "The trial's end is said at once")
     try audit(app, onSheet: true)
-    leave(by: app.buttons["paywall.start"], for: app.buttons["library.home.sample"])
+    leave(by: app.buttons[ID.Paywall.start], for: app.buttons[ID.Library.Home.sample])
     let plan = element("settings.subscription.plan", in: app)
-    tap(app.buttons["library.sidebar.settings"], until: plan)
+    tap(app.buttons[ID.Library.Sidebar.settings], until: plan)
     XCTAssertTrue(plan.label.contains("Pro"), "Settings names the plan the purchase gave: \(plan.label)")
   }
 
   func testAnAccountWithNoTrialToTakeIsShownNone() throws {
     let app = launch(["-skip-onboarding", "-trial", "ineligible"])
-    tap(app.buttons["library.sidebar.settings"], until: element("settings.subscription.plans", in: app))
-    tap(element("settings.subscription.plans", in: app), until: app.buttons["paywall.plan.yearly"])
+    tap(app.buttons[ID.Library.Sidebar.settings], until: element("settings.subscription.plans", in: app))
+    tap(element("settings.subscription.plans", in: app), until: app.buttons[ID.Paywall.Plan.yearly])
     XCTAssertTrue(element("paywall.terms", in: app).waitForExistence(timeout: Self.settleTimeout))
     XCTAssertFalse(element("paywall.terms.trial", in: app).exists, "No trial is promised that would not be given")
-    leave(by: app.buttons["paywall.purchase"], for: element("paywall.welcome", in: app))
+    leave(by: app.buttons[ID.Paywall.purchase], for: element("paywall.welcome", in: app))
     XCTAssertFalse(element("paywall.welcome.trialEnd", in: app).exists, "A purchase without a trial has no trial end")
   }
 
   func testACancelledPurchaseLeavesTheOfferAsItWas() throws {
     let app = launch(["-purchase", "cancelled"])
     skipFirstRun(app)
-    let buy = app.buttons["paywall.purchase"]
+    let buy = app.buttons[ID.Paywall.purchase]
     XCTAssertTrue(buy.waitForExistence(timeout: Self.settleTimeout))
     buy.tap()
     XCTAssertTrue(buy.waitForExistence(timeout: Self.settleTimeout) && buy.isEnabled, "The offer is still there")
     XCTAssertFalse(element("paywall.welcome", in: app).exists)
     XCTAssertEqual(app.alerts.count, 0, "Changing one's mind needs no explaining")
-    leave(by: app.buttons["paywall.close"], for: app.buttons["library.home.sample"])
+    leave(by: app.buttons[ID.Paywall.close], for: app.buttons[ID.Library.Home.sample])
   }
 
   func testAFailedPurchaseSaysSoAndCanBeTriedAgain() throws {
     let app = launch(["-purchase", "failed"])
     skipFirstRun(app)
     let alert = app.alerts["The purchase didn’t go through"]
-    tap(app.buttons["paywall.purchase"], until: alert)
+    tap(app.buttons[ID.Paywall.purchase], until: alert)
     alert.buttons["OK"].tap()
-    XCTAssertTrue(app.buttons["paywall.purchase"].waitForExistence(timeout: Self.settleTimeout))
-    XCTAssertTrue(app.buttons["paywall.purchase"].isEnabled, "The button is ready for another try")
+    XCTAssertTrue(app.buttons[ID.Paywall.purchase].waitForExistence(timeout: Self.settleTimeout))
+    XCTAssertTrue(app.buttons[ID.Paywall.purchase].isEnabled, "The button is ready for another try")
   }
 
   func testAPendingPurchaseIsExplained() throws {
     let app = launch(["-purchase", "pending"])
     skipFirstRun(app)
     let alert = app.alerts["Waiting for approval"]
-    tap(app.buttons["paywall.purchase"], until: alert)
+    tap(app.buttons[ID.Paywall.purchase], until: alert)
     alert.buttons["OK"].tap()
-    XCTAssertTrue(app.buttons["paywall.close"].waitForExistence(timeout: Self.settleTimeout))
+    XCTAssertTrue(app.buttons[ID.Paywall.close].waitForExistence(timeout: Self.settleTimeout))
     XCTAssertFalse(element("paywall.welcome", in: app).exists, "Nothing is unlocked until it is approved")
   }
 
   func testWithoutPlansTheOfferSaysSoAndOffersToAskAgain() throws {
     let app = launch(["-skip-onboarding", "-store", "unavailable"])
-    tap(app.buttons["library.sidebar.settings"], until: element("settings.subscription.plans", in: app))
-    tap(element("settings.subscription.plans", in: app), until: app.buttons["paywall.retry"])
-    XCTAssertFalse(app.buttons["paywall.purchase"].exists, "There is nothing to buy")
-    XCTAssertTrue(app.buttons["paywall.close"].isHittable)
+    tap(app.buttons[ID.Library.Sidebar.settings], until: element("settings.subscription.plans", in: app))
+    tap(element("settings.subscription.plans", in: app), until: app.buttons[ID.Paywall.retry])
+    XCTAssertFalse(app.buttons[ID.Paywall.purchase].exists, "There is nothing to buy")
+    XCTAssertTrue(app.buttons[ID.Paywall.close].isHittable)
     try audit(app, onSheet: true)
-    app.buttons["paywall.retry"].tap()
-    XCTAssertTrue(app.buttons["paywall.retry"].waitForExistence(timeout: Self.settleTimeout), "Still none, still asked")
+    app.buttons[ID.Paywall.retry].tap()
+    XCTAssertTrue(
+      app.buttons[ID.Paywall.retry].waitForExistence(timeout: Self.settleTimeout), "Still none, still asked")
   }
 
   func testSomeoneWithProIsToldSoAndSoldNothing() throws {
     let app = launch(["-skip-onboarding", "-entitlement", "subscribed"])
-    tap(app.buttons["library.sidebar.settings"], until: element("settings.subscription.plans", in: app))
+    tap(app.buttons[ID.Library.Sidebar.settings], until: element("settings.subscription.plans", in: app))
     tap(element("settings.subscription.plans", in: app), until: element("paywall.alreadyPro", in: app))
-    XCTAssertFalse(app.buttons["paywall.purchase"].exists, "Nothing is sold to someone who has Pro")
-    XCTAssertTrue(app.buttons["paywall.manage"].exists)
+    XCTAssertFalse(app.buttons[ID.Paywall.purchase].exists, "Nothing is sold to someone who has Pro")
+    XCTAssertTrue(app.buttons[ID.Paywall.manage].exists)
     try audit(app, onSheet: true)
-    leave(by: app.buttons["paywall.continue"], for: app.buttons["library.home.sample"])
+    leave(by: app.buttons[ID.Paywall.continue], for: app.buttons[ID.Library.Home.sample])
   }
 
   func testWithoutTheStoreFirstRunEndsOnHome() throws {
     let app = launch(["-store", "unavailable"])
     skipFirstRun(app)
-    XCTAssertTrue(app.buttons["library.home.sample"].waitForExistence(timeout: Self.settleTimeout))
-    XCTAssertFalse(app.buttons["paywall.close"].exists, "No offer without plans to show")
+    XCTAssertTrue(app.buttons[ID.Library.Home.sample].waitForExistence(timeout: Self.settleTimeout))
+    XCTAssertFalse(app.buttons[ID.Paywall.close].exists, "No offer without plans to show")
   }
 
   func testSomeoneWithProSeesNoOfferAndSettingsNamesThePlan() throws {
     let app = launch(["-entitlement", "subscribed"])
     skipFirstRun(app)
-    XCTAssertTrue(app.buttons["library.home.sample"].waitForExistence(timeout: Self.settleTimeout))
-    XCTAssertFalse(app.buttons["paywall.close"].exists, "No offer for someone who has Pro")
-    let plan = app.descendants(matching: .any)["settings.subscription.plan"].firstMatch
-    tap(app.buttons["library.sidebar.settings"], until: plan)
+    XCTAssertTrue(app.buttons[ID.Library.Home.sample].waitForExistence(timeout: Self.settleTimeout))
+    XCTAssertFalse(app.buttons[ID.Paywall.close].exists, "No offer for someone who has Pro")
+    let plan = app.descendants(matching: .any)[ID.Settings.Subscription.plan].firstMatch
+    tap(app.buttons[ID.Library.Sidebar.settings], until: plan)
     XCTAssertTrue(plan.label.contains("Pro"), "Settings says the plan is Pro: \(plan.label)")
     try audit(app, onSheet: true)
   }
 
   func testNoOfferAtALaterLaunch() throws {
     let app = launch(["-skip-onboarding"])
-    XCTAssertTrue(app.buttons["library.home.sample"].waitForExistence(timeout: Self.settleTimeout))
-    XCTAssertFalse(app.buttons["paywall.close"].exists, "The offer never shows at launch")
+    XCTAssertTrue(app.buttons[ID.Library.Home.sample].waitForExistence(timeout: Self.settleTimeout))
+    XCTAssertFalse(app.buttons[ID.Paywall.close].exists, "The offer never shows at launch")
   }
 
   func testWhenTheDaysScansAreUsedScanOpensTheOfferBeforeTheCamera() throws {
     let app = launch(["-skip-onboarding", "-allowance", "exhausted"])
-    tap(app.buttons["library.home.scan"], until: app.buttons["paywall.close"])
-    XCTAssertFalse(app.buttons["scan.photos"].exists, "The scanner did not open")
-    leave(by: app.buttons["paywall.close"], for: app.buttons["library.home.sample"])
+    tap(app.buttons[ID.Library.Home.scan], until: app.buttons[ID.Paywall.close])
+    XCTAssertFalse(app.buttons[ID.Scan.photos].exists, "The scanner did not open")
+    leave(by: app.buttons[ID.Paywall.close], for: app.buttons[ID.Library.Home.sample])
   }
 
   func testWithProTheScannerOpensWhateverWasUsed() throws {
     let app = launch(["-skip-onboarding", "-allowance", "exhausted", "-entitlement", "subscribed"])
-    tap(app.buttons["library.home.scan"], until: app.buttons["scan.photos"])
-    XCTAssertFalse(app.buttons["paywall.close"].exists, "Pro has no daily limit")
+    tap(app.buttons[ID.Library.Home.scan], until: app.buttons[ID.Scan.photos])
+    XCTAssertFalse(app.buttons[ID.Paywall.close].exists, "Pro has no daily limit")
   }
 
   func testSettingsOpensThePlansAndCloseLeavesThem() throws {
     let app = launch(["-skip-onboarding"])
-    let plans = app.descendants(matching: .any)["settings.subscription.plans"].firstMatch
-    tap(app.buttons["library.sidebar.settings"], until: plans)
-    let plan = app.descendants(matching: .any)["settings.subscription.plan"].firstMatch
+    let plans = app.descendants(matching: .any)[ID.Settings.Subscription.plans].firstMatch
+    tap(app.buttons[ID.Library.Sidebar.settings], until: plans)
+    let plan = app.descendants(matching: .any)[ID.Settings.Subscription.plan].firstMatch
     XCTAssertTrue(plan.label.contains("Free"), "Nobody is entitled in a UI test: \(plan.label)")
     for identifier in ["manage", "restore", "redeem"] {
       XCTAssertTrue(
         app.descendants(matching: .any)["settings.subscription.\(identifier)"].firstMatch.exists, identifier)
     }
-    tap(plans, until: app.buttons["paywall.close"])
-    leave(by: app.buttons["paywall.close"], for: app.buttons["library.home.sample"])
+    tap(plans, until: app.buttons[ID.Paywall.close])
+    leave(by: app.buttons[ID.Paywall.close], for: app.buttons[ID.Library.Home.sample])
   }
 
   func testLockedTextEditingLeadsToThePlans() throws {
     let app = launch(["-skip-onboarding", "-seed-library", "sample", "-text-editing", "locked"])
-    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: Self.settleTimeout))
+    XCTAssertTrue(app.staticTexts[ID.Reader.pageIndicator].waitForExistence(timeout: Self.settleTimeout))
     let explanation = app.alerts["Editing text needs Pro"]
-    tap(app.buttons["reader.edit"], until: explanation)
+    tap(app.buttons[ID.Reader.edit], until: explanation)
     explanation.buttons["See plans"].firstMatch.tap()
-    XCTAssertTrue(app.buttons["paywall.close"].waitForExistence(timeout: Self.settleTimeout))
-    XCTAssertTrue(app.buttons["paywall.close"].isHittable)
+    XCTAssertTrue(app.buttons[ID.Paywall.close].waitForExistence(timeout: Self.settleTimeout))
+    XCTAssertTrue(app.buttons[ID.Paywall.close].isHittable)
   }
 }
