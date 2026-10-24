@@ -253,22 +253,15 @@ struct FileDocumentLibraryTests {
     #expect(await reopened.versions(of: document.id).count == 1)
   }
 
-  @Test("Deleting a document, or finding its file gone, removes its earlier version (FR-LIB-006)")
+  @Test("Deleting a document removes its earlier versions (FR-LIB-006)")
   func earlierVersionsGoWithTheDocument() async throws {
     let harness = try Harness()
-    for removal in ["delete", "reconcile"] {
-      let document = try await harness.library.addDocument(data: pdf, title: removal)
-      let url = try await harness.library.fileURL(for: document.id)
-      let previous = try #require(try await harness.library.previousVersionURL(for: document.id))
-      try FileManager.default.copyItem(at: url, to: previous)
-      if removal == "delete" {
-        try await harness.library.deletePermanently(document.id)
-      } else {
-        try FileManager.default.removeItem(at: url)
-        _ = try await harness.library.reconcileWithFiles()
-      }
-      #expect(!FileManager.default.fileExists(atPath: previous.path), "\(removal)")
-    }
+    let document = try await harness.library.addDocument(data: pdf, title: "Gone")
+    let url = try await harness.library.fileURL(for: document.id)
+    let previous = try #require(try await harness.library.previousVersionURL(for: document.id))
+    try FileManager.default.copyItem(at: url, to: previous)
+    try await harness.library.deletePermanently(document.id)
+    #expect(!FileManager.default.fileExists(atPath: previous.path))
   }
 
   @Test("Changes to one document at the same time never undo each other")
@@ -435,6 +428,21 @@ struct RenamedInFilesTests {
     _ = try await harness.library.reconcileWithFiles()
 
     #expect(harness.versionFiles(of: document.id) == versions, "Earlier versions are kept, not deleted")
+  }
+
+  @Test("Earlier versions of a file gone from the folder still go after 30 days (FR-EDIT-008)")
+  func versionsOfAGoneFileExpire() async throws {
+    let harness = try Harness()
+    let document = try await harness.library.addDocument(data: pdf, title: "Gone")
+    let url = try await harness.library.fileURL(for: document.id)
+    let kept = try #require(try await harness.library.previousVersionURL(for: document.id))
+    try FileManager.default.copyItem(at: url, to: kept)
+    try FileManager.default.removeItem(at: url)
+    _ = try await harness.library.reconcileWithFiles()
+    #expect(harness.versionFiles(of: document.id).count == 1)
+    harness.clock.advance(days: 31)
+    _ = try await harness.library.reconcileWithFiles()
+    #expect(harness.versionFiles(of: document.id).isEmpty)
   }
 
   @Test("A file renamed in the Files app keeps its tags and favourite (stays for spike M4, #6)")

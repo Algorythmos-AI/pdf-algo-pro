@@ -260,6 +260,10 @@ public actor FileDocumentLibrary: DocumentLibrary {
   /// Brings the index in line with the files: PDFs added outside the app (for example in the Files app) are added,
   /// entries whose file is gone are removed.
   ///
+  /// An entry's earlier versions stay when its file is gone, until their 30 days or the quota ends
+  /// them: the file may only have been renamed or moved in the Files app, which the library can't
+  /// yet tell from a deletion (#224; finding such a file is spike M4, #6).
+  ///
   /// Returns the documents added, which still need inspecting and indexing, and the entries removed,
   /// whose derived data must be removed too.
   public func reconcileWithFiles() async throws -> Reconciliation {
@@ -267,10 +271,10 @@ public actor FileDocumentLibrary: DocumentLibrary {
       let entries = try await index.all()
       var removed: [DocumentID] = []
       for document in entries where !fileManager.fileExists(atPath: location(of: document).path) {
-        removePreviousVersion(of: document.id)
         try await index.delete(document.id)
         removed.append(document.id)
       }
+      pruneVersions()
       let known = Set(entries.filter { !$0.isDeleted }.map(\.fileName))
       let files =
         (try? fileManager.contentsOfDirectory(at: documentsFolder, includingPropertiesForKeys: [.creationDateKey]))
