@@ -143,6 +143,19 @@ struct EntitlementResolutionTests {
     #expect(resolve(graced, trial) == .trial(endsAt: later))
     #expect(resolve(trial, subscribed, revoked) == .subscribed)
   }
+
+  @Test("A trial whose end has passed while the App Store says subscribed is a paid period (#229)")
+  func convertedTrial() {
+    let converted = PurchaseRecord(
+      productID: "pro.annual", expirationDate: earlier, offer: .freeTrial, renewalState: .subscribed)
+    #expect(resolve(converted) == .subscribed)
+    #expect(resolve(converted).grantsPro(at: now))
+    let graced = PurchaseRecord(productID: "pro.monthly", renewalState: .inGracePeriod)
+    #expect(resolve(converted, graced).grantsPro(at: now), "An ended trial never outranks a grace period")
+    let running = PurchaseRecord(
+      productID: "pro.annual", expirationDate: later, offer: .freeTrial, renewalState: .subscribed)
+    #expect(resolve(running) == .trial(endsAt: later), "A trial that is still running stays a trial")
+  }
 }
 
 @Suite("StoreKit values map to plain ones")
@@ -238,6 +251,20 @@ struct PurchaseTransactionTests {
     #expect(signals == 2)
     #expect(renewed.finishCount == 1 && forged.finishCount == 0)
   }
+
+  @Test("A purchase the App Store took but StoreKit could not verify is not a failure, and is not finished (#228)")
+  func unverifiedPurchase() async {
+    let bought = FakeTransaction("pro.annual", expirationDate: end)
+    #expect(await PurchaseOutcome(settling: .verified(bought)) == .purchased)
+    #expect(bought.finishCount == 1)
+
+    let unconfirmed = FakeTransaction("pro.annual", expirationDate: end)
+    let outcome = await PurchaseOutcome(settling: .unverified(unconfirmed, .invalidSignature))
+    #expect(
+      outcome != .failed,
+      "A failure tells the person nothing was charged, and the App Store has just reported a purchase")
+    #expect(unconfirmed.finishCount == 0, "It is left for StoreKit to deliver again")
+  }
 }
 
 /// Purchase records held in memory. `changes()` hands out one stream, made up front, so a change
@@ -290,6 +317,27 @@ struct StoreKitEntitlementsTests {
       active: [PurchaseRecord(productID: "other")],
       latest: [PurchaseRecord(productID: "pro.annual", renewalState: .inBillingRetry)])
     #expect(await provider(retrying).currentEntitlement() == .inBillingRetry)
+  }
+
+  @Test("A current entitlement whose renewal state could not be read keeps Pro after its end date (#230)")
+  func currentWithoutState() async {
+    let earlier = now.addingTimeInterval(-day)
+    // As in the billing grace period read offline: StoreKit still lists the purchase, its period's
+    // end has passed, and the renewal state did not come back.
+    let graced = FakeSource(active: [PurchaseRecord(productID: "pro.monthly", expirationDate: earlier)])
+    #expect(await provider(graced).currentEntitlement().grantsPro(at: now))
+    let convertedTrial = FakeSource(active: [
+      PurchaseRecord(productID: "pro.annual", expirationDate: earlier, offer: .freeTrial)
+    ])
+    #expect(await provider(convertedTrial).currentEntitlement().grantsPro(at: now))
+    let running = FakeSource(active: [
+      PurchaseRecord(productID: "pro.annual", expirationDate: later, offer: .freeTrial)
+    ])
+    #expect(await provider(running).currentEntitlement() == .trial(endsAt: later))
+
+    // Once StoreKit no longer lists it, the latest transaction's end date decides.
+    let lapsed = FakeSource(latest: [PurchaseRecord(productID: "pro.monthly", expirationDate: earlier)])
+    #expect(await provider(lapsed).currentEntitlement() == .expired)
   }
 
   @Test("The stream gives the entitlement now, then one after each change, and ends with its source")
