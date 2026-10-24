@@ -1,3 +1,4 @@
+import AccessibilityIDs
 import DesignSystem
 import SwiftUI
 
@@ -20,11 +21,11 @@ struct WelcomeProView: View {
         Text("Start", bundle: .module)
       }
       .buttonStyle(.primary)
-      .accessibilityIdentifier("paywall.start")
+      .accessibilityIdentifier(AccessibilityID.Paywall.start)
       .padding(Spacing.s200)
       .background(.bar)
       .accessibilityElement(children: .contain)
-      .accessibilityIdentifier("paywall.welcome.actionBar")
+      .accessibilityIdentifier(AccessibilityID.Paywall.Welcome.actionBar)
     }
     .background(alignment: .top) { BrandGlow().frame(height: 460).ignoresSafeArea() }
     .background(Color.ds.backgroundPrimary)
@@ -49,7 +50,7 @@ struct WelcomeProView: View {
           .multilineTextAlignment(.center)
           .fixedSize(horizontal: false, vertical: true)
           .accessibilityAddTraits(.isHeader)
-          .accessibilityIdentifier("paywall.welcome")
+          .accessibilityIdentifier(AccessibilityID.Paywall.welcome)
         Text("Everything is ready for your next document.", bundle: .module)
           .font(.body)
           .foregroundStyle(Color.ds.labelSecondary)
@@ -84,11 +85,11 @@ struct WelcomeProView: View {
     VStack(alignment: .leading, spacing: Spacing.s100) {
       Text("Your trial ends on \(endsAt, format: .dateTime.day().month(.wide).year()).", bundle: .module)
         .font(.subheadline)
-        .accessibilityIdentifier("paywall.welcome.trialEnd")
+        .accessibilityIdentifier(AccessibilityID.Paywall.Welcome.trialEnd)
       Toggle(isOn: $model.wantsReminder) {
         Text("Remind me the day before", bundle: .module)
       }
-      .accessibilityIdentifier("paywall.welcome.reminder")
+      .accessibilityIdentifier(AccessibilityID.Paywall.Welcome.reminder)
       .onChange(of: model.wantsReminder) { Task { await model.reminderChanged() } }
       Text("You can cancel at any time in Settings, under Subscription.", bundle: .module)
         .font(.footnote)
@@ -118,7 +119,7 @@ struct BenefitTiles: View {
         .frame(maxWidth: .infinity)
         .padding(.horizontal, Spacing.s050)
         .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("paywall.benefit.\(benefit.rawValue)")
+        .accessibilityIdentifier(AccessibilityID.Paywall.benefit(benefit.rawValue))
         if benefit != benefits.last {
           Divider()
         }

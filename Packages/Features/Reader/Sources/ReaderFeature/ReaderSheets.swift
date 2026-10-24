@@ -1,3 +1,4 @@
+import AccessibilityIDs
 import DesignSystem
 import PDFEngine
 import SwiftUI
@@ -74,7 +75,7 @@ struct PageGridSheet: View {
               } label: {
                 isSelecting ? Text("Cancel", bundle: .module) : Text("Select", bundle: .module)
               }
-              .accessibilityIdentifier("pages.select")
+              .accessibilityIdentifier(AccessibilityID.Pages.select)
             }
           }
           if isSelecting {
@@ -155,7 +156,7 @@ struct PageGridSheet: View {
       }
     }
     .disabled(none)
-    .accessibilityIdentifier("pages.more")
+    .accessibilityIdentifier(AccessibilityID.Pages.more)
   }
 
   private func move(earlier: Bool) {

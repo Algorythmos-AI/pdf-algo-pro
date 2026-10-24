@@ -1,3 +1,4 @@
+import AccessibilityIDs
 import Core
 import DesignSystem
 import PDFEngine
@@ -30,21 +31,24 @@ struct ReaderToolbar: ToolbarContent {
       if model.isDrawing {
         // Undo is beside the work, not two menus away: a line or a shape that went wrong is taken
         // back with one tap (a tester's report, 2026-10-06).
-        UndoRedoButtons(model: model, prefix: "reader.drawing")
+        UndoRedoButtons(
+          model: model, undoID: AccessibilityID.Reader.Drawing.undo, redoID: AccessibilityID.Reader.Drawing.redo)
         Button {
           model.setDrawing(false)
         } label: {
           Text("Done", bundle: .module).bold()
         }
-        .accessibilityIdentifier("reader.doneDrawing")
+        .accessibilityIdentifier(AccessibilityID.Reader.doneDrawing)
       } else if model.markupTool != nil {
-        UndoRedoButtons(model: model, prefix: "reader.markupTool")
+        UndoRedoButtons(
+          model: model, undoID: AccessibilityID.Reader.MarkupTool.undo,
+          redoID: AccessibilityID.Reader.MarkupTool.redo)
         Button {
           model.stopMarkupTool()
         } label: {
           Text("Done", bundle: .module).bold()
         }
-        .accessibilityIdentifier("reader.doneMarkup")
+        .accessibilityIdentifier(AccessibilityID.Reader.doneMarkup)
       } else if model.isEditingText {
         // While text is being typed, Undo belongs to the typing, so these wait.
         Button {
@@ -58,7 +62,7 @@ struct ReaderToolbar: ToolbarContent {
         }
         .disabled(!model.canUndo || model.selectedTextRegion != nil)
         .keyboardShortcut("z")
-        .accessibilityIdentifier("reader.textEdit.undo")
+        .accessibilityIdentifier(AccessibilityID.Reader.TextEdit.undo)
         Button {
           Task { await model.redo() }
         } label: {
@@ -70,14 +74,14 @@ struct ReaderToolbar: ToolbarContent {
         }
         .disabled(!model.canRedo || model.selectedTextRegion != nil)
         .keyboardShortcut("z", modifiers: [.command, .shift])
-        .accessibilityIdentifier("reader.textEdit.redo")
+        .accessibilityIdentifier(AccessibilityID.Reader.TextEdit.redo)
         Button {
           Task { await model.endTextEditing() }
         } label: {
           Text("Done", bundle: .module).bold()
         }
         .disabled(model.selectedTextRegion != nil)
-        .accessibilityIdentifier("reader.doneEditingText")
+        .accessibilityIdentifier(AccessibilityID.Reader.doneEditingText)
       } else if model.phase == .ready {
         if model.showsIntelligence {
           Menu {
@@ -124,7 +128,7 @@ struct ReaderToolbar: ToolbarContent {
               Image(systemName: "sparkles")
             }
           }
-          .accessibilityIdentifier("reader.ask")
+          .accessibilityIdentifier(AccessibilityID.Reader.ask)
         }
         Menu {
           ForEach(TextMarkup.allCases, id: \.self) { markup in
@@ -223,7 +227,7 @@ struct ReaderToolbar: ToolbarContent {
                 Image(systemName: "doc.on.clipboard")
               }
             }
-            .accessibilityIdentifier("reader.markup.paste")
+            .accessibilityIdentifier(AccessibilityID.Reader.Markup.paste)
           }
           Button {
             Task { await model.undo() }
@@ -252,7 +256,7 @@ struct ReaderToolbar: ToolbarContent {
             Image(systemName: "highlighter")
           }
         }
-        .accessibilityIdentifier("reader.markup")
+        .accessibilityIdentifier(AccessibilityID.Reader.markup)
         Menu {
           // Find, Share and Print share one row of icons, so the whole menu fits without scrolling:
           // a menu scrolls silently after about eleven rows and hid Version history at the bottom.
@@ -331,7 +335,7 @@ struct ReaderToolbar: ToolbarContent {
               Image(systemName: model.isCurrentPageBookmarked ? "bookmark.slash" : "bookmark")
             }
           }
-          .accessibilityIdentifier("reader.bookmark")
+          .accessibilityIdentifier(AccessibilityID.Reader.bookmark)
           Button {
             model.showsAnnotations = true
           } label: {
@@ -341,7 +345,7 @@ struct ReaderToolbar: ToolbarContent {
               Image(systemName: "list.bullet.rectangle")
             }
           }
-          .accessibilityIdentifier("reader.annotations")
+          .accessibilityIdentifier(AccessibilityID.Reader.annotations)
           Divider()
           // The export and protection tools sit one level down, so the menu fits on the screen.
           Menu {
@@ -442,7 +446,7 @@ struct ReaderToolbar: ToolbarContent {
                 Image(systemName: "clock.arrow.circlepath")
               }
             }
-            .accessibilityIdentifier("reader.versions")
+            .accessibilityIdentifier(AccessibilityID.Reader.versions)
           }
         } label: {
           Label {
@@ -451,7 +455,7 @@ struct ReaderToolbar: ToolbarContent {
             Image(systemName: "ellipsis.circle")
           }
         }
-        .accessibilityIdentifier("reader.more")
+        .accessibilityIdentifier(AccessibilityID.Reader.more)
       }
     }
   }
@@ -531,7 +535,7 @@ struct EditTextButton: View {
     .buttonStyle(.primaryBar)
     .keyboardShortcut("e")
     .accessibilityHint(Text("Changes the text in this PDF", bundle: .module))
-    .accessibilityIdentifier("reader.edit")
+    .accessibilityIdentifier(AccessibilityID.Reader.edit)
   }
 }
 
@@ -551,8 +555,10 @@ private struct EditLabelStyle: ViewModifier {
 /// Undo and Redo for the bar, while a tool is in hand.
 struct UndoRedoButtons: View {
   let model: ReaderModel
-  /// The start of the buttons' identifiers, so each mode's pair can be told apart in tests.
-  let prefix: String
+  /// The buttons' identifiers, one pair for each mode, so each pair can be told apart in tests.
+  let undoID: String
+  /// See `undoID`.
+  let redoID: String
 
   var body: some View {
     Button {
@@ -566,7 +572,7 @@ struct UndoRedoButtons: View {
     }
     .disabled(!model.canUndo)
     .keyboardShortcut("z")
-    .accessibilityIdentifier("\(prefix).undo")
+    .accessibilityIdentifier(undoID)
     Button {
       Task { await model.redo() }
     } label: {
@@ -578,7 +584,7 @@ struct UndoRedoButtons: View {
     }
     .disabled(!model.canRedo)
     .keyboardShortcut("z", modifiers: [.command, .shift])
-    .accessibilityIdentifier("\(prefix).redo")
+    .accessibilityIdentifier(redoID)
   }
 }
 

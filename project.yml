@@ -85,6 +85,8 @@ targets:
       - path: App/PDFAlgoPro
     dependencies:
       - package: Core
+      - package: Core
+        product: AccessibilityIDs
       - package: DocumentStore
       - package: PDFEngine
       - package: OCR
@@ -205,6 +207,9 @@ targets:
       - path: App/UITests
     dependencies:
       - target: PDFAlgoPro
+      # The identifiers the app sets, so a test finds a control by the same constant (docs/testing-strategy.md).
+      - package: Core
+        product: AccessibilityIDs
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES

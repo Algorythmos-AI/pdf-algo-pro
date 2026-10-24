@@ -1,3 +1,4 @@
+import AccessibilityIDs
 import Core
 import DesignSystem
 import PhotosUI
@@ -104,32 +105,32 @@ public struct ScanView: View {
           Text("Scan with camera", bundle: .module)
         }
         .buttonStyle(.primary)
-        .accessibilityIdentifier("scan.camera")
+        .accessibilityIdentifier(AccessibilityID.Scan.camera)
       } else {
         Text("This device has no document camera. You can make a PDF from photos of pages instead.", bundle: .module)
           .font(.footnote)
           .multilineTextAlignment(.center)
           .foregroundStyle(Color.ds.labelSecondary)
-          .accessibilityIdentifier("scan.noCamera")
+          .accessibilityIdentifier(AccessibilityID.Scan.noCamera)
       }
       Button {
         isChoosingPhotos = true
       } label: {
         Text("Choose from Photos", bundle: .module).minimumTarget()
       }
-      .accessibilityIdentifier("scan.photos")
+      .accessibilityIdentifier(AccessibilityID.Scan.photos)
       Button {
         isChoosingImages = true
       } label: {
         Text("Choose from Files", bundle: .module).minimumTarget()
       }
-      .accessibilityIdentifier("scan.images")
+      .accessibilityIdentifier(AccessibilityID.Scan.images)
       if let notice = model.notice {
         Text(notice)
           .font(.footnote)
           .multilineTextAlignment(.center)
           .foregroundStyle(Color.ds.labelSecondary)
-          .accessibilityIdentifier("scan.notice")
+          .accessibilityIdentifier(AccessibilityID.Scan.notice)
       }
     }
     .readableWidth()
@@ -144,7 +145,7 @@ public struct ScanView: View {
           .textFieldStyle(.roundedBorder)
           .font(.headline)
           .accessibilityLabel(Text("Name", bundle: .module))
-          .accessibilityIdentifier("scan.title")
+          .accessibilityIdentifier(AccessibilityID.Scan.title)
         Text("Tap a page to rotate, move or delete it.", bundle: .module)
           .font(.footnote).foregroundStyle(Color.ds.labelSecondary)
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: Spacing.s200)], spacing: Spacing.s200) {
@@ -207,7 +208,7 @@ public struct ScanView: View {
           Text("Save", bundle: .module).frame(maxWidth: .infinity)
         }
         .buttonStyle(.primary)
-        .accessibilityIdentifier("scan.save")
+        .accessibilityIdentifier(AccessibilityID.Scan.save)
         Button {
           model.discardReview()
         } label: {

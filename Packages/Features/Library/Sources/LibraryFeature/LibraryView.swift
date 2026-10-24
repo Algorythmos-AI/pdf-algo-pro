@@ -1,3 +1,4 @@
+import AccessibilityIDs
 import Core
 import DesignSystem
 import PDFEngine
@@ -167,7 +168,7 @@ public struct LibraryView<Detail: View>: View {
             Image(systemName: "gearshape")
           }
         }
-        .accessibilityIdentifier("library.sidebar.settings")
+        .accessibilityIdentifier(AccessibilityID.Library.Sidebar.settings)
       }
     }
   }
@@ -193,7 +194,7 @@ public struct LibraryView<Detail: View>: View {
             .tag(section)
             .accessibilityElement(children: .combine)
             .accessibilityValue(sectionCount(section))
-            .accessibilityIdentifier("library.section.\(Self.identifier(for: section))")
+            .accessibilityIdentifier(AccessibilityID.Library.section(Self.identifier(for: section)))
         }
       }
       if !model.tags.isEmpty {
@@ -313,7 +314,7 @@ public struct LibraryView<Detail: View>: View {
     .buttonStyle(DimmingButtonStyle())
     .accessibilityElement(children: .combine)
     .accessibilityValue(sectionCount(section))
-    .accessibilityIdentifier("library.section.\(Self.identifier(for: section))")
+    .accessibilityIdentifier(AccessibilityID.Library.section(Self.identifier(for: section)))
   }
 
   /// A tag's row on Home.
@@ -334,7 +335,7 @@ public struct LibraryView<Detail: View>: View {
       .homeRow()
     }
     .buttonStyle(DimmingButtonStyle())
-    .accessibilityIdentifier("library.section.\(Self.identifier(for: .tag(tag)))")
+    .accessibilityIdentifier(AccessibilityID.Library.section(Self.identifier(for: .tag(tag))))
   }
 
   /// The app's mark beside what the library holds.
@@ -376,15 +377,17 @@ public struct LibraryView<Detail: View>: View {
           startAtAllDocuments()
           pick(task: task)
         }
-        .accessibilityIdentifier("library.home.primary.assistant")
+        .accessibilityIdentifier(AccessibilityID.Library.Home.Primary.assistant)
       }
       if primary == .scanDocument {
-        homeScan(.filled).accessibilityIdentifier("library.home.primary.scan")
-        homeImport(.tonal).accessibilityIdentifier("library.home.import")
+        homeScan(.filled).accessibilityIdentifier(AccessibilityID.Library.Home.Primary.scan)
+        homeImport(.tonal).accessibilityIdentifier(AccessibilityID.Library.Home.import)
       } else {
         homeImport(primary == .importDocument ? .filled : .tonal)
-          .accessibilityIdentifier(primary == .importDocument ? "library.home.primary.import" : "library.home.import")
-        homeScan(.tonal).accessibilityIdentifier("library.home.scan")
+          .accessibilityIdentifier(
+            primary == .importDocument
+              ? AccessibilityID.Library.Home.Primary.import : AccessibilityID.Library.Home.import)
+        homeScan(.tonal).accessibilityIdentifier(AccessibilityID.Library.Home.scan)
       }
     }
     .fixedSize(horizontal: false, vertical: true)
@@ -423,7 +426,7 @@ public struct LibraryView<Detail: View>: View {
           .minimumTarget()
       }
       .buttonStyle(DimmingButtonStyle())
-      .accessibilityIdentifier("library.home.sample")
+      .accessibilityIdentifier(AccessibilityID.Library.Home.sample)
     }
   }
 
@@ -441,7 +444,7 @@ public struct LibraryView<Detail: View>: View {
       .homeRow()
     }
     .buttonStyle(DimmingButtonStyle())
-    .accessibilityIdentifier("library.home.recent.\(document.title)")
+    .accessibilityIdentifier(AccessibilityID.Library.Home.recent(document.title))
   }
 
   /// What the app promises about documents, and who makes it.
@@ -511,7 +514,7 @@ public struct LibraryView<Detail: View>: View {
           } label: {
             isSelecting ? Text("Done", bundle: .module) : Text("Select", bundle: .module)
           }
-          .accessibilityIdentifier("library.select")
+          .accessibilityIdentifier(AccessibilityID.Library.select)
         }
       }
       if sizeClass == .compact {
@@ -524,7 +527,7 @@ public struct LibraryView<Detail: View>: View {
               Image(systemName: "gearshape")
             }
           }
-          .accessibilityIdentifier("library.settings")
+          .accessibilityIdentifier(AccessibilityID.Library.settings)
         }
       }
       ToolbarItemGroup(placement: .primaryAction) {
@@ -550,7 +553,7 @@ public struct LibraryView<Detail: View>: View {
             Image(systemName: "doc.viewfinder")
           }
         }
-        .accessibilityIdentifier("library.scan")
+        .accessibilityIdentifier(AccessibilityID.Library.scan)
         // A tap chooses files, as before; holding it also offers a PDF from photos (FR-ORG-008).
         Menu {
           Button {
@@ -580,7 +583,7 @@ public struct LibraryView<Detail: View>: View {
         } primaryAction: {
           pick(task: nil)
         }
-        .accessibilityIdentifier("library.import")
+        .accessibilityIdentifier(AccessibilityID.Library.import)
       }
     }
     .overlay(alignment: .bottom) {
@@ -639,7 +642,7 @@ public struct LibraryView<Detail: View>: View {
       }
     }
     .disabled(ids.count < 2)
-    .accessibilityIdentifier("library.merge")
+    .accessibilityIdentifier(AccessibilityID.Library.merge)
     Button(role: .destructive) {
       Task {
         await model.delete(ids)
@@ -665,7 +668,7 @@ public struct LibraryView<Detail: View>: View {
       } label: {
         Text("Undo", bundle: .module).bold()
       }
-      .accessibilityIdentifier("library.undoDelete")
+      .accessibilityIdentifier(AccessibilityID.Library.undoDelete)
     }
     .padding(.horizontal, Spacing.s200)
     .padding(.vertical, Spacing.s150)
@@ -691,7 +694,7 @@ public struct LibraryView<Detail: View>: View {
     }
     .environment(\.editMode, .constant(isSelecting ? .active : .inactive))
     .listStyle(.plain)
-    .accessibilityIdentifier("library.list")
+    .accessibilityIdentifier(AccessibilityID.Library.list)
   }
 
   private func searchResults(_ results: [SearchHit]) -> some View {
@@ -700,7 +703,7 @@ public struct LibraryView<Detail: View>: View {
         EmptyState(Text("Search isn't available right now", bundle: .module), systemImage: "magnifyingglass") {
           Text("Your documents are safe. Try again in a moment.", bundle: .module)
         }
-        .accessibilityIdentifier("library.search.unavailable")
+        .accessibilityIdentifier(AccessibilityID.Library.Search.unavailable)
       } else if results.isEmpty {
         ContentUnavailableView.search(text: model.query)
       } else {
@@ -722,7 +725,7 @@ public struct LibraryView<Detail: View>: View {
       DocumentRow(document: document, snippet: snippet, thumbnail: { await model.thumbnail(for: document) })
     }
     .buttonStyle(.plain)
-    .accessibilityIdentifier("library.document.\(document.title)")
+    .accessibilityIdentifier(AccessibilityID.Library.document(document.title))
     .modifier(DragsOut(document: model.offersDragging && !document.isDeleted ? model.dragged(document) : nil))
     // A full swipe moves a document to Recently Deleted; deleting for good always asks first.
     .swipeActions(edge: .trailing, allowsFullSwipe: !document.isDeleted) {
@@ -861,13 +864,13 @@ public struct LibraryView<Detail: View>: View {
         if model.primaryAction == .scanDocument {
           Button(action: onScan) { Text("Scan a document", bundle: .module).minimumTarget() }
             .buttonStyle(.primary)
-            .accessibilityIdentifier("library.empty.primary.scan")
+            .accessibilityIdentifier(AccessibilityID.Library.Empty.Primary.scan)
           Button {
             pick(task: model.primaryTask)
           } label: {
             Text("Import a PDF", bundle: .module).minimumTarget()
           }
-          .accessibilityIdentifier("library.empty.import")
+          .accessibilityIdentifier(AccessibilityID.Library.Empty.import)
         } else {
           Button {
             pick(task: model.primaryTask)
@@ -875,7 +878,7 @@ public struct LibraryView<Detail: View>: View {
             Text("Import a PDF", bundle: .module)
           }
           .buttonStyle(.primary)
-          .accessibilityIdentifier("library.empty.primary.import")
+          .accessibilityIdentifier(AccessibilityID.Library.Empty.Primary.import)
           Button(action: onScan) { Text("Scan a document", bundle: .module).minimumTarget() }
         }
         Button {
@@ -883,7 +886,7 @@ public struct LibraryView<Detail: View>: View {
         } label: {
           Text("Try a sample", bundle: .module).minimumTarget()
         }
-        .accessibilityIdentifier("library.empty.sample")
+        .accessibilityIdentifier(AccessibilityID.Library.Empty.sample)
       }
     }
   }
@@ -919,7 +922,7 @@ public struct LibraryView<Detail: View>: View {
       }
     }
     .cardStyle()
-    .accessibilityIdentifier("library.primaryAction")
+    .accessibilityIdentifier(AccessibilityID.Library.primaryAction)
   }
 
   // MARK: - Copy

@@ -1,3 +1,4 @@
+import AccessibilityIDs
 import Core
 import DesignSystem
 import SwiftUI
@@ -56,7 +57,7 @@ struct SignatureSheet: View {
               Text("Save and place", bundle: .module).readableWhenDisabled()
             }
             .disabled(strokes.isEmpty)
-            .accessibilityIdentifier("signature.savePlace")
+            .accessibilityIdentifier(AccessibilityID.Signature.savePlace)
           }
           .buttonStyle(.borderless)
         } header: {
@@ -66,14 +67,14 @@ struct SignatureSheet: View {
           TextField(text: $typedName) { Text("Your name", bundle: .module) }
             .textContentType(.name)
             .submitLabel(.done)
-            .accessibilityIdentifier("signature.typedName")
+            .accessibilityIdentifier(AccessibilityID.Signature.typedName)
           Button {
             place { await model.placeTyped(typedName) }
           } label: {
             Text("Place typed signature", bundle: .module).readableWhenDisabled()
           }
           .disabled(typedName.trimmingCharacters(in: .whitespaces).isEmpty)
-          .accessibilityIdentifier("signature.placeTyped")
+          .accessibilityIdentifier(AccessibilityID.Signature.placeTyped)
         } header: {
           Text("Or type your name", bundle: .module).foregroundStyle(Color.ds.labelSecondary)
         }
@@ -132,7 +133,7 @@ struct SignaturePad: View {
       Text("Draw your signature with a finger or Apple Pencil, or type your name below", bundle: .module)
     )
     .accessibilityAddTraits(.allowsDirectInteraction)
-    .accessibilityIdentifier("signature.pad")
+    .accessibilityIdentifier(AccessibilityID.Signature.pad)
   }
 }
 

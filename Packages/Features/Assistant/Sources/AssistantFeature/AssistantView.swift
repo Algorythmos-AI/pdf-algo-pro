@@ -1,3 +1,4 @@
+import AccessibilityIDs
 import Core
 import DesignSystem
 import SwiftUI
@@ -84,7 +85,7 @@ public struct AssistantView: View {
       Text("Task", bundle: .module)
     }
     .pickerStyle(.segmented)
-    .accessibilityIdentifier("assistant.task")
+    .accessibilityIdentifier(AccessibilityID.Assistant.task)
   }
 
   private var questionField: some View {
@@ -111,7 +112,7 @@ public struct AssistantView: View {
         if sends { ask() }
       }
       .onSubmit { ask() }
-      .accessibilityIdentifier("assistant.question")
+      .accessibilityIdentifier(AccessibilityID.Assistant.question)
       Button {
         ask()
       } label: {
@@ -159,15 +160,15 @@ public struct AssistantView: View {
             Text("See plans", bundle: .module)
           }
           .buttonStyle(.primary)
-          .accessibilityIdentifier("assistant.seePlans")
+          .accessibilityIdentifier(AccessibilityID.Assistant.seePlans)
         }
       }
-      .accessibilityIdentifier("assistant.allowanceUsed")
+      .accessibilityIdentifier(AccessibilityID.Assistant.allowanceUsed)
     case .unavailable(let reason):
       EmptyState(Text("Document intelligence isn't available", bundle: .module), systemImage: "sparkles") {
         Self.explanation(for: reason)
       }
-      .accessibilityIdentifier("assistant.unavailable")
+      .accessibilityIdentifier(AccessibilityID.Assistant.unavailable)
     case .noText:
       EmptyState(Text("No text to read yet", bundle: .module), systemImage: "text.viewfinder") {
         Text(
@@ -209,7 +210,7 @@ public struct AssistantView: View {
     .padding(Spacing.s150)
     .frame(maxWidth: .infinity, alignment: .leading)
     .background(Color.ds.backgroundGroupedElevated.opacity(0.6), in: RoundedRectangle(cornerRadius: 12))
-    .accessibilityIdentifier("assistant.earlier")
+    .accessibilityIdentifier(AccessibilityID.Assistant.earlier)
   }
 
   private func answerCard(_ answer: Answer) -> some View {
@@ -222,7 +223,7 @@ public struct AssistantView: View {
         // Plain text, not selectable: selection made the one-line answer an interactive element
         // below the 44-point target. Copy (below) copies the whole answer.
         Text(answer.text).font(.body).fixedSize(horizontal: false, vertical: true)
-          .accessibilityIdentifier("assistant.answer")
+          .accessibilityIdentifier(AccessibilityID.Assistant.answer)
         ScrollView(.horizontal, showsIndicators: false) {
           HStack(spacing: Spacing.s100) {
             ForEach(answer.citations) { citation in
@@ -250,7 +251,7 @@ public struct AssistantView: View {
           }
           .font(.footnote)
           .foregroundStyle(Color.ds.labelSecondary)
-          .accessibilityIdentifier("assistant.omitted")
+          .accessibilityIdentifier(AccessibilityID.Assistant.omitted)
         }
         GeneratedFootnote()
       } else {
@@ -260,7 +261,7 @@ public struct AssistantView: View {
           Image(systemName: "questionmark.circle")
         }
         .font(.headline)
-        .accessibilityIdentifier("assistant.notFound")
+        .accessibilityIdentifier(AccessibilityID.Assistant.notFound)
         Text("The answer isn't in the text of this document, so nothing was guessed.", bundle: .module)
           .font(.callout).foregroundStyle(Color.ds.labelSecondary)
       }
@@ -327,7 +328,7 @@ public struct AssistantView: View {
         }
       }
       .simultaneousGesture(TapGesture().onEnded { Task { await model.recordKept() } })
-      .accessibilityIdentifier("assistant.shareCSV")
+      .accessibilityIdentifier(AccessibilityID.Assistant.shareCSV)
       GeneratedFootnote()
     }
     .cardStyle()

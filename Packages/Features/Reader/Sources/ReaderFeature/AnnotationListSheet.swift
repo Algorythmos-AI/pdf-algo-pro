@@ -1,3 +1,4 @@
+import AccessibilityIDs
 import DesignSystem
 import PDFEngine
 import SwiftUI
@@ -40,7 +41,7 @@ struct AnnotationListSheet: View {
               }
             }
           }
-          .accessibilityIdentifier("reader.annotations.list")
+          .accessibilityIdentifier(AccessibilityID.Reader.Annotations.list)
         }
       }
       .navigationTitle(Text("Annotations", bundle: .module))
@@ -61,7 +62,7 @@ struct AnnotationListSheet: View {
                 Image(systemName: "square.and.arrow.up")
               }
             }
-            .accessibilityIdentifier("reader.annotations.share")
+            .accessibilityIdentifier(AccessibilityID.Reader.Annotations.share)
           }
         }
       }

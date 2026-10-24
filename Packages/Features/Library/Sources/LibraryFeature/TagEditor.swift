@@ -1,3 +1,4 @@
+import AccessibilityIDs
 import Core
 import DesignSystem
 import SwiftUI
@@ -65,7 +66,7 @@ struct TagEditor: View {
             TextField(text: $editing.draft) { Text("Add a tag", bundle: .module) }
               .submitLabel(.done)
               .onSubmit { editing.addDraft() }
-              .accessibilityIdentifier("tags.new")
+              .accessibilityIdentifier(AccessibilityID.Tags.new)
             Button {
               editing.addDraft()
             } label: {
@@ -121,7 +122,7 @@ struct TagEditor: View {
           } label: {
             Text("Done", bundle: .module)
           }
-          .accessibilityIdentifier("tags.done")
+          .accessibilityIdentifier(AccessibilityID.Tags.done)
         }
       }
     }
