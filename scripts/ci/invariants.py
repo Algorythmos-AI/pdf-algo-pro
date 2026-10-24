@@ -169,6 +169,18 @@ def print_outside_debug(text: str) -> list[int]:
     return bad
 
 
+IDENTIFIER_LITERAL = re.compile(r'accessibilityIdentifier\([^)\n]*"|accessibilityIdentifier\s*=\s*"')
+
+
+def identifier_literals(text: str) -> list[int]:
+    """Lines that give a control an identifier as a string literal rather than an `AccessibilityID` constant.
+
+    The app and its UI tests share one list of identifiers (design/accessibility-ids.json), so a renamed
+    control cannot leave a test looking for the old name (docs/testing-strategy.md).
+    """
+    return [no for no, line in enumerate(text.splitlines(), 1) if IDENTIFIER_LITERAL.search(line)]
+
+
 INTERNAL_ONLY = ("InternalFirstRunReplay", "isReplayingFirstRun", "resetFirstRunReplay", "firstRunReplay(")
 INTERNAL_CONFIGS = {"Debug", "Staging"}
 
@@ -241,6 +253,11 @@ def main() -> int:
                     errors.append(f"{rel}: `as!` is not allowed; use a conditional cast")
                 for no in print_outside_debug(text):
                     errors.append(f"{rel}:{no}: `print(` outside `#if DEBUG`; use Logger")
+                if "/Generated/" not in rel:
+                    for no in identifier_literals(text):
+                        errors.append(
+                            f"{rel}:{no}: an accessibility identifier is a string literal; add it to "
+                            "design/accessibility-ids.json and use its AccessibilityID constant")
                 for no in outside_internal_tools(text):
                     errors.append(
                         f"{rel}:{no}: the Staging first-run replay is named outside `#if INTERNAL_TOOLS`; "

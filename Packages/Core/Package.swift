@@ -13,8 +13,16 @@ let package = Package(
   products: [
     .library(name: "Core", targets: ["Core"]),
     .library(name: "CoreTestSupport", targets: ["CoreTestSupport"]),
+    // The identifiers the app sets on its controls and the UI tests find them by: one list for both,
+    // generated from design/accessibility-ids.json (docs/testing-strategy.md).
+    .library(name: "AccessibilityIDs", targets: ["AccessibilityIDs"]),
   ],
   targets: [
+    .target(
+      name: "AccessibilityIDs",
+      dependencies: [],
+      swiftSettings: settings
+    ),
     .target(
       name: "Core",
       dependencies: [],

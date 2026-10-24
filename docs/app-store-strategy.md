@@ -15,14 +15,14 @@ Owner: Product · Reviewed: before each App Store submission, and each milestone
 |---|---|
 | Name and subtitle | "PDF Algo Pro: Scan, Sign, Edit" (30 characters) with "Ask PDFs, get cited answers" (27 characters); French equivalents below; limits from [App information](https://developer.apple.com/help/app-store-connect/reference/app-information) |
 | Categories | Productivity (primary), Business (secondary) |
-| Screenshots | 10 frames per locale; iPhone 6.9-inch and iPad 13-inch sets ([screenshot specifications](https://developer.apple.com/help/app-store-connect/reference/screenshot-specifications)); AI-with-citations first |
+| Screenshots | 10 frames per locale; the iPhone 6.9-inch set only, because 1.0 is iPhone-only (PAP-067) ([screenshot specifications](https://developer.apple.com/help/app-store-connect/reference/screenshot-specifications)); AI-with-citations first |
 | App previews | Up to three per device size, 15–30 seconds, captured on device, captions burned in |
 | Custom product pages | Four at launch, one per intent: AI, Scan, Sign, Edit |
 | Experiments | One product page optimisation test at a time, decided at 90% confidence |
 | Ratings | `requestReview` only after success moments; never in onboarding or after an error |
 | Privacy label | "Data Not Collected" for V1 and V1.1 (PAP-017); the label changes before any telemetry or cloud relay ships (V2) |
 | Release | Internal TestFlight → external TestFlight → App Store with a seven-day phased release |
-| Languages | English and French at launch |
+| Languages | English and French at launch; English (U.S.) is the primary language (PAP-067) |
 
 ## Positioning summary
 
@@ -105,11 +105,14 @@ Search source in App Analytics.
 
 | Localisation | Keyword field | Characters |
 |---|---|---|
-| English (U.S.) | `reader,editor,scanner,signature,annotate,highlight,ocr,merge,convert,summarize,chat,contract,extract` | 100 |
-| English (Australia) | `reader,editor,scanner,signature,annotate,highlight,ocr,merge,convert,summarise,chat,contract,extract` | 100 |
-| English (U.K.), complementary | `document,notes,invoice,receipt,combine,organise,rotate,xlsx,pptx,docx,markup,form,fill,page` | 91 |
-| French (France) | `lecteur,éditeur,numériser,signature,surligner,ocr,fusionner,convertir,résumer,contrat,extraire` | 94 |
-| French (Canada), complementary | `document,formulaire,remplir,facture,reçu,notes,organiser,combiner,annoter,docx,xlsx,pptx` | 88 |
+| English (U.S.) | `reader,editor,scanner,signature,annotate,highlight,ocr,merge,summarize,chat,contract,extract` | 92 |
+| English (Australia) | `reader,editor,scanner,signature,annotate,highlight,ocr,merge,summarise,chat,contract,extract` | 92 |
+| English (U.K.), complementary | `document,notes,invoice,receipt,combine,organise,rotate,markup,form,fill,page` | 76 |
+| French (France) | `lecteur,éditeur,numériser,signature,surligner,ocr,fusionner,résumer,contrat,extraire` | 84 |
+| French (Canada), complementary | `document,formulaire,remplir,facture,reçu,notes,organiser,combiner,annoter` | 73 |
+
+For 1.0, "convert", "convertir" and the Office file extensions are left out, because conversion is
+not in the build (PAP-065); they return with the release that ships it.
 
 Rules applied:
 
@@ -128,8 +131,9 @@ Rules applied:
 - The description's first sentence is the only one most people read (same source). Draft:
   "Ask a PDF a question and get an answer that shows the page it came from." It is followed by a
   short feature list and a plain note that on-device intelligence works on supported devices with
-  Apple Intelligence turned on (with a link to Apple's device list), and that cloud options are
-  optional and named.
+  Apple Intelligence turned on (with a link to Apple's device list). For 1.0 the description says
+  nothing about iCloud or cloud options, because neither the iCloud library nor a cloud tier is in
+  the build (PAP-065); everything it describes runs on the device.
 - No prices in the description (same source), no superlatives that cannot be proven ("best",
   "fastest"), and "Built by Algorythmos" at the end.
 
@@ -158,7 +162,7 @@ one to ten screenshots per localisation, in JPEG or PNG, with no transparency.
 |---|---|---|---|
 | iPhone 6.9-inch | 1320 × 2868, 1290 × 2796 or 1260 × 2736 | Required if the app runs on iPhone and 6.5-inch screenshots are not provided | **Provide at 1320 × 2868**; smaller iPhones use scaled versions |
 | iPhone 6.5-inch | 1284 × 2778 or 1242 × 2688 | Required if 6.9-inch screenshots are not provided | Not provided |
-| iPad 13-inch | 2064 × 2752 or 2048 × 2732 | Required if the app runs on iPad | **Provide at 2064 × 2752** if the first release runs on iPad (open question) |
+| iPad 13-inch | 2064 × 2752 or 2048 × 2732 | Required if the app runs on iPad | Not in 1.0 (PAP-067): the app is iPhone-only until V2 |
 
 The first one to three screenshots appear in search results when there is no app preview, and Apple
 suggests at least one Dark Mode screenshot ([Product page](https://developer.apple.com/app-store/product-page/)).
@@ -175,12 +179,12 @@ results).
 | 1 | A question and an answer with "p. 4" citation chips | Ask a PDF. See the page it came from. | Posez une question. Voyez la page source. | Citation requirement in [AI governance](ai-governance.md) |
 | 2 | Scanning a receipt, then its searchable text | Scan paper to searchable PDF. | Numérisez en PDF consultable. | OCR on device ([ADR-0008](adr/0008-ocr-and-scanning.md)) |
 | 3 | A summary with the "On device" tier badge | On-device summaries on supported iPhones. | Résumés sur l'appareil, iPhone compatibles. | Tiered AI and consent ([ADR-0009](adr/0009-tiered-ai-and-consent.md)); shot on a device that supports Apple Intelligence; the description links Apple's device list |
-| 4 | Editing a typo in existing PDF text | Fix text in the PDF itself. | Corrigez le texte du PDF. | PDF engine capability ([ADR-0007](adr/0007-pdf-sdk-boundary-and-vendor-selection.md)) |
+| 4 | Editing a typo in existing PDF text | Fix text in the PDF itself. | Corrigez le texte du PDF. | Native text editing ([ADR-0025](adr/0025-native-text-editing-for-the-safe-subset.md)); in 1.0 only if text editing ships (PAP-066), otherwise the frame is left out and the set has nine |
 | 5 | Filling a form and placing a signature | Fill in forms and sign. | Remplissez et signez. | Signing and forms in the [PRD](prd.md) |
 | 6 | Invoice totals extracted into a table | Pull totals and dates into a table. | Extrayez montants et dates. | Structured extraction |
 | 7 | Contract clauses explained, with the disclosure visible | Understand key clauses. Not legal advice. | Comprenez les clauses. Pas un conseil juridique. | Disclosure in the [design system](design-system.md) |
 | 8 | Highlights and notes on a report | Highlight, annotate, mark up. | Surlignez, annotez, commentez. | Annotation tools |
-| 9 | Merging and reordering pages; export formats | Merge, reorder and convert. | Fusionnez, réorganisez, convertissez. | Organise and convert |
+| 9 | Merging and reordering pages | Merge and reorder pages. | Fusionnez et réorganisez. | Organise pages (FR-ORG-001); conversion is not in 1.0 (PAP-065) |
 | 10 | Home in Dark Mode: the app mark, the starting actions, "Continue reading" with two or three synthetic documents, the sections with their counts, and the footer "Your documents stay on this device." with the company mark and "Built by Algorythmos" | Read, edit and scan offline. No account. | Lisez, modifiez et numérisez hors ligne. Sans compte. | Offline pillar (PIL-6); no account in V1; Home as built (PAP-040, [design system](design-system.md)) |
 
 Frame 10 is the Dark Mode screenshot Apple suggests, and the one frame that carries the company's
@@ -237,7 +241,7 @@ impressions, downloads, conversion, retention and proceeds per page
 | AI | People who want to ask, summarise, extract or understand contracts | Answer with citations | chat, summarise or summarize, extract, contract | `pdfalgopro://start?intent=chat` |
 | Scan | People who digitise paper | Scan to searchable PDF | scanner, ocr, receipt | `pdfalgopro://start?intent=scan` |
 | Sign | People who fill and sign forms | Fill and sign | signature, form, fill | `pdfalgopro://start?intent=sign` |
-| Edit | People who need to change a PDF | Edit existing text | editor, convert, merge | `pdfalgopro://start?intent=edit` |
+| Edit | People who need to change a PDF | Edit existing text | editor, merge (no "convert" in 1.0, PAP-065) | `pdfalgopro://start?intent=edit` |
 
 Deep links preselect the matching onboarding intent and go through the single deep-link router,
 which only navigates ([ADR-0004](adr/0004-navigation-and-multi-window.md)). Each page's link is used
@@ -435,13 +439,12 @@ containment). **Risks.** A defect that appears only at scale; mitigated by kill 
 
 ## Open questions
 
-- **Universal first release?** If the first App Store release runs on iPad (adaptive layouts exist
-  from the MVP), 13-inch iPad screenshots are required at submission, although iPad-specific features
-  arrive later ([platform strategy](platform-strategy.md)).
+- **Universal first release?** Closed by PAP-067: 1.0 is iPhone-only, so no iPad screenshots are
+  needed; iPad-first stays V2 ([platform strategy](platform-strategy.md)).
 - **Naming Microsoft formats.** Whether the description may say "Word, Excel and PowerPoint" as a
   factual description of export formats, or should use file-format names only.
-- **Primary App Store language** (English (U.S.) or English (Australia)) and in-app spelling variants.
-- **Launch storefronts.** Which countries at launch beyond the English- and French-speaking ones.
+- **Primary App Store language:** closed by PAP-067, English (U.S.). In-app spelling variants stay open.
+- **Launch storefronts:** closed by PAP-067, every storefront, with the trader declaration for the EU.
 - **Private Cloud Compute and Guideline 5.1.2(i).** Consent is shown for it regardless; confirm the
   wording with Apple's current guidance.
 - **Age rating for document chat**, confirmed in the questionnaire.

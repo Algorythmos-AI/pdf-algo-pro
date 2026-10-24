@@ -1,4 +1,5 @@
 #if DEBUG
+  import AccessibilityIDs
   import PDFEngine
   import SwiftUI
   import UIKit
@@ -60,14 +61,14 @@
         Color.clear.frame(width: 1, height: 1)
           .accessibilityElement()
           .accessibilityLabel(Text(verbatim: log.roomSummary))
-          .accessibilityIdentifier("reader.textEdit.roomTrace")
+          .accessibilityIdentifier(AccessibilityID.Reader.TextEdit.roomTrace)
         // What each touch and gesture did to the page, also launched with -text-edit-touches, read the
         // same way, so a page that will not scroll says what took the drag (issue #188).
         if TextEditTouchTrace.isOn {
           Color.clear.frame(width: 1, height: 1)
             .accessibilityElement()
             .accessibilityLabel(Text(verbatim: TextEditTouchTrace.shared.summary))
-            .accessibilityIdentifier("reader.textEdit.touchTrace")
+            .accessibilityIdentifier(AccessibilityID.Reader.TextEdit.touchTrace)
         }
       }
     }

@@ -148,13 +148,57 @@ struct AppTests {
     await #expect(throws: IntentFailure.self) { try await IntentRouter.shared.summary(of: DocumentID()) }
   }
 
+  @Test("While App Lock is on, Siri and Shortcuts get no summary and no titles (FR-AI-018, #222)")
+  func intentsRespectAppLock() async throws {
+    let container = AppContainer(environment: LaunchEnvironment(arguments: ["-ui-testing", "-skip-onboarding"]))
+    var settings = container.settings.load()
+    settings.isAppLockEnabled = true
+    container.settings.save(settings)
+    let app = AppModel(container: container)
+    #expect(app.lock.isLocked, "App Lock is on, and nobody has confirmed yet")
+    await app.library.addSample()
+    let id = try #require(try await container.library.documents(in: .all, sortedBy: .recentlyOpened).first?.id)
+
+    // The device is unlocked (`.requiresAuthentication`), but App Lock is the app's own lock.
+    await #expect(throws: IntentFailure.self, "No summary while the app is locked") {
+      try await IntentRouter.shared.summary(of: id)
+    }
+    let query = DocumentEntityQuery()
+    #expect(try await query.suggestedEntities().isEmpty, "The Shortcuts picker lists no titles while locked")
+    #expect(try await query.entities(matching: "welcome").isEmpty, "Nor does a search by title")
+
+    // Siri says why, and a saved shortcut still opens the app, where the lock asks first.
+    await #expect(throws: IntentFailure.locked) { try await IntentRouter.shared.summary(of: id) }
+    let summarize = SummarizeDocumentIntent()
+    summarize.target = try #require(try await query.entities(for: [id.description]).first)
+    await #expect(throws: IntentFailure.locked) { _ = try await summarize.perform() }
+    #expect(String(localized: IntentFailure.locked.localizedStringResource).contains("locked"))
+  }
+
+  @Test("Once App Lock is unlocked, intents answer again")
+  func intentsAfterUnlock() async throws {
+    var locked = true
+    let router = IntentRouter()
+    let app = makeApp()
+    await app.library.addSample()
+    router.attach(
+      library: app.container.library, intelligence: app.container.meteredIntelligence, index: app.container.index,
+      isLocked: { locked }, handler: { _ in })
+    let id = try #require(await router.documents().first?.id)
+    await #expect(throws: IntentFailure.locked) { try await router.summary(of: id) }
+    #expect(await router.listedDocuments().isEmpty)
+    locked = false
+    #expect(try await router.summary(of: id).contains("Generated on this device"))
+    #expect(await router.listedDocuments().map(\.id) == [id])
+  }
+
   @Test("A route that arrives before the app attaches is delivered on attach")
   func pendingRoutes() async {
     let router = IntentRouter()
     var delivered: [Route] = []
     router.open(.scan)
     #expect(await router.documents().isEmpty)
-    router.attach(library: FakeLibrary()) { delivered.append($0) }
+    router.attach(library: FakeLibrary(), isLocked: { false }, handler: { delivered.append($0) })
     router.open(.settings)
     #expect(delivered == [.scan, .settings])
   }
@@ -259,8 +303,10 @@ struct FoldersTests {
 private final class FakeAuthenticator: DeviceAuthenticating, @unchecked Sendable {
   var confirms = true
   var asked = 0
+  /// How the device confirms its owner; `nil` once its passcode is removed.
+  var available: AppLockMethod? = .faceID
 
-  func method() -> AppLockMethod? { .faceID }
+  func method() -> AppLockMethod? { available }
 
   func authenticate(reason: String) async -> Bool {
     asked += 1
@@ -325,6 +371,49 @@ struct AppLockTests {
     await lock.scenePhaseChanged(to: .inactive)
     let covered = LockScreen(lock: lock, method: method).frame(width: 390, height: 800)
     #expect(ImageRenderer(content: covered).uiImage != nil)
+  }
+
+  @Test("Without a device passcode nothing can confirm the owner, so App Lock never locks them out (#221)")
+  func noPasscodeNeverLocksOut() async {
+    let device = FakeAuthenticator()
+    // The passcode was removed in iOS Settings, or a backup was restored to a device without one:
+    // LocalAuthentication then fails at once, every time.
+    device.available = nil
+    device.confirms = false
+    let lock = AppLock(authenticator: device) { true }
+    await lock.scenePhaseChanged(to: .active)
+    #expect(!lock.isLocked && !lock.showsCover, "With no passcode on the device App Lock can't confirm anyone")
+    await lock.unlock()
+    #expect(!lock.isLocked, "Unlock must not fail for good either")
+  }
+
+  @Test("App Lock turns itself off only when the passcode is gone, and says so; with one it always asks (#221)")
+  func turnsOffOnlyWithoutPasscode() async {
+    let device = FakeAuthenticator()
+    device.confirms = false
+    var enabled = true
+    var turnedOff = 0
+    let lock = AppLock(
+      authenticator: device, isEnabled: { enabled },
+      turnOff: {
+        turnedOff += 1
+        enabled = false
+      })
+    await lock.scenePhaseChanged(to: .active)
+    await lock.unlock()
+    #expect(lock.isLocked && turnedOff == 0 && !lock.wasTurnedOffWithoutPasscode, "No way around a passcode")
+    #expect(device.asked == 2)
+
+    // The passcode is removed while the app is away.
+    device.available = nil
+    await lock.scenePhaseChanged(to: .background)
+    await lock.scenePhaseChanged(to: .active)
+    #expect(!lock.isLocked && turnedOff == 1 && lock.wasTurnedOffWithoutPasscode)
+    #expect(device.asked == 2, "Nothing to ask without a passcode")
+    lock.turnedOffNoticeShown()
+    #expect(!lock.wasTurnedOffWithoutPasscode)
+    await lock.scenePhaseChanged(to: .background)
+    #expect(!lock.isLocked, "Off now, so it doesn't lock again")
   }
 
   @Test("With App Lock off, nothing is covered or asked")

@@ -1,3 +1,4 @@
+import AccessibilityIDs
 import Commerce
 import Core
 import DesignSystem
@@ -40,29 +41,29 @@ public struct SubscriptionSection: View {
         TileLabel(Text("Plan", bundle: .module), systemImage: "crown")
       }
       .accessibilityElement(children: .combine)
-      .accessibilityIdentifier("settings.subscription.plan")
+      .accessibilityIdentifier(AccessibilityID.Settings.Subscription.plan)
       Button(action: onSeePlans) {
         Text("See plans", bundle: .module)
       }
-      .accessibilityIdentifier("settings.subscription.plans")
+      .accessibilityIdentifier(AccessibilityID.Settings.Subscription.plans)
       Button {
         managesSubscription = true
       } label: {
         Text("Manage subscription", bundle: .module)
       }
-      .accessibilityIdentifier("settings.subscription.manage")
+      .accessibilityIdentifier(AccessibilityID.Settings.Subscription.manage)
       Button {
         Task { restoreFailed = !(await restore()) }
       } label: {
         Text("Restore purchases", bundle: .module)
       }
-      .accessibilityIdentifier("settings.subscription.restore")
+      .accessibilityIdentifier(AccessibilityID.Settings.Subscription.restore)
       Button {
         redeemsCode = true
       } label: {
         Text("Redeem a code", bundle: .module)
       }
-      .accessibilityIdentifier("settings.subscription.redeem")
+      .accessibilityIdentifier(AccessibilityID.Settings.Subscription.redeem)
     } header: {
       Text("Subscription", bundle: .module).foregroundStyle(Color.ds.labelSecondary)
     } footer: {

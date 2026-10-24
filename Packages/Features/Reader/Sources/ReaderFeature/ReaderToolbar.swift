@@ -1,3 +1,4 @@
+import AccessibilityIDs
 import Core
 import DesignSystem
 import PDFEngine
@@ -30,21 +31,24 @@ struct ReaderToolbar: ToolbarContent {
       if model.isDrawing {
         // Undo is beside the work, not two menus away: a line or a shape that went wrong is taken
         // back with one tap (a tester's report, 2026-10-06).
-        UndoRedoButtons(model: model, prefix: "reader.drawing")
+        UndoRedoButtons(
+          model: model, undoID: AccessibilityID.Reader.Drawing.undo, redoID: AccessibilityID.Reader.Drawing.redo)
         Button {
           model.setDrawing(false)
         } label: {
           Text("Done", bundle: .module).bold()
         }
-        .accessibilityIdentifier("reader.doneDrawing")
+        .accessibilityIdentifier(AccessibilityID.Reader.doneDrawing)
       } else if model.markupTool != nil {
-        UndoRedoButtons(model: model, prefix: "reader.markupTool")
+        UndoRedoButtons(
+          model: model, undoID: AccessibilityID.Reader.MarkupTool.undo,
+          redoID: AccessibilityID.Reader.MarkupTool.redo)
         Button {
           model.stopMarkupTool()
         } label: {
           Text("Done", bundle: .module).bold()
         }
-        .accessibilityIdentifier("reader.doneMarkup")
+        .accessibilityIdentifier(AccessibilityID.Reader.doneMarkup)
       } else if model.isEditingText {
         // While text is being typed, Undo belongs to the typing, so these wait.
         Button {
@@ -58,7 +62,7 @@ struct ReaderToolbar: ToolbarContent {
         }
         .disabled(!model.canUndo || model.selectedTextRegion != nil)
         .keyboardShortcut("z")
-        .accessibilityIdentifier("reader.textEdit.undo")
+        .accessibilityIdentifier(AccessibilityID.Reader.TextEdit.undo)
         Button {
           Task { await model.redo() }
         } label: {
@@ -70,14 +74,14 @@ struct ReaderToolbar: ToolbarContent {
         }
         .disabled(!model.canRedo || model.selectedTextRegion != nil)
         .keyboardShortcut("z", modifiers: [.command, .shift])
-        .accessibilityIdentifier("reader.textEdit.redo")
+        .accessibilityIdentifier(AccessibilityID.Reader.TextEdit.redo)
         Button {
           Task { await model.endTextEditing() }
         } label: {
           Text("Done", bundle: .module).bold()
         }
         .disabled(model.selectedTextRegion != nil)
-        .accessibilityIdentifier("reader.doneEditingText")
+        .accessibilityIdentifier(AccessibilityID.Reader.doneEditingText)
       } else if model.phase == .ready {
         if model.showsIntelligence {
           Menu {
@@ -90,6 +94,7 @@ struct ReaderToolbar: ToolbarContent {
                 Image(systemName: "text.append")
               }
             }
+            .accessibilityIdentifier(AccessibilityID.Reader.Ask.summarise)
             Button {
               model.assistantTask = .ask
             } label: {
@@ -99,6 +104,7 @@ struct ReaderToolbar: ToolbarContent {
                 Image(systemName: "bubble.left.and.text.bubble.right")
               }
             }
+            .accessibilityIdentifier(AccessibilityID.Reader.Ask.question)
             Button {
               model.assistantTask = .extract
             } label: {
@@ -108,6 +114,7 @@ struct ReaderToolbar: ToolbarContent {
                 Image(systemName: "tablecells")
               }
             }
+            .accessibilityIdentifier(AccessibilityID.Reader.Ask.extract)
             Button {
               model.assistantTask = .explainContract
             } label: {
@@ -117,6 +124,7 @@ struct ReaderToolbar: ToolbarContent {
                 Image(systemName: "doc.text.magnifyingglass")
               }
             }
+            .accessibilityIdentifier(AccessibilityID.Reader.Ask.contract)
           } label: {
             Label {
               Text("Ask", bundle: .module)
@@ -124,7 +132,7 @@ struct ReaderToolbar: ToolbarContent {
               Image(systemName: "sparkles")
             }
           }
-          .accessibilityIdentifier("reader.ask")
+          .accessibilityIdentifier(AccessibilityID.Reader.ask)
         }
         Menu {
           ForEach(TextMarkup.allCases, id: \.self) { markup in
@@ -133,6 +141,7 @@ struct ReaderToolbar: ToolbarContent {
             } label: {
               Self.label(for: markup)
             }
+            .accessibilityIdentifier(AccessibilityID.Reader.Markup.text(markup.rawValue))
           }
           Button {
             model.setDrawing(true)
@@ -143,6 +152,7 @@ struct ReaderToolbar: ToolbarContent {
               Image(systemName: "pencil.tip")
             }
           }
+          .accessibilityIdentifier(AccessibilityID.Reader.Markup.draw)
           Menu {
             ForEach([DrawingTool.rectangle, .oval, .arrow], id: \.self) { tool in
               Button {
@@ -150,6 +160,7 @@ struct ReaderToolbar: ToolbarContent {
               } label: {
                 Self.label(for: tool)
               }
+              .accessibilityIdentifier(AccessibilityID.Reader.Markup.shape(tool.rawValue))
             }
           } label: {
             Label {
@@ -158,6 +169,7 @@ struct ReaderToolbar: ToolbarContent {
               Image(systemName: "square.on.circle")
             }
           }
+          .accessibilityIdentifier(AccessibilityID.Reader.Markup.shapes)
           Button {
             isAddingTextBox = true
           } label: {
@@ -167,6 +179,7 @@ struct ReaderToolbar: ToolbarContent {
               Image(systemName: "character.textbox")
             }
           }
+          .accessibilityIdentifier(AccessibilityID.Reader.Markup.textBox)
           Button {
             model.showSignatures()
           } label: {
@@ -176,6 +189,7 @@ struct ReaderToolbar: ToolbarContent {
               Image(systemName: "signature")
             }
           }
+          .accessibilityIdentifier(AccessibilityID.Reader.Markup.signature)
           Button {
             isAddingNote = true
           } label: {
@@ -185,27 +199,32 @@ struct ReaderToolbar: ToolbarContent {
               Image(systemName: "note.text.badge.plus")
             }
           }
+          .accessibilityIdentifier(AccessibilityID.Reader.Markup.note)
           Menu {
             Button {
               Task { await model.addStamp(.date(Date())) }
             } label: {
               Text("Today's date", bundle: .module)
             }
+            .accessibilityIdentifier(AccessibilityID.Reader.Markup.Stamp.date)
             Button {
               Task { await model.addStamp(.tick) }
             } label: {
               Text("Tick", bundle: .module)
             }
+            .accessibilityIdentifier(AccessibilityID.Reader.Markup.Stamp.tick)
             Button {
               Task { await model.addStamp(.cross) }
             } label: {
               Text("Cross", bundle: .module)
             }
+            .accessibilityIdentifier(AccessibilityID.Reader.Markup.Stamp.cross)
             Button {
               model.isAddingStampText = true
             } label: {
               Text("Text or initials…", bundle: .module)
             }
+            .accessibilityIdentifier(AccessibilityID.Reader.Markup.Stamp.text)
           } label: {
             Label {
               Text("Stamp", bundle: .module)
@@ -213,6 +232,7 @@ struct ReaderToolbar: ToolbarContent {
               Image(systemName: "seal")
             }
           }
+          .accessibilityIdentifier(AccessibilityID.Reader.Markup.stamp)
           if model.canPasteAnnotation {
             Button {
               model.setPastingAnnotations(true)
@@ -223,7 +243,7 @@ struct ReaderToolbar: ToolbarContent {
                 Image(systemName: "doc.on.clipboard")
               }
             }
-            .accessibilityIdentifier("reader.markup.paste")
+            .accessibilityIdentifier(AccessibilityID.Reader.Markup.paste)
           }
           Button {
             Task { await model.undo() }
@@ -234,6 +254,7 @@ struct ReaderToolbar: ToolbarContent {
               Image(systemName: "arrow.uturn.backward")
             }
           }
+          .accessibilityIdentifier(AccessibilityID.Reader.Markup.undo)
           .disabled(!model.canUndo)
           Button {
             Task { await model.redo() }
@@ -244,6 +265,7 @@ struct ReaderToolbar: ToolbarContent {
               Image(systemName: "arrow.uturn.forward")
             }
           }
+          .accessibilityIdentifier(AccessibilityID.Reader.Markup.redo)
           .disabled(!model.canRedo)
         } label: {
           Label {
@@ -252,7 +274,7 @@ struct ReaderToolbar: ToolbarContent {
             Image(systemName: "highlighter")
           }
         }
-        .accessibilityIdentifier("reader.markup")
+        .accessibilityIdentifier(AccessibilityID.Reader.markup)
         Menu {
           // Find, Share and Print share one row of icons, so the whole menu fits without scrolling:
           // a menu scrolls silently after about eleven rows and hid Version history at the bottom.
@@ -266,6 +288,7 @@ struct ReaderToolbar: ToolbarContent {
                 Image(systemName: "magnifyingglass")
               }
             }
+            .accessibilityIdentifier(AccessibilityID.Reader.More.find)
             .keyboardShortcut("f")
             Button {
               Task { await model.share() }
@@ -276,6 +299,7 @@ struct ReaderToolbar: ToolbarContent {
                 Image(systemName: "square.and.arrow.up")
               }
             }
+            .accessibilityIdentifier(AccessibilityID.Reader.More.share)
             if model.allowsPrinting {
               Button {
                 Task {
@@ -291,6 +315,7 @@ struct ReaderToolbar: ToolbarContent {
                   Image(systemName: "printer")
                 }
               }
+              .accessibilityIdentifier(AccessibilityID.Reader.More.print)
               .keyboardShortcut("p")
             }
           }
@@ -303,6 +328,7 @@ struct ReaderToolbar: ToolbarContent {
               Image(systemName: "number")
             }
           }
+          .accessibilityIdentifier(AccessibilityID.Reader.More.goToPage)
           Button {
             model.showsPages = true
           } label: {
@@ -312,6 +338,7 @@ struct ReaderToolbar: ToolbarContent {
               Image(systemName: "square.grid.2x2")
             }
           }
+          .accessibilityIdentifier(AccessibilityID.Reader.More.pages)
           Button {
             model.showsOutline = true
           } label: {
@@ -321,6 +348,7 @@ struct ReaderToolbar: ToolbarContent {
               Image(systemName: "list.bullet.indent")
             }
           }
+          .accessibilityIdentifier(AccessibilityID.Reader.More.contents)
           Button {
             Task { await model.toggleBookmark() }
           } label: {
@@ -331,7 +359,7 @@ struct ReaderToolbar: ToolbarContent {
               Image(systemName: model.isCurrentPageBookmarked ? "bookmark.slash" : "bookmark")
             }
           }
-          .accessibilityIdentifier("reader.bookmark")
+          .accessibilityIdentifier(AccessibilityID.Reader.bookmark)
           Button {
             model.showsAnnotations = true
           } label: {
@@ -341,7 +369,7 @@ struct ReaderToolbar: ToolbarContent {
               Image(systemName: "list.bullet.rectangle")
             }
           }
-          .accessibilityIdentifier("reader.annotations")
+          .accessibilityIdentifier(AccessibilityID.Reader.annotations)
           Divider()
           // The export and protection tools sit one level down, so the menu fits on the screen.
           Menu {
@@ -351,11 +379,13 @@ struct ReaderToolbar: ToolbarContent {
               } label: {
                 Text("Smallest, for email", bundle: .module)
               }
+              .accessibilityIdentifier(AccessibilityID.Reader.More.Reduce.smallest)
               Button {
                 Task { await model.reduceSize(.balanced) }
               } label: {
                 Text("Balanced, for printing", bundle: .module)
               }
+              .accessibilityIdentifier(AccessibilityID.Reader.More.Reduce.balanced)
             } label: {
               Label {
                 Text("Reduce file size", bundle: .module)
@@ -363,6 +393,7 @@ struct ReaderToolbar: ToolbarContent {
                 Image(systemName: "arrow.down.right.and.arrow.up.left")
               }
             }
+            .accessibilityIdentifier(AccessibilityID.Reader.More.reduce)
             if model.isPasswordProtected {
               if model.canRemovePassword {
                 Button {
@@ -374,6 +405,7 @@ struct ReaderToolbar: ToolbarContent {
                     Image(systemName: "lock.open")
                   }
                 }
+                .accessibilityIdentifier(AccessibilityID.Reader.More.removePassword)
               }
             } else {
               Button {
@@ -385,6 +417,7 @@ struct ReaderToolbar: ToolbarContent {
                   Image(systemName: "lock")
                 }
               }
+              .accessibilityIdentifier(AccessibilityID.Reader.More.addPassword)
             }
             Button {
               Task { await model.shareFlattened() }
@@ -395,6 +428,7 @@ struct ReaderToolbar: ToolbarContent {
                 Image(systemName: "square.stack.3d.down.forward")
               }
             }
+            .accessibilityIdentifier(AccessibilityID.Reader.More.flattened)
             Button {
               Task { await model.sharePageImage() }
             } label: {
@@ -404,6 +438,7 @@ struct ReaderToolbar: ToolbarContent {
                 Image(systemName: "photo")
               }
             }
+            .accessibilityIdentifier(AccessibilityID.Reader.More.pageImage)
           } label: {
             Label {
               Text("Export and protect", bundle: .module)
@@ -411,6 +446,7 @@ struct ReaderToolbar: ToolbarContent {
               Image(systemName: "lock.doc")
             }
           }
+          .accessibilityIdentifier(AccessibilityID.Reader.More.export)
           LayoutMenu(model: model)
           Button {
             model.toggleReadAloud()
@@ -421,6 +457,7 @@ struct ReaderToolbar: ToolbarContent {
               Image(systemName: model.speech.isSpeaking ? "stop.circle" : "speaker.wave.2")
             }
           }
+          .accessibilityIdentifier(AccessibilityID.Reader.More.readAloud)
           if model.canRecognizeText {
             Button {
               model.recognizeText()
@@ -431,6 +468,7 @@ struct ReaderToolbar: ToolbarContent {
                 Image(systemName: "text.viewfinder")
               }
             }
+            .accessibilityIdentifier(AccessibilityID.Reader.More.recognise)
           }
           if model.canRestorePreviousVersion {
             Button {
@@ -442,7 +480,7 @@ struct ReaderToolbar: ToolbarContent {
                 Image(systemName: "clock.arrow.circlepath")
               }
             }
-            .accessibilityIdentifier("reader.versions")
+            .accessibilityIdentifier(AccessibilityID.Reader.versions)
           }
         } label: {
           Label {
@@ -451,7 +489,7 @@ struct ReaderToolbar: ToolbarContent {
             Image(systemName: "ellipsis.circle")
           }
         }
-        .accessibilityIdentifier("reader.more")
+        .accessibilityIdentifier(AccessibilityID.Reader.more)
       }
     }
   }
@@ -531,7 +569,7 @@ struct EditTextButton: View {
     .buttonStyle(.primaryBar)
     .keyboardShortcut("e")
     .accessibilityHint(Text("Changes the text in this PDF", bundle: .module))
-    .accessibilityIdentifier("reader.edit")
+    .accessibilityIdentifier(AccessibilityID.Reader.edit)
   }
 }
 
@@ -551,8 +589,10 @@ private struct EditLabelStyle: ViewModifier {
 /// Undo and Redo for the bar, while a tool is in hand.
 struct UndoRedoButtons: View {
   let model: ReaderModel
-  /// The start of the buttons' identifiers, so each mode's pair can be told apart in tests.
-  let prefix: String
+  /// The buttons' identifiers, one pair for each mode, so each pair can be told apart in tests.
+  let undoID: String
+  /// See `undoID`.
+  let redoID: String
 
   var body: some View {
     Button {
@@ -566,7 +606,7 @@ struct UndoRedoButtons: View {
     }
     .disabled(!model.canUndo)
     .keyboardShortcut("z")
-    .accessibilityIdentifier("\(prefix).undo")
+    .accessibilityIdentifier(undoID)
     Button {
       Task { await model.redo() }
     } label: {
@@ -578,7 +618,7 @@ struct UndoRedoButtons: View {
     }
     .disabled(!model.canRedo)
     .keyboardShortcut("z", modifiers: [.command, .shift])
-    .accessibilityIdentifier("\(prefix).redo")
+    .accessibilityIdentifier(redoID)
   }
 }
 
@@ -594,11 +634,14 @@ struct LayoutMenu: View {
         Toggle(isOn: Binding(get: { model.wantsPageStrip }, set: { model.setWantsPageStrip($0) })) {
           Text("Page strip", bundle: .module)
         }
+        .accessibilityIdentifier(AccessibilityID.Reader.More.Layout.pageStrip)
       } label: {
         title
       }
+      .accessibilityIdentifier(AccessibilityID.Reader.More.layout)
     } else {
       layout.pickerStyle(.menu)
+        .accessibilityIdentifier(AccessibilityID.Reader.More.layout)
     }
   }
 

@@ -104,7 +104,15 @@ citations, subscribe and restore, and the privacy centre.
 - **Deterministic data.** Libraries are seeded from generated fixtures, dates from an injected
   clock, AI answers from the scripted router. No network.
 - **Stable identifiers.** Accessibility identifiers are constants shared by the app and the tests,
-  never user-visible text, so French runs use the same tests.
+  never user-visible text, so French runs use the same tests. The one list is
+  [`design/accessibility-ids.json`](../design/accessibility-ids.json); `python3
+  scripts/design/generate_accessibility_ids.py` turns it into the `AccessibilityID` enum in the
+  `AccessibilityIDs` product of the Core package, which every feature package, the app and the UI
+  test target link. Each identifier's value is its dotted path: `reader.markup.paste` is
+  `AccessibilityID.Reader.Markup.paste`, and `library.document.{title}` is
+  `AccessibilityID.Library.document(_:)`. The `invariants` job fails on an identifier written as a
+  string literal in a view, and on a generated file that has drifted from the list; a new control
+  gets its identifier by adding it to the list and running the script.
 
 ## Snapshot tests
 

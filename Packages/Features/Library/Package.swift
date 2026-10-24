@@ -23,7 +23,8 @@ let package = Package(
     .target(
       name: "LibraryFeature",
       dependencies: [
-        .product(name: "Core", package: "Core"), .product(name: "DesignSystem", package: "DesignSystem"),
+        .product(name: "AccessibilityIDs", package: "Core"), .product(name: "Core", package: "Core"),
+        .product(name: "DesignSystem", package: "DesignSystem"),
         .product(name: "PDFEngine", package: "PDFEngine"),
       ],
       resources: [.process("Resources")],
