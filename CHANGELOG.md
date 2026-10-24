@@ -19,6 +19,11 @@ Store notes (see the changelog strategy).
   only ever means a red annotation or Delete.
 
 ### Fixed
+- App Lock: removing the device passcode no longer locks you out of the app for good. Without a
+  passcode nothing can confirm it is you, so App Lock now turns itself off and the app tells you
+  why; set a passcode and turn it on again in Settings. With a passcode it always asks.
+- App Lock: while the app is locked, Siri and Shortcuts no longer read out document summaries or
+  list your document titles. Siri asks you to open the app and unlock it first.
 - Annotations: with a shape, a stamp or a signature selected, the page now follows your finger
   when you drag anywhere else on it, also slowly. Before, it kept still until your finger lifted.
   Dragging the selected one still moves it, and pinching it still resizes it while the page keeps
