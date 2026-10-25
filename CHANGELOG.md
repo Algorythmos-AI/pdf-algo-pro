@@ -24,6 +24,18 @@ Store notes (see the changelog strategy).
   why; set a passcode and turn it on again in Settings. With a passcode it always asks.
 - App Lock: while the app is locked, Siri and Shortcuts no longer read out document summaries or
   list your document titles. Siri asks you to open the app and unlock it first.
+- Library: renaming or moving a PDF in the Files app no longer deletes its earlier versions; they
+  are kept for 30 days, as after any save. Its tags, favourite and reading position still don't
+  follow it to the new name yet.
+- Library: when renaming, deleting or restoring a document can't be recorded, for example because
+  the device is full, the file now goes back where it was, so "your documents haven't changed" is
+  true. Before, the file moved anyway, and the document could lose its tags and earlier versions at
+  the next launch.
+- Library: a library that won't open at launch is no longer swapped for an empty one. It gets a
+  second try, and if it still won't open, or was saved by a newer version of the app, it is left
+  as it is and tried again at the next launch, with your documents shown without their tags and
+  favourites meanwhile. Before, it was put aside for good, with every tag, favourite and reading
+  position in it.
 - Pro: a purchase or a refund is no longer undone by an older check of your subscription that
   finished after it. Before, buying Pro just as the app came back to the screen could show the
   offer again, and a refund could leave Pro on.
