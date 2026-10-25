@@ -1,4 +1,8 @@
+import AccessibilityIDs
 import XCTest
+
+/// The shared accessibility identifiers, by a short name: `ID.Reader.more`.
+typealias ID = AccessibilityID
 
 /// The base of every end-to-end journey on the simulator: launching and the accessibility audit.
 ///
@@ -223,7 +227,7 @@ class UITestCase: XCTestCase {
   /// Opens All documents from Home, the screen the app starts on, and waits for the list's own bar.
   func openDocumentList(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
     tap(
-      app.descendants(matching: .any)["library.section.all"].firstMatch, until: app.buttons["library.scan"],
+      app.descendants(matching: .any)[ID.Library.section("all")].firstMatch, until: app.buttons[ID.Library.scan],
       file: file, line: line)
   }
 

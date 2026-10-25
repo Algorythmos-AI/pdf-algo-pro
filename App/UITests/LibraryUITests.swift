@@ -1,3 +1,4 @@
+import AccessibilityIDs
 import XCTest
 
 /// The library: Home, the empty state and the sample document (FR-ONB-004).
@@ -5,21 +6,21 @@ import XCTest
 final class LibraryUITests: UITestCase {
   func testTheSampleOpensInTheReaderWithoutAPaywall() throws {
     let app = launch(["-skip-onboarding"])
-    let sample = app.buttons["library.home.sample"]
+    let sample = app.buttons[ID.Library.Home.sample]
     XCTAssertTrue(sample.waitForExistence(timeout: Self.settleTimeout), "The app opens on Home")
     try audit(app)
     openSample(by: sample, in: app)
-    XCTAssertTrue(app.buttons["reader.ask"].exists)
+    XCTAssertTrue(app.buttons[ID.Reader.ask].exists)
     XCTAssertFalse(app.buttons["Subscribe"].exists, "No paywall before value (FR-ONB-004)")
     // The sample was filed in All documents, so that is where Back leads.
-    goBack(in: app, leaving: app.staticTexts["reader.pageIndicator"], to: app.navigationBars["All documents"])
+    goBack(in: app, leaving: app.staticTexts[ID.Reader.pageIndicator], to: app.navigationBars["All documents"])
   }
 
   /// Taps the sample and waits for the reader; taps again only if the first tap was lost, with the
   /// sample still on screen and no reader (CI, 2026-10-09: the reader never opened after one tap that
   /// followed an accessibility audit).
   private func openSample(by sample: XCUIElement, in app: XCUIApplication, line: UInt = #line) {
-    let reader = app.staticTexts["reader.pageIndicator"]
+    let reader = app.staticTexts[ID.Reader.pageIndicator]
     sample.tap()
     if !reader.waitForExistence(timeout: 15), sample.exists, sample.isHittable {
       sample.tap()
@@ -31,7 +32,7 @@ final class LibraryUITests: UITestCase {
   func testTheEmptyDocumentListOffersTheSampleToo() throws {
     let app = launch(["-skip-onboarding"])
     openDocumentList(app)
-    let sample = app.buttons["library.empty.sample"]
+    let sample = app.buttons[ID.Library.Empty.sample]
     XCTAssertTrue(sample.waitForExistence(timeout: Self.settleTimeout))
     try audit(app)
     openSample(by: sample, in: app)
@@ -41,16 +42,16 @@ final class LibraryUITests: UITestCase {
   /// recent document opens and leads back to Recents.
   func testHomeOpensARecentDocumentAndEachActionStandsAlone() throws {
     let app = launch(["-skip-onboarding", "-seed-library", "sample"])
-    let page = app.staticTexts["reader.pageIndicator"]
+    let page = app.staticTexts[ID.Reader.pageIndicator]
     XCTAssertTrue(page.waitForExistence(timeout: 15))
-    let settings = app.buttons["library.settings"]
+    let settings = app.buttons[ID.Library.settings]
     goBack(in: app, leaving: page, to: settings)
-    let scan = app.buttons["library.home.scan"]
+    let scan = app.buttons[ID.Library.Home.scan]
     goBack(in: app, leaving: settings, to: scan)
-    XCTAssertFalse(app.buttons["library.home.sample"].exists, "The sample is offered to an empty library only")
+    XCTAssertFalse(app.buttons[ID.Library.Home.sample].exists, "The sample is offered to an empty library only")
     try audit(app)
     // Several buttons share a row here: a tap on one must not press its neighbours.
-    tap(scan, until: app.buttons["scan.images"])
+    tap(scan, until: app.buttons[ID.Scan.images])
     app.buttons["Cancel"].firstMatch.tap()
     // Home is under the sheet while it slides away, so the tile exists before it can be tapped: wait
     // for the sheet to go, as long as any screen is given to settle. A second sheet would stay.
@@ -67,7 +68,7 @@ final class LibraryUITests: UITestCase {
   /// The back button on the document list once did nothing: the list bounced straight back.
   func testADocumentOpensAgainAfterGoingBack() throws {
     let app = launch(["-skip-onboarding", "-seed-library", "sample"])
-    let page = app.staticTexts["reader.pageIndicator"]
+    let page = app.staticTexts[ID.Reader.pageIndicator]
     XCTAssertTrue(page.waitForExistence(timeout: 15))
     let row = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "library.document.")).firstMatch
     for _ in 0..<2 {
@@ -81,13 +82,13 @@ final class LibraryUITests: UITestCase {
 
   func testBackFromTheDocumentListShowsTheSectionsAndEachOpens() throws {
     let app = launch(["-skip-onboarding", "-seed-library", "sample"])
-    let page = app.staticTexts["reader.pageIndicator"]
+    let page = app.staticTexts[ID.Reader.pageIndicator]
     XCTAssertTrue(page.waitForExistence(timeout: 15))
     // Each back tap is made again only while the screen being left is still showing (issue #211: the
     // tap from the list to Home was lost on a slow runner).
-    let settings = app.buttons["library.settings"]
+    let settings = app.buttons[ID.Library.settings]
     goBack(in: app, leaving: page, to: settings)
-    let deleted = app.descendants(matching: .any)["library.section.deleted"].firstMatch
+    let deleted = app.descendants(matching: .any)[ID.Library.section("deleted")].firstMatch
     goBack(in: app, leaving: settings, to: deleted)
     try audit(app)
     let recentlyDeleted = app.navigationBars["Recently deleted"]

@@ -112,7 +112,10 @@ citations, subscribe and restore, and the privacy centre.
   `AccessibilityID.Reader.Markup.paste`, and `library.document.{title}` is
   `AccessibilityID.Library.document(_:)`. The `invariants` job fails on an identifier written as a
   string literal in a view, and on a generated file that has drifted from the list; a new control
-  gets its identifier by adding it to the list and running the script.
+  gets its identifier by adding it to the list and running the script. UI tests write them through
+  a short alias, `ID.Reader.more`, and find a control by its identifier rather than its label
+  wherever the control has one; buttons in system alerts, which SwiftUI gives no identifier, are
+  the exception.
 
 ## Snapshot tests
 
