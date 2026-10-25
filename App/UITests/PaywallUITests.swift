@@ -34,8 +34,10 @@ final class PaywallUITests: UITestCase {
   func testTheWholeJourneyFromFirstRunThroughAPurchaseToHome() throws {
     let app = launch([])
     let next = app.buttons[ID.Onboarding.continue]
-    tap(next, until: element("onboarding.page.sign", in: app))
-    tap(next, until: element("onboarding.page.ask", in: app))
+    tap(
+      next, until: element("onboarding.page.sign", in: app), from: element("onboarding.page.scan", in: app))
+    tap(
+      next, until: element("onboarding.page.ask", in: app), from: element("onboarding.page.sign", in: app))
     let yearly = app.buttons[ID.Paywall.Plan.yearly]
     let weekly = app.buttons[ID.Paywall.Plan.weekly]
     leave(by: next, for: yearly)
