@@ -383,19 +383,32 @@ class UITestCase: XCTestCase {
     }
     if !findings.isEmpty, ProcessInfo.processInfo.operatingSystemVersion.majorVersion >= 27 {
       // iOS 27's audit misreads contrast on glass (#294): measured on the screen instead (`ScreenContrast`).
+      // An element less than half on the screen can't be measured there; on the device the audit flagged
+      // a report's last row below the sheet's edge. CI's iOS 26 audit still checks such elements.
       let screen = app.screenshot()
+      let shown = app.frame
       var measured: [String] = []
       findings = findings.filter { finding in
-        guard finding.hasPrefix("- Contrast failed"), let frame = ScreenContrast.frame(in: finding),
-          let ratio = ScreenContrast.ratio(of: frame, in: screen), ratio >= ScreenContrast.minimum
-        else { return true }
+        guard finding.hasPrefix("- Contrast failed"), let frame = ScreenContrast.frame(in: finding) else {
+          return true
+        }
+        let visible = frame.intersection(shown)
+        let fraction = visible.isNull ? 0 : (visible.width * visible.height) / max(1, frame.width * frame.height)
+        if fraction < 0.5 {
+          let note = String(format: "\n    Mostly off the screen (%.0f%% shown), not measured", fraction * 100)
+          measured.append(finding + note)
+          return false
+        }
+        guard let ratio = ScreenContrast.ratio(of: frame, in: screen), ratio >= ScreenContrast.minimum else {
+          return true
+        }
         measured.append(finding + String(format: "\n    Measured on the screen: %.1f:1", ratio))
         return false
       }
       if !measured.isEmpty {
         keepEvidence(app, named: "audit \(line) contrast measured", notes: measured.joined(separator: "\n"))
         recordQuarantined(
-          "Contrast the iOS 27 audit misreads on glass, measured on the screen instead, issue #294",
+          "Contrast the iOS 27 audit misreads on glass or off the screen, measured on the screen instead, issue #294",
           details: measured.joined(separator: "\n"), file: file, line: line)
       }
     }
