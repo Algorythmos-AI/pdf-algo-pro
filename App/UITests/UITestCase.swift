@@ -252,26 +252,28 @@ class UITestCase: XCTestCase {
   }
 
   /// An item of an open submenu (Markup › Shapes, Markup › Stamp): by its identifier where the system
-  /// shows it, else by its English title.
+  /// shows it, else by its title in English or French.
   ///
   /// On iOS 27 an open submenu's items carry no identifier, wherever the app sets it (on the item, its
-  /// label or its text), while the top-level items of the same menu keep theirs (#292). The title is
-  /// looked for only on an element with no identifier, so on iOS 26 the identifier still decides.
-  func submenuItem(_ identifier: String, title: String, in app: XCUIApplication) -> XCUIElement {
+  /// label or its text), while the top-level items of the same menu keep theirs (#292). A title is
+  /// looked for only on an element with no identifier, so on iOS 26 the identifier still decides. The
+  /// titles are the Reader catalog's, in both of the app's languages, since the tests don't fix the
+  /// device's language.
+  func submenuItem(_ identifier: String, titles: [String], in app: XCUIApplication) -> XCUIElement {
     app.buttons.matching(
-      NSPredicate(format: "identifier == %@ OR (identifier == '' AND label == %@)", identifier, title)
+      NSPredicate(format: "identifier == %@ OR (identifier == '' AND label IN %@)", identifier, titles)
     ).firstMatch
   }
 
   /// A shape in Markup › Shapes (`rectangle`, `oval` or `arrow`); see `submenuItem`.
   func shapeItem(_ tool: String, in app: XCUIApplication) -> XCUIElement {
-    let titles = ["rectangle": "Rectangle", "oval": "Oval", "arrow": "Arrow"]
-    return submenuItem(ID.Reader.Markup.shape(tool), title: titles[tool] ?? tool, in: app)
+    let titles = ["rectangle": ["Rectangle"], "oval": ["Oval", "Ovale"], "arrow": ["Arrow", "Flèche"]]
+    return submenuItem(ID.Reader.Markup.shape(tool), titles: titles[tool] ?? [], in: app)
   }
 
   /// Tick in Markup › Stamp; see `submenuItem`.
   func tickItem(in app: XCUIApplication) -> XCUIElement {
-    submenuItem(ID.Reader.Markup.Stamp.tick, title: "Tick", in: app)
+    submenuItem(ID.Reader.Markup.Stamp.tick, titles: ["Tick", "Coche"], in: app)
   }
 
   /// The accessibility audit on the current screen.
