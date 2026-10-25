@@ -28,6 +28,12 @@ public enum AccessibilityID {
     public static let cover = "appLock.cover"
     /// The identifier `appLock.unlock`.
     public static let unlock = "appLock.unlock"
+
+    /// The identifiers under `appLock.turnedOff`.
+    public enum TurnedOff {
+      /// The identifier `appLock.turnedOff.ok`.
+      public static let ok = "appLock.turnedOff.ok"
+    }
   }
 
   /// The identifiers under `assistant`.
