@@ -10,6 +10,7 @@ import XCTest
 /// screenshot: the most common luminance in the element's frame is its background, and the luminance
 /// of the pixel two in a hundred furthest from it is its text. A finding is excused only when that
 /// measure reaches WCAG 1.4.3's 4.5:1; below that it still fails.
+@MainActor
 enum ScreenContrast {
   /// WCAG 1.4.3's minimum for normal text.
   static let minimum = 4.5
