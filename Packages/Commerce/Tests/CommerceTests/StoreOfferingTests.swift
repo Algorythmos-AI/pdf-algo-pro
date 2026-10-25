@@ -68,7 +68,7 @@ struct StoreOfferingTests {
     #expect(await store.purchase("unknown") == .purchased)
     #expect(bought.withLock { $0 } == ["w"], "Only a plan on sale is granted")
 
-    for outcome in [PurchaseOutcome.pending, .cancelled, .failed] {
+    for outcome in [PurchaseOutcome.pending, .cancelled, .failed, .unverified] {
       let refusing = FixedStoreOffering(plans: plans, outcome: outcome) { plan in
         bought.withLock { $0.append(plan.id) }
       }

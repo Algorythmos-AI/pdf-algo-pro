@@ -33,7 +33,18 @@ public struct StoreKitEntitlements: EntitlementProviding {
 
   /// The entitlement now.
   public func currentEntitlement() async -> Entitlement {
-    var records = await source.activeRecords().filter { productIDs.contains($0.productID) }
+    // StoreKit lists a subscription among the current entitlements only while its renewal state is
+    // subscribed or in the billing grace period
+    // (https://developer.apple.com/documentation/storekit/transaction/currententitlements). A record
+    // from there whose state could not be read (offline, a server error, a state this version does
+    // not know) is therefore entitled on the App Store's own account, even after its period's end, as
+    // during a grace period: it counts as subscribed, never as expired by the clock. Once StoreKit no
+    // longer lists it, the latest transaction below decides, and there a passed end is an expiry.
+    var records = await source.activeRecords().filter { productIDs.contains($0.productID) }.map { record in
+      var record = record
+      if record.renewalState == nil { record.renewalState = .subscribed }
+      return record
+    }
     if records.isEmpty {
       for productID in productIDs.sorted() {
         if let record = await source.latestRecord(for: productID) { records.append(record) }

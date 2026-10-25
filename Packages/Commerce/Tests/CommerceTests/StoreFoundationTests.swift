@@ -243,4 +243,112 @@ struct EntitlementStoreTests {
     await store.refresh()
     #expect(!store.grantsPro)
   }
+
+  @Test("A refresh that finishes late does not overwrite a newer refresh's answer (#227)")
+  func lateRefresh() async {
+    let gated = GatedEntitlements()
+    let store = EntitlementStore(provider: gated) { now }
+    // The foreground refresh reads before the App Store has recorded the purchase...
+    let foreground = Task { await store.refresh() }
+    await gated.waitForReads(1)
+    // ...the purchase's own refresh reads after it, and answers first.
+    let afterPurchase = Task { await store.refresh() }
+    await gated.waitForReads(2)
+    gated.answer(read: 2, .subscribed)
+    await afterPurchase.value
+    #expect(store.entitlement == .subscribed)
+    gated.answer(read: 1, .none)
+    await foreground.value
+    #expect(store.entitlement == .subscribed, "The older answer arrived last and is dropped")
+    #expect(await store.resolved() == .subscribed)
+  }
+
+  @Test("A refresh that finishes late does not overwrite a newer change from the App Store (#227)")
+  func lateRefreshAfterUpdate() async {
+    let gated = GatedEntitlements()
+    let store = EntitlementStore(provider: gated) { now }
+    let foreground = Task { await store.refresh() }
+    await gated.waitForReads(1)
+    store.start()
+    gated.send(.revoked)
+    #expect(await eventually { store.entitlement == .revoked })
+    gated.answer(read: 1, .subscribed)
+    await foreground.value
+    #expect(store.entitlement == .revoked, "A refund is not undone by a read that began before it")
+    gated.finish()
+  }
+
+  @Test("A refresh that starts after a change from the App Store is applied")
+  func refreshAfterUpdate() async {
+    let gated = GatedEntitlements()
+    let store = EntitlementStore(provider: gated) { now }
+    store.start()
+    gated.send(.revoked)
+    #expect(await eventually { store.entitlement == .revoked })
+    let foreground = Task { await store.refresh() }
+    await gated.waitForReads(1)
+    gated.answer(read: 1, .subscribed)
+    await foreground.value
+    #expect(store.entitlement == .subscribed)
+    gated.finish()
+  }
+}
+
+/// A provider whose every read waits until the test answers it.
+///
+/// A test so decides the order in which reads that overlap finish. Changes go on one stream, made up
+/// front.
+private final class GatedEntitlements: EntitlementProviding {
+  private struct State {
+    var reads = 0
+    var unanswered: [Int: CheckedContinuation<Entitlement, Never>] = [:]
+    var waiters: [(count: Int, continuation: CheckedContinuation<Void, Never>)] = []
+  }
+
+  private let state = Mutex(State())
+  private let updates: AsyncStream<Entitlement>
+  private let updatesContinuation: AsyncStream<Entitlement>.Continuation
+
+  init() {
+    (updates, updatesContinuation) = AsyncStream.makeStream(of: Entitlement.self)
+  }
+
+  func currentEntitlement() async -> Entitlement {
+    await withCheckedContinuation { continuation in
+      let started = state.withLock { state in
+        state.reads += 1
+        state.unanswered[state.reads] = continuation
+        let reads = state.reads
+        let started = state.waiters.filter { $0.count <= reads }.map(\.continuation)
+        state.waiters.removeAll { $0.count <= reads }
+        return started
+      }
+      for waiter in started { waiter.resume() }
+    }
+  }
+
+  func entitlementUpdates() -> AsyncStream<Entitlement> { updates }
+
+  /// Waits until `count` reads have begun.
+  func waitForReads(_ count: Int) async {
+    await withCheckedContinuation { continuation in
+      let begun = state.withLock { state in
+        guard state.reads < count else { return true }
+        state.waiters.append((count, continuation))
+        return false
+      }
+      if begun { continuation.resume() }
+    }
+  }
+
+  /// Answers the read numbered `read`, counting from 1.
+  func answer(read: Int, _ entitlement: Entitlement) {
+    state.withLock { $0.unanswered.removeValue(forKey: read) }?.resume(returning: entitlement)
+  }
+
+  /// Sends a change, as the App Store does after a renewal or a refund.
+  func send(_ entitlement: Entitlement) { updatesContinuation.yield(entitlement) }
+
+  /// Ends the stream of changes.
+  func finish() { updatesContinuation.finish() }
 }

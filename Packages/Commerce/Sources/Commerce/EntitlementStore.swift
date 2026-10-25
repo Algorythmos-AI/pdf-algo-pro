@@ -17,6 +17,10 @@ public final class EntitlementStore {
   @ObservationIgnored private let sleep: @Sendable (TimeInterval) async -> Void
   @ObservationIgnored private var following: Task<Void, Never>?
   @ObservationIgnored private var trialEnd: Task<Void, Never>?
+  /// The number given to the last read begun or change received, counting up.
+  @ObservationIgnored private var lastNumber = 0
+  /// The number of the answer `entitlement` holds.
+  @ObservationIgnored private var appliedNumber = 0
 
   /// Creates a store over a provider; `sleep` waits for a number of seconds, and tests pass their own.
   public init(
@@ -34,29 +38,44 @@ public final class EntitlementStore {
     following = Task { [weak self, provider] in
       for await entitlement in provider.entitlementUpdates() {
         guard let self else { return }
-        self.apply(entitlement)
+        // A change is numbered when it arrives, so a read begun before it is older.
+        self.apply(entitlement, number: self.nextNumber())
       }
     }
   }
 
   /// Asks the provider again: when the app becomes active, and when a trial's end has passed.
   public func refresh() async {
-    apply(await provider.currentEntitlement())
+    let number = nextNumber()
+    apply(await provider.currentEntitlement(), number: number)
   }
 
   /// The entitlement, asking the provider first when it is not known yet.
   public func resolved() async -> Entitlement {
     if let entitlement { return entitlement }
+    let number = nextNumber()
     let answer = await provider.currentEntitlement()
     if let entitlement { return entitlement }
-    apply(answer)
+    apply(answer, number: number)
     return answer
   }
 
   /// Whether Pro is available now; `false` until the entitlement is known.
   public var grantsPro: Bool { entitlement?.grantsPro(at: now()) ?? false }
 
-  private func apply(_ entitlement: Entitlement) {
+  private func nextNumber() -> Int {
+    lastNumber += 1
+    return lastNumber
+  }
+
+  /// Takes an answer, unless one begun later has been taken already.
+  ///
+  /// Reads overlap (the app becoming active, a purchase, a trial's end, a change from the App Store)
+  /// and finish in any order, so the last to finish is not always the newest: an older answer that
+  /// arrives late would give a buyer the offer again, or Pro back after a refund.
+  private func apply(_ entitlement: Entitlement, number: Int) {
+    guard number > appliedNumber else { return }
+    appliedNumber = number
     self.entitlement = entitlement
     trialEnd?.cancel()
     trialEnd = nil
