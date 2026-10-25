@@ -81,9 +81,13 @@ citations, subscribe and restore, and the privacy centre.
   journeys; element queries live in one place.
 - **Launch arguments select a test world.** In Debug builds only, the app reads arguments such as
   `-ui-testing` (which also resets state: temporary folders and throwaway settings),
-  `-seed-library <fixture-set>`, `-skip-onboarding`, `-intelligence-unavailable`,
+  `-seed-library <seeds>` (comma-separated: `sample`, `locked`, `damaged`, `scanned`, `many`, and
+  `tags`, `favourite` or `deleted` applied to the sample), `-start home|list` (keep the seeded
+  document closed), `-open-route <link>` (go where an app link goes), `-skip-onboarding`,
+  `-intelligence-unavailable`,
   `-entitlement none|trial|subscribed|expired`, `-allowance exhausted`, `-store unavailable`,
-  `-purchase cancelled|failed|pending`, `-trial ineligible|none` and
+  `-purchase cancelled|failed|pending`, `-trial ineligible|none`, `-app-lock confirms|refuses`
+  (App Lock on, with Face ID's answer scripted) and
   `-disable-animations`, and swaps
   in a container with fakes: a scripted intelligence router, a fixed entitlement (nobody is
   entitled unless the test says so, and the App Store is never asked), a free allowance with no

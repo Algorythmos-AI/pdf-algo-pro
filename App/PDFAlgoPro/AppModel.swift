@@ -100,31 +100,12 @@ final class AppModel {
       library: container.library, intelligence: container.meteredIntelligence, index: container.index,
       isLocked: { [weak self] in self?.lock.isLocked ?? true },
       handler: { [weak self] route in self?.navigate(to: route) })
-    if container.environment.seedsSample {
-      Task { await library.addSample() }
-    }
-    if container.environment.seedsDamaged {
-      Task { [library, container] in
-        // The sample, with its file then overwritten by bytes that aren't a PDF, as a damaged file would be.
-        guard let data = try? SyntheticPDF.makeSample(),
-          let document = try? await container.intake.add(data: data, title: "Damaged sample"),
-          let url = try? await container.library.fileURL(for: document.id)
-        else { return }
-        try? Data("not a PDF any more".utf8).write(to: url)
-        await library.reload()
-        library.open(document.id)
+    #if DEBUG
+      let environment = container.environment
+      if !environment.seeds.isEmpty || environment.route != nil || environment.startsOnList {
+        Task { [weak self] in await self?.prepareForUITest(environment) }
       }
-    }
-    if container.environment.seedsLocked {
-      Task { [library, container] in
-        // A synthetic document; its password is a fixture, known to the UI tests.
-        guard let data = try? SyntheticPDF.makeEncrypted(pages: ["Locked page"], password: Self.lockedSamplePassword),
-          let document = try? await container.intake.add(data: data, title: "Locked sample")
-        else { return }
-        await library.reload()
-        library.open(document.id)
-      }
-    }
+    #endif
     Task { await container.migrateSpotlightIfNeeded() }
     // Purchases are followed from launch, so one approved or renewed while the app was closed is seen.
     container.entitlements.start()
@@ -212,6 +193,66 @@ final class AppModel {
 
   /// The password of the `-seed-library locked` document (a test fixture).
   static let lockedSamplePassword = "open-sesame"
+
+  #if DEBUG
+    /// Fills a UI test's private library as its `-seed-library` argument asks, then opens the last
+    /// document seeded, or goes where `-start` or `-open-route` says (docs/testing-strategy.md).
+    ///
+    /// Every document is synthetic. Debug builds only.
+    private func prepareForUITest(_ environment: LaunchEnvironment) async {
+      let seeds = environment.seeds
+      let intake = container.intake
+      var opened: DocumentID?
+      func add(_ data: Data?, _ title: String) async -> DocumentID? {
+        guard let data else { return nil }
+        return try? await intake.add(data: data, title: title).id
+      }
+      if seeds.contains("many") {
+        // Twelve documents with distinct titles, opened in turn so their order is known.
+        for number in 1...12 {
+          let title = String(format: "Document %02d", number)
+          if let id = await add(try? SyntheticPDF.make(pages: [title]), title) {
+            try? await container.library.recordOpened(id, pageIndex: 0)
+          }
+        }
+      }
+      if seeds.contains("scanned"), let id = await add(try? SyntheticPDF.makeImageOnly(pages: ["Scanned page"]), "Scan")
+      {
+        opened = id
+      }
+      if seeds.contains("sample"), let id = await add(try? SyntheticPDF.makeSample(), SampleContent.title) {
+        opened = id
+        if seeds.contains("tags") { try? await container.library.setTags(["Invoices", "Tax"], for: id) }
+        if seeds.contains("favourite") { try? await container.library.setFavorite(true, for: id) }
+        if seeds.contains("deleted") {
+          try? await container.library.moveToRecentlyDeleted(id)
+          opened = nil
+        }
+      }
+      if seeds.contains("damaged"), let id = await add(try? SyntheticPDF.makeSample(), "Damaged sample") {
+        // The sample, with its file then overwritten by bytes that aren't a PDF, as a damaged file would be.
+        if let url = try? await container.library.fileURL(for: id) {
+          try? Data("not a PDF any more".utf8).write(to: url)
+        }
+        opened = id
+      }
+      if seeds.contains("locked"),
+        let id = await add(
+          try? SyntheticPDF.makeEncrypted(pages: ["Locked page"], password: Self.lockedSamplePassword), "Locked sample")
+      {
+        // A synthetic document; its password is a fixture, known to the UI tests.
+        opened = id
+      }
+      await library.reload()
+      if let route = environment.route {
+        navigate(to: route)
+      } else if environment.startsOnList {
+        navigate(to: .library(.all))
+      } else if environment.opensSeededDocument, let opened {
+        library.open(opened)
+      }
+    }
+  #endif
 
   // MARK: - Routing
 
