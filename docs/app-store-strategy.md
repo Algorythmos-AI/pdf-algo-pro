@@ -321,6 +321,53 @@ Guideline text from the [App Review Guidelines](https://developer.apple.com/app-
 | **5.1.2(i)** Data Use and Sharing | Clearly disclose where personal data is shared with third parties, including third-party AI, and obtain explicit permission first | A consent screen before the first cloud request names the provider (Apple Private Cloud Compute; Claude by Anthropic), the data sent (the question and the relevant passages), and retention; revocable in Settings ([ADR-0009](adr/0009-tiered-ai-and-consent.md), [AI governance](ai-governance.md)). Treated as required for Private Cloud Compute too, because Apple does not say whether it counts as third-party AI |
 | **5.6** Developer Code of Conduct | Honest dealings; no manipulation of reviews or rankings; 5.6.1 use the provided API for review prompts | The ratings rules above; no paid or incentivised reviews; honest paywall and cancellation |
 
+## Review notes for 1.0
+
+The text for App Store Connect's "Notes" field (App Review Information) and for Beta App Review,
+to paste for the first submission (plan step L5). It describes the 1.0 scope (PAP-065 to PAP-067)
+and must stay true of the build submitted: before each submission, check every line against that
+build, and change the two marked lines if text editing ships (PAP-066). The French storefronts are
+reviewed with the same English notes.
+
+> PDF Algo Pro has no account and no server: nothing to sign in to, and no demo account is needed.
+>
+> To reach every feature: open the app, skip the three introduction pages, and tap "Try a sample" on
+> Home. The sample is a three-page synthetic document; from it you can mark up, sign (Markup >
+> Signature), find, organise pages (More > Pages) and ask questions.
+>
+> Document intelligence (Ask: Summarise, Ask a question, Extract data, Explain contract) runs on the
+> device with Apple's Foundation Models framework. It needs Apple Intelligence: on a device without
+> it, or with it turned off, the Ask menu explains why, and every other feature works. No document
+> text leaves the device, and there is no cloud AI in this version.
+>
+> Explain contract shows "Explains the document. Not legal advice." on every result.
+>
+> Subscriptions: one group with a weekly plan and an annual plan; the annual plan has a free trial
+> for eligible accounts and Family Sharing. The offer appears once, at the end of the introduction,
+> with Close from the first moment, and from Settings > Subscription. It shows StoreKit's own prices
+> and periods, the trial's length and what follows, that the plan renews until cancelled, Restore
+> Purchases, Redeem a code, and the Terms of Use and Privacy Policy. Opening, reading, signing,
+> sharing and exporting documents never need a subscription; Pro removes the daily limits on scans
+> saved and on-device answers. [If text editing ships: "and adds editing of the existing text of a
+> PDF, with the Edit button in the reader's bar".]
+>
+> Permissions: the camera, to scan documents, asked when you first scan; Face ID, only if you turn
+> on App Lock in Settings; notifications, only if you turn on the trial reminder after subscribing.
+>
+> Nothing is turned on remotely: every feature described is in the build.
+
+Before pasting, check each claim against the build and its evidence:
+
+| Claim | Evidence |
+|---|---|
+| "Try a sample" on Home | Home's empty state (`library.home.sample`) and the empty list (`library.empty.sample`); `LibraryUITests` |
+| Ask explains when Apple Intelligence is unavailable | `AssistantView.explanation(for:)`; `AssistantUITests` with `-intelligence-unavailable` |
+| No cloud AI, no server | PAP-065 (the Private Cloud Compute tier is V1.1); the App Privacy Report row in the [device smoke test](process/device-smoke-test.md) |
+| The contract disclosure | `ContractDisclosure` in the design system ([AI governance](ai-governance.md)) |
+| The offer's contents and Close | [Subscription disclosure](#subscription-disclosure) below; `PaywallUITests` |
+| Permissions and when they are asked | `Info.plist` (camera, Face ID); `TrialReminderScheduler` asks for notifications only from the reminder switch |
+| Text editing | Off in 1.0 unless its device test is signed off (PAP-066 in the [decision register](decision-register.md)) |
+
 ## Subscription disclosure
 
 Requirements from Apple's [auto-renewable subscriptions](https://developer.apple.com/app-store/subscriptions/)
