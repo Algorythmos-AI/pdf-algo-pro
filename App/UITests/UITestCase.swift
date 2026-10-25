@@ -201,13 +201,19 @@ class UITestCase: XCTestCase {
   /// A tap that arrives while the screen is still settling, for example while a sheet is closing, can be
   /// swallowed: a menu stays closed (issue #76), or Settings never opens after the scan sheet is
   /// cancelled.
+  ///
+  /// For a control that stays on screen while the screen changes, such as Continue in the introduction,
+  /// pass `origin`, something only the screen being left shows: the second tap is made only while it
+  /// still shows. Otherwise a first tap that was merely slow and a second tap together skip a screen;
+  /// on a loaded runner the introduction went from its first page straight to its third.
   func tap(
-    _ control: XCUIElement, until target: XCUIElement, file: StaticString = #filePath, line: UInt = #line
+    _ control: XCUIElement, until target: XCUIElement, from origin: XCUIElement? = nil,
+    file: StaticString = #filePath, line: UInt = #line
   ) {
     XCTAssertTrue(control.waitForExistence(timeout: Self.settleTimeout), "The control exists", file: file, line: line)
     control.tap()
     if !target.waitForExistence(timeout: 3) {
-      control.tap()
+      if origin?.exists ?? true { control.tap() }
       XCTAssertTrue(
         target.waitForExistence(timeout: Self.settleTimeout), "The tap opens what it should", file: file, line: line)
     }

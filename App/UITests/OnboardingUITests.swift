@@ -14,10 +14,10 @@ final class OnboardingUITests: UITestCase {
     XCTAssertTrue(app.buttons[ID.Onboarding.skip].exists, "Skip is on the first page (FR-ONB-002)")
     try audit(app)
     let next = app.buttons[ID.Onboarding.continue]
-    tap(next, until: headline("sign", in: app))
+    tap(next, until: headline("sign", in: app), from: headline("scan", in: app))
     XCTAssertTrue(app.buttons[ID.Onboarding.skip].exists, "And on the second")
     // The scripted intelligence is available, so the third page is about asking a document.
-    tap(next, until: headline("ask", in: app))
+    tap(next, until: headline("ask", in: app), from: headline("sign", in: app))
     XCTAssertTrue(app.buttons[ID.Onboarding.skip].exists, "And on the third")
     try audit(app)
     // The offer follows the last page once; closing it leads to Home (FR-ONB-004).
@@ -45,8 +45,8 @@ final class OnboardingUITests: UITestCase {
     app = launch(install + ["-first-run-build", "25"])
     XCTAssertTrue(headline("scan", in: app).waitForExistence(timeout: Self.settleTimeout), "The next build starts over")
     let next = app.buttons[ID.Onboarding.continue]
-    tap(next, until: headline("sign", in: app))
-    tap(next, until: headline("ask", in: app))
+    tap(next, until: headline("sign", in: app), from: headline("scan", in: app))
+    tap(next, until: headline("ask", in: app), from: headline("sign", in: app))
     leave(by: next, for: app.buttons[ID.Paywall.Plan.yearly])
     XCTAssertTrue(app.buttons[ID.Paywall.purchase].exists, "The offer is there to be tried again")
     leave(by: app.buttons[ID.Paywall.close], for: app.buttons[ID.Library.Home.sample])
@@ -75,8 +75,8 @@ final class OnboardingUITests: UITestCase {
   func testWithoutOnDeviceIntelligenceTheThirdPageNeedsNone() throws {
     let app = launch(["-intelligence-unavailable"])
     let next = app.buttons[ID.Onboarding.continue]
-    tap(next, until: headline("sign", in: app))
-    tap(next, until: headline("organize", in: app))
+    tap(next, until: headline("sign", in: app), from: headline("scan", in: app))
+    tap(next, until: headline("organize", in: app), from: headline("sign", in: app))
     XCTAssertFalse(headline("ask", in: app).exists, "No page promises what this device cannot do (FR-ONB-006)")
     try audit(app)
   }
