@@ -197,6 +197,68 @@ final class ReaderUITests: UITestCase {
     XCTAssertTrue(bar.exists, "Dragging the page does not let go of the rectangle: \(drag.notes)")
   }
 
+  /// A shape carried to the top of the screen and held there scrolls its page back into view, and comes
+  /// with the finger: without this a shape could only be taken as far as the screen shows.
+  ///
+  /// The first page's top is scrolled off the screen first, so there is somewhere on the shape's own
+  /// page to carry it to: the pages stop scrolling where the page's edge reaches the finger.
+  func testAShapeCarriedToTheTopEdgeScrollsThePagesBackWithIt() throws {
+    let app = launch(["-skip-onboarding", "-seed-library", "sample"])
+    XCTAssertTrue(app.staticTexts[ID.Reader.pageIndicator].waitForExistence(timeout: 15))
+    app.buttons[ID.Reader.markup].tap()
+    app.buttons[ID.Reader.Markup.shapes].tap()
+    shapeItem("rectangle", in: app).tap()
+    let area = app.descendants(matching: .any)[ID.Reader.drawing].firstMatch
+    XCTAssertTrue(area.waitForExistence(timeout: Self.settleTimeout))
+    // A rectangle on the left of the first page, under its text.
+    let frame = area.frame
+    let origin = app.coordinate(withNormalizedOffset: .zero)
+    func at(_ point: CGPoint) -> XCUICoordinate { origin.withOffset(CGVector(dx: point.x, dy: point.y)) }
+    let drawn = CGRect(
+      x: frame.minX + frame.width * 0.1, y: frame.minY + frame.height * 0.45, width: frame.width * 0.2,
+      height: frame.height * 0.08)
+    at(drawn.origin).press(forDuration: 0.1, thenDragTo: at(CGPoint(x: drawn.maxX, y: drawn.maxY)))
+    app.buttons[ID.Reader.doneDrawing].tap()
+
+    let pages = app.descendants(matching: .any)[ID.Reader.pages].firstMatch
+    XCTAssertTrue(pages.waitForExistence(timeout: Self.settleTimeout))
+    let bar = app.descendants(matching: .any)[ID.Reader.Selection.actionBar].firstMatch
+    let rested = placeOfThePages(in: app)
+    // The first page's top off the screen: a slow drag up on bare page, right of the rectangle.
+    let aside = frame.minX + frame.width * 0.8
+    at(CGPoint(x: aside, y: frame.minY + frame.height * 0.7)).press(
+      forDuration: 0.05, thenDragTo: at(CGPoint(x: aside, y: frame.minY + frame.height * 0.4)), withVelocity: .slow,
+      thenHoldForDuration: 1)
+    let lowered = placeOfThePages(in: app)
+    let shift = lowered.minY - rested.minY
+    let places = "drawn \(drawn), pages \(pages.frame), place \(rested) -> \(lowered)"
+    XCTAssertLessThan(shift, -100, "The first page's top did not go off the screen: \(places)")
+    let start = CGPoint(x: drawn.midX, y: drawn.midY + shift)
+    at(start).tap()
+    XCTAssertTrue(bar.waitForExistence(timeout: Self.settleTimeout), "A tap on the rectangle selects it: \(places)")
+
+    // Into the zone at the top where the pages scroll back, and held there.
+    let edge = CGPoint(x: drawn.midX, y: pages.frame.minY + 24)
+    at(start).press(forDuration: 0.05, thenDragTo: at(edge), withVelocity: .slow, thenHoldForDuration: 2)
+    let scrolled = placeOfThePages(in: app)
+    if scrolled.minY < lowered.minY + 40 || !bar.exists {
+      keepEvidence(app, named: "carried to the edge", notes: "pages' place \(lowered) -> \(scrolled); \(places)")
+    }
+    XCTAssertGreaterThan(
+      scrolled.minY, lowered.minY + 40,
+      "Held at the top edge, the pages did not scroll back: their place went from \(lowered) to \(scrolled); \(places)")
+    XCTAssertTrue(bar.exists, "Carrying the rectangle keeps it selected: \(places)")
+
+    // It came with the finger: let go of it, and a tap just below where the finger lifted finds it.
+    app.buttons[ID.Reader.Selection.done].tap()
+    XCTAssertTrue(bar.waitForNonExistence(timeout: Self.settleTimeout), "Done lets go of the rectangle")
+    at(CGPoint(x: edge.x, y: edge.y + 12)).tap()
+    if !bar.waitForExistence(timeout: Self.settleTimeout) {
+      keepEvidence(app, named: "not carried", notes: places)
+      XCTFail("The rectangle is not where the finger let go of it; the pages went to \(scrolled); \(places)")
+    }
+  }
+
   /// Drags the pages up slowly, by about a page's height, holds before the finger lifts so that
   /// nothing can glide, and says whether the indicator left the first page.
   ///

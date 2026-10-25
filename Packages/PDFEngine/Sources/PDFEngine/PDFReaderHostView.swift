@@ -95,8 +95,15 @@ final class PDFReaderHostView: PDFView {
     private var heldPageDrags: [UIGestureRecognizer]?
     private var hasGestures = false
     private lazy var liftDelegate = LiftGestureDelegate(host: self)
-    /// The text being dragged: what it is, where the finger took hold, and its picture.
-    private var lift: (selection: TextRegionSelection, origin: CGPoint, picture: UIView)?
+    /// The text being dragged: what it is, where on its page the finger took hold, and its picture.
+    private var lift: (selection: TextRegionSelection, hold: CGPoint, picture: UIView)?
+    /// Where on its page the drag carrying the selection took hold.
+    private var panHold: CGPoint?
+    /// Scrolls the pages while a carried item's finger is near the top or bottom (`EdgeScrolling`).
+    private var edgeLink: CADisplayLink?
+    /// Where the finger carrying an item is, in this view, while a drag is under way.
+    private var edgeFinger: CGPoint?
+    private var edgeLastTick: CFTimeInterval?
   #endif
 
   /// Binds the view to a document's controller.
@@ -503,27 +510,37 @@ final class PDFReaderHostView: PDFView {
         picture.layer.shadowOffset = CGSize(width: 0, height: 3)
         picture.isUserInteractionEnabled = false
         addSubview(picture)
-        lift = (selection, point, picture)
+        lift = (selection, convert(point, to: page), picture)
+        followEdges(point, state: .began)
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
       case .changed:
-        guard let lift, let page = document?.page(at: lift.selection.pageIndex) else { return }
-        let frame = convert(lift.selection.region.bounds, from: page).insetBy(dx: -3, dy: -2)
-        lift.picture.frame = frame.offsetBy(dx: point.x - lift.origin.x, dy: point.y - lift.origin.y)
+        carryLift(to: point)
+        followEdges(point, state: .changed)
       case .ended:
+        followEdges(point, state: .ended)
         guard let lift, let page = document?.page(at: lift.selection.pageIndex) else { return }
         lift.picture.removeFromSuperview()
         self.lift = nil
-        // The drag in page space: the difference between where it ended and where it started.
-        let start = convert(lift.origin, to: page)
+        // The drag in page space: from where the finger took hold to where it let go, the pages'
+        // scrolling included.
         let end = convert(point, to: page)
-        let offset = CGVector(dx: end.x - start.x, dy: end.y - start.y)
+        let offset = CGVector(dx: end.x - lift.hold.x, dy: end.y - lift.hold.y)
         // A press that did not travel is not a move.
-        guard hypot(point.x - lift.origin.x, point.y - lift.origin.y) >= 8 else { return }
+        guard hypot(offset.dx, offset.dy) * scaleFactor >= 8 else { return }
         controller?.onTextMoveRequested?(lift.selection, offset)
       default:
+        followEdges(point, state: .cancelled)
         lift?.picture.removeFromSuperview()
         lift = nil
       }
+    }
+
+    /// Keeps the held line's picture under the finger, wherever the pages have scrolled to.
+    private func carryLift(to point: CGPoint) {
+      guard let lift, let page = document?.page(at: lift.selection.pageIndex) else { return }
+      let frame = convert(lift.selection.region.bounds, from: page).insetBy(dx: -3, dy: -2)
+      let held = convert(lift.hold, from: page)
+      lift.picture.frame = frame.offsetBy(dx: point.x - held.x, dy: point.y - held.y)
     }
 
     /// Picks the text nearest a point in this view, for editing.
@@ -565,11 +582,81 @@ final class PDFReaderHostView: PDFView {
 
     @objc fileprivate func panned(_ recognizer: UIPanGestureRecognizer) {
       guard let page = controller?.selected?.page else { return }
-      // The drag in page space: the difference between where it is and where it started.
-      let origin = convert(CGPoint.zero, to: page)
-      let moved = convert(recognizer.translation(in: self), to: page)
-      transformOffset = CGSize(width: moved.x - origin.x, height: moved.y - origin.y)
+      let location = recognizer.location(in: self)
+      if recognizer.state == .began {
+        // The drag is recognised some points after the touch: it took hold where the touch began.
+        let travelled = recognizer.translation(in: self)
+        panHold = convert(CGPoint(x: location.x - travelled.x, y: location.y - travelled.y), to: page)
+      }
+      carrySelection(to: location)
       transform(recognizer.state)
+      followEdges(location, state: recognizer.state)
+      if recognizer.state != .began, recognizer.state != .changed { panHold = nil }
+    }
+
+    /// Sets the selection's move so that where the drag took hold is under `location`, in page space,
+    /// so the pages' scrolling under a still finger moves it too.
+    private func carrySelection(to location: CGPoint) {
+      guard let page = controller?.selected?.page, let panHold else { return }
+      let point = convert(location, to: page)
+      transformOffset = CGSize(width: point.x - panHold.x, height: point.y - panHold.y)
+    }
+
+    /// Starts scrolling the pages near the top or bottom while an item is carried, and stops when the
+    /// drag is over (`EdgeScrolling`).
+    private func followEdges(_ location: CGPoint, state: UIGestureRecognizer.State) {
+      switch state {
+      case .began, .changed:
+        edgeFinger = location
+        guard edgeLink == nil else { return }
+        let link = CADisplayLink(target: self, selector: #selector(edgeTick(_:)))
+        link.add(to: .main, forMode: .common)
+        edgeLink = link
+      default:
+        edgeLink?.invalidate()
+        edgeLink = nil
+        edgeFinger = nil
+        edgeLastTick = nil
+      }
+    }
+
+    /// One frame of scrolling near an edge: the pages move, and the carried item with them.
+    @objc fileprivate func edgeTick(_ link: CADisplayLink) {
+      defer { edgeLastTick = link.timestamp }
+      guard let finger = edgeFinger, let last = edgeLastTick, let scroller = pagesScroller,
+        let page = lift.flatMap({ document?.page(at: $0.selection.pageIndex) }) ?? controller?.selected?.page
+      else { return }
+      let visible = bounds.inset(by: safeAreaInsets)
+      let speed = EdgeScrolling.speed(at: finger.y, top: visible.minY, bottom: visible.maxY)
+      guard speed != 0 else { return }
+      let pageFrame = convert(page.bounds(for: displayBox), from: page)
+      let lowest = -scroller.adjustedContentInset.top
+      let highest = max(
+        lowest, scroller.contentSize.height - scroller.bounds.height + scroller.adjustedContentInset.bottom)
+      let change = EdgeScrolling.step(
+        speed: speed, seconds: CGFloat(min(0.05, link.timestamp - last)), finger: finger.y,
+        pageTop: pageFrame.minY, pageBottom: pageFrame.maxY, offset: scroller.contentOffset.y,
+        range: lowest...highest)
+      guard abs(change) > 0.01 else { return }
+      scroller.contentOffset.y += change
+      if lift != nil {
+        carryLift(to: finger)
+      } else {
+        carrySelection(to: finger)
+        transform(.changed)
+      }
+    }
+
+    /// The scroller that holds the pages: the one PDFKit's view of the document is in.
+    private var pagesScroller: UIScrollView? {
+      if let scroller = documentView?.superview as? UIScrollView { return scroller }
+      var views: [UIView] = subviews
+      while !views.isEmpty {
+        let view = views.removeFirst()
+        if let scroller = view as? UIScrollView { return scroller }
+        views.append(contentsOf: view.subviews)
+      }
+      return nil
     }
 
     /// Whether a drag starting at a point in this view marks text: a tool is in hand and the drag
