@@ -115,6 +115,11 @@ class UITestCase: XCTestCase {
   /// bundle. Three paywall audits and the text-editing journeys failed on some runners only
   /// (2026-10-09), and their screenshots were in the artifacts alone.
   func keepEvidence(_ app: XCUIApplication, named name: String, notes: String) {
+    // In the result bundle too, so a run on a device, where there is no reports folder, keeps the screen.
+    let screen = XCTAttachment(screenshot: app.screenshot())
+    screen.name = name
+    screen.lifetime = .keepAlways
+    add(screen)
     guard let folder = ProcessInfo.processInfo.environment["REPORTS_DIR"], !folder.isEmpty else { return }
     let directory = URL(fileURLWithPath: folder, isDirectory: true).appendingPathComponent("ui-evidence")
     try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -375,6 +380,24 @@ class UITestCase: XCTestCase {
           details: passing.joined(separator: "\n"), file: file, line: line)
       }
       findings = findings.filter { again.contains($0) }
+    }
+    if !findings.isEmpty, ProcessInfo.processInfo.operatingSystemVersion.majorVersion >= 27 {
+      // iOS 27's audit misreads contrast on glass (#294): measured on the screen instead (`ScreenContrast`).
+      let screen = app.screenshot()
+      var measured: [String] = []
+      findings = findings.filter { finding in
+        guard finding.hasPrefix("- Contrast failed"), let frame = ScreenContrast.frame(in: finding),
+          let ratio = ScreenContrast.ratio(of: frame, in: screen), ratio >= ScreenContrast.minimum
+        else { return true }
+        measured.append(finding + String(format: "\n    Measured on the screen: %.1f:1", ratio))
+        return false
+      }
+      if !measured.isEmpty {
+        keepEvidence(app, named: "audit \(line) contrast measured", notes: measured.joined(separator: "\n"))
+        recordQuarantined(
+          "Contrast the iOS 27 audit misreads on glass, measured on the screen instead, issue #294",
+          details: measured.joined(separator: "\n"), file: file, line: line)
+      }
     }
     if !findings.isEmpty {
       keepEvidence(app, named: "audit \(line)", notes: findings.joined(separator: "\n"))
