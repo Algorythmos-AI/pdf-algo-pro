@@ -11,9 +11,13 @@ enough. The rules:
   * `changes` must have succeeded and said `ios` is "true" or "false"; anything else fails, because
     it is then unknown whether the gates had to run.
   * ios "false" (no Swift or project input changed): every other job must have been skipped.
-  * ios "true": ios-build, ios-device, ios-tests and ios-report must all have succeeded.
+  * ios "true": ios-build, ios-device, ios-tests and ios-report must all have succeeded, and so must
+    pdf-export (every golden-corpus document saved through the engine, and the save suites under
+    Thread Sanitizer) and pdf-validation (qpdf and PDFium read every saved file). The two PDF jobs
+    were advisory for their first two weeks (plan revision 3, B2) and are part of the gate since R2.
   * A focused run (a manual run with `only_testing`, reported as `ios-focused`, never as `ios`):
-    ios-build and ios-tests must have succeeded; ios-report and ios-device are skipped on purpose.
+    ios-build and ios-tests must have succeeded; ios-report and ios-device are skipped on purpose, and
+    ios-device and the PDF jobs may be skipped or succeed, but never fail.
 
 A cancelled run never reaches this job, so it never turns green.
 """
@@ -23,7 +27,9 @@ import json
 import os
 import sys
 
-JOBS = ("changes", "ios-build", "ios-device", "ios-tests", "ios-report")
+JOBS = ("changes", "ios-build", "ios-device", "ios-tests", "ios-report", "pdf-export", "pdf-validation")
+# Jobs a focused run may skip or run, but must not fail.
+OPTIONAL_WHEN_FOCUSED = ("ios-device", "pdf-export", "pdf-validation")
 
 
 def verdict(needs: dict, only_testing: str | None) -> tuple[bool, list[str]]:
@@ -42,15 +48,16 @@ def verdict(needs: dict, only_testing: str | None) -> tuple[bool, list[str]]:
                 problems.append(f"{job} ended with '{results[job]}' although no Swift or project input changed")
         return not problems, problems
     focused = bool(only_testing and only_testing.strip())
-    required = ("ios-build", "ios-tests") if focused else ("ios-build", "ios-device", "ios-tests", "ios-report")
+    required = ("ios-build", "ios-tests") if focused else tuple(job for job in JOBS if job != "changes")
     for job in required:
         if results[job] != "success":
             problems.append(f"{job} ended with '{results[job]}'")
     if focused:
         if results["ios-report"] != "skipped":
             problems.append(f"ios-report ended with '{results['ios-report']}'; a focused run must skip it")
-        if results["ios-device"] not in ("skipped", "success"):
-            problems.append(f"ios-device ended with '{results['ios-device']}'")
+        for job in OPTIONAL_WHEN_FOCUSED:
+            if results[job] not in ("skipped", "success"):
+                problems.append(f"{job} ended with '{results[job]}'")
     return not problems, problems
 
 

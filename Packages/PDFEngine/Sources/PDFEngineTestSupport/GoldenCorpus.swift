@@ -1,6 +1,7 @@
 import CoreGraphics
 import CoreText
 import Foundation
+import ImageIO
 import PDFEngine
 import PDFKit
 
@@ -83,6 +84,16 @@ public enum GoldenCorpus {
     public let name: String
     /// The file.
     public let data: Data
+    /// Whether every entry point must report an error rather than open it.
+    ///
+    /// True for a file with no PDF in it at all; the other cases may open, repaired, or fail.
+    public let mustFailToOpen: Bool
+
+    init(name: String, data: Data, mustFailToOpen: Bool = false) {
+      self.name = name
+      self.data = data
+      self.mustFailToOpen = mustFailToOpen
+    }
 
     /// The name, for parameterised test output.
     public var description: String { name }
@@ -92,7 +103,6 @@ public enum GoldenCorpus {
   public static func malformed() -> [Malformed] {
     let sample = fuzzBase()
     var cases: [(String, Data)] = [
-      ("empty", Data()),
       ("header only", Data("%PDF-1.7\n".utf8)),
       ("truncated in half", sample.prefix(sample.count / 2)),
       ("truncated before the trailer", sample.prefix(max(0, sample.count - 40))),
@@ -105,10 +115,23 @@ public enum GoldenCorpus {
       ("circular page tree", circularPageTree()),
       ("deep nesting", rawPDF(content: String(repeating: "q ", count: 5_000) + String(repeating: "Q ", count: 5_000))),
       ("metadata key that isn't UTF-8", TestPDFs.makeWithUnreadableInfoKey()),
+      ("truncated cross-reference table", truncatingXref(of: sample)),
+      ("self-referencing object stream", selfReferencingObjectStream()),
+      ("outline with 10 000 entries", outline(entries: outlineEntryCount)),
+      ("page tree 2 000 deep", deepPageTree(depth: pageTreeDepth)),
     ]
     cases += fuzzed(sample, count: 40).enumerated().map { ("fuzzed \($0.offset)", $0.element) }
-    return cases.map { Malformed(name: $0.0, data: $0.1) }
+    let unopenable = [
+      Malformed(name: "zero-byte file", data: Data(), mustFailToOpen: true),
+      Malformed(name: "JPEG named .pdf", data: jpeg(), mustFailToOpen: true),
+    ]
+    return unopenable + cases.map { Malformed(name: $0.0, data: $0.1) }
   }
+
+  /// The number of entries in the outline of "outline with 10 000 entries".
+  public static let outlineEntryCount = 10_000
+  /// The number of page-tree levels above the one page of "page tree 2 000 deep".
+  public static let pageTreeDepth = 2_000
 
   // MARK: - Makers
 
@@ -218,6 +241,113 @@ public enum GoldenCorpus {
       for index in range.lowerBound..<min(bytes.count, range.lowerBound + 200) { bytes[index] = UInt8(ascii: "9") }
     }
     return Data(bytes)
+  }
+
+  /// A standard font every reader has, for the hand-written pages.
+  private static let helvetica = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>"
+
+  /// The file cut off inside its cross-reference table: the table's header and its first entries stay,
+  /// the rest of it, the trailer and `startxref` are gone.
+  private static func truncatingXref(of data: Data) -> Data {
+    guard let range = data.range(of: Data("xref".utf8), options: .backwards) else { return data }
+    return data.prefix(range.upperBound + 60)
+  }
+
+  /// An object stream that holds itself: its cross-reference stream says object 4, the object stream,
+  /// is stored inside object 4, and the page's font (object 5) is in it too, so finding the font means
+  /// first finding the stream inside itself.
+  private static func selfReferencingObjectStream() -> Data {
+    var output = "%PDF-1.7\n"
+    var offsets: [Int] = []
+    func add(_ body: String) {
+      offsets.append(output.utf8.count)
+      output += "\(offsets.count) 0 obj\n\(body)\nendobj\n"
+    }
+    let content = "BT /F1 18 Tf 72 700 Td (Object stream) Tj ET"
+    add("<< /Type /Catalog /Pages 2 0 R >>")
+    add("<< /Type /Pages /Kids [3 0 R] /Count 1 >>")
+    add(
+      "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 6 0 R /Resources << /Font << /F1 5 0 R >> >> >>"
+    )
+    let itself = "<< /Type /ObjStm /N 2 /First 10 >>"
+    let font = helvetica
+    let members = "4 0 5 \(itself.utf8.count + 1) "
+    let objects = itself + " " + font
+    let stream = members + objects
+    add(
+      "<< /Type /ObjStm /N 2 /First \(members.utf8.count) /Length \(stream.utf8.count) >>\nstream\n\(stream)\nendstream"
+    )
+    offsets.append(-1)  // object 5 lives in object 4
+    add("<< /Length \(content.utf8.count) >>\nstream\n\(content)\nendstream")
+    // The cross-reference stream: type 1 (offset) or 2 (object stream, index), in 1, 4 and 2 bytes.
+    let xrefOffset = output.utf8.count
+    var rows: [UInt8] = [0, 0, 0, 0, 0, 0xFF, 0xFF]
+    func row(_ type: UInt8, _ field: Int, _ index: Int) {
+      rows += [type] + (0..<4).reversed().map { UInt8(truncatingIfNeeded: field >> ($0 * 8)) }
+      rows += [UInt8(truncatingIfNeeded: index >> 8), UInt8(truncatingIfNeeded: index)]
+    }
+    row(1, offsets[0], 0)
+    row(1, offsets[1], 0)
+    row(1, offsets[2], 0)
+    row(2, 4, 0)  // object 4 is inside object 4
+    row(2, 4, 1)
+    row(1, offsets[5], 0)
+    row(1, xrefOffset, 0)
+    var data = Data(output.utf8)
+    data += Data(
+      "7 0 obj\n<< /Type /XRef /Size 8 /W [1 4 2] /Root 1 0 R /Length \(rows.count) >>\nstream\n".utf8)
+    data += Data(rows)
+    data += Data("\nendstream\nendobj\nstartxref\n\(xrefOffset)\n%%EOF\n".utf8)
+    return data
+  }
+
+  /// One page and an outline of `entries` items, each pointing at the page, in one flat list.
+  private static func outline(entries: Int) -> Data {
+    let content = "BT /F1 18 Tf 72 700 Td (A page with a long outline) Tj ET"
+    var objects = [
+      "<< /Type /Catalog /Pages 2 0 R /Outlines 6 0 R >>",
+      "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+      "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 5 0 R /Resources << /Font << /F1 4 0 R >> >> >>",
+      helvetica,
+      "<< /Length \(content.utf8.count) >>\nstream\n\(content)\nendstream",
+      "<< /Type /Outlines /First 7 0 R /Last \(6 + entries) 0 R /Count \(entries) >>",
+    ]
+    for index in 0..<entries {
+      let number = 7 + index
+      let previous = index > 0 ? " /Prev \(number - 1) 0 R" : ""
+      let next = index < entries - 1 ? " /Next \(number + 1) 0 R" : ""
+      objects.append("<< /Title (Entry \(index + 1)) /Parent 6 0 R\(previous)\(next) /Dest [3 0 R /Fit] >>")
+    }
+    return assemble(objects)
+  }
+
+  /// One page under `depth` page-tree nodes, each the only child of the one above it.
+  private static func deepPageTree(depth: Int) -> Data {
+    let content = "BT /F1 18 Tf 72 700 Td (The deepest page) Tj ET"
+    // Objects: 1 catalog, 2 ... depth + 1 page-tree nodes, then the page and its content.
+    var objects = ["<< /Type /Catalog /Pages 2 0 R >>"]
+    let page = depth + 2
+    for level in 0..<depth {
+      let number = 2 + level
+      let parent = level > 0 ? " /Parent \(number - 1) 0 R" : ""
+      objects.append("<< /Type /Pages\(parent) /Kids [\(number + 1) 0 R] /Count 1 >>")
+    }
+    objects.append(
+      "<< /Type /Page /Parent \(page - 1) 0 R /MediaBox [0 0 612 792] /Contents \(page + 1) 0 R "
+        + "/Resources << /Font << /F1 \(page + 2) 0 R >> >> >>")
+    objects.append("<< /Length \(content.utf8.count) >>\nstream\n\(content)\nendstream")
+    objects.append(helvetica)
+    return assemble(objects)
+  }
+
+  /// A JPEG photo of text, as a camera would save it: no PDF in it at all.
+  private static func jpeg() -> Data {
+    let data = NSMutableData()
+    guard let image = SyntheticPDF.makeTextImage("Not a PDF", size: CGSize(width: 240, height: 320)),
+      let destination = CGImageDestinationCreateWithData(data as CFMutableData, "public.jpeg" as CFString, 1, nil)
+    else { return Data([0xFF, 0xD8, 0xFF, 0xE0, 0, 0x10]) + Data("JFIF".utf8) }
+    CGImageDestinationAddImage(destination, image, [kCGImageDestinationLossyCompressionQuality: 0.8] as CFDictionary)
+    return CGImageDestinationFinalize(destination) ? data as Data : Data([0xFF, 0xD8, 0xFF, 0xE0])
   }
 
   private static func rawPDF(content: String, declaredLength: Int? = nil) -> Data {
