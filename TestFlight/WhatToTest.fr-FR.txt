@@ -1,14 +1,12 @@
 Version interne de PDF Algo Pro (Staging). Utilisez des documents de test, pas des vrais. À essayer :
 
-Nouveau dans cette version et les deux précédentes
-- Nouveau : dans Modifier, changez plusieurs fois le même titre, en touchant OK à chaque fois. Il garde sa largeur. Un titre resté écrasé se répare en le changeant une fois.
-- Avec une forme, un tampon ou une signature sélectionnés, faites glisser la page lentement ailleurs : elle suit le doigt. L’élément sélectionné se déplace et se redimensionne comme avant.
-- Une ligne ouverte, amenée tout en haut de l’écran, passe sous la barre et non par-dessus l’heure.
-- Modifier le texte : touchez Modifier, puis une ligne. Elle s’ouvre à sa place, à la taille de la page, et un texte long passe à la ligne. Rien n’est coupé.
-- Avec une ligne ouverte, faites glisser la page lentement avec un doigt, puis pincez. La page suit le doigt et y reste. Tapez : elle revient à la ligne.
-- Tournez l’iPhone avec une ligne ouverte : la ligne reste au-dessus du clavier. Le bouton clavier masque le clavier et le ramène.
-- Changez une ligne loin dans un long document et touchez OK : la page reste où vous étiez. Annuler aussi.
-- Lecture : un glissement lent déplace maintenant la page sous le doigt.
+Nouveautés de cette version
+- Nouveau : sélectionnez une forme, un tampon, une signature ou une zone de texte, faites-la glisser en haut ou en bas de l'écran et maintenez. La page défile avec, plus vite près du bord.
+- Copier, Couper ou Dupliquer un tampon, une forme ou un dessin depuis sa barre, puis touchez où va chaque copie ; OK termine. Un tampon choisi dans Annotation > Tampon va où vous touchez.
+- Modifier : collez dans une ligne un nom copié d'une page web. Il change. Si une modification ne peut pas être enregistrée sans risque, l'app remet la ligne, enregistre le reste et le dit.
+- Reconnaître le texte pendant que vous remplissez un formulaire : ce que vous avez tapé est conservé.
+- Réglages > Exiger Face ID sur un téléphone sans code : l'app le désactive et dit pourquoi, au lieu de vous bloquer.
+- Abonnements : quand l'essai devient un abonnement, Pro reste actif.
 
 Premier lancement et formules
 - Chaque nouvelle version s’ouvre d’elle-même sur l’introduction, puis sur les formules.
@@ -41,6 +39,7 @@ Assistant et confidentialité
 
 Problèmes connus
 - Un glissement commencé juste après un toucher peut ne pas déplacer la page. Levez le doigt, attendez un instant et recommencez.
+- Un PDF renommé dans l'app Fichiers revient sans ses étiquettes, son favori ni sa position de lecture.
 
 Envoyer un retour
 - Faites une capture d’écran dans l’app, ouvrez-la, touchez X ou OK en haut, puis Partager un avis bêta, et décrivez le problème.

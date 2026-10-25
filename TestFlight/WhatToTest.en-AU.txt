@@ -1,14 +1,12 @@
 Internal build of PDF Algo Pro (Staging). Use test documents, not real ones. Please try:
 
-New in this build and the two before
-- New now: in Edit, change the same heading several times, tapping Done each time. It stays as wide as its words. Before, its letters closed up a little more each time. A heading left squashed is set right by changing it once.
-- With a shape, stamp or signature selected, drag the page slowly anywhere else: it follows your finger. Dragging the selected one still moves it, and pinching it still resizes it.
-- A line you are editing, scrolled up to the top of the screen, goes under the bar and no longer shows over the clock.
-- Edit text: tap Edit, then a line. It opens where it is, at the page's own size, and long text wraps. Nothing is cut off.
-- With a line open, drag the page slowly with one finger, then pinch. The page follows your finger and stays where you leave it. Type: it comes back to the line.
-- Turn the phone on its side with a line open: the line stays above the keyboard. The keyboard button puts the keyboard away and brings it back.
-- Change a line far down a long document and tap Done: the page stays where you were. Undo too.
-- Reading: a slow drag now moves the page under your finger. Before, it only moved after a flick.
+New in this build
+- New now: select a shape, stamp, signature or text box and drag it to the top or bottom of the screen, then hold. The page scrolls with it, faster nearer the edge.
+- Copy, Cut or Duplicate a stamp, shape or drawing from its bar, then tap where each copy goes; Done ends it. A stamp chosen from Markup > Stamp goes where you tap.
+- Edit: paste a name copied from a web page into a line. It changes. If a change can't be saved safely, the app puts that line back, saves the rest and says so.
+- Recognise text while filling in a form: what you typed is kept.
+- Settings > Require Face ID on a phone with no passcode: the app turns it off and says why, instead of locking you out.
+- Plans: when the trial turns into a subscription, Pro stays on.
 
 First run and plans
 - Every new build opens on the introduction by itself, then the plans. Nothing to reinstall.
@@ -41,6 +39,7 @@ Assistant and privacy
 
 Known issues
 - A drag begun straight after a tap may not move the page. Lift your finger, wait a moment and drag again.
+- A PDF renamed in the Files app comes back without its tags, favourite and reading position.
 
 Send feedback
 - Take a screenshot in the app, open it, tap the X or Done at the top, then Share Beta Feedback, and say what happened.
