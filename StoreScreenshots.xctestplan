@@ -1,0 +1,32 @@
+{
+  "configurations": [
+    {
+      "id": "4F1C2A00-0000-4000-8000-000000000003",
+      "name": "Default",
+      "options": {}
+    }
+  ],
+  "defaultOptions": {
+    "codeCoverage": false,
+    "defaultTestExecutionTimeAllowance": 300,
+    "targetForVariableExpansion": {
+      "containerPath": "container:PDFAlgoPro.xcodeproj",
+      "identifier": "F7ED77A099661D789A92EF15",
+      "name": "PDFAlgoPro"
+    },
+    "testTimeoutsEnabled": true
+  },
+  "testTargets": [
+    {
+      "selectedTests": [
+        "StoreScreenshotTests"
+      ],
+      "target": {
+        "containerPath": "container:PDFAlgoPro.xcodeproj",
+        "identifier": "12F8DDC939C9FA809B6ACC4A",
+        "name": "PDFAlgoProUITests"
+      }
+    }
+  ],
+  "version": 1
+}

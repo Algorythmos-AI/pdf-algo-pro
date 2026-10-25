@@ -227,6 +227,7 @@ schemes:
         - path: PDFAlgoPro.xctestplan
           defaultPlan: true
         - path: Performance.xctestplan
+        - path: StoreScreenshots.xctestplan
     run:
       config: Debug
       # Run from Xcode, the Debug app sees the test products, so the offer shows its plans without
