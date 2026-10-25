@@ -297,6 +297,30 @@ struct PaywallModelTests {
       ])
   }
 
+  @Test("A purchase the App Store took but StoreKit could not verify never says nothing was charged (#228)")
+  func unverified() async {
+    let (model, _, _, telemetry, _) = makeModel(outcome: .unverified)
+    await model.appeared()
+    await model.purchase()
+    #expect(model.phase == .offer && model.notice == .unverified && !model.isPurchasing && !model.grantsPro)
+    #expect(model.notice != .failed, "The failure notice says nothing has been charged")
+    #expect(
+      await telemetry.events == ["commerce.paywall.viewed", "commerce.purchase.started", "commerce.purchase.failed"])
+  }
+
+  @Test("An unverified purchase that StoreKit has verified by the time it is read again leads to the confirmation")
+  func unverifiedThenVerified() async {
+    let (model, fake, _, telemetry, _) = makeModel(outcome: .unverified)
+    await model.appeared()
+    fake.set(.subscribed)
+    await model.purchase()
+    #expect(model.phase == .welcome && model.notice == nil)
+    #expect(
+      await telemetry.events == [
+        "commerce.paywall.viewed", "commerce.purchase.started", "commerce.purchase.completed",
+      ])
+  }
+
   @Test("Someone who has Pro is told so, and the offer sells them nothing")
   func alreadyProBuysNothing() async {
     let (model, _, _, telemetry, flags) = makeModel(.subscribed, trigger: .settings)

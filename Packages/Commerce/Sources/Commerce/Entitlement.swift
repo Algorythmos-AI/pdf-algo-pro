@@ -105,7 +105,9 @@ public struct PurchaseRecord: Sendable, Equatable {
   /// The entitlement this record alone gives at a moment.
   ///
   /// A revocation wins over everything. Then the reported renewal state decides; without one, a
-  /// period whose end has passed is expired. An active period bought as a free trial is a trial.
+  /// period whose end has passed is expired. An active period bought as a free trial is a trial
+  /// until its end; past it, with the App Store still reporting the subscription active, the trial
+  /// has become a paid period, whose own transaction may not have reached the device yet.
   public func entitlement(at now: Date) -> Entitlement {
     if revocationDate != nil { return .revoked }
     switch renewalState {
@@ -117,7 +119,7 @@ public struct PurchaseRecord: Sendable, Equatable {
     case nil:
       if let expirationDate, expirationDate <= now { return .expired }
     }
-    if offer == .freeTrial, let expirationDate { return .trial(endsAt: expirationDate) }
+    if offer == .freeTrial, let expirationDate, expirationDate > now { return .trial(endsAt: expirationDate) }
     return .subscribed
   }
 }

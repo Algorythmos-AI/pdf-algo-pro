@@ -48,6 +48,16 @@ Store notes (see the changelog strategy).
 - Signed documents and "Keep mine as a copy": when the copy couldn't be added to the library, your
   changes were treated as saved and then lost. They now stay unsaved, so trying again or sharing
   keeps them.
+- Pro: a purchase or a refund is no longer undone by an older check of your subscription that
+  finished after it. Before, buying Pro just as the app came back to the screen could show the
+  offer again, and a refund could leave Pro on.
+- Pro: if the App Store takes a purchase but your device can't verify it, the app no longer says
+  that nothing has been charged. It says the purchase couldn't be confirmed, and suggests Restore
+  purchases or your App Store purchase history before buying again.
+- Pro: when a free trial turns into a paid subscription, Pro stays on. Before, it could switch off
+  until the App Store's renewal reached the device.
+- Pro: a subscriber whose payment is being retried in the App Store's grace period keeps Pro when
+  the subscription's state can't be read, for example offline. Before, Pro could switch off.
 - Annotations: with a shape, a stamp or a signature selected, the page now follows your finger
   when you drag anywhere else on it, also slowly. Before, it kept still until your finger lifted.
   Dragging the selected one still moves it, and pinching it still resizes it while the page keeps
