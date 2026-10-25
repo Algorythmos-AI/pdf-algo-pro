@@ -210,7 +210,10 @@ Production rules:
   Intelligence they are skipped. What a frame shows is then what the build does, which is what the
   caption check below relies on. Before shooting, turn on Do Not Disturb and Portrait Orientation
   Lock, and leave the phone alone: a notification banner, or a tap from another app, ends up in the
-  frame. Frames 2 (scanning) and 4 (editing text) are not taken this way yet.
+  frame. Frames 2 (scanning) and 4 (editing text) are not taken this way yet. CI runs the same suite on
+  the simulator (`store-screenshots`, not required) when the suite, its plan or its documents change,
+  in English and French; there the frames with answers are skipped, since the simulator has no
+  Apple Intelligence.
 - Frame 10 needs a library that looks used: at least three synthetic documents opened, one marked as
   a favourite, none in Recently deleted, so no count reads "0" beside a section the caption talks about.
 
