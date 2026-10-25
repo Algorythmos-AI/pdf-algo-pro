@@ -106,6 +106,10 @@ Store notes (see the changelog strategy).
   line was missing.
 
 ### Added
+- Annotations: a shape, stamp, signature or text box you drag to the top or bottom of the screen
+  now scrolls the page with it, faster the nearer the edge, and stays under your finger. A line of
+  text held to be moved does the same. Before, the page kept still, so something could only be moved
+  as far as the screen showed. It stays on its own page: the scrolling stops at the page's edge.
 - Stamps: a tick, a cross, today's date or initials chosen from Markup › Stamp now goes where you
   tap the page, as many times as you tap, until Done. Before, it was dropped near the top right
   corner of the page and had to be dragged into place.
