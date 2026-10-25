@@ -567,7 +567,9 @@ private enum StoreFromANewerBuild {
   ///
   /// Opening fails if the store no longer has the newer build's shape, for example after an older
   /// build migrated it down to its own schema.
-  static func withContext<T>(at url: URL, _ body: (NSManagedObjectContext) throws -> T) throws -> T {
+  static func withContext<T: Sendable>(
+    at url: URL, _ body: @Sendable (NSManagedObjectContext) throws -> T
+  ) throws -> T {
     try LibraryIndex.opening.withLock { _ in
       let coordinator = NSPersistentStoreCoordinator(managedObjectModel: model())
       let store = try coordinator.addPersistentStore(type: .sqlite, at: url)
