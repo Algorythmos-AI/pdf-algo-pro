@@ -81,9 +81,13 @@ citations, subscribe and restore, and the privacy centre.
   journeys; element queries live in one place.
 - **Launch arguments select a test world.** In Debug builds only, the app reads arguments such as
   `-ui-testing` (which also resets state: temporary folders and throwaway settings),
-  `-seed-library <fixture-set>`, `-skip-onboarding`, `-intelligence-unavailable`,
+  `-seed-library <seeds>` (comma-separated: `sample`, `locked`, `damaged`, `scanned`, `many`, and
+  `tags`, `favourite` or `deleted` applied to the sample), `-start home|list` (keep the seeded
+  document closed), `-open-route <link>` (go where an app link goes), `-skip-onboarding`,
+  `-intelligence-unavailable`,
   `-entitlement none|trial|subscribed|expired`, `-allowance exhausted`, `-store unavailable`,
-  `-purchase cancelled|failed|pending`, `-trial ineligible|none` and
+  `-purchase cancelled|failed|pending`, `-trial ineligible|none`, `-app-lock confirms|refuses`
+  (App Lock on, with Face ID's answer scripted) and
   `-disable-animations`, and swaps
   in a container with fakes: a scripted intelligence router, a fixed entitlement (nobody is
   entitled unless the test says so, and the App Store is never asked), a free allowance with no
@@ -112,7 +116,10 @@ citations, subscribe and restore, and the privacy centre.
   `AccessibilityID.Reader.Markup.paste`, and `library.document.{title}` is
   `AccessibilityID.Library.document(_:)`. The `invariants` job fails on an identifier written as a
   string literal in a view, and on a generated file that has drifted from the list; a new control
-  gets its identifier by adding it to the list and running the script.
+  gets its identifier by adding it to the list and running the script. UI tests write them through
+  a short alias, `ID.Reader.more`, and find a control by its identifier rather than its label
+  wherever the control has one; buttons in system alerts, which SwiftUI gives no identifier, are
+  the exception.
 
 ## Snapshot tests
 

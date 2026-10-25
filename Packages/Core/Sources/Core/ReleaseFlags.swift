@@ -25,10 +25,17 @@ public enum ReleaseFlag: String, CaseIterable, Sendable {
   /// the order they are read (FR-SCAN-004, ADR-0008).
   case documentRecognition
 
-  /// The value in a build that does not turn the flag on.
+  /// The value in a build that does not turn the flag on: the App Store build.
   ///
-  /// Release flags default to off.
-  public var compiledDefault: Bool { false }
+  /// As decided for 1.0 (PAP-066, docs/process/release-flags.md): every flag is on except text
+  /// editing, which waits for its device test to be signed off. Debug and Staging builds turn every
+  /// flag on whatever this says.
+  public var compiledDefault: Bool {
+    switch self {
+    case .textEditing: false
+    case .readingControls, .widerRecognition, .baseFormMatching, .documentDragging, .documentRecognition: true
+    }
+  }
 
   /// The hat that owns the flag (GitHub governance, "Hats").
   public var owner: String {

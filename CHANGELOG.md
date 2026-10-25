@@ -10,6 +10,10 @@ Store notes (see the changelog strategy).
 ## [Unreleased]
 
 ### Changed
+- The App Store version now has what TestFlight builds have had: the page strip and keyboard
+  commands in the reader, recognition in more languages and in reading order, search that finds a
+  word in its other forms, and dragging a document into another app. Editing existing text stays in
+  TestFlight builds until its device test is signed off.
 - The plans screen is redrawn: the two plans side by side with the yearly plan marked Best Value,
   what you pay today and afterwards in one line, and one button. A free trial is shown only when
   your Apple Account can have it. If a purchase can't be made, or is waiting for approval, the
@@ -36,6 +40,14 @@ Store notes (see the changelog strategy).
   as it is and tried again at the next launch, with your documents shown without their tags and
   favourites meanwhile. Before, it was put aside for good, with every tag, favourite and reading
   position in it.
+- Recognise text: a note or drawing added while recognition was finishing could save the old
+  document over the new searchable one, and cancelling at that moment left the reader on the old
+  document. The reader now opens the searchable version as soon as the file is replaced.
+- Recognise text: text you were still typing in a form field when recognition finished was lost.
+  Recognition now leaves the document alone, and what you typed is kept.
+- Signed documents and "Keep mine as a copy": when the copy couldn't be added to the library, your
+  changes were treated as saved and then lost. They now stay unsaved, so trying again or sharing
+  keeps them.
 - Pro: a purchase or a refund is no longer undone by an older check of your subscription that
   finished after it. Before, buying Pro just as the app came back to the screen could show the
   offer again, and a refund could leave Pro on.

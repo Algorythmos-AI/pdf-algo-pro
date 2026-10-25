@@ -26,6 +26,7 @@ extension PDFDocumentController {
   /// Commits the text of a form field still being edited, so a save includes it.
   public func endEditing() {
     view?.endEditing()
+    onEndEditing?()
   }
 
   /// Records the current value of every form field.

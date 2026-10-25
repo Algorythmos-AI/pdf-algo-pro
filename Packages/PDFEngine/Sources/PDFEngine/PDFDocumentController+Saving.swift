@@ -127,6 +127,38 @@ extension PDFDocumentController {
     static var availableCapacity: (@Sendable (URL) -> Int64?)? { nil }
   #endif
 
+  /// What a save counts as saved, taken before saving to a copy, so that the changes count as unsaved
+  /// again if the copy is not kept (#223).
+  public struct UnsavedChanges {
+    fileprivate let hasUnsavedChanges: Bool
+    fileprivate let contentEditedPages: [PDFPage]
+    fileprivate let formValues: [(widget: PDFAnnotation, value: FormValue)]
+    fileprivate let pendingProtection: ProtectionChange?
+    fileprivate let wasEncrypted: Bool
+    fileprivate let password: String?
+  }
+
+  /// The changes as they stand, to take before `save(to:)` writes a copy.
+  public var unsavedChanges: UnsavedChanges {
+    UnsavedChanges(
+      hasUnsavedChanges: hasUnsavedChanges, contentEditedPages: contentEditedPages, formValues: formValues,
+      pendingProtection: pendingProtection, wasEncrypted: wasEncrypted, password: password)
+  }
+
+  /// Counts `changes` as unsaved again, after `save(to:)` wrote a copy that then was not kept (#223).
+  ///
+  /// Changes made since stay unsaved too. The document's own file still has the protection it had,
+  /// and a password change asked for since waits its turn.
+  public func countAsUnsaved(_ changes: UnsavedChanges) {
+    hasUnsavedChanges = hasUnsavedChanges || changes.hasUnsavedChanges
+    contentEditedPages =
+      changes.contentEditedPages + contentEditedPages.filter { !changes.contentEditedPages.contains($0) }
+    formValues = changes.formValues
+    wasEncrypted = changes.wasEncrypted
+    password = changes.password
+    if pendingProtection == nil { pendingProtection = changes.pendingProtection }
+  }
+
   /// The free space for important use on the volume holding `url`, or `nil` when it can't be read.
   static func volumeAvailableCapacity(besides url: URL) -> Int64? {
     try? url.deletingLastPathComponent()

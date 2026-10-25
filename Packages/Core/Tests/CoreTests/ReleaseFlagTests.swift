@@ -3,13 +3,22 @@ import Testing
 
 @Suite("Release flags and text editing access")
 struct ReleaseFlagTests {
-  @Test("Every release flag is off by default, has an owner and a version to be removed by")
+  @Test("Every release flag has an owner and a version to be removed by")
   func declared() {
     for flag in ReleaseFlag.allCases {
-      #expect(!flag.compiledDefault)
       #expect(!flag.owner.isEmpty)
       #expect(flag.removeBy.split(separator: ".").count == 3)
     }
+  }
+
+  /// The App Store build shows what Staging shows, except text editing until its device test is signed off.
+  ///
+  /// Decided in PAP-066; changing a value here is a decision, recorded in the decision register.
+  @Test("The App Store build has the flags PAP-066 decided for 1.0")
+  func shippedInOnePointZero() {
+    let on = Set(ReleaseFlag.allCases.filter(\.compiledDefault))
+    #expect(on == [.readingControls, .widerRecognition, .baseFormMatching, .documentDragging, .documentRecognition])
+    #expect(!ReleaseFlag.textEditing.compiledDefault, "Text editing waits for its device test (PAP-066)")
   }
 
   @Test("A flag is overdue once the app's version reaches the one it must be removed by")
