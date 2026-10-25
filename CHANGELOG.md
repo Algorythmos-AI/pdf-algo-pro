@@ -10,6 +10,10 @@ Store notes (see the changelog strategy).
 ## [Unreleased]
 
 ### Changed
+- The App Store version now has what TestFlight builds have had: the page strip and keyboard
+  commands in the reader, recognition in more languages and in reading order, search that finds a
+  word in its other forms, and dragging a document into another app. Editing existing text stays in
+  TestFlight builds until its device test is signed off.
 - The plans screen is redrawn: the two plans side by side with the yearly plan marked Best Value,
   what you pay today and afterwards in one line, and one button. A free trial is shown only when
   your Apple Account can have it. If a purchase can't be made, or is waiting for approval, the
