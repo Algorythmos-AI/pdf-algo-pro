@@ -23,11 +23,6 @@ final class StoreScreenshotTests: UITestCase {
   private var language: String { ProcessInfo.processInfo.environment["STORE_LANGUAGE"] ?? "en" }
   private var isFrench: Bool { language == "fr" }
 
-  override func tearDown() {
-    XCUIDevice.shared.appearance = .light
-    super.tearDown()
-  }
-
   // MARK: - Frames
 
   func test01AskAndSeeThePage() throws {
@@ -108,6 +103,8 @@ final class StoreScreenshotTests: UITestCase {
 
   func test10HomeInDarkMode() throws {
     XCUIDevice.shared.appearance = .dark
+    // Back to light for whatever runs next.
+    defer { XCUIDevice.shared.appearance = .light }
     let app = launchShowcase("showcase", live: false, extra: ["-start", "home"])
     let title = isFrench ? "Contrat de location" : "Residential lease"
     XCTAssertTrue(
