@@ -40,6 +40,14 @@ Store notes (see the changelog strategy).
   as it is and tried again at the next launch, with your documents shown without their tags and
   favourites meanwhile. Before, it was put aside for good, with every tag, favourite and reading
   position in it.
+- Recognise text: a note or drawing added while recognition was finishing could save the old
+  document over the new searchable one, and cancelling at that moment left the reader on the old
+  document. The reader now opens the searchable version as soon as the file is replaced.
+- Recognise text: text you were still typing in a form field when recognition finished was lost.
+  Recognition now leaves the document alone, and what you typed is kept.
+- Signed documents and "Keep mine as a copy": when the copy couldn't be added to the library, your
+  changes were treated as saved and then lost. They now stay unsaved, so trying again or sharing
+  keeps them.
 - Annotations: with a shape, a stamp or a signature selected, the page now follows your finger
   when you drag anywhere else on it, also slowly. Before, it kept still until your finger lifted.
   Dragging the selected one still moves it, and pinching it still resizes it while the page keeps

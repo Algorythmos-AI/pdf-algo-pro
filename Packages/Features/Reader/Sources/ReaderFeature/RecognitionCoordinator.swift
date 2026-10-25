@@ -41,6 +41,7 @@ public final class RecognitionCoordinator {
 
   private struct Watcher {
     let canReplace: @MainActor () -> Bool
+    let willReplace: @MainActor () -> Void
     let onFinish: @MainActor (Outcome) async -> Void
   }
 
@@ -70,14 +71,17 @@ public final class RecognitionCoordinator {
 
   /// Lets the reader showing a document hear how recognition ended.
   ///
-  /// `canReplace` stops the file being replaced while the reader has unsaved changes. `onFinish` runs
+  /// `canReplace` stops the file being replaced while the reader has unsaved changes. `willReplace`
+  /// runs straight after the file is replaced, with no suspension in between, so the reader lets go of
+  /// the document it shows before anything can save it over the searchable version. `onFinish` runs
   /// before the document's progress ends, so a reader that sees no progress has already heard the
   /// outcome. A later call for the same document replaces the earlier one.
   public func watch(
     _ id: DocumentID, canReplace: @escaping @MainActor () -> Bool,
+    willReplace: @escaping @MainActor () -> Void = {},
     onFinish: @escaping @MainActor (Outcome) async -> Void
   ) {
-    watchers[id] = Watcher(canReplace: canReplace, onFinish: onFinish)
+    watchers[id] = Watcher(canReplace: canReplace, willReplace: willReplace, onFinish: onFinish)
   }
 
   /// Starts recognising a document, from its checkpoint if it has one; does nothing if it is running.
@@ -97,6 +101,9 @@ public final class RecognitionCoordinator {
   }
 
   /// Stops recognising a document and discards its checkpoint; the file is left as it was.
+  ///
+  /// Once the file has been replaced it is too late: the library is still brought up to date, and the
+  /// reader still hears that the file was replaced.
   public func cancel(_ id: DocumentID) {
     jobs[id]?.cancel()
   }
@@ -157,7 +164,12 @@ public final class RecognitionCoordinator {
           try fileManager.copyItem(at: url, to: previous)
         }
         try result.data.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
-        _ = try await intake.refresh(id)
+        // The file is replaced, so the reader must not save the document it shows over it, and stopping
+        // now is too late: the library is brought up to date even if recognition is cancelled meanwhile,
+        // and the reader hears the outcome (#219).
+        watchers[id]?.willReplace()
+        let intake = intake
+        _ = try? await Task { try await intake.refresh(id) }.value
         await telemetry.record("task.core.completed")
         outcome = .replaced
         succeeded = true
