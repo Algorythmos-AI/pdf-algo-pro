@@ -1,4 +1,5 @@
 import Core
+import CoreData
 import Foundation
 import SwiftData
 import Testing
@@ -530,19 +531,74 @@ struct FailedIndexWriteTests {
   }
 }
 
-/// The index schema as a later build might write it, with an attribute this build doesn't know.
-enum LibrarySchemaFromANewerBuild: VersionedSchema {
-  static let versionIdentifier = Schema.Version(2, 0, 0)
-  static var models: [any PersistentModel.Type] { [DocumentEntry.self] }
+/// The index's store as a later build might write it: its entry has an attribute this build doesn't
+/// know.
+///
+/// Written and read with Core Data and plain `NSManagedObject`s, not with a second SwiftData model
+/// class. SwiftData maps model classes to entities by name across the process, so a second
+/// `DocumentEntry` class could be given the real entry's entity while another test's index was open;
+/// inserting into it then threw `setValue:forUndefinedKey:` for "colour" and crashed every test
+/// running in the process.
+private enum StoreFromANewerBuild {
+  static let colour = "red"
 
-  @Model
-  final class DocumentEntry {
-    var id = UUID()
-    var title = ""
-    var fileName = ""
-    var colour = ""
+  /// The newer build's model: the entry's name and three of its attributes, and one more.
+  static func model() -> NSManagedObjectModel {
+    func attribute(_ name: String, _ type: NSAttributeType) -> NSAttributeDescription {
+      let attribute = NSAttributeDescription()
+      attribute.name = name
+      attribute.attributeType = type
+      attribute.isOptional = true
+      return attribute
+    }
+    let entry = NSEntityDescription()
+    entry.name = "DocumentEntry"
+    entry.managedObjectClassName = NSStringFromClass(NSManagedObject.self)
+    entry.properties = [
+      attribute("id", .UUIDAttributeType), attribute("title", .stringAttributeType),
+      attribute("fileName", .stringAttributeType), attribute("colour", .stringAttributeType),
+    ]
+    let model = NSManagedObjectModel()
+    model.entities = [entry]
+    return model
+  }
 
-    init(title: String) { self.title = title }
+  /// Runs `body` on a context over the store at `url`, opened with the newer build's model.
+  ///
+  /// Opening fails if the store no longer has the newer build's shape, for example after an older
+  /// build migrated it down to its own schema.
+  static func withContext<T: Sendable>(
+    at url: URL, _ body: @Sendable (NSManagedObjectContext) throws -> T
+  ) throws -> T {
+    try LibraryIndex.opening.withLock { _ in
+      let coordinator = NSPersistentStoreCoordinator(managedObjectModel: model())
+      let store = try coordinator.addPersistentStore(type: .sqlite, at: url)
+      defer { try? coordinator.remove(store) }
+      let context = NSManagedObjectContext(.privateQueue)
+      context.persistentStoreCoordinator = coordinator
+      return try context.performAndWait { try body(context) }
+    }
+  }
+
+  /// Writes one entry with the newer build's attribute set.
+  static func write(title: String, to url: URL) throws {
+    try withContext(at: url) { context in
+      let entry = NSEntityDescription.insertNewObject(forEntityName: "DocumentEntry", into: context)
+      entry.setValue(UUID(), forKey: "id")
+      entry.setValue(title, forKey: "title")
+      entry.setValue("", forKey: "fileName")
+      entry.setValue(colour, forKey: "colour")
+      try context.save()
+    }
+  }
+
+  /// The title and colour of every entry, as the newer build reads them.
+  static func entries(at url: URL) throws -> [String] {
+    try withContext(at: url) { context in
+      try context.fetch(NSFetchRequest<NSManagedObject>(entityName: "DocumentEntry")).map {
+        "\($0.value(forKey: "title") as? String ?? "nil"), \($0.value(forKey: "colour") as? String ?? "nil")"
+      }
+    }
   }
 }
 
@@ -554,28 +610,10 @@ struct OpeningTheIndexTests {
     return folder.appendingPathComponent("library.store")
   }
 
-  /// The titles a newer build would read from its store.
-  private func newerBuildTitles(at url: URL) throws -> [String] {
-    try LibraryIndex.opening.withLock { _ in
-      let schema = Schema(versionedSchema: LibrarySchemaFromANewerBuild.self)
-      let container = try ModelContainer(
-        for: schema, configurations: ModelConfiguration(schema: schema, url: url, cloudKitDatabase: .none))
-      return try ModelContext(container).fetch(FetchDescriptor<LibrarySchemaFromANewerBuild.DocumentEntry>())
-        .map(\.title)
-    }
-  }
-
   @Test("A store written by a newer build is left where it is, untouched (#226, B11)")
   func newerStoreIsLeftUntouched() async throws {
     let url = try storeURL()
-    try LibraryIndex.opening.withLock { _ in
-      let schema = Schema(versionedSchema: LibrarySchemaFromANewerBuild.self)
-      let container = try ModelContainer(
-        for: schema, configurations: ModelConfiguration(schema: schema, url: url, cloudKitDatabase: .none))
-      let context = ModelContext(container)
-      context.insert(LibrarySchemaFromANewerBuild.DocumentEntry(title: "Tagged in a newer build"))
-      try context.save()
-    }
+    try StoreFromANewerBuild.write(title: "Tagged in a newer build", to: url)
 
     #expect(LibraryIndex.condition(of: url) == .newer)
     let index = LibraryIndex(storeURL: url)
@@ -583,7 +621,8 @@ struct OpeningTheIndexTests {
     try await index.upsert(Document(title: "Added in an older build", fileName: "a.pdf", addedAt: .now))
 
     #expect(!FileManager.default.fileExists(atPath: LibraryIndex.keptFolder(for: url).path))
-    #expect(try newerBuildTitles(at: url) == ["Tagged in a newer build"])
+    // The newer build still reads its entry, its own attribute included: nothing migrated it down.
+    #expect(try StoreFromANewerBuild.entries(at: url) == ["Tagged in a newer build, \(StoreFromANewerBuild.colour)"])
   }
 
   @Test("A store that can't be read at launch is left in place, and opens again next time (#226)")
