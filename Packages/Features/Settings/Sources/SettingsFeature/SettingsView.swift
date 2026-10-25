@@ -1,3 +1,4 @@
+import AccessibilityIDs
 import Core
 import DesignSystem
 import SwiftUI
@@ -56,7 +57,7 @@ public struct SettingsView: View {
           Toggle(isOn: $model.isIntelligenceHidden) {
             TileLabel(Text("Hide AI features", bundle: .module), systemImage: "sparkles", tone: .intelligence)
           }
-          .accessibilityIdentifier("settings.hideAI")
+          .accessibilityIdentifier(AccessibilityID.Settings.hideAI)
         } header: {
           Text("Document intelligence", bundle: .module).foregroundStyle(Color.ds.labelSecondary)
         } footer: {
@@ -78,6 +79,7 @@ public struct SettingsView: View {
                   Toggle(isOn: Binding(get: { model.isChosen(intent) }, set: { _ in model.toggle(intent) })) {
                     Self.intentTitle(intent)
                   }
+                  .accessibilityIdentifier(AccessibilityID.Settings.intent(intent.rawValue))
                 }
               } footer: {
                 Text("The first choice leads the home screen.", bundle: .module)
@@ -89,7 +91,7 @@ public struct SettingsView: View {
           } label: {
             TileLabel(Text("What you do most", bundle: .module), systemImage: "square.grid.2x2")
           }
-          .accessibilityIdentifier("settings.intents")
+          .accessibilityIdentifier(AccessibilityID.Settings.intents)
         } header: {
           Text("Home screen", bundle: .module).foregroundStyle(Color.ds.labelSecondary)
         }
@@ -100,6 +102,7 @@ public struct SettingsView: View {
           } label: {
             TileLabel(Text("Page layout", bundle: .module), systemImage: "book.pages")
           }
+          .accessibilityIdentifier(AccessibilityID.Settings.pageLayout)
         } header: {
           Text("Reading", bundle: .module).foregroundStyle(Color.ds.labelSecondary)
         }
@@ -110,21 +113,21 @@ public struct SettingsView: View {
           Toggle(isOn: $model.isSpotlightTextIncluded) {
             TileLabel(Text("Document text in Spotlight", bundle: .module), systemImage: "magnifyingglass")
           }
-          .accessibilityIdentifier("settings.spotlightText")
+          .accessibilityIdentifier(AccessibilityID.Settings.spotlightText)
           .disabled(model.isAppLockEnabled)
           Toggle(isOn: Binding(get: { model.isAppLockEnabled }, set: { isOn in Task { await model.setAppLock(isOn) } }))
           {
             TileLabel(Self.lockTitle(model.lockMethod), systemImage: Self.lockSymbol(model.lockMethod))
           }
           .disabled(model.lockMethod == nil)
-          .accessibilityIdentifier("settings.appLock")
+          .accessibilityIdentifier(AccessibilityID.Settings.appLock)
           // What document intelligence did, beside the switches that decide what leaves the app (FR-SET-001).
           NavigationLink {
             PrivacyReportView(model: model)
           } label: {
             TileLabel(Text("Privacy report", bundle: .module), systemImage: "hand.raised")
           }
-          .accessibilityIdentifier("settings.privacyReport")
+          .accessibilityIdentifier(AccessibilityID.Settings.privacyReport)
         } header: {
           Text("Privacy and security", bundle: .module).foregroundStyle(Color.ds.labelSecondary)
         } footer: {
@@ -147,14 +150,14 @@ public struct SettingsView: View {
           // One stop for VoiceOver, "Version history, 2.8 MB": with a tile in the label the row is no
           // longer joined by the system.
           .accessibilityElement(children: .combine)
-          .accessibilityIdentifier("settings.versionsSize")
+          .accessibilityIdentifier(AccessibilityID.Settings.versionsSize)
           Button(role: .destructive) {
             model.confirmsDeleteVersions = true
           } label: {
             Text("Delete version history", bundle: .module)
           }
           .disabled((model.versionsSize ?? 0) == 0)
-          .accessibilityIdentifier("settings.deleteVersions")
+          .accessibilityIdentifier(AccessibilityID.Settings.deleteVersions)
         } header: {
           Text("Storage", bundle: .module).foregroundStyle(Color.ds.labelSecondary)
         } footer: {
@@ -168,6 +171,7 @@ public struct SettingsView: View {
           Toggle(isOn: $model.includesDiagnostics) {
             TileLabel(Text("Include a diagnostics summary", bundle: .module), systemImage: "stethoscope")
           }
+          .accessibilityIdentifier(AccessibilityID.Settings.diagnostics)
           Button {
             Task {
               guard let url = await model.supportEmailURL() else { return }
@@ -178,7 +182,7 @@ public struct SettingsView: View {
           } label: {
             Text("Report a problem", bundle: .module)
           }
-          .accessibilityIdentifier("settings.report")
+          .accessibilityIdentifier(AccessibilityID.Settings.report)
         } header: {
           Text("Help", bundle: .module).foregroundStyle(Color.ds.labelSecondary)
         } footer: {
@@ -199,7 +203,7 @@ public struct SettingsView: View {
               TileLabel(Text("About", bundle: .module), systemImage: "info.circle")
             }
           }
-          .accessibilityIdentifier("settings.about")
+          .accessibilityIdentifier(AccessibilityID.Settings.about)
         }
         if let internalTools { internalTools }
       }
@@ -254,6 +258,7 @@ public struct SettingsView: View {
           } label: {
             Text("Done", bundle: .module)
           }
+          .accessibilityIdentifier(AccessibilityID.Settings.done)
         }
       }
     }

@@ -57,6 +57,8 @@ public final class ReaderModel {
   }
   /// Saving before recognition starts, so progress shows at once.
   private var isPreparingRecognition = false
+  /// The page shown when recognition replaced the file, where the searchable version opens.
+  @ObservationIgnored private var pageBeforeRecognition: Int?
   /// A message for the last failed action.
   public var errorMessage: String?
   /// A notice that an action did something other than the obvious, such as making a new document, or
@@ -1110,10 +1112,18 @@ public final class ReaderModel {
   private func saveSignedAsCopy(_ controller: PDFDocumentController) async throws {
     let staged = FileManager.default.temporaryDirectory.appendingPathComponent("signed-\(UUID().uuidString).pdf")
     defer { try? FileManager.default.removeItem(at: staged) }
+    let unsaved = controller.unsavedChanges
     try controller.save(to: staged)
-    let data = try Data(contentsOf: staged, options: .mappedIfSafe)
-    let title = document?.title ?? ""
-    let copy = try await intake.add(data: data, title: String(localized: "\(title) (edited)", bundle: .module))
+    let copy: Document
+    do {
+      let data = try Data(contentsOf: staged, options: .mappedIfSafe)
+      let title = document?.title ?? ""
+      copy = try await intake.add(data: data, title: String(localized: "\(title) (edited)", bundle: .module))
+    } catch {
+      // The copy isn't in the library, so the changes are still only here (#223).
+      controller.countAsUnsaved(unsaved)
+      throw error
+    }
     documentID = copy.id
     document = copy
     let copyURL = try await library.fileURL(for: copy.id)
@@ -1192,6 +1202,7 @@ public final class ReaderModel {
     guard let controller else { return }
     let staged = FileManager.default.temporaryDirectory.appendingPathComponent("mine-\(UUID().uuidString).pdf")
     defer { try? FileManager.default.removeItem(at: staged) }
+    let unsaved = controller.unsavedChanges
     do {
       try controller.save(to: staged)
       let data = try Data(contentsOf: staged, options: .mappedIfSafe)
@@ -1200,6 +1211,8 @@ public final class ReaderModel {
       await reload()
       notice = String(localized: "Your version is saved as “\(copy.title)”.", bundle: .module)
     } catch {
+      // The copy isn't in the library, so this version is still only here, unsaved (#223).
+      controller.countAsUnsaved(unsaved)
       errorMessage = String(
         localized: "Couldn't keep your version. It is still open here; share it to keep it.", bundle: .module)
     }
@@ -1399,7 +1412,8 @@ public final class ReaderModel {
     }
   }
 
-  /// Stops recognition; the document is left as it was.
+  /// Stops recognition; the document is left as it was, unless the file was already replaced, in which
+  /// case the searchable version opens.
   public func cancelRecognition() {
     recognition.cancel(documentID)
   }
@@ -1407,15 +1421,38 @@ public final class ReaderModel {
   /// Hears how recognition ended, and blocks replacing the file while there are unsaved changes.
   private func watchRecognition() {
     recognition.watch(
-      documentID, canReplace: { [weak self] in self?.controller?.needsSaving != true },
+      documentID, canReplace: { [weak self] in self?.canReplaceWithRecognizedText() ?? true },
+      willReplace: { [weak self] in self?.recognitionReplacedFile() },
       onFinish: { [weak self] outcome in await self?.recognitionFinished(outcome) })
+  }
+
+  /// Lets go of the document shown once recognition has replaced its file, so no save writes it over
+  /// the searchable version; the reader shows the new file when recognition has finished (#219).
+  private func recognitionReplacedFile() {
+    pageBeforeRecognition = controller?.currentPageIndex
+    speech.stop()
+    controller = nil
+    phase = .loading
+  }
+
+  /// Whether recognition may replace the file: not while there are unsaved changes, counting text
+  /// still being typed into a form field, which PDFKit puts in the field only when editing ends (#220).
+  private func canReplaceWithRecognizedText() -> Bool {
+    guard let controller else { return true }
+    controller.endEditing()
+    return !controller.needsSaving
   }
 
   private func recognitionFinished(_ outcome: RecognitionCoordinator.Outcome) async {
     switch outcome {
     case .replaced:
       // Opens the searchable version on the page the reader showed.
-      await recordPosition()
+      if let page = pageBeforeRecognition {
+        pageBeforeRecognition = nil
+        try? await library.recordOpened(documentID, pageIndex: page)
+      } else {
+        await recordPosition()
+      }
       await load()
       updateUndoState()
     case .fileChanged:

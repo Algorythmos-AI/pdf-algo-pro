@@ -1,3 +1,4 @@
+import AccessibilityIDs
 import Commerce
 import DesignSystem
 import SwiftUI
@@ -33,7 +34,7 @@ struct PaywallOfferView: View {
           .background(Color.ds.backgroundPrimary.ignoresSafeArea(edges: .bottom))
           .overlay(alignment: .top) { Divider() }
           .accessibilityElement(children: .contain)
-          .accessibilityIdentifier("paywall.actionBar")
+          .accessibilityIdentifier(AccessibilityID.Paywall.actionBar)
       }
     }
   }
@@ -50,7 +51,7 @@ struct PaywallOfferView: View {
           Text("Loading plans", bundle: .module)
         }
         .frame(maxWidth: .infinity, minHeight: 96)
-        .accessibilityIdentifier("paywall.loading")
+        .accessibilityIdentifier(AccessibilityID.Paywall.loading)
       case .unavailable:
         PlansUnavailable { Task { await model.retry() } }
       case .loaded(let offers):
@@ -81,12 +82,12 @@ struct PaywallOfferView: View {
           Text("Continue", bundle: .module)
         }
         .buttonStyle(.primary)
-        .accessibilityIdentifier("paywall.continue")
+        .accessibilityIdentifier(AccessibilityID.Paywall.continue)
         Button(action: onManage) {
           Text("Manage subscription", bundle: .module).font(.subheadline.weight(.semibold)).minimumTarget()
         }
         .tint(Color.ds.brandTint)
-        .accessibilityIdentifier("paywall.manage")
+        .accessibilityIdentifier(AccessibilityID.Paywall.manage)
       }
     } else if let plan = model.selectedPlan {
       Button {
@@ -99,7 +100,7 @@ struct PaywallOfferView: View {
       }
       .buttonStyle(.primary)
       .disabled(model.isPurchasing)
-      .accessibilityIdentifier("paywall.purchase")
+      .accessibilityIdentifier(AccessibilityID.Paywall.purchase)
     }
   }
 }
@@ -181,7 +182,8 @@ struct PlanCard: View {
     .buttonStyle(.plain)
     .accessibilityElement(children: .combine)
     .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
-    .accessibilityIdentifier("paywall.plan.\(offer.term == .year ? "yearly" : "weekly")")
+    .accessibilityIdentifier(
+      offer.term == .year ? AccessibilityID.Paywall.Plan.yearly : AccessibilityID.Paywall.Plan.weekly)
   }
 
   /// The line under the price: the trial this account can have, or the annual plan's saving.
@@ -231,7 +233,7 @@ struct PurchaseTerms: View {
     .fixedSize(horizontal: false, vertical: true)
     .frame(maxWidth: .infinity)
     .accessibilityElement(children: .combine)
-    .accessibilityIdentifier(plan.trial == nil ? "paywall.terms" : "paywall.terms.trial")
+    .accessibilityIdentifier(plan.trial == nil ? AccessibilityID.Paywall.terms : AccessibilityID.Paywall.Terms.trial)
   }
 
   @ViewBuilder private var summary: some View {
@@ -282,7 +284,7 @@ struct AlreadyProNote: View {
       Color.ds.backgroundPrimary.mix(with: Color.ds.brandTint, by: Opacities.brandGlow, in: .device),
       in: RoundedRectangle(cornerRadius: 14, style: .continuous)
     )
-    .accessibilityIdentifier("paywall.alreadyPro")
+    .accessibilityIdentifier(AccessibilityID.Paywall.alreadyPro)
   }
 }
 
@@ -300,13 +302,13 @@ struct PlansUnavailable: View {
         Text("Try again", bundle: .module).font(.subheadline.weight(.semibold)).minimumTarget()
       }
       .tint(Color.ds.brandTint)
-      .accessibilityIdentifier("paywall.retry")
+      .accessibilityIdentifier(AccessibilityID.Paywall.retry)
     }
     .multilineTextAlignment(.center)
     .frame(maxWidth: .infinity)
     // A container of its own, so that its name does not replace the button's.
     .accessibilityElement(children: .contain)
-    .accessibilityIdentifier("paywall.unavailable")
+    .accessibilityIdentifier(AccessibilityID.Paywall.unavailable)
   }
 }
 
@@ -340,21 +342,21 @@ struct PaywallLinks: View {
     Button(action: onRestore) {
       Text("Restore purchases", bundle: .module).minimumTarget()
     }
-    .accessibilityIdentifier("paywall.restore")
+    .accessibilityIdentifier(AccessibilityID.Paywall.restore)
     Button(action: onRedeem) {
       Text("Redeem a code", bundle: .module).minimumTarget()
     }
-    .accessibilityIdentifier("paywall.redeem")
+    .accessibilityIdentifier(AccessibilityID.Paywall.redeem)
   }
 
   @ViewBuilder private var policyLinks: some View {
     Link(destination: termsOfUse) {
       Text("Terms", bundle: .module).minimumTarget()
     }
-    .accessibilityIdentifier("paywall.termsOfUse")
+    .accessibilityIdentifier(AccessibilityID.Paywall.termsOfUse)
     Link(destination: privacyPolicy) {
       Text("Privacy", bundle: .module).minimumTarget()
     }
-    .accessibilityIdentifier("paywall.privacy")
+    .accessibilityIdentifier(AccessibilityID.Paywall.privacy)
   }
 }

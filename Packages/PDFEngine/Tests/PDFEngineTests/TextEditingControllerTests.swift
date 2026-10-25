@@ -497,7 +497,7 @@ struct TextEditingControllerTests {
     let original = try Data(contentsOf: url)
     try await edit(controller, containing: "John Smith", to: "Customer: David Smith")
 
-    PDFDocumentController.saveFault = { if $0 == step { throw Injected() } }
+    PDFDocumentController.saveFault = { if $0 == step && $1 == url { throw Injected() } }
     defer { PDFDocumentController.saveFault = nil }
     #expect(throws: PDFEngineError.saveFailed) { try controller.save(to: url, keepingPreviousAt: previous) }
     #expect(controller.hasUnsavedChanges && !controller.contentEditedPages.isEmpty, "The edit is still there to save")

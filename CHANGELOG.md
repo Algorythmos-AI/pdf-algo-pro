@@ -10,6 +10,10 @@ Store notes (see the changelog strategy).
 ## [Unreleased]
 
 ### Changed
+- The App Store version now has what TestFlight builds have had: the page strip and keyboard
+  commands in the reader, recognition in more languages and in reading order, search that finds a
+  word in its other forms, and dragging a document into another app. Editing existing text stays in
+  TestFlight builds until its device test is signed off.
 - The plans screen is redrawn: the two plans side by side with the yearly plan marked Best Value,
   what you pay today and afterwards in one line, and one button. A free trial is shown only when
   your Apple Account can have it. If a purchase can't be made, or is waiting for approval, the
@@ -19,6 +23,31 @@ Store notes (see the changelog strategy).
   only ever means a red annotation or Delete.
 
 ### Fixed
+- App Lock: removing the device passcode no longer locks you out of the app for good. Without a
+  passcode nothing can confirm it is you, so App Lock now turns itself off and the app tells you
+  why; set a passcode and turn it on again in Settings. With a passcode it always asks.
+- App Lock: while the app is locked, Siri and Shortcuts no longer read out document summaries or
+  list your document titles. Siri asks you to open the app and unlock it first.
+- Library: renaming or moving a PDF in the Files app no longer deletes its earlier versions; they
+  are kept for 30 days, as after any save. Its tags, favourite and reading position still don't
+  follow it to the new name yet.
+- Library: when renaming, deleting or restoring a document can't be recorded, for example because
+  the device is full, the file now goes back where it was, so "your documents haven't changed" is
+  true. Before, the file moved anyway, and the document could lose its tags and earlier versions at
+  the next launch.
+- Library: a library that won't open at launch is no longer swapped for an empty one. It gets a
+  second try, and if it still won't open, or was saved by a newer version of the app, it is left
+  as it is and tried again at the next launch, with your documents shown without their tags and
+  favourites meanwhile. Before, it was put aside for good, with every tag, favourite and reading
+  position in it.
+- Recognise text: a note or drawing added while recognition was finishing could save the old
+  document over the new searchable one, and cancelling at that moment left the reader on the old
+  document. The reader now opens the searchable version as soon as the file is replaced.
+- Recognise text: text you were still typing in a form field when recognition finished was lost.
+  Recognition now leaves the document alone, and what you typed is kept.
+- Signed documents and "Keep mine as a copy": when the copy couldn't be added to the library, your
+  changes were treated as saved and then lost. They now stay unsaved, so trying again or sharing
+  keeps them.
 - Editing text (internal builds): a name pasted from a web page with a hidden soft hyphen or
   zero-width space is now changed in the page. Before, the hidden character made the change fail,
   the line was covered instead, and every other line on that page could then only be covered.

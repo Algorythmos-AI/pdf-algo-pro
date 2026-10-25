@@ -1,4 +1,5 @@
 #if INTERNAL_TOOLS
+  import AccessibilityIDs
   import Core
   import DesignSystem
   import Foundation
@@ -29,7 +30,7 @@
         Toggle(isOn: $hasPro) {
           TileLabel(Text(verbatim: "Pro without a purchase"), systemImage: "crown", tone: .quiet)
         }
-        .accessibilityIdentifier("internal.entitlement.pro")
+        .accessibilityIdentifier(AccessibilityID.Internal.Entitlement.pro)
         .onChange(of: hasPro) {
           UserDefaults.standard.set(hasPro, forKey: InternalEntitlementOverride.key)
           onEntitlementOverride()
@@ -39,7 +40,7 @@
             Text(verbatim: "Show onboarding now (simulate first launch)"), systemImage: "arrow.counterclockwise",
             tone: .quiet)
         }
-        .accessibilityIdentifier("internal.replayFirstRun")
+        .accessibilityIdentifier(AccessibilityID.Internal.replayFirstRun)
         Button {
           onResetReplay()
           replayIsReset = true
@@ -49,28 +50,28 @@
             systemImage: "arrow.uturn.backward", tone: .quiet)
         }
         .disabled(replayIsReset)
-        .accessibilityIdentifier("internal.resetReplay")
+        .accessibilityIdentifier(AccessibilityID.Internal.resetReplay)
         Button(action: onShowOffer) {
           TileLabel(Text(verbatim: "Show the subscription offer"), systemImage: "creditcard", tone: .quiet)
         }
-        .accessibilityIdentifier("internal.showOffer")
+        .accessibilityIdentifier(AccessibilityID.Internal.showOffer)
         Button(action: onEntitlementOverride) {
           TileLabel(
             Text(verbatim: "Refresh subscription status"), systemImage: "arrow.triangle.2.circlepath", tone: .quiet)
         }
-        .accessibilityIdentifier("internal.refreshSubscription")
+        .accessibilityIdentifier(AccessibilityID.Internal.refreshSubscription)
         Button {
           managesSubscription = true
         } label: {
           TileLabel(Text(verbatim: "Manage test subscription"), systemImage: "person.crop.circle", tone: .quiet)
         }
-        .accessibilityIdentifier("internal.manageSubscription")
+        .accessibilityIdentifier(AccessibilityID.Internal.manageSubscription)
         NavigationLink {
           EvaluationView(intelligence: intelligence)
         } label: {
           TileLabel(Text(verbatim: "AI evaluation"), systemImage: "checklist", tone: .intelligence)
         }
-        .accessibilityIdentifier("evaluation.open")
+        .accessibilityIdentifier(AccessibilityID.Evaluation.open)
       } header: {
         Text(verbatim: "Internal testing").foregroundStyle(Color.ds.labelSecondary)
       } footer: {
@@ -105,7 +106,7 @@
             Text(verbatim: "Run the AI evaluation")
           }
           .disabled(isRunning)
-          .accessibilityIdentifier("evaluation.run")
+          .accessibilityIdentifier(AccessibilityID.Evaluation.run)
           if isRunning {
             ProgressView {
               Text(verbatim: "Evaluating \(EvaluationSets.all.count) items on this device…")
@@ -131,7 +132,7 @@
             } label: {
               Text(verbatim: "Result, \(report.tier?.rawValue ?? "no tier")")
             }
-            .accessibilityIdentifier("evaluation.result")
+            .accessibilityIdentifier(AccessibilityID.Evaluation.result)
             ForEach(report.metrics, id: \.name) { metric in
               LabeledContent {
                 Text(verbatim: Self.describe(metric)).monospacedDigit().foregroundStyle(Color.ds.labelSecondary)
@@ -143,6 +144,7 @@
               ShareLink(item: reportFile) {
                 Text(verbatim: "Share the report")
               }
+              .accessibilityIdentifier(AccessibilityID.Evaluation.share)
             }
           }
         }

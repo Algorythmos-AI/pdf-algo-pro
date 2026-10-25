@@ -1,3 +1,4 @@
+import AccessibilityIDs
 import DesignSystem
 import PDFEngine
 import SwiftUI
@@ -32,7 +33,7 @@ struct PageStrip: View {
             // Not "Page 3": that is a page in the page grid, which can be open over the strip.
             .accessibilityLabel(Text("Go to page \(pageIndex + 1)", bundle: .module))
             .accessibilityAddTraits(pageIndex == current ? .isSelected : [])
-            .accessibilityIdentifier("reader.pageStrip.\(pageIndex + 1)")
+            .accessibilityIdentifier(AccessibilityID.Reader.pageStrip(pageIndex + 1))
             .id(pageIndex)
           }
         }
@@ -51,7 +52,7 @@ struct PageStrip: View {
     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     .accessibilityElement(children: .contain)
     .accessibilityLabel(Text("Page strip", bundle: .module))
-    .accessibilityIdentifier("reader.pageStrip")
+    .accessibilityIdentifier(AccessibilityID.Reader.pageStrip)
   }
 }
 

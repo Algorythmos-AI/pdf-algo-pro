@@ -45,10 +45,15 @@ final class AppModel {
   @ObservationIgnored var storePatience: Duration = .seconds(3)
   let container: AppContainer
   let library: LibraryModel
-  /// App Lock (FR-SET-002).
-  let lock: AppLock
-  /// How this device confirms its owner, read once at launch; `nil` without a passcode.
-  let lockMethod: AppLockMethod?
+  /// App Lock (FR-SET-002); made in `init`, lazily only so it can tell the model it turned off.
+  @ObservationIgnored private(set) lazy var lock = AppLock(
+    authenticator: container.authenticator,
+    isEnabled: { [store = container.settings] in store.load().isAppLockEnabled },
+    turnOff: { [weak self] in self?.turnOffAppLock() })
+  /// How this device confirms its owner now; `nil` without a passcode.
+  ///
+  /// Asked each time, because the passcode can be set or removed while the app runs (#221).
+  var lockMethod: AppLockMethod? { container.authenticator.method() }
   /// Asks for a rating after real successes, at a calm moment (plan §6).
   let reviews: ReviewPrompter
   @ObservationIgnored private var reader: (selection: DocumentSelection, model: ReaderModel)?
@@ -77,9 +82,6 @@ final class AppModel {
       }
     #endif
     settings = container.settings.load()
-    let store = container.settings
-    lock = AppLock(authenticator: container.authenticator) { store.load().isAppLockEnabled }
-    lockMethod = container.authenticator.method()
     let reviews = ReviewPrompter(
       defaults: container.environment.isUITesting
         ? UserDefaults(suiteName: "ui-testing-reviews") ?? .standard : .standard,
@@ -92,34 +94,18 @@ final class AppModel {
       library: container.library, intake: container.intake, index: container.index, settings: container.settings,
       telemetry: container.telemetry, thumbnails: container.thumbnails,
       offersDragging: AppTextEditingAccess.isInternalBuild || ReleaseFlag.documentDragging.compiledDefault)
+    // Whether App Lock is on is read before anything can show.
+    _ = lock
     IntentRouter.shared.attach(
-      library: container.library, intelligence: container.meteredIntelligence, index: container.index
-    ) { [weak self] route in self?.navigate(to: route) }
-    if container.environment.seedsSample {
-      Task { await library.addSample() }
-    }
-    if container.environment.seedsDamaged {
-      Task { [library, container] in
-        // The sample, with its file then overwritten by bytes that aren't a PDF, as a damaged file would be.
-        guard let data = try? SyntheticPDF.makeSample(),
-          let document = try? await container.intake.add(data: data, title: "Damaged sample"),
-          let url = try? await container.library.fileURL(for: document.id)
-        else { return }
-        try? Data("not a PDF any more".utf8).write(to: url)
-        await library.reload()
-        library.open(document.id)
+      library: container.library, intelligence: container.meteredIntelligence, index: container.index,
+      isLocked: { [weak self] in self?.lock.isLocked ?? true },
+      handler: { [weak self] route in self?.navigate(to: route) })
+    #if DEBUG
+      let environment = container.environment
+      if !environment.seeds.isEmpty || environment.route != nil || environment.startsOnList {
+        Task { [weak self] in await self?.prepareForUITest(environment) }
       }
-    }
-    if container.environment.seedsLocked {
-      Task { [library, container] in
-        // A synthetic document; its password is a fixture, known to the UI tests.
-        guard let data = try? SyntheticPDF.makeEncrypted(pages: ["Locked page"], password: Self.lockedSamplePassword),
-          let document = try? await container.intake.add(data: data, title: "Locked sample")
-        else { return }
-        await library.reload()
-        library.open(document.id)
-      }
-    }
+    #endif
     Task { await container.migrateSpotlightIfNeeded() }
     // Purchases are followed from launch, so one approved or renewed while the app was closed is seen.
     container.entitlements.start()
@@ -207,6 +193,66 @@ final class AppModel {
 
   /// The password of the `-seed-library locked` document (a test fixture).
   static let lockedSamplePassword = "open-sesame"
+
+  #if DEBUG
+    /// Fills a UI test's private library as its `-seed-library` argument asks, then opens the last
+    /// document seeded, or goes where `-start` or `-open-route` says (docs/testing-strategy.md).
+    ///
+    /// Every document is synthetic. Debug builds only.
+    private func prepareForUITest(_ environment: LaunchEnvironment) async {
+      let seeds = environment.seeds
+      let intake = container.intake
+      var opened: DocumentID?
+      func add(_ data: Data?, _ title: String) async -> DocumentID? {
+        guard let data else { return nil }
+        return try? await intake.add(data: data, title: title).id
+      }
+      if seeds.contains("many") {
+        // Twelve documents with distinct titles, opened in turn so their order is known.
+        for number in 1...12 {
+          let title = String(format: "Document %02d", number)
+          if let id = await add(try? SyntheticPDF.make(pages: [title]), title) {
+            try? await container.library.recordOpened(id, pageIndex: 0)
+          }
+        }
+      }
+      if seeds.contains("scanned"), let id = await add(try? SyntheticPDF.makeImageOnly(pages: ["Scanned page"]), "Scan")
+      {
+        opened = id
+      }
+      if seeds.contains("sample"), let id = await add(try? SyntheticPDF.makeSample(), SampleContent.title) {
+        opened = id
+        if seeds.contains("tags") { try? await container.library.setTags(["Invoices", "Tax"], for: id) }
+        if seeds.contains("favourite") { try? await container.library.setFavorite(true, for: id) }
+        if seeds.contains("deleted") {
+          try? await container.library.moveToRecentlyDeleted(id)
+          opened = nil
+        }
+      }
+      if seeds.contains("damaged"), let id = await add(try? SyntheticPDF.makeSample(), "Damaged sample") {
+        // The sample, with its file then overwritten by bytes that aren't a PDF, as a damaged file would be.
+        if let url = try? await container.library.fileURL(for: id) {
+          try? Data("not a PDF any more".utf8).write(to: url)
+        }
+        opened = id
+      }
+      if seeds.contains("locked"),
+        let id = await add(
+          try? SyntheticPDF.makeEncrypted(pages: ["Locked page"], password: Self.lockedSamplePassword), "Locked sample")
+      {
+        // A synthetic document; its password is a fixture, known to the UI tests.
+        opened = id
+      }
+      await library.reload()
+      if let route = environment.route {
+        navigate(to: route)
+      } else if environment.startsOnList {
+        navigate(to: .library(.all))
+      } else if environment.opensSeededDocument, let opened {
+        library.open(opened)
+      }
+    }
+  #endif
 
   // MARK: - Routing
 
@@ -391,6 +437,17 @@ final class AppModel {
     #else
       nil
     #endif
+  }
+
+  /// Turns App Lock off when the device has no passcode, so nothing could confirm its owner (#221).
+  private func turnOffAppLock() {
+    var current = container.settings.load()
+    guard current.isAppLockEnabled else { return }
+    current.isAppLockEnabled = false
+    container.settings.save(current)
+    let textSettingChanged = current.indexesTextInSpotlight != settings.indexesTextInSpotlight
+    settings = current
+    if textSettingChanged { Task { await container.reindexSpotlight() } }
   }
 
   func makeSettings() -> SettingsModel {

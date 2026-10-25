@@ -18,16 +18,18 @@ extension PDFDocumentController {
   ///   `PDFEngineError.insufficientSpace` when the device is too full to save safely;
   ///   `PDFEngineError.saveFailed` when writing fails, or when the earlier version can't be kept.
   public func save(to url: URL, keepingPreviousAt previous: URL? = nil) throws {
+    textEditsPutBack = []
     let interval = Signposts.begin("Document.Save")
     defer { interval.end() }
     let options = try protectionOptions()
     let fileManager = FileManager.default
     // The new file is about the size of the old one, so check for that much before writing anything.
     let currentSize = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
-    let available = try? url.deletingLastPathComponent()
-      .resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
-      .volumeAvailableCapacityForImportantUsage
+    let available = Self.availableCapacity?(url) ?? Self.volumeAvailableCapacity(besides: url)
     guard Self.hasRoom(toWrite: currentSize, available: available) else { throw PDFEngineError.insufficientSpace }
+    let hook = Self.saveFault
+    func fault(_ step: SaveStep) throws { try hook?(step, url) }
+    do { try fault(.started) } catch { throw Self.saveError(for: error) }
     // Staged beside the document, on the same volume, so replacing it is a rename, not a copy.
     let folder =
       (try? fileManager.url(for: .itemReplacementDirectory, in: .userDomainMask, appropriateFor: url, create: true))
@@ -37,8 +39,6 @@ extension PDFDocumentController {
       try? fileManager.removeItem(at: staging)
       if folder != fileManager.temporaryDirectory { try? fileManager.removeItem(at: folder) }
     }
-    let fault = Self.saveFault
-    textEditsPutBack = []
     document.repairAttributesIfNeeded()
     var check = try stage(to: staging, options: options, fault: fault)
     // Pages whose text was edited must read in the written file as they do here (FR-EDIT-001). An
@@ -51,7 +51,7 @@ extension PDFDocumentController {
       check = try stage(to: staging, options: options, fault: fault)
       guard editsAreIntact(in: check, options: options) else { throw PDFEngineError.saveFailed }
     }
-    do { try fault?(.validated) } catch { throw PDFEngineError.saveFailed }
+    do { try fault(.validated) } catch { throw Self.saveError(for: error) }
     try? fileManager.setAttributes(
       [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication], ofItemAtPath: staging.path)
     var coordinationError: NSError?
@@ -62,23 +62,25 @@ extension PDFDocumentController {
       target in
       let fileManager = FileManager.default
       do {
+        try fault(.coordinated)
         let exists = fileManager.fileExists(atPath: target.path)
         if let previous, exists {
           if fileManager.fileExists(atPath: previous.path) { try fileManager.removeItem(at: previous) }
           try fileManager.copyItem(at: target, to: previous)
         }
-        try fault?(.keptPrevious)
+        try fault(.keptPrevious)
         if exists {
           _ = try fileManager.replaceItemAt(target, withItemAt: staging)
         } else {
           try fileManager.moveItem(at: staging, to: target)
         }
-        try fault?(.replaced)
+        try fault(.replaced)
       } catch {
         writeError = error
       }
     }
-    guard coordinationError == nil, writeError == nil else { throw PDFEngineError.saveFailed }
+    if let writeError { throw Self.saveError(for: writeError) }
+    guard coordinationError == nil else { throw PDFEngineError.saveFailed }
     switch pendingProtection {
     case .set(let newPassword):
       wasEncrypted = true
@@ -103,11 +105,11 @@ extension PDFDocumentController {
   /// password is being (or was) removed is written as a fresh copy of its pages. PDFKit maps the
   /// staged file rather than reading it into memory, so this stays cheap for large files.
   private func stage(
-    to staging: URL, options: [PDFDocumentWriteOption: Any], fault: (@Sendable (SaveStep) throws -> Void)?
+    to staging: URL, options: [PDFDocumentWriteOption: Any], fault: (SaveStep) throws -> Void
   ) throws -> PDFDocument {
     let source = pendingProtection == .remove || (document.isEncrypted && !wasEncrypted) ? unencryptedCopy() : document
     guard source.write(to: staging, withOptions: options) else { throw PDFEngineError.saveFailed }
-    do { try fault?(.staged) } catch { throw PDFEngineError.saveFailed }
+    do { try fault(.staged) } catch { throw Self.saveError(for: error) }
     guard let check = PDFDocument(url: staging), check.isLocked || check.pageCount == source.pageCount else {
       throw PDFEngineError.saveFailed
     }
@@ -124,10 +126,14 @@ extension PDFDocumentController {
 
   /// The steps of a save, for the fault-injection tests of the Trust suite (plan §4.1).
   enum SaveStep: CaseIterable, Sendable {
+    /// The free space was checked; nothing is written yet.
+    case started
     /// The new file is written to the staging folder.
     case staged
     /// The staged file reopened with the same number of pages.
     case validated
+    /// Write access to the document is coordinated; the document and the kept version are untouched.
+    case coordinated
     /// The version before the save is kept (when asked for).
     case keptPrevious
     /// The staged file replaced the document.
@@ -135,11 +141,73 @@ extension PDFDocumentController {
   }
 
   #if DEBUG
-    /// Tests set this to fail a save at a chosen step; nil in normal runs, and absent from release builds.
-    static var saveFault: (@Sendable (SaveStep) throws -> Void)?
+    /// Tests set this to fail a save at a chosen step of the document at the given URL (each test
+    /// matches its own file, so suites running beside it are not affected); nil in normal runs, and
+    /// absent from release builds.
+    static var saveFault: (@Sendable (SaveStep, URL) throws -> Void)?
+    /// Tests set this to report the free space beside a document (`nil` from it: the volume's own).
+    static var availableCapacity: (@Sendable (URL) -> Int64?)?
   #else
-    static var saveFault: (@Sendable (SaveStep) throws -> Void)? { nil }
+    static var saveFault: (@Sendable (SaveStep, URL) throws -> Void)? { nil }
+    static var availableCapacity: (@Sendable (URL) -> Int64?)? { nil }
   #endif
+
+  /// What a save counts as saved, taken before saving to a copy, so that the changes count as unsaved
+  /// again if the copy is not kept (#223).
+  public struct UnsavedChanges {
+    fileprivate let hasUnsavedChanges: Bool
+    fileprivate let contentEditedPages: [PDFPage]
+    fileprivate let formValues: [(widget: PDFAnnotation, value: FormValue)]
+    fileprivate let pendingProtection: ProtectionChange?
+    fileprivate let wasEncrypted: Bool
+    fileprivate let password: String?
+    fileprivate let textEditOriginals: [ObjectIdentifier: PDFPage]
+  }
+
+  /// The changes as they stand, to take before `save(to:)` writes a copy.
+  public var unsavedChanges: UnsavedChanges {
+    UnsavedChanges(
+      hasUnsavedChanges: hasUnsavedChanges, contentEditedPages: contentEditedPages, formValues: formValues,
+      pendingProtection: pendingProtection, wasEncrypted: wasEncrypted, password: password,
+      textEditOriginals: textEditOriginals)
+  }
+
+  /// Counts `changes` as unsaved again, after `save(to:)` wrote a copy that then was not kept (#223).
+  ///
+  /// Changes made since stay unsaved too. The document's own file still has the protection it had,
+  /// and a password change asked for since waits its turn.
+  public func countAsUnsaved(_ changes: UnsavedChanges) {
+    hasUnsavedChanges = hasUnsavedChanges || changes.hasUnsavedChanges
+    contentEditedPages =
+      changes.contentEditedPages + contentEditedPages.filter { !changes.contentEditedPages.contains($0) }
+    formValues = changes.formValues
+    wasEncrypted = changes.wasEncrypted
+    password = changes.password
+    if pendingProtection == nil { pendingProtection = changes.pendingProtection }
+    // An edit made before the copy can still be put back to the page as the document file has it (#232).
+    textEditOriginals.merge(changes.textEditOriginals) { since, _ in since }
+  }
+
+  /// The free space for important use on the volume holding `url`, or `nil` when it can't be read.
+  static func volumeAvailableCapacity(besides url: URL) -> Int64? {
+    try? url.deletingLastPathComponent()
+      .resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
+      .volumeAvailableCapacityForImportantUsage
+  }
+
+  /// The engine's error for a failure while saving: a full disk is reported as such, so the person is
+  /// told to free space rather than that the save failed; anything else is `saveFailed`.
+  static func saveError(for error: any Error) -> PDFEngineError {
+    let nsError = error as NSError
+    let outOfSpace =
+      (nsError.domain == NSCocoaErrorDomain && nsError.code == NSFileWriteOutOfSpaceError)
+      || (nsError.domain == NSPOSIXErrorDomain && (nsError.code == Int(ENOSPC) || nsError.code == Int(EDQUOT)))
+    if outOfSpace { return .insufficientSpace }
+    if let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? NSError, underlying !== nsError {
+      return saveError(for: underlying)
+    }
+    return .saveFailed
+  }
 
   // MARK: - Passwords (FR-EDIT-006)
 

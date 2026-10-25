@@ -81,9 +81,13 @@ citations, subscribe and restore, and the privacy centre.
   journeys; element queries live in one place.
 - **Launch arguments select a test world.** In Debug builds only, the app reads arguments such as
   `-ui-testing` (which also resets state: temporary folders and throwaway settings),
-  `-seed-library <fixture-set>`, `-skip-onboarding`, `-intelligence-unavailable`,
+  `-seed-library <seeds>` (comma-separated: `sample`, `locked`, `damaged`, `scanned`, `many`, and
+  `tags`, `favourite` or `deleted` applied to the sample), `-start home|list` (keep the seeded
+  document closed), `-open-route <link>` (go where an app link goes), `-skip-onboarding`,
+  `-intelligence-unavailable`,
   `-entitlement none|trial|subscribed|expired`, `-allowance exhausted`, `-store unavailable`,
-  `-purchase cancelled|failed|pending`, `-trial ineligible|none` and
+  `-purchase cancelled|failed|pending`, `-trial ineligible|none`, `-app-lock confirms|refuses`
+  (App Lock on, with Face ID's answer scripted) and
   `-disable-animations`, and swaps
   in a container with fakes: a scripted intelligence router, a fixed entitlement (nobody is
   entitled unless the test says so, and the App Store is never asked), a free allowance with no
@@ -104,7 +108,18 @@ citations, subscribe and restore, and the privacy centre.
 - **Deterministic data.** Libraries are seeded from generated fixtures, dates from an injected
   clock, AI answers from the scripted router. No network.
 - **Stable identifiers.** Accessibility identifiers are constants shared by the app and the tests,
-  never user-visible text, so French runs use the same tests.
+  never user-visible text, so French runs use the same tests. The one list is
+  [`design/accessibility-ids.json`](../design/accessibility-ids.json); `python3
+  scripts/design/generate_accessibility_ids.py` turns it into the `AccessibilityID` enum in the
+  `AccessibilityIDs` product of the Core package, which every feature package, the app and the UI
+  test target link. Each identifier's value is its dotted path: `reader.markup.paste` is
+  `AccessibilityID.Reader.Markup.paste`, and `library.document.{title}` is
+  `AccessibilityID.Library.document(_:)`. The `invariants` job fails on an identifier written as a
+  string literal in a view, and on a generated file that has drifted from the list; a new control
+  gets its identifier by adding it to the list and running the script. UI tests write them through
+  a short alias, `ID.Reader.more`, and find a control by its identifier rather than its label
+  wherever the control has one; buttons in system alerts, which SwiftUI gives no identifier, are
+  the exception.
 
 ## Snapshot tests
 
@@ -381,13 +396,29 @@ confirm the signature is still valid after an annotation-only save, or that the 
 Saved files are also checked by a reader other than PDFKit (plan revision 3, §3 B2). In CI the
 `pdf-export` job saves every golden-corpus document through the engine and uploads the files, and
 `pdf-validation` runs `qpdf --check` on each with qpdf 12.4.2 (Apache-2.0), downloaded by pinned
-version and SHA-256 (`scripts/ci/validate_pdfs.sh`). Warnings are reported; errors fail the job. Both
-jobs are advisory for their first two weeks, then become required. The same job then renders every
+version and SHA-256 (`scripts/ci/validate_pdfs.sh`). Errors fail the job, and so do warnings, except
+those listed for one named file in `scripts/ci/qpdf_allowed_warnings.txt`, each with the issue that
+explains it (today only issue #96's, for the synthetic right-to-left and CJK file, whose input
+already has the entries qpdf warns about). Both jobs were advisory for their first two weeks and are
+part of the required `ios` check since PAP-068. The same job then renders every
 page of every file with PDFium (pypdfium2 5.13.0, BSD-3-Clause and Apache-2.0, pinned by the wheel's
 hash; `scripts/ci/pdfium_render.py`). A Core Graphics parse of each saved file runs in the corpus
 tests themselves. The export job also runs the controller, toolkit and save fault-injection suites under
 Thread Sanitizer (plan H4), because `PDFDocument` isn't thread-safe and saving is due to move off the
-main actor.
+main actor. Nightly and on request, `ci-sanitizers` runs the save, fault-injection, malformed-input
+and text-editing suites under Address Sanitizer and Undefined Behavior Sanitizer on the pinned
+simulator; it never blocks a pull request.
+
+The fault-injection suites (`SaveFaultTests`, `SaveFaultInjectionTests` and the text-editing
+`interruptedSave` test) stop a save at each of its steps through one seam,
+`PDFDocumentController.saveFault`, matched to the test's own file: after the free-space check,
+after the staged write, after its check, once write access is coordinated, after the earlier
+version is kept, and after the replace. At each step the file on disk must be a whole document (the
+original until the replace, the new one after it) with nothing half-written beside it, which is
+what a process killed at that point leaves. The same suite fills the disk before and during the
+write (`PDFDocumentController.availableCapacity` and the file system's out-of-space errors, which
+the person is told about as a full disk) and replaces the file underneath between opening and
+saving, where the other writer's version must be kept as the earlier version or left untouched.
 
 ### True-redaction verification
 
@@ -410,7 +441,11 @@ A redaction feature that fails any of these does not ship.
 Documents are untrusted (NFR-SEC-002). A seeded mutator produces variants of corpus files (bit
 flips, truncation, duplicated and deleted objects, oversized values). Every variant must open with a
 typed error or render, within a time limit (Swift Testing's `.timeLimit` trait), without a crash.
-Pull requests run a small fixed seed set; the nightly run uses many more seeds, and a nightly
+The corpus also holds files written to break readers in known ways: a zero-byte file and a JPEG
+named `.pdf` (which every entry point must refuse with the engine's error), a truncated
+cross-reference table, an object stream that contains itself, an outline of 10 000 entries and a
+page tree 2 000 levels deep (`GoldenCorpus.malformed()`, checked by `MalformedInputTests` and the
+golden-corpus suite). Pull requests run a small fixed seed set; the nightly run uses many more seeds, and a nightly
 configuration adds Address Sanitizer, because the vendor SDK is likely to contain C or C++ code
 ([Diagnosing memory, thread, and crash issues early](https://developer.apple.com/documentation/xcode/diagnosing-memory-thread-and-crash-issues-early)).
 Every crash found becomes a permanent corpus file.

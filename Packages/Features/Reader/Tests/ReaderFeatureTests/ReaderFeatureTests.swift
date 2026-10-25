@@ -20,8 +20,10 @@ private struct Harness {
   let telemetry = RecordingTelemetry()
   let signatures = InMemorySignatureStore()
   let checkpoints = FileManager.default.temporaryDirectory.appendingPathComponent("checkpoints-\(UUID())")
+  /// What reads a file after it changed; a test can hold it up to reach what happens meanwhile.
+  var inspector: any PDFInspecting = PDFKitInspector()
 
-  var intake: DocumentIntake { DocumentIntake(library: library, inspector: PDFKitInspector(), index: index) }
+  var intake: DocumentIntake { DocumentIntake(library: library, inspector: inspector, index: index) }
 
   func coordinator(
     recognizer: any TextRecognizing = FakeRecognizer(), keepAlive: BackgroundLog = BackgroundLog(),
@@ -365,6 +367,50 @@ struct ReaderModelTests {
     #expect(reader.controller?.pageCount == 1 && reader.controller?.needsSaving == false)
     await reader.setWatching(false)
     await reader.setWatching(true)
+    reader.stopWatching()
+  }
+
+  @Test("A signed document's copy that couldn't be added keeps the changes unsaved, so retrying saves them (#223)")
+  func failedSignedCopyKeepsChanges() async throws {
+    let harness = Harness()
+    let signed = await harness.seed(TestPDFs.makeSigned(.signed), title: "Signed")
+    let existing = try PDFDocumentController(data: TestPDFs.makeSigned(.signed)).annotationCount(onPage: 0)
+    let reader = harness.reader(for: signed)
+    await reader.load()
+    reader.controller?.addNote("Mine", onPage: 0)
+    // Adding the copy to the library is the first library call on this path.
+    await harness.library.failNext(with: .fileAccessFailed)
+    #expect(await !reader.save())
+    #expect(reader.errorMessage != nil)
+    #expect(reader.controller?.needsSaving == true, "The changes must still count as unsaved")
+    reader.errorMessage = nil
+    #expect(await reader.save(), "Retrying writes the copy")
+    let titles = try await harness.library.documents(in: .all, sortedBy: .title).map(\.title)
+    #expect(titles.contains("Signed (edited)"), "Titles: \(titles)")
+    let copyURL = try #require(reader.fileURL)
+    #expect(try PDFDocumentController(url: copyURL).annotationCount(onPage: 0) == existing + 1)
+  }
+
+  @Test("When keeping my version as a copy fails, my version stays unsaved here, and sharing shares it (#223)")
+  func failedKeepMineKeepsChanges() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.make(pages: ["Mine"]), title: "Shared")
+    let reader = harness.reader(for: document)
+    await reader.load()
+    let url = try await harness.library.fileURL(for: document.id)
+    reader.controller?.addNote("Not saved yet", onPage: 0)
+    try SyntheticPDF.make(pages: ["Theirs", "Two"]).write(to: url)
+    await reader.fileChangedOnDisk()
+    #expect(reader.hasConflictingChange)
+
+    await harness.library.failNext(with: .fileAccessFailed)
+    await reader.keepMineAsCopy()
+    #expect(reader.errorMessage != nil)
+    #expect(reader.controller?.needsSaving == true, "My version must still count as unsaved")
+    reader.errorMessage = nil
+    let shared = try #require(await reader.fileForSharing())
+    let file = try PDFDocumentController(url: shared)
+    #expect(file.pageCount == 1 && file.annotationCount(onPage: 0) == 1, "The file shared is my version")
     reader.stopWatching()
   }
 
@@ -934,6 +980,85 @@ struct ReaderModelTests {
     #expect(reader.recognitionProgress == nil && reader.errorMessage == nil)
     #expect(try Data(contentsOf: url) == original)
     #expect(reader.canRecognizeText)
+  }
+
+  /// Opens an image-only document and starts recognising it, then waits until recognition has
+  /// replaced the file and is held up reading it again for the library.
+  private func recognitionHeldAfterReplacing(
+    _ harness: Harness, _ inspector: GatedInspector
+  ) async throws -> (ReaderModel, Document) {
+    let document = await harness.seed(try SyntheticPDF.makeImageOnly(pages: ["Scanned"]), textLayer: false)
+    let reader = harness.reader(for: document)
+    await reader.load()
+    reader.recognizeText()
+    for _ in 0..<500 where await !inspector.isWaiting { try await Task.sleep(for: .milliseconds(20)) }
+    try #require(await inspector.isWaiting, "Recognition reached the library refresh")
+    let text = try #require(PDFDocument(url: try await harness.library.fileURL(for: document.id))).string ?? ""
+    try #require(text.contains("Recognised text"), "The file is already the searchable version")
+    return (reader, document)
+  }
+
+  @Test("A note added while recognition updates the library never writes the old document back (#219)")
+  func editDuringRecognitionRefresh() async throws {
+    let inspector = GatedInspector()
+    let harness = Harness(inspector: inspector)
+    let (reader, document) = try await recognitionHeldAfterReplacing(harness, inspector)
+    await reader.addNote("During refresh")
+    await inspector.open()
+    for _ in 0..<500 where reader.recognitionProgress != nil { try await Task.sleep(for: .milliseconds(20)) }
+    #expect(reader.recognitionProgress == nil)
+    let url = try await harness.library.fileURL(for: document.id)
+    let text = try #require(PDFDocument(url: url)).string ?? ""
+    #expect(text.contains("Recognised text"), "File text: \(text)")
+    #expect(reader.phase == .ready && reader.document?.hasTextLayer == true)
+
+    // The reader now shows the searchable version, so a note saved from here keeps the text.
+    await reader.addNote("After recognition")
+    let saved = try #require(PDFDocument(url: url))
+    #expect((saved.string ?? "").contains("Recognised text"))
+    #expect(try PDFDocumentController(url: url).annotationCount(onPage: 0) == 1)
+  }
+
+  @Test("Cancelling after the file was replaced still updates the library and the reader (#219)")
+  func cancelDuringRecognitionRefresh() async throws {
+    let inspector = GatedInspector()
+    let harness = Harness(inspector: inspector)
+    let (reader, document) = try await recognitionHeldAfterReplacing(harness, inspector)
+    reader.cancelRecognition()
+    await inspector.open()
+    for _ in 0..<500 where reader.recognitionProgress != nil { try await Task.sleep(for: .milliseconds(20)) }
+    #expect(reader.recognitionProgress == nil)
+    #expect(try await harness.library.document(withID: document.id)?.hasTextLayer == true)
+    #expect(reader.phase == .ready && reader.document?.hasTextLayer == true, "The reader shows the replaced file")
+
+    await reader.addNote("After cancelling")
+    let url = try await harness.library.fileURL(for: document.id)
+    let text = try #require(PDFDocument(url: url)).string ?? ""
+    #expect(text.contains("Recognised text"), "File text: \(text)")
+  }
+
+  @Test("Recognition doesn't replace the file while a form field is still being typed in (#220)")
+  func recognitionWaitsForATypedField() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try TestPDFs.makeForm(), textLayer: false)
+    let recognizer = GatedRecognizer()
+    let reader = harness.reader(for: document, recognizer: recognizer)
+    await reader.load()
+    reader.recognizeText()
+    for _ in 0..<500 where await !recognizer.isWaiting { try await Task.sleep(for: .milliseconds(20)) }
+    try #require(await recognizer.isWaiting)
+    let controller = try #require(reader.controller)
+    let field = try #require(controller.document.page(at: 0)?.annotations.first { $0.fieldName == "name" })
+    // The person is typing in the field: PDFKit puts the text in the field only when editing ends.
+    controller.onEndEditing = { field.widgetStringValue = "Ada Lovelace" }
+    #expect(!controller.needsSaving)
+    await recognizer.open()
+    for _ in 0..<500 where reader.recognitionProgress != nil { try await Task.sleep(for: .milliseconds(20)) }
+    #expect(reader.recognitionProgress == nil)
+    #expect(reader.controller === controller, "The reader still shows the document being typed in")
+    await reader.save()
+    let url = try await harness.library.fileURL(for: document.id)
+    #expect(TestPDFs.storedValue(of: "name", in: url) == "Ada Lovelace")
   }
 
   @Test("Read aloud ends when the system finishes or cancels speech")
@@ -1823,6 +1948,27 @@ private actor GatedRecognizer: TextRecognizing {
       await withCheckedContinuation { gate = $0 }
     }
     return FakeRecognizer().lines
+  }
+}
+
+/// An inspector that waits until the test lets it read the file, then reads it with PDFKit.
+private actor GatedInspector: PDFInspecting {
+  private(set) var isWaiting = false
+  private var isOpen = false
+  private var gate: CheckedContinuation<Void, Never>?
+
+  func open() {
+    isOpen = true
+    gate?.resume()
+    gate = nil
+  }
+
+  func inspect(_ url: URL) async throws -> PDFInspection {
+    if !isOpen {
+      isWaiting = true
+      await withCheckedContinuation { gate = $0 }
+    }
+    return try await PDFKitInspector().inspect(url)
   }
 }
 

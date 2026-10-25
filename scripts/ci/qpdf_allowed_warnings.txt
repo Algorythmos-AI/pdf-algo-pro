@@ -1,0 +1,8 @@
+# qpdf warnings that validate_pdfs.sh accepts, one per line: <saved file name>|<text the warning contains>.
+# Every other qpdf warning fails the pdf-validation job, as errors do. Each entry names the issue that
+# explains it, and is removed when the cause is gone.
+#
+# Issue #96: the synthetic right-to-left and CJK document, as Core Graphics draws it, already has
+# cross-reference entries in use at offset 0 with no object behind them; PDFKit's save carries them over.
+# qpdf, PDFium and Core Graphics all open and render the file. A quirk of the input, not of the save.
+right-to-left-and-CJK.pdf|object has offset 0 - a common error handled correctly by qpdf and most other applications

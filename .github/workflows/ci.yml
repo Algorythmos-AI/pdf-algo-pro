@@ -27,6 +27,12 @@ on:
         description: "Only these tests: Target, Target/Class or Target/Class/method, comma-separated"
         type: string
         default: ""
+      sanitizers:
+        # Runs `ci-sanitizers` (the save and text-editing suites under Address Sanitizer and Undefined
+        # Behavior Sanitizer) on this run as well; it also runs nightly. Never on pull requests.
+        description: Run the save and text-editing suites under Address and Undefined Behavior Sanitizers
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -109,6 +115,8 @@ jobs:
           python3 scripts/ci/privacy_impact.py --base HEAD^1 --body-file "$RUNNER_TEMP/pr-body.md"
       - name: Design tokens match the generated Swift (drift and contrast)
         run: python3 scripts/design/generate_tokens.py --check
+      - name: Accessibility identifiers match the generated Swift (drift and naming)
+        run: python3 scripts/design/generate_accessibility_ids.py --check
       - name: Script unit tests (sync, docs gate, coverage gate)
         run: |
           python3 -m venv "$RUNNER_TEMP/venv"
@@ -722,7 +730,7 @@ jobs:
     name: >-
       ${{ github.event_name == 'workflow_dispatch' && (inputs.only_testing && 'ios-focused' || 'ios-manual')
       || 'ios' }}
-    needs: [changes, ios-build, ios-device, ios-tests, ios-report]
+    needs: [changes, ios-build, ios-device, ios-tests, ios-report, pdf-export, pdf-validation]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -855,11 +863,11 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   pdf-export:
-    name: pdf-export (advisory)
+    name: pdf-export
     needs: changes
-    # Advisory for its first two weeks (plan §3 B2): a failure is visible here but doesn't fail the run.
-    if: ${{ !cancelled() && needs.changes.outputs.ios == 'true' }}
-    continue-on-error: true
+    # Part of the required `ios` check since R2 (plan revision 3, PAP-068): it was advisory for its first
+    # two weeks (§3 B2). It also runs on a focused run, where ios_gate.py lets it be skipped but not fail.
+    if: ${{ !cancelled() && needs.changes.result == 'success' && needs.changes.outputs.ios == 'true' }}
     runs-on: macos-26
     timeout-minutes: 20
     steps:
@@ -877,11 +885,11 @@ jobs:
           PDF_VALIDATION_OUT: ${{ runner.temp }}/saved
         run: swift test --package-path Packages/PDFEngine --filter GoldenCorpusTests
       - name: Thread Sanitizer on the save path (plan H4)
-        # PDFDocument isn't thread-safe, so the controller, toolkit and save fault-injection suites run
+        # PDFDocument isn't thread-safe, so the controller, toolkit and both save fault-injection suites run
         # under the sanitizer; a data race fails this step.
         run: |
           swift test --package-path Packages/PDFEngine --sanitize=thread \
-            --filter "SaveFaultTests|ControllerTests|ToolkitTests"
+            --filter "SaveFaultTests|SaveFaultInjectionTests|ControllerTests|ToolkitTests"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: saved-pdfs
@@ -889,9 +897,10 @@ jobs:
           retention-days: 7
 
   pdf-validation:
-    name: pdf-validation (advisory)
+    # Part of the required `ios` check since R2. qpdf errors and warnings fail it, except the warnings
+    # listed per file in scripts/ci/qpdf_allowed_warnings.txt (only issue #96's, for one synthetic file).
+    name: pdf-validation
     needs: pdf-export
-    continue-on-error: true
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
@@ -910,7 +919,7 @@ jobs:
         with:
           name: saved-pdfs
           path: saved
-      - name: qpdf reads every saved file without errors
+      - name: qpdf reads every saved file without errors or unexpected warnings
         run: |
           qpdf --version | head -1
           scripts/ci/validate_pdfs.sh saved
@@ -922,6 +931,115 @@ jobs:
           echo "pypdfium2==5.13.0 --hash=sha256:81df25c1ab4c13ff773102d3cbea1967511d079123b067fc077bd0c4d57d91d8" > "$RUNNER_TEMP/pdfium.txt"
           "$RUNNER_TEMP/pdfium/bin/pip" install --quiet --only-binary=:all: --require-hashes -r "$RUNNER_TEMP/pdfium.txt"
           "$RUNNER_TEMP/pdfium/bin/python" scripts/ci/pdfium_render.py saved
+
+  ci-sanitizers:
+    name: ci-sanitizers
+    # The save and text-editing suites under Address Sanitizer and Undefined Behavior Sanitizer (plan
+    # revision 3, R2): Debug, on the pinned simulator, nightly and on request (the `sanitizers` input),
+    # never on pull requests or pushes. Not needed by `ios`, so it never blocks a merge; it reports in
+    # the run's summary, and a finding is a bug to file. Thread Sanitizer runs on the save suites in
+    # `pdf-export` (the sanitizers cannot share one build). Like ios-build it builds once for testing and
+    # then runs the suites from that build.
+    if: >-
+      ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.sanitizers
+      && !inputs.record_snapshots) }}
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      SCHEME: PDFAlgoPro
+      TEST_PLAN: PDFAlgoPro
+      # The suites that write a document or rewrite a page's text, by Swift Testing suite name.
+      SUITES: >-
+        PDFEngineTests/SaveFaultTests PDFEngineTests/SaveFaultInjectionTests PDFEngineTests/MalformedInputTests
+        PDFEngineTests/ControllerTests PDFEngineTests/TextEditingSyntaxTests PDFEngineTests/TextEditorTests
+        PDFEngineTests/EditProofTests PDFEngineTests/TextEditingHostileInputTests
+        PDFEngineTests/TextEditingControllerTests PDFEngineTests/TextEditingGuaranteeTests
+        PDFEngineTests/TextEditingDependabilityTests PDFEngineTests/TextMovingTests
+      # Tests that assert a wall-clock limit, which the sanitizers' slowdown (two to three times) breaks
+      # without any defect: TextEditingHostileInputTests/limits took 23 s against its 20 s limit under
+      # Address Sanitizer on run 40103619896. They still run, with their limits, in `ios`.
+      SKIPPED: PDFEngineTests/TextEditingHostileInputTests/limits()
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Select the pinned Xcode (fail if missing)
+        run: |
+          xcode="/Applications/$XCODE_APP"
+          if [ ! -d "$xcode" ]; then
+            echo "::error::$XCODE_APP is not installed on this runner image; update the pin (PAP-029)"
+            exit 1
+          fi
+          sudo xcode-select -s "$xcode/Contents/Developer"
+          if ! xcodebuild -version | grep -q "Build version $XCODE_BUILD"; then
+            echo "::error::$XCODE_APP is not build $XCODE_BUILD; update the pin (PAP-029)"
+            exit 1
+          fi
+      - name: Install pinned XcodeGen (checksum verified)
+        run: |
+          curl -sSL -o xcodegen.zip "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
+          echo "${XCODEGEN_SHA256}  xcodegen.zip" | shasum -a 256 -c -
+          unzip -q xcodegen.zip -d "$RUNNER_TEMP/xcodegen"
+          echo "$RUNNER_TEMP/xcodegen/xcodegen/bin" >> "$GITHUB_PATH"
+      - name: Generate project and test plan
+        run: |
+          xcodegen generate
+          python3 scripts/ci/write_testplan.py
+      - name: Build for testing with Address and Undefined Behavior Sanitizers (Debug, simulator)
+        run: |
+          device="$(scripts/ci/pinned_simulator.sh)"
+          echo "SIM=$device" >> "$GITHUB_ENV"
+          xcodebuild build-for-testing -scheme "$SCHEME" -testPlan "$TEST_PLAN" -configuration Debug \
+            -destination "id=$device" -derivedDataPath DD CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= \
+            -enableAddressSanitizer YES -enableUndefinedBehaviorSanitizer YES
+      - name: The save and text-editing suites under the sanitizers
+        env:
+          # A sanitizer report stops the test process, so the suite fails by name instead of only logging.
+          TEST_RUNNER_ASAN_OPTIONS: halt_on_error=1:detect_stack_use_after_return=1
+          TEST_RUNNER_UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+        run: |
+          args=()
+          for suite in $SUITES; do args+=("-only-testing:$suite"); done
+          for test in $SKIPPED; do args+=("-skip-testing:$test"); done
+          xcrun simctl bootstatus "$SIM" -b > /dev/null
+          set +e
+          xcodebuild test-without-building -scheme "$SCHEME" -testPlan "$TEST_PLAN" -derivedDataPath DD \
+            -destination "id=$SIM" -disableAutomaticPackageResolution -skipPackageUpdates \
+            -enableAddressSanitizer YES -enableUndefinedBehaviorSanitizer YES \
+            -resultBundlePath Sanitizers.xcresult "${args[@]}" 2>&1 | tee "$RUNNER_TEMP/sanitizers.log"
+          code=${PIPESTATUS[0]}
+          set -e
+          findings="$(grep -cE 'ERROR: AddressSanitizer|runtime error:' "$RUNNER_TEMP/sanitizers.log" || true)"
+          {
+            echo "### Sanitizers (Address, Undefined Behavior)"
+            echo
+            echo "| Suites | xcodebuild exit | Sanitizer reports |"
+            echo "| --- | --- | --- |"
+            echo "| $(echo $SUITES | wc -w | tr -d ' ') save and text-editing suites | $code | $findings |"
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$findings" != 0 ]; then
+            grep -E -m 10 -A 8 'ERROR: AddressSanitizer|runtime error:' "$RUNNER_TEMP/sanitizers.log" \
+              | sed 's/^/    /' >> "$GITHUB_STEP_SUMMARY"
+            echo "::error title=Sanitizers::$findings sanitizer report(s); see the run summary and Sanitizers.xcresult"
+          fi
+          if [ -f Sanitizers.xcresult/Info.plist ]; then
+            xcrun xcresulttool get test-results tests --path Sanitizers.xcresult > sanitizers-tests.json
+            python3 scripts/ci/xcresult_report.py sanitizers-tests.json --flaky-budget 0 \
+              --summary "$GITHUB_STEP_SUMMARY" || code=1
+          else
+            echo "::error title=Sanitizers::no result bundle; xcodebuild exited $code"
+            code=1
+          fi
+          [ "$code" = 0 ] && [ "$findings" = 0 ]
+      - name: Keep the sanitizer results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ci-sanitizers
+          path: |
+            Sanitizers.xcresult
+            sanitizers-tests.json
+          if-no-files-found: ignore
+          retention-days: 14
 
   performance:
     name: performance

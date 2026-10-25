@@ -103,6 +103,11 @@ public final class PDFDocumentController {
 
   @ObservationIgnored let document: PDFDocument
   @ObservationIgnored weak var view: PDFReaderHostView?
+  /// Called by `endEditing()` after the page view has ended editing.
+  ///
+  /// Tests set it to stand in for PDFKit committing a form field still being typed in, which needs a
+  /// window to happen for real.
+  @ObservationIgnored var onEndEditing: (@MainActor () -> Void)?
   /// Called after each stroke is added while drawing, so the reader can save.
   @ObservationIgnored var onInk: (@MainActor () -> Void)?
   /// The markup a drag across text applies, while a markup tool is in hand.

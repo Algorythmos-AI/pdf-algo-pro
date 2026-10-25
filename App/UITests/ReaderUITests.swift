@@ -1,3 +1,4 @@
+import AccessibilityIDs
 import XCTest
 
 /// The reader: navigation within a document (FR-READ-002, FR-READ-003).
@@ -5,17 +6,17 @@ import XCTest
 final class ReaderUITests: UITestCase {
   func testContentsAndPagesFindTheirWayAround() throws {
     let app = launch(["-skip-onboarding", "-seed-library", "sample"])
-    let indicator = app.staticTexts["reader.pageIndicator"]
+    let indicator = app.staticTexts[ID.Reader.pageIndicator]
     XCTAssertTrue(indicator.waitForExistence(timeout: 15))
-    app.buttons["reader.more"].tap()
-    app.buttons["Contents"].tap()
+    app.buttons[ID.Reader.more].tap()
+    app.buttons[ID.Reader.More.contents].tap()
     let contents = app.navigationBars["Contents"]
     XCTAssertTrue(contents.waitForExistence(timeout: Self.settleTimeout), "The table of contents opens (FR-READ-002)")
     try audit(app, onSheet: true)
     contents.buttons["Done"].tap()
-    app.buttons["reader.more"].tap()
-    app.buttons["Pages"].tap()
-    let third = app.buttons["Page 3"]
+    app.buttons[ID.Reader.more].tap()
+    app.buttons[ID.Reader.More.pages].tap()
+    let third = app.buttons[ID.Pages.page(3)]
     XCTAssertTrue(third.waitForExistence(timeout: Self.settleTimeout), "The page grid shows every page (FR-READ-002)")
     try audit(app, onSheet: true)
     third.tap()
@@ -30,14 +31,14 @@ final class ReaderUITests: UITestCase {
   /// (issue #188). The drag here is slow and held before the finger lifts, so nothing can glide.
   func testThePageFollowsASlowDrag() throws {
     let app = launch(["-skip-onboarding", "-seed-library", "sample"])
-    let indicator = app.staticTexts["reader.pageIndicator"]
+    let indicator = app.staticTexts[ID.Reader.pageIndicator]
     XCTAssertTrue(indicator.waitForExistence(timeout: 15))
-    let pages = app.descendants(matching: .any)["reader.pages"].firstMatch
+    let pages = app.descendants(matching: .any)[ID.Reader.pages].firstMatch
     XCTAssertTrue(pages.waitForExistence(timeout: Self.settleTimeout))
     // From low on the page, clear of the page strip along the bottom, to near its top: more than a
     // page's height, so the page under the finger at the end is no longer the first.
     let area = pages.frame
-    let strip = app.descendants(matching: .any)["reader.pageStrip"].firstMatch
+    let strip = app.descendants(matching: .any)[ID.Reader.pageStrip].firstMatch
     let lowest = (strip.exists ? min(area.maxY, strip.frame.minY) : area.maxY) - 24
     let origin = app.coordinate(withNormalizedOffset: .zero)
     let from = origin.withOffset(CGVector(dx: area.midX, dy: lowest))
@@ -65,9 +66,9 @@ final class ReaderUITests: UITestCase {
   /// lands: the result shows whether the defect is still there, and the run stays green.
   func testThePageFollowsASlowDragBegunRightAfterATap() throws {
     let app = launch(["-skip-onboarding", "-seed-library", "sample"])
-    let indicator = app.staticTexts["reader.pageIndicator"]
+    let indicator = app.staticTexts[ID.Reader.pageIndicator]
     XCTAssertTrue(indicator.waitForExistence(timeout: 15))
-    let pages = app.descendants(matching: .any)["reader.pages"].firstMatch
+    let pages = app.descendants(matching: .any)[ID.Reader.pages].firstMatch
     waitUntilSteady(pages)
     // Bare page, left of the text, below the first page's heading.
     point(0.12, 0.5, in: pages, of: app).tap()
@@ -84,18 +85,18 @@ final class ReaderUITests: UITestCase {
   /// lifts, so the page did not follow a drag at all. A stamp is selected as it is placed.
   func testWithAStampSelectedThePageFollowsASlowDrag() throws {
     let app = launch(["-skip-onboarding", "-seed-library", "sample"])
-    let indicator = app.staticTexts["reader.pageIndicator"]
+    let indicator = app.staticTexts[ID.Reader.pageIndicator]
     XCTAssertTrue(indicator.waitForExistence(timeout: 15))
-    let bar = app.descendants(matching: .any)["reader.selection.actionBar"].firstMatch
-    tap(app.buttons["reader.markup"], until: app.buttons["Stamp"])
-    tap(app.buttons["Stamp"], until: app.buttons["Tick"])
-    app.buttons["Tick"].tap()
+    let bar = app.descendants(matching: .any)[ID.Reader.Selection.actionBar].firstMatch
+    tap(app.buttons[ID.Reader.markup], until: app.buttons[ID.Reader.Markup.stamp])
+    tap(app.buttons[ID.Reader.Markup.stamp], until: app.buttons[ID.Reader.Markup.Stamp.tick])
+    app.buttons[ID.Reader.Markup.Stamp.tick].tap()
     // A stamp goes where the page is tapped; a tap on it then selects it.
-    let pages = app.descendants(matching: .any)["reader.pages"].firstMatch
-    let pasteBar = app.descendants(matching: .any)["reader.paste.bar"].firstMatch
+    let pages = app.descendants(matching: .any)[ID.Reader.pages].firstMatch
+    let pasteBar = app.descendants(matching: .any)[ID.Reader.Paste.bar].firstMatch
     XCTAssertTrue(pasteBar.waitForExistence(timeout: Self.settleTimeout))
     point(0.85, 0.3, in: pages, of: app).tap()
-    app.buttons["reader.paste.done"].tap()
+    app.buttons[ID.Reader.Paste.done].tap()
     point(0.85, 0.3, in: pages, of: app).tap()
     XCTAssertTrue(bar.waitForExistence(timeout: Self.settleTimeout), "A tap on the stamp selects it")
 
@@ -117,12 +118,12 @@ final class ReaderUITests: UITestCase {
   /// bare page lets go of it, and the bar goes.
   func testASelectedShapeIsMovedWithOneFingerAndResizedWithTwoWhileThePageKeepsStill() throws {
     let app = launch(["-skip-onboarding", "-seed-library", "sample"])
-    let indicator = app.staticTexts["reader.pageIndicator"]
+    let indicator = app.staticTexts[ID.Reader.pageIndicator]
     XCTAssertTrue(indicator.waitForExistence(timeout: 15))
-    app.buttons["reader.markup"].tap()
-    app.buttons["Shapes"].tap()
-    app.buttons["Rectangle"].tap()
-    let area = app.descendants(matching: .any)["reader.drawing"].firstMatch
+    app.buttons[ID.Reader.markup].tap()
+    app.buttons[ID.Reader.Markup.shapes].tap()
+    app.buttons[ID.Reader.Markup.shape("rectangle")].tap()
+    let area = app.descendants(matching: .any)[ID.Reader.drawing].firstMatch
     XCTAssertTrue(area.waitForExistence(timeout: Self.settleTimeout))
     // A rectangle on bare page under the first page's text: a fifth of the screen wide.
     let frame = area.frame
@@ -132,11 +133,11 @@ final class ReaderUITests: UITestCase {
       x: frame.minX + frame.width * 0.4, y: frame.minY + frame.height * 0.22, width: frame.width * 0.2,
       height: frame.height * 0.1)
     at(drawn.minX, drawn.minY).press(forDuration: 0.1, thenDragTo: at(drawn.maxX, drawn.maxY))
-    app.buttons["reader.doneDrawing"].tap()
+    app.buttons[ID.Reader.doneDrawing].tap()
 
-    let pages = app.descendants(matching: .any)["reader.pages"].firstMatch
+    let pages = app.descendants(matching: .any)[ID.Reader.pages].firstMatch
     XCTAssertTrue(pages.waitForExistence(timeout: Self.settleTimeout))
-    let bar = app.descendants(matching: .any)["reader.selection.actionBar"].firstMatch
+    let bar = app.descendants(matching: .any)[ID.Reader.Selection.actionBar].firstMatch
     let start = CGPoint(x: drawn.midX, y: drawn.midY)
     // The middle of the pages, where a pinch on them has its fingers either side of.
     let middle = CGPoint(x: pages.frame.midX, y: pages.frame.midY)
@@ -181,7 +182,7 @@ final class ReaderUITests: UITestCase {
     XCTAssertTrue(
       isSame(place, rested),
       "The page zoomed or moved under a pinch on the selection: its place went from \(rested) to \(place); \(places)")
-    app.buttons["reader.selection.done"].tap()
+    app.buttons[ID.Reader.Selection.done].tap()
     XCTAssertTrue(bar.waitForNonExistence(timeout: Self.settleTimeout), "Done lets go of the rectangle")
     at(beside.x, beside.y).tap()
     if !bar.waitForExistence(timeout: Self.settleTimeout) {
@@ -202,8 +203,8 @@ final class ReaderUITests: UITestCase {
   /// The drag runs along the left of the pages, clear of an annotation in the middle or on the right,
   /// and starts above whatever lies along the bottom: the page strip and the bar for a selection.
   private func dragThePagesUpSlowly(_ app: XCUIApplication, evidence: String) -> (moved: Bool, notes: String) {
-    let indicator = app.staticTexts["reader.pageIndicator"]
-    let area = app.descendants(matching: .any)["reader.pages"].firstMatch.frame
+    let indicator = app.staticTexts[ID.Reader.pageIndicator]
+    let area = app.descendants(matching: .any)[ID.Reader.pages].firstMatch.frame
     let along = ["reader.pageStrip", "reader.selection.actionBar"]
       .map { app.descendants(matching: .any)[$0].firstMatch }.filter(\.exists).map(\.frame.minY)
     let lowest = (along + [area.maxY]).min()! - 24
@@ -228,7 +229,7 @@ final class ReaderUITests: UITestCase {
   /// That view is the first thing inside the pages' scroller. It moves when the pages are scrolled
   /// and grows when they are zoomed, so two readings that agree mean the page has done neither.
   private func placeOfThePages(in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) -> CGRect {
-    let pages = app.descendants(matching: .any)["reader.pages"].firstMatch
+    let pages = app.descendants(matching: .any)[ID.Reader.pages].firstMatch
     let document = pages.scrollViews.firstMatch.children(matching: .any).firstMatch
     if !document.waitForExistence(timeout: Self.settleTimeout) {
       XCTFail("No view of the document inside the pages' scroller:\n\(pages.debugDescription)", file: file, line: line)
@@ -244,10 +245,10 @@ final class ReaderUITests: UITestCase {
 
   func testGoToPageJumpsToTheNumberTyped() throws {
     let app = launch(["-skip-onboarding", "-seed-library", "sample"])
-    let indicator = app.staticTexts["reader.pageIndicator"]
+    let indicator = app.staticTexts[ID.Reader.pageIndicator]
     XCTAssertTrue(indicator.waitForExistence(timeout: 15))
-    app.buttons["reader.more"].tap()
-    app.buttons["Go to page"].tap()
+    app.buttons[ID.Reader.more].tap()
+    app.buttons[ID.Reader.More.goToPage].tap()
     // The alert's field has no identifier of its own: SwiftUI does not pass it to the system alert.
     let number = app.alerts.firstMatch.textFields.firstMatch
     XCTAssertTrue(number.waitForExistence(timeout: Self.settleTimeout), "Go to page asks for a number (FR-READ-002)")
@@ -260,38 +261,38 @@ final class ReaderUITests: UITestCase {
 
   func testThePageStripMovesThroughTheDocumentAndStepsAsideForEditing() throws {
     let app = launch(["-skip-onboarding", "-seed-library", "sample", "-text-editing", "available"])
-    let indicator = app.staticTexts["reader.pageIndicator"]
+    let indicator = app.staticTexts[ID.Reader.pageIndicator]
     XCTAssertTrue(indicator.waitForExistence(timeout: 15))
-    let strip = app.descendants(matching: .any)["reader.pageStrip"].firstMatch
+    let strip = app.descendants(matching: .any)[ID.Reader.pageStrip].firstMatch
     XCTAssertTrue(strip.waitForExistence(timeout: Self.settleTimeout), "A document of several pages has a page strip")
     try audit(app)
 
     // A tap on a small page shows that page, and again, back to the first.
-    app.buttons["reader.pageStrip.3"].tap()
+    app.buttons[ID.Reader.pageStrip(3)].tap()
     expectation(for: NSPredicate(format: "label CONTAINS %@", "3 of 3"), evaluatedWith: indicator)
     waitForExpectations(timeout: Self.settleTimeout)
-    XCTAssertTrue(app.buttons["reader.pageStrip.3"].isSelected, "The strip marks the page in view")
-    app.buttons["reader.pageStrip.1"].tap()
+    XCTAssertTrue(app.buttons[ID.Reader.pageStrip(3)].isSelected, "The strip marks the page in view")
+    app.buttons[ID.Reader.pageStrip(1)].tap()
     expectation(for: NSPredicate(format: "label CONTAINS %@", "1 of 3"), evaluatedWith: indicator)
     waitForExpectations(timeout: Self.settleTimeout)
-    app.buttons["reader.pageStrip.2"].tap()
+    app.buttons[ID.Reader.pageStrip(2)].tap()
     expectation(for: NSPredicate(format: "label CONTAINS %@", "2 of 3"), evaluatedWith: indicator)
     waitForExpectations(timeout: Self.settleTimeout)
 
     // The strip steps aside while text is edited, and comes back after.
-    let done = app.buttons["reader.doneEditingText"]
-    tap(app.buttons["reader.edit"], until: done)
+    let done = app.buttons[ID.Reader.doneEditingText]
+    tap(app.buttons[ID.Reader.edit], until: done)
     XCTAssertFalse(strip.exists, "The strip leaves the bottom of the reader to the editor")
     let line = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Try these")).firstMatch
-    let field = app.textViews["reader.textEdit.field"]
+    let field = app.textViews[ID.Reader.TextEdit.field]
     tap(line, until: field)
     XCTAssertEqual(field.value as? String, "Try these:")
-    app.buttons["reader.textEdit.cancel"].tap()
+    app.buttons[ID.Reader.TextEdit.cancel].tap()
     done.tap()
     XCTAssertTrue(strip.waitForExistence(timeout: Self.settleTimeout), "The strip is back")
 
     // The strip can be put away.
-    app.buttons["reader.more"].tap()
+    app.buttons[ID.Reader.more].tap()
     let layout = app.buttons["Layout"]
     XCTAssertTrue(layout.waitForExistence(timeout: 5))
     layout.tap()
@@ -303,9 +304,9 @@ final class ReaderUITests: UITestCase {
 
   func testWithoutTheReadingControlsTheReaderIsAsItWas() throws {
     let app = launch(["-skip-onboarding", "-seed-library", "sample", "-reading-controls", "off"])
-    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
-    XCTAssertFalse(app.descendants(matching: .any)["reader.pageStrip"].firstMatch.exists, "No page strip")
-    app.buttons["reader.more"].tap()
+    XCTAssertTrue(app.staticTexts[ID.Reader.pageIndicator].waitForExistence(timeout: 15))
+    XCTAssertFalse(app.descendants(matching: .any)[ID.Reader.pageStrip].firstMatch.exists, "No page strip")
+    app.buttons[ID.Reader.more].tap()
     let layout = app.buttons["Layout"]
     XCTAssertTrue(layout.waitForExistence(timeout: 5))
     layout.tap()
@@ -315,13 +316,13 @@ final class ReaderUITests: UITestCase {
 
   func testDrawingAddsInkThatCanBeUndone() throws {
     let app = launch(["-skip-onboarding", "-seed-library", "sample"])
-    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
-    let markup = app.buttons["reader.markup"]
+    XCTAssertTrue(app.staticTexts[ID.Reader.pageIndicator].waitForExistence(timeout: 15))
+    let markup = app.buttons[ID.Reader.markup]
     markup.tap()
-    app.buttons["Draw"].tap()
-    let done = app.buttons["reader.doneDrawing"]
+    app.buttons[ID.Reader.Markup.draw].tap()
+    let done = app.buttons[ID.Reader.doneDrawing]
     XCTAssertTrue(done.waitForExistence(timeout: Self.settleTimeout), "Drawing mode shows Done (F2a)")
-    let area = app.descendants(matching: .any)["reader.drawing"].firstMatch
+    let area = app.descendants(matching: .any)[ID.Reader.drawing].firstMatch
     XCTAssertTrue(area.waitForExistence(timeout: Self.settleTimeout))
     point(0.3, 0.4, in: area, of: app)
       .press(forDuration: 0.1, thenDragTo: point(0.7, 0.5, in: area, of: app))
@@ -334,18 +335,18 @@ final class ReaderUITests: UITestCase {
 
   func testATypedSignatureIsPlacedOnThePage() throws {
     let app = launch(["-skip-onboarding", "-seed-library", "sample"])
-    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
-    let markup = app.buttons["reader.markup"]
-    let name = app.textFields["signature.typedName"]
-    tapMenuItem(app.buttons["Signature"], in: markup, until: name)
+    XCTAssertTrue(app.staticTexts[ID.Reader.pageIndicator].waitForExistence(timeout: 15))
+    let markup = app.buttons[ID.Reader.markup]
+    let name = app.textFields[ID.Signature.typedName]
+    tapMenuItem(app.buttons[ID.Reader.Markup.signature], in: markup, until: name)
     XCTAssertTrue(name.waitForExistence(timeout: Self.settleTimeout), "The signature sheet opens (F1c)")
     try audit(app, onSheet: true)
     name.tap()
     // Return closes the keyboard, so the audit measures the button rather than the keyboard over it.
     name.typeText("Ada Lovelace\n")
     try audit(app, onSheet: true)
-    app.buttons["signature.placeTyped"].tap()
-    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: Self.settleTimeout))
+    app.buttons[ID.Signature.placeTyped].tap()
+    XCTAssertTrue(app.staticTexts[ID.Reader.pageIndicator].waitForExistence(timeout: Self.settleTimeout))
     markup.tap()
     let undo = app.buttons["Undo"]
     XCTAssertTrue(undo.waitForExistence(timeout: Self.settleTimeout))
@@ -355,15 +356,15 @@ final class ReaderUITests: UITestCase {
   /// A tester placed several arrows and found no way to take one back or to move one.
   func testAShapeIsUndoneFromTheBarAndSaysItCanBeMoved() throws {
     let app = launch(["-skip-onboarding", "-seed-library", "sample"])
-    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
-    app.buttons["reader.markup"].tap()
-    app.buttons["Shapes"].tap()
-    app.buttons["Arrow"].tap()
-    let area = app.descendants(matching: .any)["reader.drawing"].firstMatch
+    XCTAssertTrue(app.staticTexts[ID.Reader.pageIndicator].waitForExistence(timeout: 15))
+    app.buttons[ID.Reader.markup].tap()
+    app.buttons[ID.Reader.Markup.shapes].tap()
+    app.buttons[ID.Reader.Markup.shape("arrow")].tap()
+    let area = app.descendants(matching: .any)[ID.Reader.drawing].firstMatch
     XCTAssertTrue(area.waitForExistence(timeout: Self.settleTimeout))
     XCTAssertTrue(app.staticTexts["Drag to draw. Drag a shape to move it."].waitForExistence(timeout: 5))
-    let undo = app.buttons["reader.drawing.undo"]
-    let redo = app.buttons["reader.drawing.redo"]
+    let undo = app.buttons[ID.Reader.Drawing.undo]
+    let redo = app.buttons[ID.Reader.Drawing.redo]
     XCTAssertTrue(undo.waitForExistence(timeout: 5), "Undo is in the bar while drawing")
     XCTAssertFalse(undo.isEnabled, "Nothing to undo yet")
     try audit(app)
@@ -380,8 +381,8 @@ final class ReaderUITests: UITestCase {
     XCTAssertTrue(waitUntil(redo, isEnabled: true), "What was undone can be redone")
     undo.tap()
     XCTAssertTrue(waitUntil(undo, isEnabled: false), "Both steps are taken back")
-    app.buttons["reader.doneDrawing"].tap()
-    XCTAssertTrue(app.buttons["reader.markup"].waitForExistence(timeout: 5))
+    app.buttons[ID.Reader.doneDrawing].tap()
+    XCTAssertTrue(app.buttons[ID.Reader.markup].waitForExistence(timeout: 5))
   }
 
   /// Waits for a control to become enabled or disabled.
@@ -393,18 +394,18 @@ final class ReaderUITests: UITestCase {
 
   func testShapesAndTextBoxesAreAdded() throws {
     let app = launch(["-skip-onboarding", "-seed-library", "sample"])
-    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
-    let markup = app.buttons["reader.markup"]
+    XCTAssertTrue(app.staticTexts[ID.Reader.pageIndicator].waitForExistence(timeout: 15))
+    let markup = app.buttons[ID.Reader.markup]
     markup.tap()
-    app.buttons["Shapes"].tap()
-    app.buttons["Rectangle"].tap()
-    let area = app.descendants(matching: .any)["reader.drawing"].firstMatch
+    app.buttons[ID.Reader.Markup.shapes].tap()
+    app.buttons[ID.Reader.Markup.shape("rectangle")].tap()
+    let area = app.descendants(matching: .any)[ID.Reader.drawing].firstMatch
     XCTAssertTrue(area.waitForExistence(timeout: Self.settleTimeout), "Shapes are drawn like ink (F2b)")
     point(0.25, 0.3, in: area, of: app)
       .press(forDuration: 0.1, thenDragTo: point(0.7, 0.45, in: area, of: app))
-    app.buttons["reader.doneDrawing"].tap()
+    app.buttons[ID.Reader.doneDrawing].tap()
     markup.tap()
-    app.buttons["Text box"].tap()
+    app.buttons[ID.Reader.Markup.textBox].tap()
     let text = app.alerts.firstMatch.textFields.firstMatch
     XCTAssertTrue(text.waitForExistence(timeout: Self.settleTimeout))
     text.tap()
@@ -416,10 +417,10 @@ final class ReaderUITests: UITestCase {
     XCTAssertTrue(undo.isEnabled, "The rectangle and the text box were added")
     // Undo alone doesn't prove the text box: the rectangle enables it too. The annotation list must
     // show the typed text, which it didn't while the prompt cleared its field too early.
-    app.buttons["Highlight"].tap()
-    app.buttons["reader.doneMarkup"].tap()
+    app.buttons[ID.Reader.Markup.text("highlight")].tap()
+    app.buttons[ID.Reader.doneMarkup].tap()
     let annotations = app.navigationBars["Annotations"]
-    tapMenuItem(app.buttons["reader.annotations"], in: app.buttons["reader.more"], until: annotations)
+    tapMenuItem(app.buttons[ID.Reader.annotations], in: app.buttons[ID.Reader.more], until: annotations)
     XCTAssertTrue(
       app.staticTexts["Check with accounts"].waitForExistence(timeout: Self.settleTimeout),
       "The text box carries what was typed")
@@ -427,18 +428,20 @@ final class ReaderUITests: UITestCase {
 
   func testDraggingAcrossTextWithTheHighlighterMarksItOnce() throws {
     let app = launch(["-skip-onboarding", "-seed-library", "sample"])
-    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
-    tapMenuItem(app.buttons["Highlight"], in: app.buttons["reader.markup"], until: app.buttons["reader.doneMarkup"])
-    XCTAssertTrue(app.descendants(matching: .any)["reader.markupHint"].firstMatch.exists)
-    let pages = app.descendants(matching: .any)["reader.pages"].firstMatch
+    XCTAssertTrue(app.staticTexts[ID.Reader.pageIndicator].waitForExistence(timeout: 15))
+    tapMenuItem(
+      app.buttons[ID.Reader.Markup.text("highlight")], in: app.buttons[ID.Reader.markup],
+      until: app.buttons[ID.Reader.doneMarkup])
+    XCTAssertTrue(app.descendants(matching: .any)[ID.Reader.markupHint].firstMatch.exists)
+    let pages = app.descendants(matching: .any)[ID.Reader.pages].firstMatch
     // Sideways across the top of the page, where its text is; twice, to show the marks don't stack.
     for _ in 0..<2 {
       point(0.1, 0.3, in: pages, of: app).press(forDuration: 0.1, thenDragTo: point(0.9, 0.42, in: pages, of: app))
     }
-    XCTAssertTrue(app.buttons["reader.doneMarkup"].exists, "A sideways drag marks text; it doesn't leave the document")
-    app.buttons["reader.doneMarkup"].tap()
+    XCTAssertTrue(app.buttons[ID.Reader.doneMarkup].exists, "A sideways drag marks text; it doesn't leave the document")
+    app.buttons[ID.Reader.doneMarkup].tap()
     let annotations = app.navigationBars["Annotations"]
-    tapMenuItem(app.buttons["reader.annotations"], in: app.buttons["reader.more"], until: annotations)
+    tapMenuItem(app.buttons[ID.Reader.annotations], in: app.buttons[ID.Reader.more], until: annotations)
     let highlights = app.staticTexts.matching(NSPredicate(format: "label == %@", "Highlight"))
     XCTAssertTrue(highlights.firstMatch.waitForExistence(timeout: Self.settleTimeout), "The drag highlighted text")
     let count = highlights.count
@@ -447,59 +450,61 @@ final class ReaderUITests: UITestCase {
 
   func testATappedAnnotationCanBeResizedAndDeleted() throws {
     let app = launch(["-skip-onboarding", "-seed-library", "sample"])
-    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
-    app.buttons["reader.markup"].tap()
-    app.buttons["Draw"].tap()
-    let area = app.descendants(matching: .any)["reader.drawing"].firstMatch
+    XCTAssertTrue(app.staticTexts[ID.Reader.pageIndicator].waitForExistence(timeout: 15))
+    app.buttons[ID.Reader.markup].tap()
+    app.buttons[ID.Reader.Markup.draw].tap()
+    let area = app.descendants(matching: .any)[ID.Reader.drawing].firstMatch
     XCTAssertTrue(area.waitForExistence(timeout: Self.settleTimeout))
     point(0.3, 0.4, in: area, of: app)
       .press(forDuration: 0.1, thenDragTo: point(0.7, 0.44, in: area, of: app))
-    app.buttons["reader.doneDrawing"].tap()
-    let pages = app.descendants(matching: .any)["reader.pages"].firstMatch
+    app.buttons[ID.Reader.doneDrawing].tap()
+    let pages = app.descendants(matching: .any)[ID.Reader.pages].firstMatch
     point(0.5, 0.42, in: pages, of: app).tap()
-    let bar = app.descendants(matching: .any)["reader.selection.actionBar"].firstMatch
+    let bar = app.descendants(matching: .any)[ID.Reader.Selection.actionBar].firstMatch
     XCTAssertTrue(bar.waitForExistence(timeout: Self.settleTimeout), "Tapping the drawing selects it (F3)")
     try audit(app)
-    tapMenuItem(app.buttons["Larger"], in: app.buttons["reader.selection.style"], until: bar)
+    tapMenuItem(app.buttons["Larger"], in: app.buttons[ID.Reader.Selection.style], until: bar)
     XCTAssertTrue(bar.waitForExistence(timeout: Self.settleTimeout), "Resizing keeps it selected (FR-ANN-005)")
-    app.buttons["reader.selection.delete"].tap()
+    app.buttons[ID.Reader.Selection.delete].tap()
     XCTAssertFalse(bar.waitForExistence(timeout: 2), "Deleting clears the selection")
   }
 
   func testATickIsPutWhereverThePageIsTappedAndCanBeCopied() throws {
     let app = launch(["-skip-onboarding", "-seed-library", "sample"])
-    XCTAssertTrue(app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: 15))
-    tapMenuItem(app.buttons["Stamp"], in: app.buttons["reader.markup"], until: app.buttons["Tick"])
-    app.buttons["Tick"].tap()
+    XCTAssertTrue(app.staticTexts[ID.Reader.pageIndicator].waitForExistence(timeout: 15))
+    tapMenuItem(
+      app.buttons[ID.Reader.Markup.stamp], in: app.buttons[ID.Reader.markup],
+      until: app.buttons[ID.Reader.Markup.Stamp.tick])
+    app.buttons[ID.Reader.Markup.Stamp.tick].tap()
     // Choosing Tick picks it up: nothing is on the page until a tap puts it there.
-    let pasteBar = app.descendants(matching: .any)["reader.paste.bar"].firstMatch
+    let pasteBar = app.descendants(matching: .any)[ID.Reader.Paste.bar].firstMatch
     XCTAssertTrue(pasteBar.waitForExistence(timeout: Self.settleTimeout), "Choosing a stamp waits for a tap")
     try audit(app)
-    let pages = app.descendants(matching: .any)["reader.pages"].firstMatch
+    let pages = app.descendants(matching: .any)[ID.Reader.pages].firstMatch
     for row in [0.45, 0.55, 0.65] {
       point(0.3, row, in: pages, of: app).tap()
     }
     XCTAssertTrue(pasteBar.exists, "Placing goes on until Done")
     // A fourth in the wrong place, taken back from the bar without leaving placing.
     point(0.7, 0.5, in: pages, of: app).tap()
-    let undo = app.buttons["reader.paste.undo"]
+    let undo = app.buttons[ID.Reader.Paste.undo]
     XCTAssertTrue(undo.isEnabled)
     undo.tap()
     XCTAssertTrue(pasteBar.exists, "Undo keeps placing on")
-    XCTAssertTrue(app.buttons["reader.paste.redo"].waitForExistence(timeout: Self.settleTimeout))
-    app.buttons["reader.paste.done"].tap()
+    XCTAssertTrue(app.buttons[ID.Reader.Paste.redo].waitForExistence(timeout: Self.settleTimeout))
+    app.buttons[ID.Reader.Paste.done].tap()
     XCTAssertFalse(pasteBar.waitForExistence(timeout: 2), "Done ends placing")
     // A placed tick is selected with a tap, copied, and pasted once more.
     point(0.3, 0.45, in: pages, of: app).tap()
-    let bar = app.descendants(matching: .any)["reader.selection.actionBar"].firstMatch
+    let bar = app.descendants(matching: .any)[ID.Reader.Selection.actionBar].firstMatch
     XCTAssertTrue(bar.waitForExistence(timeout: Self.settleTimeout), "A tap on a placed tick selects it")
     tapMenuItem(
-      app.buttons["reader.selection.copyAction"], in: app.buttons["reader.selection.copy"], until: pasteBar)
+      app.buttons[ID.Reader.Selection.copyAction], in: app.buttons[ID.Reader.Selection.copy], until: pasteBar)
     // Above the bar, which covers the bottom of the screen.
     point(0.7, 0.35, in: pages, of: app).tap()
-    app.buttons["reader.paste.done"].tap()
+    app.buttons[ID.Reader.Paste.done].tap()
     let annotations = app.navigationBars["Annotations"]
-    tapMenuItem(app.buttons["reader.annotations"], in: app.buttons["reader.more"], until: annotations)
+    tapMenuItem(app.buttons[ID.Reader.annotations], in: app.buttons[ID.Reader.more], until: annotations)
     let stamps = app.staticTexts.matching(NSPredicate(format: "label == %@", "Stamp"))
     XCTAssertTrue(stamps.firstMatch.waitForExistence(timeout: Self.settleTimeout))
     XCTAssertEqual(stamps.count, 4, "Three placed ticks and one pasted copy")
@@ -507,18 +512,18 @@ final class ReaderUITests: UITestCase {
 
   func testAWrongPasswordSaysSoAndTheRightOneOpensTheDocument() throws {
     let app = launch(["-skip-onboarding", "-seed-library", "locked"])
-    let field = app.secureTextFields["reader.password"]
+    let field = app.secureTextFields[ID.Reader.password]
     XCTAssertTrue(field.waitForExistence(timeout: 15), "A protected document asks for its password")
     field.tap()
     field.typeText("not-the-password\n")
     XCTAssertTrue(
-      app.descendants(matching: .any)["reader.wrongPassword"].waitForExistence(timeout: Self.settleTimeout),
+      app.descendants(matching: .any)[ID.Reader.wrongPassword].waitForExistence(timeout: Self.settleTimeout),
       "A wrong password says so and leaves the document closed")
     try audit(app)
     field.tap()
     field.typeText("open-sesame\n")
     XCTAssertTrue(
-      app.staticTexts["reader.pageIndicator"].waitForExistence(timeout: Self.settleTimeout), "The right one opens it")
+      app.staticTexts[ID.Reader.pageIndicator].waitForExistence(timeout: Self.settleTimeout), "The right one opens it")
   }
 
   func testADamagedFileSaysItCannotOpenAndNothingElseBreaks() throws {

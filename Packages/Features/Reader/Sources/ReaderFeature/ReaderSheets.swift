@@ -1,3 +1,4 @@
+import AccessibilityIDs
 import DesignSystem
 import PDFEngine
 import SwiftUI
@@ -26,6 +27,7 @@ struct OutlineSheet: View {
                 Text("\(item.pageIndex + 1)").foregroundStyle(Color.ds.labelSecondary).monospacedDigit()
               }
             }
+            .accessibilityIdentifier(AccessibilityID.Contents.row(item.pageIndex + 1))
           }
         }
       }
@@ -37,6 +39,7 @@ struct OutlineSheet: View {
           } label: {
             Text("Done", bundle: .module)
           }
+          .accessibilityIdentifier(AccessibilityID.Contents.done)
         }
       }
     }
@@ -65,6 +68,7 @@ struct PageGridSheet: View {
             } label: {
               Text("Done", bundle: .module)
             }
+            .accessibilityIdentifier(AccessibilityID.Pages.done)
           }
           if model.allowsOrganizing {
             ToolbarItem(placement: .topBarLeading) {
@@ -74,7 +78,7 @@ struct PageGridSheet: View {
               } label: {
                 isSelecting ? Text("Cancel", bundle: .module) : Text("Select", bundle: .module)
               }
-              .accessibilityIdentifier("pages.select")
+              .accessibilityIdentifier(AccessibilityID.Pages.select)
             }
           }
           if isSelecting {
@@ -95,6 +99,7 @@ struct PageGridSheet: View {
         Image(systemName: "rotate.left")
       }
     }
+    .accessibilityIdentifier(AccessibilityID.Pages.rotateLeft)
     .disabled(none)
     Button {
       Task { await model.rotatePages(selection, clockwise: true) }
@@ -105,6 +110,7 @@ struct PageGridSheet: View {
         Image(systemName: "rotate.right")
       }
     }
+    .accessibilityIdentifier(AccessibilityID.Pages.rotateRight)
     .disabled(none)
     Button {
       move(earlier: true)
@@ -115,6 +121,7 @@ struct PageGridSheet: View {
         Image(systemName: "arrow.left")
       }
     }
+    .accessibilityIdentifier(AccessibilityID.Pages.moveEarlier)
     .disabled(selection.count != 1 || selection.first == 0)
     Button {
       move(earlier: false)
@@ -125,6 +132,7 @@ struct PageGridSheet: View {
         Image(systemName: "arrow.right")
       }
     }
+    .accessibilityIdentifier(AccessibilityID.Pages.moveLater)
     .disabled(selection.count != 1 || selection.first == (model.controller?.pageCount ?? 1) - 1)
     Menu {
       Button {
@@ -136,6 +144,7 @@ struct PageGridSheet: View {
           Image(systemName: "doc.on.doc")
         }
       }
+      .accessibilityIdentifier(AccessibilityID.Pages.More.copy)
       Button(role: .destructive) {
         let pages = selection
         selection = []
@@ -147,6 +156,7 @@ struct PageGridSheet: View {
           Image(systemName: "trash")
         }
       }
+      .accessibilityIdentifier(AccessibilityID.Pages.More.delete)
     } label: {
       Label {
         Text("More", bundle: .module)
@@ -155,7 +165,7 @@ struct PageGridSheet: View {
       }
     }
     .disabled(none)
-    .accessibilityIdentifier("pages.more")
+    .accessibilityIdentifier(AccessibilityID.Pages.more)
   }
 
   private func move(earlier: Bool) {
@@ -206,6 +216,7 @@ struct PageGrid: View {
               }
             }
           }
+          .accessibilityIdentifier(AccessibilityID.Pages.page(pageIndex + 1))
           .buttonStyle(.plain)
           .accessibilityLabel(Text("Page \(pageIndex + 1)", bundle: .module))
           .accessibilityAddTraits(isSelecting && isSelected ? .isSelected : [])

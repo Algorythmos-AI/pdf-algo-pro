@@ -9,10 +9,15 @@ Owner: Maintainer · Reviewed: weekly until the verdict is READY, then at the st
 
 ## Verdict
 
-**NOT READY.** Three Critical blockers are open (C1, C2, C5), and C3 is closed for TestFlight but not yet for V1 (paid-app agreements). The planning package itself is
-complete: architecture, product, governance, security, AI and business documents exist and agree.
-What remains is work that only the maintainer, vendors or Apple can complete, plus the UX design
-that code needs as input.
+**READY for 1.0 submission once C2 and C5 close** (PAP-065, 2026-10-24). The 1.0 release ships
+what is built (PAP-065), on iPhone only (PAP-067), with the release flags of PAP-066. Of the Critical
+blockers, C1 is closed for 1.0 because no vendor SDK is in the binary and ADR-0025 is accepted; it
+reopens as a Major blocker for the release that returns redaction or conversion. C3 is closed: the
+owner confirmed the remaining prerequisites on 2026-10-08 (details held privately). C2 closes when
+CI and Xcode Cloud build with Xcode 27 (ADR-0023); C5 closes on the design pass and the owner's
+walk-through of a Release-configuration build. The Major blockers needed before submission are M1,
+M5, M8, M10 and M11; the owner's device sign-offs and the release checklist in
+[release management](release-management.md) complete the evidence.
 
 **Owner exception (PAP-028).** The native iOS foundation app is being built before the gate clears,
 with the owner's approval: PDFKit behind `PDFEngine`, no vendor SDK, no network code and on-device
@@ -36,21 +41,21 @@ that push. The verdict for the App Store is unchanged.
 | 4 | Ready except for items that are verified in the first iteration of work |
 | 5 | Proven in practice (running code, passing gates, measured results) |
 
-No area can score 5 before code exists.
+An area scores 5 only on evidence from the running app and its gates.
 
 ## Scores
 
 | Area | Score | Evidence | Main gap |
 |---|---|---|---|
-| Architecture | 4 | [iOS architecture review](ios-architecture-review.md) (17 areas), [ADR-0001 to ADR-0022](adr/README.md), [platform strategy](platform-strategy.md), [performance budgets](performance-budgets.md) | PDF SDK choice (ADR-0007 Proposed); document-identity spike |
-| Security | 3 | [Threat model](threat-model.md), [privacy architecture](privacy-architecture.md), [data classification](data-classification.md), [compliance roadmap](compliance-roadmap.md), [SECURITY](../.github/SECURITY.md) | Legal review items for V1; SDK network and JavaScript behaviour audit (C1) |
-| UX | 2 | [Design system](design-system.md), onboarding intents in the [PRD](prd.md) | Information architecture, key flows and the Figma library (C5); no usability testing yet |
-| Repository | 4 | Rulesets as code and applied, four workflows, templates, labels and milestones as code; CI runs on pull requests ([quality gates](process/quality-gates.md)) | `codeql (actions)` not yet a required check |
-| Testing | 3 | [Testing strategy](testing-strategy.md), [AI evaluation framework](ai-evaluation-framework.md), coverage gate script | Golden PDF, OCR and AI evaluation corpora not yet built; Swift gates dormant until code |
-| Monetisation | 2 | [Pricing strategy](pricing-strategy.md), [revenue model](revenue-model.md), [unit economics](unit-economics.md), [financial model](financial-model.md) | PDF SDK licence cost unknown; willingness-to-pay research not run; store prerequisites (C3) |
-| App Store | 2 | [App Store strategy](app-store-strategy.md), guideline mapping, [submission runbook](process/runbooks/app-store-submission.md) | Developer account prerequisites (C3); privacy policy and support URLs not live |
-| Operations (added) | 3 | [Operations](operations.md), five runbooks, [release management](release-management.md) | Xcode Cloud workflows not set up |
-| Product (added) | 3 | [PRD](prd.md), [product positioning](product-positioning.md), [competitive moat](competitive-moat.md), [roadmap](product/roadmap.md) | Hypotheses not yet tested ([customer research](customer-research.md)) |
+| Architecture | 4 | [iOS architecture review](ios-architecture-review.md) (17 areas), [ADR-0001 to ADR-0027](adr/README.md), [platform strategy](platform-strategy.md), [performance budgets](performance-budgets.md); the app runs on `integration` with PDFKit behind `PDFEngine`, no vendor SDK and no network code (PAP-028) | Xcode 27 in CI and Xcode Cloud (C2); the document-identity spike (M4) before the iCloud library in V1.1 |
+| Security | 3 | [Threat model](threat-model.md), [privacy architecture](privacy-architecture.md), [data classification](data-classification.md), [compliance roadmap](compliance-roadmap.md), [SECURITY](../.github/SECURITY.md); `privacy-impact` required on every pull request (PAP-064) | Legal review LR-15, LR-17 and LR-19 before submission (M8); the SDK audit (C1) returns with V1.1 |
+| UX | 2 | [Design system](design-system.md) with generated tokens, snapshot tests of first run, the offer, Home, Settings, Scan and About, the accessibility audit in every UI test | The design pass (C5): previews of every screen state, a snapshot gallery and a checklist, then the owner's walk-through of a Release-configuration build; no usability testing yet |
+| Repository | 5 | Rulesets applied on `integration`, `main` and tags (M9); the `ios` check as a job graph with shards, a coverage gate and a flake budget (PAP-062); `invariants`, `docs`, `privacy-impact`, `pr-title`, `secrets` and `dependency-review` on every pull request; more than two hundred pull requests merged through them ([quality gates](process/quality-gates.md)) | `codeql (actions)` not yet a required check (C6) |
+| Testing | 4 | [Testing strategy](testing-strategy.md); package, app and UI test suites with snapshots, the golden, malformed and OCR corpora and the deterministic evaluation suite in the repository (M2); PDF validation with qpdf and PDFium; coverage and flake gates green on every `integration` commit | No test has run on a device yet; the French UI run, the per-screen controls suites and the device test plan are to come; `pdf-validation` is still advisory |
+| Monetisation | 3 | [Pricing strategy](pricing-strategy.md), [revenue model](revenue-model.md); the app's own offer over StoreKit 2 ([ADR-0027](adr/0027-own-paywall-over-storekit-2.md)), the free daily allowance (PAP-044) and the Staging products, seen with real plans on the simulator and a phone | Becomes 4 after a sandbox purchase and restore on a device; the production products and a real review screenshot (M10); willingness-to-pay research not run |
+| App Store | 3 | [App Store strategy](app-store-strategy.md) with the 1.0 decisions (PAP-065 to PAP-067), guideline mapping, [submission runbook](process/runbooks/app-store-submission.md); privacy, terms and support pages live (PAP-038) | Becomes 4 when the listing is complete: the production app record and its URLs (M1), screenshots from the build and the review notes (M11) |
+| Operations (added) | 3 | [Operations](operations.md), the runbooks, [release management](release-management.md); the Xcode Cloud Staging workflow has delivered 27 builds by hand (PAP-063) | The Release workflow (M5); the wiki (M6) |
+| Product (added) | 3 | [PRD](prd.md) with the 1.0 release criterion, [product positioning](product-positioning.md), [competitive moat](competitive-moat.md), [roadmap](product/roadmap.md) | Hypotheses not yet tested ([customer research](customer-research.md)) |
 
 ## Blockers
 
@@ -59,30 +64,32 @@ billing; those details are held privately.
 
 ### Critical (block the start of implementation)
 
-| ID | Blocker | Owner | Exit criterion | Status (2026-09-30) |
+| ID | Blocker | Owner | Exit criterion | Status (2026-10-24) |
 |---|---|---|---|---|
-| C1 | PDF SDK vendor spike, licence and telemetry audit | Architecture | Vendor chosen on the ADR-0007 criteria with a prototype; licence terms acceptable; SDK network and JavaScript behaviour audited; ADR-0007 accepted | Open; not applicable while the MVP runs on PDFKit (PAP-026); needed for V1 redaction, editing and conversion (PAP-032) |
-| C2 | Xcode 27 toolchain in CI and Xcode Cloud | Architecture | The toolchain pull request is green in CI (iOS 26 and iOS 27 simulators) and Xcode Cloud archives with Xcode 27 ([ADR-0023](adr/0023-ios-26-floor-built-with-xcode-27.md)); local Xcode 27 when the development Mac has space | Open; interim Xcode 26 toolchain (PAP-029), which App Store Connect accepts |
-| C3 | Apple Developer Program prerequisites (account, agreements and capabilities; details held privately) | Maintainer | All prerequisites confirmed complete | Closed for TestFlight (owner, 2026-09-30); paid-app agreements remain for V1 |
-| C5 | Information architecture and key flows | Design | Reviewed SwiftUI prototypes of every new V1 flow, and a design pass before external TestFlight (PAP-031) | Open; waived for internal TestFlight (PAP-030) |
+| C1 | PDF SDK vendor spike, licence and telemetry audit | Architecture | Vendor chosen on the ADR-0007 criteria with a prototype; licence terms acceptable; SDK network and JavaScript behaviour audited; ADR-0007 accepted | Closed for 1.0 (PAP-065): no vendor SDK is in the binary and text editing is native ([ADR-0025](adr/0025-native-text-editing-for-the-safe-subset.md), PAP-036). Reopens as a Major blocker for the release that returns redaction or conversion (V1.1 at the earliest) |
+| C2 | Xcode 27 toolchain in CI and Xcode Cloud | Architecture | The toolchain pull request is green in CI (iOS 26 and iOS 27 simulators) and Xcode Cloud archives with Xcode 27 ([ADR-0023](adr/0023-ios-26-floor-built-with-xcode-27.md)); local Xcode 27 when the development Mac has space | Open; CI and Xcode Cloud still build with Xcode 26.6 (PAP-029). The development Mac has Xcode 27 and no simulator runtime; the owner's phone runs iOS 27 |
+| C3 | Apple Developer Program prerequisites (account, agreements and capabilities; details held privately) | Maintainer | All prerequisites confirmed complete | Closed (PAP-065): the owner confirmed the remaining prerequisites complete on 2026-10-08 |
+| C5 | Information architecture and key flows | Design | Reviewed SwiftUI prototypes of every new V1 flow, and a design pass before external TestFlight (PAP-031): previews of every screen state, a snapshot gallery and a checklist, each screen reviewed by the owner on a Release-configuration build | Open; waived for internal TestFlight (PAP-030). The visual refresh and the design pass are the U track of the 1.0 plan ([working memory](working-memory.md)) |
 
 ### Major (must close before the milestone named)
 
 C4 and C6 keep their original IDs after reclassification, so earlier references stay traceable.
 
-| ID | Blocker | Needed by | Exit criterion | Status (2026-09-30) |
+| ID | Blocker | Needed by | Exit criterion | Status (2026-10-24) |
 |---|---|---|---|---|
 | C4 | AI tier provider terms (workspace, data processing and retention terms, spend caps) and relay design | V2 (Claude tier) | Terms confirmed; relay design reviewed | Open |
 | C6 | CI execution: CodeQL advanced setup (details held privately) | MVP | `codeql (actions)` green and required | Partly: default setup is off and `codeql (actions)` is green; not yet a required check |
-| M1 | Privacy policy, terms and support URLs live | V1 submission | Pages published and linked | Pages live since 2026-10-06 and linked from Settings › About and the TestFlight record (PAP-038); legal review (M8) and the App Store record's URLs remain ([#10](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/10)) |
-| M2 | Golden PDF corpus, OCR corpus and AI evaluation sets | First code pull request | Corpora in the repository (synthetic or licence-clean) | In progress (#47); missed its original milestone |
+| M1 | Privacy policy, terms and support URLs live | 1.0 submission | Pages published and linked, in the app and on the App Store record | Pages live since 2026-10-06 and linked from Settings › About and the TestFlight record (PAP-038); the production app record and its URLs remain ([#10](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/10)); the legal review of the pages is M8 |
+| M2 | Golden PDF corpus, OCR corpus and AI evaluation sets | First code pull request | Corpora in the repository (synthetic or licence-clean) | Closed: the golden and malformed PDF corpora (`PDFEngineTests`), the OCR corpus (`OCRTests`) and the deterministic evaluation suite (`IntelligenceTests`) are in the repository and run in CI |
 | M3 | Organisation catalog entry merged | MVP | Catalog pull request merged | Open |
-| M4 | Document-identity spike | MVP library work | Prototype passes rename, move and eviction cases | Open (#6); iCloud and folders deferred until it closes (PAP-030) |
-| M5 | Xcode Cloud workflows for `integration` and `main` | First TestFlight build | Staging and Release workflows green | In progress (#47): Staging first; Release with V1 |
-| M6 | Wiki bootstrap | MVP | Wiki published from `docs/wiki` | Open (#11) |
+| M4 | Document-identity spike | V1.1 library work | Prototype passes rename, move and eviction cases | Open (#6); the iCloud library and folders are out of 1.0 (PAP-030, PAP-065) |
+| M5 | Xcode Cloud workflows for `integration` and `main` | Release pull request | Staging and Release workflows green | Staging runs by hand on the owner's go, 27 builds so far (PAP-063); the Release workflow is the owner's to create, and one manual Release-configuration build from `integration` gives the parity smoke test before the release pull request |
+| M6 | Wiki bootstrap | 1.0 | Wiki published from `docs/wiki` | Open (#11); the release workflow warns without its token |
 | M7 | Dormant Swift gates proven | First code pull request | `ios`, coverage and CodeQL Swift jobs run green | Closed 2026-09-29: `ios`, coverage and CodeQL Swift green on `integration` |
-| M8 | Legal review of the V1 items in the compliance roadmap | V1 submission | Review complete; documents updated | Open |
+| M8 | Legal review of the V1 items in the compliance roadmap | 1.0 submission | LR-15, LR-17 and LR-19 answered before submission; the rest before the release that needs them | Open; the brief is drafted in the private companion repository and sent by the owner |
 | M9 | Rulesets applied | Before the second pull request merges | `integration`, `main` and tag rulesets active with the checks that report | Closed 2026-09-29: all three rulesets active |
+| M10 | Production subscription products | 1.0 submission | Both plans on the production app, Ready to Submit, with a review screenshot from the Release build, Family Sharing on the annual plan and the grace period on ([subscriptions runbook](process/runbooks/app-store-connect-subscriptions.md)) | Open; the Staging products exist and work (PAP-050); the owner creates production's after a sandbox purchase on a device |
+| M11 | App Store listing | 1.0 submission | The production app record with its metadata in five localisations, screenshots shot from the submitted build, review notes, age rating, privacy answers and the trader declaration ([App Store strategy](app-store-strategy.md), [#30](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/30)) | Open; the copy decisions are made (PAP-065, PAP-067); the record, products and screenshots follow in that order |
 
 ## Gaps (not blockers)
 
@@ -96,17 +103,19 @@ C4 and C6 keep their original IDs after reclassification, so earlier references 
 
 ## Recommendations
 
-1. Run the PDF SDK spike first: it unblocks architecture (ADR-0007), the financial model and the
-   first code. Ask both vendors for quotes at the same time.
-2. Complete the Apple Developer prerequisites in parallel; they have external lead times.
-3. Design the MVP flows (C5) while the spike runs, starting with onboarding and the reader.
-4. Build the golden, OCR and AI evaluation corpora before the first feature, so gates have data
-   from day one.
-5. Apply the rulesets immediately after the foundation pull request merges, using the check names
-   that reported.
-6. Start research studies R1 and R2 now; they change positioning, not code, and are cheap.
-7. Book legal review for the V1 compliance items early; answers can change onboarding and consent
-   screens.
+The order of the 1.0 plan ([working memory](working-memory.md)):
+
+1. Move CI and Xcode Cloud to Xcode 27 (C2) and cut one Staging build with it; the text-editing
+   device test runs on that build (PAP-066).
+2. Fix the open defects first and prove the save path under sanitizers and fault injection; no
+   visual refresh merges while a p0 or p1 bug is open.
+3. Run the design pass (C5) as previews, a snapshot gallery and a checklist, and have the owner walk
+   a Release-configuration build against it.
+4. Send the legal brief (M8) now; LR-15, LR-17 and LR-19 have the longest lead time.
+5. Create the production app record, its products and the listing in that order (M1, M10, M11), so
+   the Rate link, the review screenshot and the screenshots come from the build being submitted.
+6. Record every device run in the sign-off tables; the release pull request links them.
+7. Start research studies R1 and R2 after launch; they change positioning, not code.
 
 ## Change log
 
@@ -116,3 +125,4 @@ C4 and C6 keep their original IDs after reclassification, so earlier references 
 | 2026-09-29 | Owner exception PAP-028: the foundation app is built before the gate clears; interim iOS 26 toolchain (PAP-029). Verdict unchanged. |
 | 2026-09-30 | Status column added. M7 and M9 closed; C3 closed for TestFlight; internal TestFlight approved (PAP-030) with C1 not applicable and C5 waived. Verdict for the App Store unchanged. |
 | 2026-09-30 | Plan after build 1 (PAP-031 to PAP-033): C2 closes on CI and Xcode Cloud with the iOS 26 floor (ADR-0023); C5 becomes reviewed SwiftUI prototypes; C1 applies to V1. Verdict unchanged. |
+| 2026-10-24 | 1.0 scope (PAP-065 to PAP-067): C1 closed for 1.0 and reopening as Major for the release that returns redaction or conversion; C3 closed; M2 closed; M10 and M11 added; scores revised (Repository 5, Testing 4, Monetisation 3, App Store 3). Verdict: READY for 1.0 submission once C2 and C5 close. |
