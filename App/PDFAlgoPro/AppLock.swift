@@ -157,6 +157,9 @@ struct LockScreen: View {
         .padding(Spacing.s300)
       }
     }
+    // One container, so the cover's identifier names the cover and leaves the Unlock button its own:
+    // set on a plain stack, SwiftUI passes an identifier down to every element inside it.
+    .accessibilityElement(children: .contain)
     .accessibilityIdentifier(AccessibilityID.AppLock.cover)
   }
 

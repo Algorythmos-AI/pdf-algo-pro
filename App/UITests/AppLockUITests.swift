@@ -18,8 +18,13 @@ final class AppLockUITests: UITestCase {
   /// Refused, the documents stay covered, and Unlock asks again.
   func testARefusedUnlockKeepsTheDocumentsCovered() throws {
     let app = launch(["-skip-onboarding", "-seed-library", "sample", "-app-lock", "refuses"])
+    let cover = app.descendants(matching: .any)[AccessibilityID.AppLock.cover].firstMatch
+    XCTAssertTrue(cover.waitForExistence(timeout: Self.settleTimeout), "The documents are covered")
     let unlock = app.buttons[AccessibilityID.AppLock.unlock]
-    XCTAssertTrue(unlock.waitForExistence(timeout: Self.settleTimeout), "The cover asks to unlock")
+    if !unlock.waitForExistence(timeout: Self.settleTimeout) {
+      keepEvidence(app, named: "no unlock button", notes: "The cover showed no Unlock button")
+      XCTFail("The cover asks to unlock")
+    }
     try audit(app)
     unlock.tap()
     XCTAssertTrue(unlock.waitForExistence(timeout: Self.settleTimeout), "A refusal keeps the cover")
