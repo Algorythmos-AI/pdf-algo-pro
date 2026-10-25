@@ -1,5 +1,6 @@
 import Core
 import Foundation
+import SwiftData
 import Testing
 
 @testable import DocumentStore
@@ -12,17 +13,32 @@ private struct Harness {
   let clock: TestClock
   let library: FileDocumentLibrary
 
-  init(storeURL: URL? = nil) throws {
+  init(storeURL: URL? = nil, index: (any LibraryStore)? = nil) throws {
     root = FileManager.default.temporaryDirectory.appendingPathComponent("library-\(UUID().uuidString)")
     clock = TestClock()
     let clock = self.clock
     library = FileDocumentLibrary(
       documentsFolder: root.appendingPathComponent("Documents"), deletedFolder: root.appendingPathComponent("Deleted"),
       previousVersionsFolder: root.appendingPathComponent("Previous"),
-      index: LibraryIndex(storeURL: storeURL ?? root.appendingPathComponent("Index/library.store")), now: { clock.now })
+      index: index ?? LibraryIndex(storeURL: storeURL ?? root.appendingPathComponent("Index/library.store")),
+      now: { clock.now })
   }
 
   var documentsFolder: URL { root.appendingPathComponent("Documents") }
+
+  /// Every file in the library's folder and in Recently Deleted, as "Folder/name".
+  func files() throws -> [String] {
+    try ["Documents", "Deleted"].flatMap { folder in
+      try FileManager.default.contentsOfDirectory(atPath: root.appendingPathComponent(folder).path)
+        .map { "\(folder)/\($0)" }
+    }.sorted()
+  }
+
+  /// The files of a document's earlier versions.
+  func versionFiles(of id: DocumentID) -> [String] {
+    let folder = root.appendingPathComponent("Previous/\(id.rawValue.uuidString)")
+    return ((try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? []).sorted()
+  }
 
   func source(named name: String, data: Data = pdf) throws -> URL {
     let url = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString)/\(name)")
@@ -237,22 +253,15 @@ struct FileDocumentLibraryTests {
     #expect(await reopened.versions(of: document.id).count == 1)
   }
 
-  @Test("Deleting a document, or finding its file gone, removes its earlier version (FR-LIB-006)")
+  @Test("Deleting a document removes its earlier versions (FR-LIB-006)")
   func earlierVersionsGoWithTheDocument() async throws {
     let harness = try Harness()
-    for removal in ["delete", "reconcile"] {
-      let document = try await harness.library.addDocument(data: pdf, title: removal)
-      let url = try await harness.library.fileURL(for: document.id)
-      let previous = try #require(try await harness.library.previousVersionURL(for: document.id))
-      try FileManager.default.copyItem(at: url, to: previous)
-      if removal == "delete" {
-        try await harness.library.deletePermanently(document.id)
-      } else {
-        try FileManager.default.removeItem(at: url)
-        _ = try await harness.library.reconcileWithFiles()
-      }
-      #expect(!FileManager.default.fileExists(atPath: previous.path), "\(removal)")
-    }
+    let document = try await harness.library.addDocument(data: pdf, title: "Gone")
+    let url = try await harness.library.fileURL(for: document.id)
+    let previous = try #require(try await harness.library.previousVersionURL(for: document.id))
+    try FileManager.default.copyItem(at: url, to: previous)
+    try await harness.library.deletePermanently(document.id)
+    #expect(!FileManager.default.fileExists(atPath: previous.path))
   }
 
   @Test("Changes to one document at the same time never undo each other")
@@ -386,6 +395,13 @@ struct LibraryIndexTests {
     }
   }
 
+  @Test("A store this build wrote is one it can read")
+  func ownStoreIsReadable() async throws {
+    let url = FileManager.default.temporaryDirectory.appendingPathComponent("index-\(UUID())/library.store")
+    try await LibraryIndex(storeURL: url).upsert(Document(title: "Mine", fileName: "m.pdf", addedAt: .now))
+    #expect(LibraryIndex.condition(of: url) == .unavailable)
+  }
+
   @Test func withoutAURLTheIndexLivesInMemory() async throws {
     let index = LibraryIndex(storeURL: nil)
     #expect(index.level == .inMemory)
@@ -395,5 +411,192 @@ struct LibraryIndexTests {
     changed.isFavorite = true
     try await index.upsert(changed)
     #expect(try await index.document(document.id)?.isFavorite == true)
+  }
+}
+
+// MARK: - R1 review findings
+
+@Suite("Files renamed or moved in the Files app")
+struct RenamedInFilesTests {
+  @Test("A file renamed in the Files app keeps its earlier versions (#224)")
+  func renamedInFilesKeepsItsVersions() async throws {
+    let harness = try Harness()
+    let document = try await harness.library.addDocument(data: pdf, title: "Report")
+    let url = try await harness.library.fileURL(for: document.id)
+    for _ in 0..<2 {
+      let kept = try #require(try await harness.library.previousVersionURL(for: document.id))
+      try FileManager.default.copyItem(at: url, to: kept)
+      harness.clock.advance(days: 1)
+    }
+    let versions = harness.versionFiles(of: document.id)
+    try #require(versions.count == 2)
+
+    try FileManager.default.moveItem(at: url, to: harness.documentsFolder.appendingPathComponent("Report 2026.pdf"))
+    _ = try await harness.library.reconcileWithFiles()
+
+    #expect(harness.versionFiles(of: document.id) == versions, "Earlier versions are kept, not deleted")
+  }
+
+  @Test("Earlier versions of a file gone from the folder still go after 30 days (FR-EDIT-008)")
+  func versionsOfAGoneFileExpire() async throws {
+    let harness = try Harness()
+    let document = try await harness.library.addDocument(data: pdf, title: "Gone")
+    let url = try await harness.library.fileURL(for: document.id)
+    let kept = try #require(try await harness.library.previousVersionURL(for: document.id))
+    try FileManager.default.copyItem(at: url, to: kept)
+    try FileManager.default.removeItem(at: url)
+    _ = try await harness.library.reconcileWithFiles()
+    #expect(harness.versionFiles(of: document.id).count == 1)
+    harness.clock.advance(days: 31)
+    _ = try await harness.library.reconcileWithFiles()
+    #expect(harness.versionFiles(of: document.id).isEmpty)
+  }
+
+  @Test("A file renamed in the Files app keeps its tags and favourite (stays for spike M4, #6)")
+  func renamedInFilesKeepsItsEntry() async throws {
+    let harness = try Harness()
+    let document = try await harness.library.addDocument(data: pdf, title: "Report")
+    try await harness.library.setTags(["tax"], for: document.id)
+    try await harness.library.setFavorite(true, for: document.id)
+    let url = try await harness.library.fileURL(for: document.id)
+    try FileManager.default.moveItem(at: url, to: harness.documentsFolder.appendingPathComponent("Report 2026.pdf"))
+    let result = try await harness.library.reconcileWithFiles()
+    await withKnownIssue("Finding a renamed file needs a stored file identity: spike M4 (#6)") {
+      #expect(result.removed.isEmpty)
+      let after = try #require(try await harness.library.document(withID: document.id))
+      #expect(after.fileName == "Report 2026.pdf" && after.tags == ["tax"] && after.isFavorite)
+    }
+  }
+}
+
+/// A library index whose writes start failing when told to, as they do on a full disk.
+private actor FailingStore: LibraryStore {
+  private var entries: [DocumentID: Document] = [:]
+  private var failsWrites = false
+
+  func failWrites() { failsWrites = true }
+
+  func all() async throws -> [Document] { Array(entries.values) }
+
+  func document(_ id: DocumentID) async throws -> Document? { entries[id] }
+
+  func upsert(_ document: Document) async throws {
+    guard !failsWrites else { throw CocoaError(.fileWriteOutOfSpace) }
+    entries[document.id] = document
+  }
+
+  func delete(_ id: DocumentID) async throws {
+    guard !failsWrites else { throw CocoaError(.fileWriteOutOfSpace) }
+    entries[id] = nil
+  }
+}
+
+@Suite("A change whose index write fails")
+struct FailedIndexWriteTests {
+  enum Change: String, CaseIterable, Sendable {
+    case rename, moveToRecentlyDeleted, restore
+  }
+
+  @Test("The file goes back where it was, so nothing changed (#225)", arguments: Change.allCases)
+  func fileGoesBack(change: Change) async throws {
+    let store = FailingStore()
+    let harness = try Harness(index: store)
+    let document = try await harness.library.addDocument(data: pdf, title: "A")
+    if change == .restore { try await harness.library.moveToRecentlyDeleted(document.id) }
+    let before = try #require(try await harness.library.document(withID: document.id))
+    let files = try harness.files()
+
+    await store.failWrites()
+    await #expect(throws: (any Error).self) {
+      switch change {
+      case .rename: _ = try await harness.library.rename(document.id, to: "B")
+      case .moveToRecentlyDeleted: try await harness.library.moveToRecentlyDeleted(document.id)
+      case .restore: try await harness.library.restore(document.id)
+      }
+    }
+
+    #expect(try harness.files() == files, "The file is where the index says it is")
+    #expect(try await harness.library.document(withID: document.id) == before)
+    #expect(FileManager.default.fileExists(atPath: try await harness.library.fileURL(for: document.id).path))
+  }
+
+  @Test("A document whose index write fails is not added, and leaves no file behind (#225)")
+  func addLeavesNoFile() async throws {
+    let store = FailingStore()
+    let harness = try Harness(index: store)
+    await store.failWrites()
+    await #expect(throws: (any Error).self) { try await harness.library.addDocument(data: pdf, title: "A") }
+    #expect(try harness.files().isEmpty)
+  }
+}
+
+/// The index schema as a later build might write it, with an attribute this build doesn't know.
+enum LibrarySchemaFromANewerBuild: VersionedSchema {
+  static let versionIdentifier = Schema.Version(2, 0, 0)
+  static var models: [any PersistentModel.Type] { [DocumentEntry.self] }
+
+  @Model
+  final class DocumentEntry {
+    var id = UUID()
+    var title = ""
+    var fileName = ""
+    var colour = ""
+
+    init(title: String) { self.title = title }
+  }
+}
+
+@Suite("Opening the library index")
+struct OpeningTheIndexTests {
+  private func storeURL() throws -> URL {
+    let folder = FileManager.default.temporaryDirectory.appendingPathComponent("index-\(UUID())")
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    return folder.appendingPathComponent("library.store")
+  }
+
+  /// The titles a newer build would read from its store.
+  private func newerBuildTitles(at url: URL) throws -> [String] {
+    try LibraryIndex.opening.withLock { _ in
+      let schema = Schema(versionedSchema: LibrarySchemaFromANewerBuild.self)
+      let container = try ModelContainer(
+        for: schema, configurations: ModelConfiguration(schema: schema, url: url, cloudKitDatabase: .none))
+      return try ModelContext(container).fetch(FetchDescriptor<LibrarySchemaFromANewerBuild.DocumentEntry>())
+        .map(\.title)
+    }
+  }
+
+  @Test("A store written by a newer build is left where it is, untouched (#226, B11)")
+  func newerStoreIsLeftUntouched() async throws {
+    let url = try storeURL()
+    try LibraryIndex.opening.withLock { _ in
+      let schema = Schema(versionedSchema: LibrarySchemaFromANewerBuild.self)
+      let container = try ModelContainer(
+        for: schema, configurations: ModelConfiguration(schema: schema, url: url, cloudKitDatabase: .none))
+      let context = ModelContext(container)
+      context.insert(LibrarySchemaFromANewerBuild.DocumentEntry(title: "Tagged in a newer build"))
+      try context.save()
+    }
+
+    #expect(LibraryIndex.condition(of: url) == .newer)
+    let index = LibraryIndex(storeURL: url)
+    #expect(index.level == .newerStore)
+    try await index.upsert(Document(title: "Added in an older build", fileName: "a.pdf", addedAt: .now))
+
+    #expect(!FileManager.default.fileExists(atPath: LibraryIndex.keptFolder(for: url).path))
+    #expect(try newerBuildTitles(at: url) == ["Tagged in a newer build"])
+  }
+
+  @Test("A store that can't be read at launch is left in place, and opens again next time (#226)")
+  func unreadableStoreIsLeftInPlace() async throws {
+    let url = try storeURL()
+    let document = Document(title: "Tagged", fileName: "t.pdf", addedAt: .now, isFavorite: true, tags: ["tax"])
+    try await LibraryIndex(storeURL: url).upsert(document)
+    try FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: url.path)
+    let unreadable = LibraryIndex(storeURL: url)
+    try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: url.path)
+
+    #expect(unreadable.level == .inMemory)
+    #expect(!FileManager.default.fileExists(atPath: LibraryIndex.keptFolder(for: url).path))
+    #expect(try await LibraryIndex(storeURL: url).document(document.id) == document)
   }
 }
