@@ -251,11 +251,37 @@ class UITestCase: XCTestCase {
     )
   }
 
+  /// An item of an open submenu (Markup › Shapes, Markup › Stamp): by its identifier where the system
+  /// shows it, else by its English title.
+  ///
+  /// On iOS 27 an open submenu's items carry no identifier, wherever the app sets it (on the item, its
+  /// label or its text), while the top-level items of the same menu keep theirs (#292). The title is
+  /// looked for only on an element with no identifier, so on iOS 26 the identifier still decides.
+  func submenuItem(_ identifier: String, title: String, in app: XCUIApplication) -> XCUIElement {
+    app.buttons.matching(
+      NSPredicate(format: "identifier == %@ OR (identifier == '' AND label == %@)", identifier, title)
+    ).firstMatch
+  }
+
+  /// A shape in Markup › Shapes (`rectangle`, `oval` or `arrow`); see `submenuItem`.
+  func shapeItem(_ tool: String, in app: XCUIApplication) -> XCUIElement {
+    let titles = ["rectangle": "Rectangle", "oval": "Oval", "arrow": "Arrow"]
+    return submenuItem(ID.Reader.Markup.shape(tool), title: titles[tool] ?? tool, in: app)
+  }
+
+  /// Tick in Markup › Stamp; see `submenuItem`.
+  func tickItem(in app: XCUIApplication) -> XCUIElement {
+    submenuItem(ID.Reader.Markup.Stamp.tick, title: "Tick", in: app)
+  }
+
   /// The accessibility audit on the current screen.
   ///
   /// Five kinds of finding are excluded narrowly everywhere, and a sixth on sheets (below):
   /// - issues on PDFKit's page view and the nodes it exposes for the text on a page, which are not ours
-  ///   to change;
+  ///   to change. On iOS 26 those nodes are `UICGPDFNode`s. On iOS 27 PDFKit exposes the page's
+  ///   structure instead (headings, lists, list items) under other names, and the audit reports its
+  ///   lines of text as hit areas too small to tap (#293). So the nodes are also recognised by where
+  ///   they are: inside the scroll view in `reader.pages`, which is PDFKit's;
   /// - Dynamic Type and clipped-text findings in navigation bars and toolbars, whose titles and buttons
   ///   the system sizes and truncates, and on a navigation bar's title wherever the audit reports it
   ///   (at accessibility sizes it can report the title away from the bar);
@@ -355,6 +381,28 @@ class UITestCase: XCTestCase {
     }
   }
 
+  /// The nodes PDFKit exposes for the pages in view, as `nodeKey`s.
+  ///
+  /// Everything inside the scroll view in `reader.pages`, read in one snapshot. Empty where no reader is
+  /// showing.
+  private static func pdfPageNodes(in app: XCUIApplication) -> Set<String> {
+    let pages = app.descendants(matching: .any)[ID.Reader.pages].firstMatch
+    guard pages.exists, let scroll = try? pages.scrollViews.firstMatch.snapshot() else { return [] }
+    var keys: Set<String> = []
+    func collect(_ node: any XCUIElementSnapshot) {
+      keys.insert(nodeKey(label: node.label, frame: node.frame))
+      node.children.forEach(collect)
+    }
+    scroll.children.forEach(collect)
+    return keys
+  }
+
+  /// A node's label and frame, rounded to whole points, so an audit finding can be matched to it.
+  private static func nodeKey(label: String, frame: CGRect) -> String {
+    let rounded = [frame.minX, frame.minY, frame.width, frame.height].map { Int($0.rounded()) }
+    return "\(label)|\(rounded)"
+  }
+
   /// Whether a finding is one the audit can make while the screen is still redrawing: contrast
   /// (issue #105), or text that seems not to scale with Dynamic Type (issue #182).
   private static func isMeasuredTooSoon(_ finding: String) -> Bool {
@@ -366,6 +414,8 @@ class UITestCase: XCTestCase {
     searchFields: [CGRect], findings: inout [String], appearing: inout [String]
   ) throws {
     let navigationBars = app.navigationBars.allElementsBoundByIndex.map(\.frame)
+    // A sheet covers the page, so its nodes aren't audited there and aren't read.
+    let pageNodes = onSheet ? [] : Self.pdfPageNodes(in: app)
     var collected: [String] = []
     var settling: [String] = []
     defer {
@@ -377,6 +427,7 @@ class UITestCase: XCTestCase {
         if element.identifier == "reader.pages" { return true }
         // PDFKit's own accessibility nodes for the text on a page: part of PDFKit's page view.
         if issue.detailedDescription.contains("UICGPDFNode") { return true }
+        if pageNodes.contains(Self.nodeKey(label: element.label, frame: element.frame)) { return true }
         if issue.auditType == .contrast, !element.isEnabled { return true }
         if issue.auditType == .dynamicType || issue.auditType == .textClipped,
           bars.contains(where: { $0.insetBy(dx: -8, dy: -8).contains(element.frame) })
