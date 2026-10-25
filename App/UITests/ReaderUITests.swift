@@ -89,8 +89,8 @@ final class ReaderUITests: UITestCase {
     XCTAssertTrue(indicator.waitForExistence(timeout: 15))
     let bar = app.descendants(matching: .any)[ID.Reader.Selection.actionBar].firstMatch
     tap(app.buttons[ID.Reader.markup], until: app.buttons[ID.Reader.Markup.stamp])
-    tap(app.buttons[ID.Reader.Markup.stamp], until: app.buttons[ID.Reader.Markup.Stamp.tick])
-    app.buttons[ID.Reader.Markup.Stamp.tick].tap()
+    tap(app.buttons[ID.Reader.Markup.stamp], until: tickItem(in: app))
+    tickItem(in: app).tap()
     // A stamp goes where the page is tapped; a tap on it then selects it.
     let pages = app.descendants(matching: .any)[ID.Reader.pages].firstMatch
     let pasteBar = app.descendants(matching: .any)[ID.Reader.Paste.bar].firstMatch
@@ -122,7 +122,7 @@ final class ReaderUITests: UITestCase {
     XCTAssertTrue(indicator.waitForExistence(timeout: 15))
     app.buttons[ID.Reader.markup].tap()
     app.buttons[ID.Reader.Markup.shapes].tap()
-    app.buttons[ID.Reader.Markup.shape("rectangle")].tap()
+    shapeItem("rectangle", in: app).tap()
     let area = app.descendants(matching: .any)[ID.Reader.drawing].firstMatch
     XCTAssertTrue(area.waitForExistence(timeout: Self.settleTimeout))
     // A rectangle on bare page under the first page's text: a fifth of the screen wide.
@@ -359,7 +359,7 @@ final class ReaderUITests: UITestCase {
     XCTAssertTrue(app.staticTexts[ID.Reader.pageIndicator].waitForExistence(timeout: 15))
     app.buttons[ID.Reader.markup].tap()
     app.buttons[ID.Reader.Markup.shapes].tap()
-    app.buttons[ID.Reader.Markup.shape("arrow")].tap()
+    shapeItem("arrow", in: app).tap()
     let area = app.descendants(matching: .any)[ID.Reader.drawing].firstMatch
     XCTAssertTrue(area.waitForExistence(timeout: Self.settleTimeout))
     XCTAssertTrue(app.staticTexts["Drag to draw. Drag a shape to move it."].waitForExistence(timeout: 5))
@@ -398,7 +398,7 @@ final class ReaderUITests: UITestCase {
     let markup = app.buttons[ID.Reader.markup]
     markup.tap()
     app.buttons[ID.Reader.Markup.shapes].tap()
-    app.buttons[ID.Reader.Markup.shape("rectangle")].tap()
+    shapeItem("rectangle", in: app).tap()
     let area = app.descendants(matching: .any)[ID.Reader.drawing].firstMatch
     XCTAssertTrue(area.waitForExistence(timeout: Self.settleTimeout), "Shapes are drawn like ink (F2b)")
     point(0.25, 0.3, in: area, of: app)
@@ -474,8 +474,8 @@ final class ReaderUITests: UITestCase {
     XCTAssertTrue(app.staticTexts[ID.Reader.pageIndicator].waitForExistence(timeout: 15))
     tapMenuItem(
       app.buttons[ID.Reader.Markup.stamp], in: app.buttons[ID.Reader.markup],
-      until: app.buttons[ID.Reader.Markup.Stamp.tick])
-    app.buttons[ID.Reader.Markup.Stamp.tick].tap()
+      until: tickItem(in: app))
+    tickItem(in: app).tap()
     // Choosing Tick picks it up: nothing is on the page until a tap puts it there.
     let pasteBar = app.descendants(matching: .any)[ID.Reader.Paste.bar].firstMatch
     XCTAssertTrue(pasteBar.waitForExistence(timeout: Self.settleTimeout), "Choosing a stamp waits for a tap")
