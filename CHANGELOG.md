@@ -58,6 +58,12 @@ Store notes (see the changelog strategy).
   until the App Store's renewal reached the device.
 - Pro: a subscriber whose payment is being retried in the App Store's grace period keeps Pro when
   the subscription's state can't be read, for example offline. Before, Pro could switch off.
+- Editing text (internal builds): a name pasted from a web page with a hidden soft hyphen or
+  zero-width space is now changed in the page. Before, the hidden character made the change fail,
+  the line was covered instead, and every other line on that page could then only be covered.
+- Editing text (internal builds): if a changed line could not be saved exactly as it shows, the
+  app now puts that line back as it was, saves everything else, and says so. Before, every save
+  after it failed until the change was undone, and the message did not say how to get out of it.
 - Annotations: with a shape, a stamp or a signature selected, the page now follows your finger
   when you drag anywhere else on it, also slowly. Before, it kept still until your finger lifted.
   Dragging the selected one still moves it, and pinching it still resizes it while the page keeps

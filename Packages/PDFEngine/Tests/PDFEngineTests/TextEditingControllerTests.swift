@@ -86,6 +86,17 @@ private struct InterferingEditor: PDFTextEditing {
   }
 }
 
+/// A page whose text reads differently in memory from the same page read from a written file, as
+/// PDFKit can read an edited page (issue #232).
+private final class MisreadPage: PDFPage {
+  override var string: String? { (super.string ?? "") + " misread" }
+}
+
+/// A document whose pages are `MisreadPage`s.
+private final class MisreadingDocument: PDFDocument {
+  override var pageClass: AnyClass { MisreadPage.self }
+}
+
 /// Holds a controller for an editor that has to be made before it.
 @MainActor
 private final class ControllerBox {
@@ -499,6 +510,36 @@ struct TextEditingControllerTests {
     PDFDocumentController.saveFault = nil
     try controller.save(to: url, keepingPreviousAt: previous)
     #expect(squeezed(try PDFDocumentController(url: url)).contains("DavidSmith"))
+  }
+
+  /// A text edit whose page reads differently once written never blocks the saves after it
+  /// (issue #232).
+  ///
+  /// PDFKit can read a written page's text differently from the page in memory, through a
+  /// fallback font, a ligature or a reordering. The save's check then failed, the edited page
+  /// stayed marked as edited, and every later save, of a note too, failed the same check, with a
+  /// message whose "Try again" could never work. Here a page whose text reads differently in
+  /// memory stands in for PDFKit's misreading.
+  @Test("A text edit that fails the save check is put back, and everything else is saved")
+  func failedSaveCheck() async throws {
+    let (controller, url) = try open(TextEditFixtures.invoice())
+    try await edit(controller, containing: "John Smith", to: "Customer: David Smith")
+    let edited = try #require(controller.contentEditedPages.first)
+    let bytes = try #require(edited.dataRepresentation)
+    let misreading = try #require(MisreadingDocument(data: bytes))
+    let misread = try #require(misreading.page(at: 0))
+    controller.swap(edited, for: misread, keeping: misreading, links: [:])
+    let annotations = controller.annotationCount(onPage: 0)
+    controller.addNote("Checked", onPage: 0)
+
+    #expect(throws: Never.self) { try controller.save(to: url) }
+    let saved = try PDFDocumentController(url: url)
+    #expect(squeezed(saved).contains("JohnSmith") && !squeezed(saved).contains("DavidSmith"), "The edit was put back")
+    #expect(saved.annotationCount(onPage: 0) == annotations + 1, "The note was saved")
+    #expect(!controller.hasUnsavedChanges && controller.contentEditedPages.isEmpty)
+    // And the save after it works as any save does.
+    controller.addNote("Again", onPage: 0)
+    #expect(throws: Never.self) { try controller.save(to: url) }
   }
 
   @Test("Editing one page of a long document costs about what it costs in a short one", .timeLimit(.minutes(5)))

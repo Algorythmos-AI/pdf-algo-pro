@@ -392,6 +392,24 @@ struct TextEditorTests {
     #expect(result.outcomes == [.refused(.unsupportedCharacters)] && result.page == nil)
   }
 
+  /// A character no one sees, or a control, in the replacement is the replacement's problem, never
+  /// a proof failure that would be blamed on the page (issue #231).
+  ///
+  /// A soft hyphen or a zero-width space comes with a name pasted from a web page; a direction
+  /// control comes with text copied from a right-to-left page. Drawn as they were, the page read
+  /// back without them and the proof failed, which the reader takes as the page's fault.
+  @Test(
+    "An invisible character or a control in the replacement is refused, not left to fail the proof",
+    arguments: ["Jane\u{AD}Smith", "Jane\u{200B}Smith", "Jane\u{202E}Smith", "Jane\u{7F}Smith", "Jane\u{85}Smith"])
+  func invisibleCharacters(replacement: String) async throws {
+    let (page, regions) = try await prepared(TextEditFixtures.invoice())
+    let name = try region(regions, containing: "John Smith")
+    let result = await editor.applying([TextEdit(region: name, replacement: replacement)], toPage: page)
+    #expect(
+      result.outcomes == [.refused(.unsupportedCharacters)] && result.page == nil,
+      "\(result.outcomes) \(String(describing: result.proofFailure))")
+  }
+
   /// One line in a typeface the device does not have, whose font stands taller above the line
   /// than the standard fonts do, as the fonts reporting tools embed often do.
   ///

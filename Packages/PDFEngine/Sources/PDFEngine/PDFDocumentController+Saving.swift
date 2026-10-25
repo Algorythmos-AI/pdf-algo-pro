@@ -6,6 +6,8 @@ extension PDFDocumentController {
   /// Writes the document atomically with coordinated access; a failed save leaves the file unchanged (NFR-REL-002).
   ///
   /// An encrypted document stays encrypted, with the same restrictions (see `protectionOptions()`).
+  /// A text edit whose page does not read in the written file as it does here is put back, and the
+  /// rest is saved; `textEditsPutBack` then says which pages (issue #232).
   ///
   /// - Parameters:
   ///   - url: The document's file.
@@ -16,6 +18,7 @@ extension PDFDocumentController {
   ///   `PDFEngineError.insufficientSpace` when the device is too full to save safely;
   ///   `PDFEngineError.saveFailed` when writing fails, or when the earlier version can't be kept.
   public func save(to url: URL, keepingPreviousAt previous: URL? = nil) throws {
+    textEditsPutBack = []
     let interval = Signposts.begin("Document.Save")
     defer { interval.end() }
     let options = try protectionOptions()
@@ -37,21 +40,16 @@ extension PDFDocumentController {
       if folder != fileManager.temporaryDirectory { try? fileManager.removeItem(at: folder) }
     }
     document.repairAttributesIfNeeded()
-    // PDFKit keeps an encrypted document encrypted whatever the options, so a document whose password
-    // is being (or was) removed is written as a fresh copy of its pages.
-    let source = pendingProtection == .remove || (document.isEncrypted && !wasEncrypted) ? unencryptedCopy() : document
-    guard source.write(to: staging, withOptions: options) else { throw PDFEngineError.saveFailed }
-    do { try fault(.staged) } catch { throw Self.saveError(for: error) }
-    // PDFKit maps the staged file rather than reading it into memory, so this stays cheap for large files.
-    guard let check = PDFDocument(url: staging), check.isLocked || check.pageCount == source.pageCount else {
-      throw PDFEngineError.saveFailed
-    }
-    // Pages whose text was edited must read in the written file as they do here (FR-EDIT-001).
-    if !contentEditedPages.isEmpty {
-      if check.isLocked, let key = options[.userPasswordOption] as? String ?? password {
-        check.unlock(withPassword: key)
-      }
-      guard check.isLocked || contentEdits(areIntactIn: check) else { throw PDFEngineError.saveFailed }
+    var check = try stage(to: staging, options: options, fault: fault)
+    // Pages whose text was edited must read in the written file as they do here (FR-EDIT-001). An
+    // edit that does not is put back and the rest written again, so it cannot block every save
+    // after it (issue #232).
+    if !contentEditedPages.isEmpty, !editsAreIntact(in: check, options: options) {
+      textEditsPutBack = putBackTextEdits(notIntactIn: check)
+      guard !textEditsPutBack.isEmpty else { throw PDFEngineError.saveFailed }
+      try? fileManager.removeItem(at: staging)
+      check = try stage(to: staging, options: options, fault: fault)
+      guard editsAreIntact(in: check, options: options) else { throw PDFEngineError.saveFailed }
     }
     do { try fault(.validated) } catch { throw Self.saveError(for: error) }
     try? fileManager.setAttributes(
@@ -96,7 +94,34 @@ extension PDFDocumentController {
     pendingProtection = nil
     hasUnsavedChanges = false
     contentEditedPages = []
+    // What was just written is what a later edit that cannot be kept goes back to.
+    textEditOriginals = [:]
     recordFormValues()
+  }
+
+  /// Writes the document to `staging` and reads it back.
+  ///
+  /// PDFKit keeps an encrypted document encrypted whatever the options, so a document whose
+  /// password is being (or was) removed is written as a fresh copy of its pages. PDFKit maps the
+  /// staged file rather than reading it into memory, so this stays cheap for large files.
+  private func stage(
+    to staging: URL, options: [PDFDocumentWriteOption: Any], fault: (SaveStep) throws -> Void
+  ) throws -> PDFDocument {
+    let source = pendingProtection == .remove || (document.isEncrypted && !wasEncrypted) ? unencryptedCopy() : document
+    guard source.write(to: staging, withOptions: options) else { throw PDFEngineError.saveFailed }
+    do { try fault(.staged) } catch { throw Self.saveError(for: error) }
+    guard let check = PDFDocument(url: staging), check.isLocked || check.pageCount == source.pageCount else {
+      throw PDFEngineError.saveFailed
+    }
+    return check
+  }
+
+  /// Whether the edited pages read in the staged file as they do here, once it is unlocked.
+  private func editsAreIntact(in check: PDFDocument, options: [PDFDocumentWriteOption: Any]) -> Bool {
+    if check.isLocked, let key = options[.userPasswordOption] as? String ?? password {
+      check.unlock(withPassword: key)
+    }
+    return check.isLocked || contentEdits(areIntactIn: check)
   }
 
   /// The steps of a save, for the fault-injection tests of the Trust suite (plan §4.1).
@@ -136,13 +161,15 @@ extension PDFDocumentController {
     fileprivate let pendingProtection: ProtectionChange?
     fileprivate let wasEncrypted: Bool
     fileprivate let password: String?
+    fileprivate let textEditOriginals: [ObjectIdentifier: PDFPage]
   }
 
   /// The changes as they stand, to take before `save(to:)` writes a copy.
   public var unsavedChanges: UnsavedChanges {
     UnsavedChanges(
       hasUnsavedChanges: hasUnsavedChanges, contentEditedPages: contentEditedPages, formValues: formValues,
-      pendingProtection: pendingProtection, wasEncrypted: wasEncrypted, password: password)
+      pendingProtection: pendingProtection, wasEncrypted: wasEncrypted, password: password,
+      textEditOriginals: textEditOriginals)
   }
 
   /// Counts `changes` as unsaved again, after `save(to:)` wrote a copy that then was not kept (#223).
@@ -157,6 +184,8 @@ extension PDFDocumentController {
     wasEncrypted = changes.wasEncrypted
     password = changes.password
     if pendingProtection == nil { pendingProtection = changes.pendingProtection }
+    // An edit made before the copy can still be put back to the page as the document file has it (#232).
+    textEditOriginals.merge(changes.textEditOriginals) { since, _ in since }
   }
 
   /// The free space for important use on the volume holding `url`, or `nil` when it can't be read.

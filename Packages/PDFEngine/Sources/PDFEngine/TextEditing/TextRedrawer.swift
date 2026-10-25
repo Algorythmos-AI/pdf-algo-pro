@@ -185,7 +185,9 @@ enum TextRedrawer {
   /// - Returns: The laid-out text, or why it could not be laid out.
   static func plan(_ region: TextRegion, replacement: String, offset move: CGVector = .zero) -> TextPlanning {
     let text = replacement.precomposedStringWithCanonicalMapping.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !text.isEmpty, text.unicodeScalars.allSatisfy(TextScript.isSimple) else {
+    guard !text.isEmpty, text.unicodeScalars.allSatisfy(TextScript.isSimple),
+      !text.unicodeScalars.contains(where: TextScript.isInvisibleOrControl)
+    else {
       return .declined(.refused(.unsupportedCharacters))
     }
     let size = CGFloat(region.pointSize)

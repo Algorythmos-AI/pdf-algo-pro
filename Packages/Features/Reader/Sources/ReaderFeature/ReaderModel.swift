@@ -798,7 +798,9 @@ public final class ReaderModel {
   @discardableResult
   public func commitTextEdit(_ replacement: String) async -> Bool {
     guard let controller, let selection = controller.selectedTextRegion, !isCommittingTextEdit else { return false }
-    let typed = replacement.trimmingCharacters(in: .whitespacesAndNewlines)
+    // A soft hyphen, a zero-width space or a direction mark comes with words pasted from a web
+    // page and cannot be seen; it is left out rather than refused (issue #231).
+    let typed = Self.withoutInvisibleCharacters(replacement).trimmingCharacters(in: .whitespacesAndNewlines)
     guard typed != selection.region.text else {
       cancelTextEdit()
       return false
@@ -844,12 +846,15 @@ public final class ReaderModel {
     return false
   }
 
+  /// The text with every character no one sees taken out (issue #231).
+  static func withoutInvisibleCharacters(_ text: String) -> String {
+    String(String.UnicodeScalarView(text.unicodeScalars.filter { !$0.properties.isDefaultIgnorableCodePoint }))
+  }
+
   /// Finishes an edit that could not be made in the page's content by covering the text.
   private func coverInstead(
     of selection: TextRegionSelection, with typed: String, in controller: PDFDocumentController
   ) async -> Bool {
-    // The same would happen to the next line of this page, so its lines now say so up front.
-    controller.markTextCoverOnly(onPage: selection.pageIndex)
     if controller.selectedTextRegion == nil {
       controller.selectTextRegion(selection.region, onPage: selection.pageIndex)
     }
@@ -857,6 +862,9 @@ public final class ReaderModel {
       textEditMessage = .cannotEditOrCover
       return false
     }
+    // The same would happen to the next line of this page, so its lines now say so up front. Only
+    // once the cover is made: a page is not marked for a line nothing could be done with (#231).
+    controller.markTextCoverOnly(onPage: selection.pageIndex)
     textEditMessage = nil
     textEditNotice = .coveredInstead
     updateUndoState()
@@ -1051,10 +1059,12 @@ public final class ReaderModel {
     do {
       if controller.digitalSignature.isSigned, !isEditingCopy {
         try await saveSignedAsCopy(controller)
+        reportTextEditsPutBack(by: controller)
         return true
       }
       let url = try await library.fileURL(for: documentID)
       try controller.save(to: url, keepingPreviousAt: try await library.previousVersionURL(for: documentID))
+      reportTextEditsPutBack(by: controller)
       // Straight after the write, before the file presenter hears of it, so it isn't taken for
       // another app's change.
       knownVersion = try? FileVersion(url)
@@ -1075,7 +1085,24 @@ public final class ReaderModel {
         localized: "Couldn't save your changes. The document on disk hasn't changed. Try again.", bundle: .module)
       await telemetry.record("quality.operation.failed")
     }
+    // A failed save can still have put an edit back before it failed; that is said too.
+    reportTextEditsPutBack(by: controller)
     return false
+  }
+
+  /// Says that a text edit the written file did not keep was put back, and what was saved (#232).
+  ///
+  /// The page now shows its earlier words, so what was found of its text is found again. Nothing is
+  /// said when the save kept every edit.
+  private func reportTextEditsPutBack(by controller: PDFDocumentController) {
+    guard !controller.textEditsPutBack.isEmpty else { return }
+    let putBack = String(
+      localized:
+        "A change to the text couldn't be saved safely, so the text was put back as it was. Your other changes are saved.",
+      bundle: .module)
+    errorMessage = errorMessage.map { putBack + " " + $0 } ?? putBack
+    updateUndoState()
+    Task { await textEditingPageChanged() }
   }
 
   /// Saves a digitally signed document's changes in a new copy and reads that copy from now on.

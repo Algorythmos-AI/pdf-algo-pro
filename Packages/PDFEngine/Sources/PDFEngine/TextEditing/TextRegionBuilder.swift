@@ -311,4 +311,15 @@ enum TextScript {
       false
     }
   }
+
+  /// Whether a character is one no one sees or a control: a soft hyphen, a zero-width space, a
+  /// direction mark or a control code.
+  ///
+  /// Drawn, such a character does not read back as it was typed, so an edit holding one would
+  /// fail its proof and the page be blamed for it (issue #231).
+  static func isInvisibleOrControl(_ scalar: Unicode.Scalar) -> Bool {
+    let properties = scalar.properties
+    return properties.isDefaultIgnorableCodePoint || properties.generalCategory == .control
+      || properties.generalCategory == .format
+  }
 }

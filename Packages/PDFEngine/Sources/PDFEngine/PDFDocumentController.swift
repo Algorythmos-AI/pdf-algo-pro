@@ -136,6 +136,12 @@ public final class PDFDocumentController {
   @ObservationIgnored var structureGeneration = 0
   /// Pages whose content was edited since the last save, checked again in the staged file.
   @ObservationIgnored var contentEditedPages: [PDFPage] = []
+  /// For each page a text edit put in, the page it replaced as it was when the document was last
+  /// opened or saved, so an edit the written file does not keep can be put back (issue #232).
+  @ObservationIgnored var textEditOriginals: [ObjectIdentifier: PDFPage] = [:]
+  /// The pages, by index, whose text edits the last save put back because the written file did not
+  /// read as they did here; empty after a save that kept every edit (issue #232).
+  public internal(set) var textEditsPutBack: [Int] = []
   /// Whether a text edit is being made; a second one waits its turn by being refused.
   @ObservationIgnored var isCommittingText = false
   /// Which links point at which page, found once so that swapping a page does not walk the document.
