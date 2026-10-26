@@ -134,7 +134,7 @@ struct SelectionBar: View {
     .tint(Color.ds.labelPrimary)
     .padding(Spacing.s150)
     // A system background, the kind the Delete token keeps 4.5:1 on. The regular material over a white
-    // page is mid-grey in dark mode (#646464 on an iPhone, 2026-10-26), where Delete was 3.0:1.
+    // page is mid-grey in dark mode (on an iPhone, 2026-10-26), where Delete was 3.0:1.
     .background(Color.ds.backgroundSecondary, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     .accessibilityElement(children: .contain)
     .accessibilityIdentifier(AccessibilityID.Reader.Selection.actionBar)
