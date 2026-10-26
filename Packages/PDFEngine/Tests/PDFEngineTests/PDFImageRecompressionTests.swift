@@ -167,8 +167,8 @@ struct PDFImageRecompressionTests {
     var deflated = [UInt8](repeating: 0, count: bytes.count + 1_024)
     let count = bytes.withUnsafeBufferPointer { source in
       deflated.withUnsafeMutableBufferPointer { destination in
-        compression_encode_buffer(
-          destination.baseAddress!, destination.count, source.baseAddress!, source.count, nil, COMPRESSION_ZLIB)
+        guard let from = source.baseAddress, let into = destination.baseAddress else { return 0 }
+        return compression_encode_buffer(into, destination.count, from, source.count, nil, COMPRESSION_ZLIB)
       }
     }
     try #require(count > 0)
