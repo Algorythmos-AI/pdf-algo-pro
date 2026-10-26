@@ -297,6 +297,14 @@ struct FoldersTests {
     #expect(indexValues.isExcludedFromBackup == false)
     #expect(searchValues.isExcludedFromBackup == true)
   }
+
+  @Test("A UI test's kept state keeps its library across launches; without one, each launch starts empty")
+  func keptStateKeepsTheLibrary() {
+    let name = UUID().uuidString
+    #expect(
+      Folders(isUITesting: true, keptState: name).documents == Folders(isUITesting: true, keptState: name).documents)
+    #expect(Folders(isUITesting: true).documents != Folders(isUITesting: true).documents)
+  }
 }
 
 /// A device whose owner confirms, or doesn't, as the test says.

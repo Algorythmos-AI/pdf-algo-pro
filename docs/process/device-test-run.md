@@ -105,6 +105,11 @@ CI's required gate still pins Xcode 26.6. So:
 After the automated run, on the same build, in this order. The details of each are in the
 [device smoke test](device-smoke-test.md).
 
+Items 6, 8 and 9 are also run by `ManualChecklistDeviceUITests` in the `Device` plan: the app killed ten
+times at different moments of a save, each time opening the document again undamaged; Print showing the
+print controller; Report a problem opening Mail with a summary that names no document, closed unsent.
+When that class passed, they are done; check them by hand only when it failed.
+
 1. **Face ID.** Turn on App Lock, lock the phone, open the app: the real Face ID prompt shows, and after
    a failure the passcode unlocks it.
 2. **Camera scan.** Scan two pages with the real camera: one searchable PDF with both pages.

@@ -159,6 +159,7 @@
     {
       "skippedTests": [
         "LaunchPerformanceTests",
+        "ManualChecklistDeviceUITests",
         "StoreScreenshotTests"
       ],
       "target": {
