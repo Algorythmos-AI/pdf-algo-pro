@@ -28,6 +28,9 @@ Store notes (see the changelog strategy).
   nowhere. The app now checks what it saved and puts them back, in password-protected documents too.
 - On iOS 27, making a scan searchable keeps the document's notes, links and bookmarks, and a
   compressed copy keeps its bookmarks and links. iOS 27 left them out of the new file.
+- On iOS 27, stamps chosen from the Stamp menu, and notes, drawings, shapes, text boxes and
+  signatures that were pasted or duplicated, were lost when the document was saved. They are now
+  saved like everything else.
 - Editing text could close the app when the system failed to load one of a page's fonts while the
   app read the page's lines. The line is now read without that font's details, as for text with none.
 - App Lock: removing the device passcode no longer locks you out of the app for good. Without a

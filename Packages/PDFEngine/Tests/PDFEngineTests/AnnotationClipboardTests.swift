@@ -137,6 +137,108 @@ struct AnnotationClipboardTests {
     #expect(!controller.pickUpStamp(.text("  ")))
   }
 
+  /// A document with one of each annotation the app can copy on its first page.
+  private func everyCopyableKind(at url: URL? = nil) throws -> PDFDocumentController {
+    AnnotationClipboard.shared.annotation = nil
+    let controller: PDFDocumentController
+    if let url {
+      try SyntheticPDF.makeSample().write(to: url)
+      controller = try PDFDocumentController(url: url)
+    } else {
+      controller = try document()
+    }
+    controller.addNote("Check this", onPage: 0)
+    let stroke = [CGPoint(x: 100, y: 100), CGPoint(x: 150, y: 160), CGPoint(x: 180, y: 120)]
+    #expect(controller.addInk([stroke], onPage: 0))
+    #expect(controller.addInk([stroke.map { CGPoint(x: $0.x, y: $0.y + 120) }], onPage: 0, contents: "Signature"))
+    for (tool, y) in [(DrawingTool.rectangle, 400.0), (.oval, 460), (.arrow, 520)] {
+      #expect(controller.addShape(tool, from: CGPoint(x: 300, y: y), to: CGPoint(x: 400, y: y + 40), onPage: 0))
+    }
+    #expect(controller.addTextBox("A text box", onPage: 0))
+    #expect(controller.addStamp(.text("PAID"), onPage: 0))
+    #expect(controller.addStamp(.tick, onPage: 0))
+    #expect(controller.placeTypedSignature("Ada Lovelace", onPage: 0))
+    return controller
+  }
+
+  private func annotations(on page: PDFPage?) -> [PDFAnnotation] {
+    (page?.annotations ?? []).filter { $0.type != "Popup" }
+  }
+
+  /// The annotation drawn on its own, as pixels.
+  private func pixels(_ annotation: PDFAnnotation) -> [UInt8] {
+    let box = annotation.bounds.insetBy(dx: -4, dy: -4)
+    let width = Int(box.width * 2)
+    let height = Int(box.height * 2)
+    var data = [UInt8](repeating: 0, count: width * height * 4)
+    data.withUnsafeMutableBytes { raw in
+      guard
+        let context = CGContext(
+          data: raw.baseAddress, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
+          space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+      else { return }
+      context.scaleBy(x: 2, y: 2)
+      context.translateBy(x: -box.minX, y: -box.minY)
+      annotation.draw(with: .mediaBox, in: context)
+    }
+    return data
+  }
+
+  @Test("A copy of each kind of annotation the app copies is a new one that reads and looks as the original")
+  func copiesAreFaithful() throws {
+    let controller = try everyCopyableKind()
+    let originals = annotations(on: controller.document.page(at: 0))
+    #expect(originals.count == 10)
+    let target = try #require(controller.document.page(at: 1))
+    for original in originals {
+      let copy = try #require(PDFDocumentController.copy(of: original))
+      target.addAnnotation(copy)
+      let what = "\(original.type ?? "?") \"\(original.contents ?? "")\""
+      #expect(copy !== original)
+      #expect(copy.type == original.type && copy.bounds == original.bounds, "\(what)")
+      #expect(PDFDocumentController.kind(of: copy) == PDFDocumentController.kind(of: original), "\(what)")
+      #expect(copy.contents == original.contents && copy.color == original.color, "\(what)")
+      #expect(copy.interiorColor == original.interiorColor, "\(what)")
+      #expect(copy.border?.lineWidth == original.border?.lineWidth, "\(what)")
+      #expect(copy.font == original.font && copy.fontColor == original.fontColor, "\(what)")
+      #expect(copy.alignment == original.alignment, "\(what)")
+      #expect(copy.startPoint == original.startPoint && copy.endPoint == original.endPoint, "\(what)")
+      #expect(copy.endLineStyle == original.endLineStyle, "\(what)")
+      #expect(copy.paths?.map(\.bounds) == original.paths?.map(\.bounds), "\(what)")
+      #expect(
+        zip(copy.paths ?? [], original.paths ?? []).allSatisfy { $0 !== $1 }, "\(what): its own drawing to change")
+      let subject = PDFDocumentController.subjectKey
+      #expect(copy.value(forAnnotationKey: subject) as? String == original.value(forAnnotationKey: subject) as? String)
+      let drawn = pixels(original)
+      #expect(drawn.contains { $0 != 0 }, "\(what) draws something")
+      #expect(pixels(copy) == drawn, "\(what) looks the same")
+    }
+  }
+
+  @Test("Pasted and duplicated annotations of every kind the app copies survive a save (#307)")
+  func copiesAreSaved() throws {
+    let url = FileManager.default.temporaryDirectory.appendingPathComponent("copies-\(UUID().uuidString).pdf")
+    defer { try? FileManager.default.removeItem(at: url) }
+    let controller = try everyCopyableKind(at: url)
+    let first = try #require(controller.document.page(at: 0))
+    let originals = annotations(on: first)
+    for original in originals {
+      controller.select(original, on: first)
+      #expect(controller.duplicateSelection())
+      controller.select(original, on: first)
+      #expect(controller.copySelection())
+      #expect(controller.pasteAnnotation(at: CGPoint(x: 300, y: 400), onPage: 1))
+    }
+    try controller.save(to: url)
+    let reopened = try #require(PDFDocument(url: url))
+    func summary(_ page: PDFPage?) -> [String] {
+      annotations(on: page).map { "\($0.type ?? "?") \($0.contents ?? "")" }.sorted()
+    }
+    let expected = originals.map { "\($0.type ?? "?") \($0.contents ?? "")" }.sorted()
+    #expect(summary(reopened.page(at: 0)) == (expected + expected).sorted(), "the originals and their duplicates")
+    #expect(summary(reopened.page(at: 1)) == expected, "the pasted copies")
+  }
+
   @Test("Stamps picked up from the menu survive each save, as stamps put straight on the page do (FR-ANN-006)")
   func pickedUpStampsAreSaved() throws {
     // As the reader does it: pick up, paste in the middle of the page, save; then the next stamp.

@@ -112,13 +112,54 @@ extension PDFDocumentController {
   }
 
   /// A copy of an annotation that keeps what it is and how it looks, but no page.
+  ///
+  /// It is a new annotation, made as the app makes any other, with the original's entries set on it.
+  /// It is never made with `copy()`: PDFKit on iOS 27 writes no annotation made that way, so a stamp
+  /// chosen from the menu, a paste or a duplicate was lost at the next save (#307).
   static func copy(of annotation: PDFAnnotation) -> PDFAnnotation? {
-    guard let copy = annotation.copy() as? PDFAnnotation else { return nil }
-    // PDFKit copies the drawing's paths as the same objects; the copy gets its own.
-    for path in copy.paths ?? [] { copy.remove(path) }
+    guard let type = annotation.type else { return nil }
+    let copy = PDFAnnotation(
+      bounds: annotation.bounds, forType: PDFAnnotationSubtype(rawValue: type), withProperties: nil)
+    // Every entry the original has (its subject, author, date, flags, alignment, text style, and any
+    // other app's), except those that tie it to its page and those set from their own properties below.
+    for (key, value) in annotation.annotationKeyValues {
+      guard let key = key as? String, !Self.entriesSetApart.contains(key) else { continue }
+      copy.setValue(value, forAnnotationKey: PDFAnnotationKey(rawValue: key))
+    }
+    copy.contents = annotation.contents
+    copy.color = annotation.color
+    if let interior = annotation.interiorColor { copy.interiorColor = interior }
+    if let border = annotation.border {
+      let fresh = PDFBorder()
+      fresh.lineWidth = border.lineWidth
+      fresh.style = border.style
+      fresh.dashPattern = border.dashPattern
+      copy.border = fresh
+    }
+    if type == "FreeText" {
+      if let font = annotation.font { copy.font = font }
+      if let color = annotation.fontColor { copy.fontColor = color }
+      copy.alignment = annotation.alignment
+    }
+    if type == "Line" {
+      copy.startPoint = annotation.startPoint
+      copy.endPoint = annotation.endPoint
+      copy.startLineStyle = annotation.startLineStyle
+      copy.endLineStyle = annotation.endLineStyle
+    }
+    if type == "Text" { copy.iconType = annotation.iconType }
+    if type == "Stamp", let name = annotation.stampName { copy.stampName = name }
+    // The drawing's paths, each its own object, in the annotation's own space.
     for path in annotation.paths ?? [] { copy.add(PlatformBezierPath(cgPath: path.cgPath)) }
     return copy
   }
+
+  /// The entries `copy(of:)` does not take as they are: what ties an annotation to its page and its
+  /// pop-up, its type and place (given when it is made), and what is set from its own property.
+  private static let entriesSetApart: Set<String> = [
+    "/P", "/Popup", "/Parent", "/IRT", "/Subtype", "/Type", "/Rect", "/NM",
+    "/Contents", "/C", "/IC", "/Border", "/BS", "/InkList", "/L", "/LE", "/Name",
+  ]
 
   private func clipboardChanged() {
     clipboardGeneration += 1
