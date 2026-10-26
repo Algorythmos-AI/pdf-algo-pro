@@ -84,7 +84,7 @@ def merged(results: list[Path], retries: Path | None) -> list[Case]:
                 by_selector[case.selector] = case
                 order.append(case)
             elif known.verdict == "failed":
-                if case.verdict == "passed":
+                if case.verdict in ("passed", "quarantined"):
                     known.verdict = "flaky"
                 elif case.verdict == "failed":
                     known.messages += [m for m in case.messages if m not in known.messages]
