@@ -120,7 +120,9 @@ After the automated run, on the same build, in this order. The details of each a
 
 A row per run, added by the script; the owner fills in the checklist and issues and commits the row in
 a `docs:` pull request. The device is its model, never its name or UDID (the repository is public,
-[AGENTS.md](../../AGENTS.md) rule 4).
+[AGENTS.md](../../AGENTS.md) rule 4). A commit recorded as `<sha>-dirty` was tested with changes it does
+not hold: a changed tracked file, or an untracked file the build reads (under `App/`, `Packages/` or
+`Config/`, or a test plan).
 
 | Date | Commit | Xcode | Device | iOS | Plan and flags | Passed / failed / flaky | Result bundle | CI `ios` | Manual checklist | Issues |
 |---|---|---|---|---|---|---|---|---|---|---|

@@ -183,3 +183,38 @@ def test_the_real_document_has_the_table_and_the_checklist():
     text = DOC.read_text(encoding="utf-8")
     assert HEADER in text.splitlines()
     assert "1. **Face ID.**" in device_run_record.checklist(DOC)
+
+
+# --- commit ---------------------------------------------------------------------------------------
+
+@pytest.mark.parametrize("status,label", [
+    ([], "abc1234"),
+    (["?? notes.txt\n", "?? .scratch/\n", "?? docs/draft.md\n"], "abc1234"),
+    ([" M docs/process/device-test-run.md\n"], "abc1234-dirty"),
+    (["M  App/PDFAlgoPro/AppModel.swift\n"], "abc1234-dirty"),
+    (["?? App/Tests/NewTests.swift\n"], "abc1234-dirty"),
+    (["?? App/UITests/Helpers/\n"], "abc1234-dirty"),
+    (["?? Packages/Core/Sources/Core/New.swift\n"], "abc1234-dirty"),
+    (['?? "App/Tests/With space.swift"\n'], "abc1234-dirty"),
+    (["?? Config/Other.xcconfig\n"], "abc1234-dirty"),
+    (["?? Extra.xctestplan\n"], "abc1234-dirty"),
+])
+def test_the_commit_is_dirty_when_what_is_built_differs_from_it(status, label):
+    assert device_run_record.commit_label("abc1234", status) == label
+
+
+def test_the_commit_command_reads_the_status_from_stdin(monkeypatch, capsys):
+    import io
+
+    monkeypatch.setattr(sys, "stdin", io.StringIO("?? App/UITests/ScanDeviceUITests.swift\n"))
+    assert device_run_record.main(["commit", "abc1234"]) == 0
+    assert capsys.readouterr().out.strip() == "abc1234-dirty"
+    with pytest.raises(SystemExit):
+        device_run_record.main(["commit", "HEAD; id"])
+
+
+def test_a_dirty_commit_is_recorded_as_such(tmp_path):
+    path = doc(tmp_path)
+    assert device_run_record.main(["record", "--doc", str(path), "--commit", "abc1234-dirty", "--xcode", "x",
+                                   "--device", "x", "--ios", "x", "--flags", "x", "--bundle", "x"]) == 0
+    assert "| abc1234-dirty |" in path.read_text()

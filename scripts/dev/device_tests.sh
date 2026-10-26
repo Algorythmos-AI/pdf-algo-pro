@@ -51,12 +51,13 @@ team_file=Config/Team.xcconfig
 ui_target=PDFAlgoProUITests
 
 # The commit as it is before anything is generated or built (a build with Xcode 27 can rewrite
-# Package.resolved, which is not a change of the tests).
+# Package.resolved, which is not a change of the tests): <sha>-dirty when a tracked file is changed or
+# an untracked one would be built (device_run_record.py commit), so the row never claims a clean commit.
 sha="$(git rev-parse --short HEAD)"
 full_sha="$(git rev-parse HEAD)"
-commit="$sha"
-if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
-  commit="$sha with local changes"
+commit="$(git status --porcelain --untracked-files=normal | python3 scripts/dev/device_run_record.py commit "$sha")"
+if [ "$commit" != "$sha" ]; then
+  echo "warning: the tree differs from $sha (see git status); the run is recorded as $commit" >&2
 fi
 
 # The selectors first, so a malformed --only fails before anything else.

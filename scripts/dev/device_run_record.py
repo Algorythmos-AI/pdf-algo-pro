@@ -21,6 +21,10 @@ on the commit, the manual checklist (pending until done) and the issues filed. N
 name or anything else that identifies the phone or its owner: the repository is public (AGENTS.md rule 4).
 
 `checklist` prints the manual checklist from that document, so it has one source.
+
+`commit SHA` reads `git status --porcelain --untracked-files=normal` on stdin and prints SHA, or
+SHA-dirty when what is built differs from the commit, so a row never claims a clean commit it did not
+test.
 """
 from __future__ import annotations
 
@@ -119,6 +123,32 @@ def check_device(listing: dict, wanted: str) -> tuple[dict | None, list[str], li
     return device, problems, warnings
 
 
+# --- commit ---------------------------------------------------------------------------------------
+
+# What a build of the app and its tests reads: an untracked file here is built too (XcodeGen takes every
+# source in these folders), so it changes what was tested even though git does not track it.
+BUILD_INPUTS = ("App/", "Packages/", "Config/", "project.yml")
+
+
+def commit_label(sha: str, porcelain: list[str]) -> str:
+    """The commit as the record names it: `sha`, or `sha-dirty` when the tree differs from it.
+
+    `porcelain` is `git status --porcelain --untracked-files=normal`: any change to a tracked file makes
+    it dirty, and so does an untracked file or folder among BUILD_INPUTS or ending in .xctestplan.
+    Untracked files elsewhere (notes, results) are not built, and ignored ones are not listed at all.
+    """
+    for line in porcelain:
+        line = line.rstrip("\n")
+        if len(line) < 4:
+            continue
+        status, path = line[:2], line[3:].strip('"')
+        if status != "??":
+            return f"{sha}-dirty"
+        if path.startswith(BUILD_INPUTS) or path.endswith(".xctestplan"):
+            return f"{sha}-dirty"
+    return sha
+
+
 # --- record ---------------------------------------------------------------------------------------
 
 def counts(tests: Path | None, retries: Path | None) -> str:
@@ -194,7 +224,15 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--issues", default="none yet")
     c = sub.add_parser("checklist", help="print the manual checklist")
     c.add_argument("--doc", type=Path, default=DOC)
+    k = sub.add_parser("commit", help="the commit as recorded, from `git status --porcelain` on stdin")
+    k.add_argument("sha")
     args = ap.parse_args(argv)
+
+    if args.command == "commit":
+        if not re.fullmatch(r"[0-9a-f]{7,40}", args.sha):
+            raise SystemExit(f"{args.sha!r} is not a commit hash")
+        print(commit_label(args.sha, sys.stdin.readlines()))
+        return 0
 
     if args.command == "device":
         try:
@@ -212,7 +250,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"udid={device['udid']}\nmodel={device['model']}\nios={device['ios']}")
         return 0
     if args.command == "record":
-        if not re.fullmatch(r"[0-9a-f]{7,40}( with local changes)?", args.commit):
+        if not re.fullmatch(r"[0-9a-f]{7,40}(-dirty)?", args.commit):
             raise SystemExit(f"--commit {args.commit!r} is not a commit hash")
         row = [args.date, args.commit, args.xcode, args.device, args.ios, args.flags,
                counts(args.tests, args.retries), f"`{public_path(args.bundle)}`", args.ci_ios,
