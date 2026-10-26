@@ -17,6 +17,8 @@ private final class Flags {
   var closed = 0
   var reminders: [(Bool, Date)] = []
   var reminderAnswer = true
+  /// Why the reminder isn't set when `reminderAnswer` is false.
+  var refusal = TrialReminderOutcome.notificationsDeclined
 }
 
 @MainActor
@@ -40,7 +42,7 @@ struct PaywallModelTests {
       offering: offering, entitlements: store, telemetry: telemetry, now: { now },
       setReminder: { isOn, date in
         flags.reminders.append((isOn, date))
-        return isOn && flags.reminderAnswer
+        return isOn ? (flags.reminderAnswer ? .scheduled : flags.refusal) : .off
       }, onClose: { flags.closed += 1 })
     return (model, fake, store, telemetry, flags)
   }
@@ -134,6 +136,25 @@ struct PaywallModelTests {
     model.wantsReminder = true
     await model.reminderChanged()
     #expect(!model.wantsReminder, "Permission was declined")
+    #expect(model.reminderProblem == .notificationsDeclined, "and the confirmation says why")
+    // The switch going back off calls this again (onChange): the reason stays on screen.
+    await model.reminderChanged()
+    #expect(model.reminderProblem == .notificationsDeclined)
+    flags.reminderAnswer = true
+    model.wantsReminder = true
+    await model.reminderChanged()
+    #expect(model.wantsReminder && model.reminderProblem == nil, "Once it is on, there is nothing to explain")
+  }
+
+  @Test("With less than a day of the trial left, no reminder is offered: its day before has passed")
+  func noReminderTooLate() async {
+    let (model, fake, store, _, _) = makeModel()
+    await model.appeared()
+    await purchase(.trial(endsAt: now.addingTimeInterval(3 * day)), fake, store)
+    #expect(model.canRemind)
+    // A TestFlight trial, shortened, that ends the next day (a tester's report, 2026-10-26).
+    await purchase(.trial(endsAt: now.addingTimeInterval(day / 2)), fake, store)
+    #expect(model.trialEndsAt != nil && !model.canRemind)
   }
 
   @Test("Without a trial there is nothing to remind of")

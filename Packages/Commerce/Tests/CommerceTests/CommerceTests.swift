@@ -398,6 +398,13 @@ struct TrialReminderTests {
     #expect(TrialReminder.notificationDate(for: trial, now: now.addingTimeInterval(6 * day)) == nil)
     #expect(TrialReminder.notificationDate(for: .trial(endsAt: now.addingTimeInterval(day / 2)), now: now) == nil)
   }
+
+  @Test("A reminder can be set while its day before is ahead, and not with less than a day left")
+  func canRemind() {
+    #expect(TrialReminder.canRemind(trialEndsAt: end, now: now))
+    #expect(!TrialReminder.canRemind(trialEndsAt: now.addingTimeInterval(day / 2), now: now))
+    #expect(!TrialReminder.canRemind(trialEndsAt: now.addingTimeInterval(day), now: now), "Its day before is now")
+  }
 }
 
 @Suite("The fake provider")
