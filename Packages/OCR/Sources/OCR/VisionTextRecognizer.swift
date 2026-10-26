@@ -13,6 +13,8 @@ public struct VisionTextRecognizer: TextRecognizing {
   public let detectsLanguage: Bool
   /// Whether each line comes with its words and where they are.
   public let findsWords: Bool
+  /// Whether Vision corrects what it reads against its dictionaries of the languages.
+  public let correctsLanguage: Bool
 
   /// English and French: the two languages the app has always recognised.
   public static let firstLanguages = [Locale.Language(identifier: "en-US"), Locale.Language(identifier: "fr-FR")]
@@ -36,13 +38,15 @@ public struct VisionTextRecognizer: TextRecognizing {
   ///   - languages: The languages to recognise, most likely first.
   ///   - detectsLanguage: Whether Vision picks the language of each piece of text itself.
   ///   - findsWords: Whether each line carries its words and their boxes.
+  ///   - correctsLanguage: Whether Vision corrects what it reads against its dictionaries.
   public init(
     languages: [Locale.Language] = VisionTextRecognizer.firstLanguages, detectsLanguage: Bool = false,
-    findsWords: Bool = false
+    findsWords: Bool = false, correctsLanguage: Bool = true
   ) {
     self.languages = languages
     self.detectsLanguage = detectsLanguage
     self.findsWords = findsWords
+    self.correctsLanguage = correctsLanguage
   }
 
   /// A recogniser for the wider set of languages, found automatically, with words.
@@ -56,7 +60,7 @@ public struct VisionTextRecognizer: TextRecognizing {
   public func recognizeText(in image: CGImage) async throws -> [RecognizedLine] {
     var request = RecognizeTextRequest()
     request.recognitionLevel = .accurate
-    request.usesLanguageCorrection = true
+    request.usesLanguageCorrection = correctsLanguage
     // Only languages this device's Vision knows: asking for another makes the request fail.
     let known = Set(request.supportedRecognitionLanguages.map(\.maximalIdentifier))
     let usable = languages.filter { known.contains($0.maximalIdentifier) }
