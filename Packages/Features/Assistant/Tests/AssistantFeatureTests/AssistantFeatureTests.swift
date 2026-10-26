@@ -249,7 +249,7 @@ struct AssistantModelTests {
 
   @Test func sheetRenders() {
     let (model, _) = makeModel(task: .explainContract)
-    #expect(ImageRenderer(content: AssistantView(model: model).frame(width: 390, height: 700)).uiImage != nil)
+    #expect(ViewRendering.draws(AssistantView(model: model).frame(width: 390, height: 700)))
   }
 
   @Test("Every phase draws at a large text size")
@@ -257,7 +257,7 @@ struct AssistantModelTests {
     func draws(_ model: AssistantModel) -> Bool {
       let view = AssistantView(model: model).content
         .frame(width: 390).environment(\.dynamicTypeSize, .accessibility3)
-      return ImageRenderer(content: view).uiImage != nil
+      return ViewRendering.draws(view)
     }
     let checked = Extraction(
       fields: [

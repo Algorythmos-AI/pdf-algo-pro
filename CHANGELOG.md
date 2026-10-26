@@ -26,6 +26,10 @@ Store notes (see the changelog strategy).
 - Saving on iOS 27 kept bookmarks, the document's outline and links to other pages. iOS 27 left them
   out of the saved file: bookmarks added or removed were lost, and links inside the document went
   nowhere. The app now checks what it saved and puts them back, in password-protected documents too.
+- Reduce file size makes scans and photos smaller again on iOS 27. iOS 27 stopped re-encoding a
+  document's pictures, so a scan was "already about as small as it gets". The app now re-encodes
+  the pictures itself, as JPEG, and for email at most 1,600 pixels on their longest side; text and
+  notes stay as they were. Password-protected documents are made smaller only where iOS does it.
 - Editing text could close the app when the system failed to load one of a page's fonts while the
   app read the page's lines. The line is now read without that font's details, as for text with none.
 - App Lock: removing the device passcode no longer locks you out of the app for good. Without a

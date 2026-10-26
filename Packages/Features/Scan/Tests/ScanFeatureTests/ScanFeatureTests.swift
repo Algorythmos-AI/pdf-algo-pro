@@ -124,7 +124,7 @@ struct ScanModelTests {
     await model.review([try #require(SyntheticPDF.makeTextImage("x")), try #require(SyntheticPDF.makeTextImage("y"))])
     let review = ScanView(model: model).content.frame(width: 390, height: 700)
       .environment(\.dynamicTypeSize, .accessibility3)
-    #expect(ImageRenderer(content: review).uiImage != nil)
+    #expect(ViewRendering.draws(review))
     model.discardReview()
     #expect(model.phase == .ready && model.pages.isEmpty)
     #expect(try await library.documents(in: .all, sortedBy: .title).isEmpty)
@@ -138,7 +138,7 @@ struct ScanModelTests {
 
   @Test func sheetRenders() {
     let (model, _, _, _) = makeModel()
-    #expect(ImageRenderer(content: ScanView(model: model).frame(width: 390, height: 700)).uiImage != nil)
+    #expect(ViewRendering.draws(ScanView(model: model).frame(width: 390, height: 700)))
   }
 
   @Test("Cancelling, even on the last page, saves nothing and returns to the start")
@@ -161,7 +161,7 @@ struct ScanModelTests {
     func draws(_ model: ScanModel) -> Bool {
       let view = ScanView(model: model).content
         .frame(width: 390, height: 700).environment(\.dynamicTypeSize, .accessibility3)
-      return ImageRenderer(content: view).uiImage != nil
+      return ViewRendering.draws(view)
     }
     let image = try #require(SyntheticPDF.makeTextImage("Receipt"))
     let recognizer = GatedRecognizer()
