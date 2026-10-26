@@ -50,6 +50,7 @@ results="${DEVICE_TESTS_RESULTS:-$root/.build/device-tests}"
 min_free_gib="${DEVICE_TESTS_MIN_FREE_GIB:-8}"
 team_file=Config/Team.xcconfig
 ui_target=PDFAlgoProUITests
+unit_target=PDFAlgoProTests
 
 # The commit as it is before anything is generated or built (a build with Xcode 27 can rewrite
 # Package.resolved, which is not a change of the tests): <sha>-dirty when a tracked file is changed or
@@ -84,6 +85,12 @@ opt_in() { # CLASS WANTED FLAG
 }
 opt_in PurchaseDeviceUITests "$purchases" --purchases
 opt_in LiveIntelligenceDeviceUITests "$live_model" --live-model
+# The Swift Testing suites that cannot pass on a device (write_testplan.py, DEVICE_SKIPPED_UNIT_SUITES).
+# The plan lists them too, but a test plan's skipped tests leave Swift Testing suites running: on an
+# iPhone the snapshots ran and tried to record, so they are skipped on the command line as well.
+for suite in AppTests/SnapshotTests StoreSessionTests; do
+  selectors+=("-skip-testing:$unit_target/$suite")
+done
 
 # 1. Preconditions: every problem at once, each with its fix.
 problems=()

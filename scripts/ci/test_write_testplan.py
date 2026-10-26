@@ -68,6 +68,15 @@ def test_each_suite_the_device_plan_skips_exists():
             assert re.search(rf"\b(struct|class|enum|extension)\s+{parent}\b", sources), f"{parent} is not in App/Tests"
 
 
+def test_the_device_script_skips_the_same_suites_on_the_command_line():
+    # A test plan's skipped tests leave Swift Testing suites running on a device, so device_tests.sh
+    # passes each as -skip-testing too, and the two lists must agree.
+    script = (ROOT / "scripts" / "dev" / "device_tests.sh").read_text(encoding="utf-8")
+    loop = re.search(r"^for suite in (.+); do$", script, re.M)
+    assert loop, "device_tests.sh no longer skips the unit suites on the command line"
+    assert sorted(loop.group(1).split()) == sorted(write_testplan.DEVICE_SKIPPED_UNIT_SUITES)
+
+
 def test_a_device_ui_test_class_runs_on_the_device_and_never_in_the_pull_request_plan(tmp_path, monkeypatch):
     (tmp_path / "Packages").mkdir()
     (tmp_path / "App" / "Tests").mkdir(parents=True)
