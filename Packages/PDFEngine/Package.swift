@@ -20,9 +20,13 @@ let package = Package(
   targets: [
     .target(
       name: "PDFEngine",
-      dependencies: [.product(name: "AccessibilityIDs", package: "Core"), .product(name: "Core", package: "Core")],
+      dependencies: [
+        "PDFKitGuard", .product(name: "AccessibilityIDs", package: "Core"), .product(name: "Core", package: "Core"),
+      ],
       swiftSettings: settings
     ),
+    // The one PDFKit call that raises an Objective-C exception Swift can't catch (#311).
+    .target(name: "PDFKitGuard"),
     .target(
       name: "PDFEngineTestSupport",
       dependencies: ["PDFEngine"],
@@ -31,7 +35,7 @@ let package = Package(
     .testTarget(
       name: "PDFEngineTests",
       dependencies: [
-        "PDFEngine", "PDFEngineTestSupport", .product(name: "CoreTestSupport", package: "Core"),
+        "PDFEngine", "PDFEngineTestSupport", "PDFKitGuard", .product(name: "CoreTestSupport", package: "Core"),
         .product(name: "Core", package: "Core"),
       ],
       swiftSettings: settings

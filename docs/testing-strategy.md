@@ -409,6 +409,14 @@ main actor. Nightly and on request, `ci-sanitizers` runs the save, fault-injecti
 and text-editing suites under Address Sanitizer and Undefined Behavior Sanitizer on the pinned
 simulator; it never blocks a pull request.
 
+`ios-27` builds Staging and Release for a device with Xcode 27 and runs every unit and UI test on an
+iOS 27 simulator, leaving out the snapshot tests, whose references belong to the pinned iOS 26.5
+simulator (ADR-0023). It runs on every push to `integration`, nightly, on request (`xcode27`) and on a
+pull request labelled `xcode-27`, on GitHub's preview image `xcode-27`, the only one with Xcode 27. It
+is not part of `ios` and never blocks. The required gate moves to Xcode 27 in one pull request, with
+every snapshot reference recorded again, once that image is generally available (owner's decision,
+2026-10-25).
+
 The fault-injection suites (`SaveFaultTests`, `SaveFaultInjectionTests` and the text-editing
 `interruptedSave` test) stop a save at each of its steps through one seam,
 `PDFDocumentController.saveFault`, matched to the test's own file: after the free-space check,

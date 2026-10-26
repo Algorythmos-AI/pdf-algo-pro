@@ -19,6 +19,7 @@ labels:
   - { name: design, color: c5def5, description: "Design system, UX flows, visual design" }
   - { name: release, color: 006b75, description: "Release preparation, App Store and TestFlight" }
   - { name: flaky, color: e99695, description: "Quarantined flaky test; fix or delete within the policy window" }
+  - { name: xcode-27, color: e99695, description: "Also runs ios-27 in CI: the build with Xcode 27 and the tests on iOS 27" }
   # Priority
   - { name: "priority:p0", color: b60205, description: "Blocks a release or harms users; drop everything" }
   - { name: "priority:p1", color: d93f0b, description: "Needed for the current milestone" }

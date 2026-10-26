@@ -33,6 +33,19 @@ on:
         description: Run the save and text-editing suites under Address and Undefined Behavior Sanitizers
         type: boolean
         default: false
+      xcode27:
+        # Runs `ios-27` (the build with Xcode 27 and every test on an iOS 27 simulator) on this run as
+        # well; it also runs on every push to integration and nightly, and on a pull request labelled
+        # `xcode-27`.
+        description: Build with Xcode 27 and test on iOS 27 (ios-27)
+        type: boolean
+        default: false
+      store_screenshots:
+        # Runs `store-screenshots` (the App Store screenshot suite, on the simulator) on this run as well.
+        # It also runs on a pull request that changes the suite, its plan or its documents.
+        description: Run the App Store screenshot suite on the simulator (store-screenshots)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -47,6 +60,13 @@ env:
   XCODE_BUILD: 17F113
   SIMULATOR_NAME: iPhone 17
   SIMULATOR_RUNTIME: com.apple.CoreSimulator.SimRuntime.iOS-26-5
+  # Xcode 27 for `ios-27` (ADR-0023, readiness C2). Only GitHub's preview image `xcode-27` has it, and
+  # that image has iOS 27 simulators only, so it runs beside the required gate, which stays on the pins
+  # above until the image is generally available; then the gate moves in one pull request with every
+  # snapshot reference recorded again (owner's decision, 2026-10-25).
+  XCODE27_APP: Xcode_27.app
+  XCODE27_BUILD: 27A266a
+  SIMULATOR27_RUNTIME: com.apple.CoreSimulator.SimRuntime.iOS-27-0
 
 concurrency:
   # The event is part of the key, so a scheduled or manual run never cancels a push run on the same branch.
@@ -129,6 +149,7 @@ jobs:
     timeout-minutes: 5
     outputs:
       ios: ${{ steps.detect.outputs.ios }}
+      screenshots: ${{ steps.detect.outputs.screenshots }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -149,6 +170,13 @@ jobs:
             echo "ios=true" >> "$GITHUB_OUTPUT"
           else
             echo "ios=false" >> "$GITHUB_OUTPUT"
+          fi
+          # The App Store screenshot suite, its plan and its documents (store-screenshots).
+          screenshots='(StoreScreenshot|ShowcaseDocuments\.swift$|^scripts/ci/write_testplan\.py$)'
+          if printf '%s\n' "$changed" | grep -Eq "$screenshots"; then
+            echo "screenshots=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "screenshots=false" >> "$GITHUB_OUTPUT"
           fi
 
   # The iOS gates run as a graph: ios-build builds once for testing, ios-device builds Staging and
@@ -743,6 +771,142 @@ jobs:
           NEEDS_JSON: ${{ toJSON(needs) }}
           ONLY_TESTING: ${{ inputs.only_testing }}
         run: python3 scripts/ci/ios_gate.py
+
+  ios-27:
+    # Not required, and not part of `ios`: the build with the Xcode 27 SDK, and every unit and UI test on
+    # an iOS 27 simulator (ADR-0023). Snapshot tests are left out: their references are recorded on the
+    # iOS 26.5 simulator the required gate pins, and are recorded again when the gate moves to Xcode 27.
+    name: ios-27
+    needs: changes
+    if: >-
+      ${{ needs.changes.result == 'success' && needs.changes.outputs.ios == 'true' && !inputs.only_testing
+      && !inputs.record_snapshots && (github.event_name == 'push' || github.event_name == 'schedule'
+      || (github.event_name == 'workflow_dispatch' && inputs.xcode27)
+      || contains(github.event.pull_request.labels.*.name, 'xcode-27')) }}
+    runs-on: xcode-27
+    timeout-minutes: 150
+    env:
+      SCHEME: PDFAlgoPro
+      TEST_PLAN: PDFAlgoPro
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Select Xcode 27 (fail if missing)
+        run: |
+          xcode="/Applications/$XCODE27_APP"
+          if [ ! -d "$xcode" ]; then
+            echo "::error::$XCODE27_APP is not installed on this runner image; update the pin (ADR-0023)"
+            ls -d /Applications/Xcode*.app
+            exit 1
+          fi
+          sudo xcode-select -s "$xcode/Contents/Developer"
+          xcodebuild -version
+          if ! xcodebuild -version | grep -q "Build version $XCODE27_BUILD"; then
+            echo "::error::$XCODE27_APP is not build $XCODE27_BUILD; update the pin (ADR-0023)"
+            exit 1
+          fi
+      - name: Install pinned XcodeGen (checksum verified)
+        run: |
+          curl -sSL -o xcodegen.zip "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
+          echo "${XCODEGEN_SHA256}  xcodegen.zip" | shasum -a 256 -c -
+          unzip -q xcodegen.zip -d "$RUNNER_TEMP/xcodegen"
+          echo "$RUNNER_TEMP/xcodegen/xcodegen/bin" >> "$GITHUB_PATH"
+      - name: Generate project and test plan
+        # The lockfile and Info.plist checks run in ios-build, on the pinned toolchain.
+        run: |
+          xcodegen generate
+          python3 scripts/ci/write_testplan.py
+      - name: Build Staging and Release for a device with Xcode 27 (unsigned, warnings as errors)
+        run: |
+          for configuration in Staging Release; do
+            xcodebuild build -scheme "$SCHEME" -configuration "$configuration" -destination 'generic/platform=iOS' \
+              CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
+          done
+      - name: Build for testing on an iOS 27 simulator
+        run: |
+          device="$(SIMULATOR_RUNTIME="$SIMULATOR27_RUNTIME" scripts/ci/pinned_simulator.sh)"
+          echo "SIM=$device" >> "$GITHUB_ENV"
+          xcrun simctl boot "$device" || true
+          xcodebuild build-for-testing -scheme "$SCHEME" -testPlan "$TEST_PLAN" \
+            -destination "id=$device" -derivedDataPath DD CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=
+      - name: Every unit and UI test on iOS 27, snapshots aside
+        run: |
+          xcodebuild test-without-building -scheme "$SCHEME" -testPlan "$TEST_PLAN" -destination "id=$SIM" \
+            -derivedDataPath DD -resultBundlePath ios-27.xcresult -parallel-testing-enabled NO \
+            -skip-testing:PDFAlgoProTests/AppTests/SnapshotTests -retry-tests-on-failure -test-iterations 2
+      - name: Keep the result bundle of a failed run
+        if: ${{ failure() }}
+        run: |
+          [ -d ios-27.xcresult ] && tar -czf ios-27-xcresult.tgz ios-27.xcresult || true
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ failure() }}
+        with:
+          name: ios-27-xcresult
+          path: ios-27-xcresult.tgz
+          if-no-files-found: ignore
+          retention-days: 7
+
+  store-screenshots:
+    # Not required, and not part of `ios`: the App Store screenshot suite (`StoreScreenshotTests`,
+    # through its own plan) on the pinned simulator, in English and in French, so a change to it has a
+    # green CI run (AGENTS.md rule 9). The store's own frames are taken on a 6.9-inch iPhone with its
+    # own model (docs/app-store-strategy.md); here the frames with answers are skipped, because the
+    # simulator has no Apple Intelligence, and the others are kept as the `store-screenshots` artifact.
+    name: store-screenshots
+    needs: changes
+    if: >-
+      ${{ needs.changes.result == 'success' && !inputs.only_testing && !inputs.record_snapshots
+      && (needs.changes.outputs.screenshots == 'true' || inputs.store_screenshots) }}
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      SCHEME: PDFAlgoPro
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Select the pinned Xcode (fail if missing)
+        run: |
+          xcode="/Applications/$XCODE_APP"
+          if [ ! -d "$xcode" ]; then
+            echo "::error::$XCODE_APP is not installed on this runner image; update the pin (PAP-029)"
+            exit 1
+          fi
+          sudo xcode-select -s "$xcode/Contents/Developer"
+          xcodebuild -version
+          if ! xcodebuild -version | grep -q "Build version $XCODE_BUILD"; then
+            echo "::error::$XCODE_APP is not build $XCODE_BUILD; update the pin (PAP-029)"
+            exit 1
+          fi
+      - name: Install pinned XcodeGen (checksum verified)
+        run: |
+          curl -sSL -o xcodegen.zip "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
+          echo "${XCODEGEN_SHA256}  xcodegen.zip" | shasum -a 256 -c -
+          unzip -q xcodegen.zip -d "$RUNNER_TEMP/xcodegen"
+          echo "$RUNNER_TEMP/xcodegen/xcodegen/bin" >> "$GITHUB_PATH"
+      - name: Generate project and test plans
+        run: |
+          xcodegen generate
+          python3 scripts/ci/write_testplan.py
+      - name: Build the screenshot suite for the pinned simulator
+        run: |
+          device="$(scripts/ci/pinned_simulator.sh)"
+          echo "SIM=$device" >> "$GITHUB_ENV"
+          xcrun simctl boot "$device" || true
+          xcodebuild build-for-testing -scheme "$SCHEME" -testPlan StoreScreenshots \
+            -destination "id=$device" -derivedDataPath DD CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=
+      - name: The screenshot suite in English and in French
+        run: |
+          mkdir -p "$RUNNER_TEMP/reports"
+          for language in en fr; do
+            TEST_RUNNER_STORE_LANGUAGE="$language" TEST_RUNNER_REPORTS_DIR="$RUNNER_TEMP/reports" \
+              xcodebuild test-without-building -scheme "$SCHEME" -testPlan StoreScreenshots -destination "id=$SIM" \
+              -derivedDataPath DD -resultBundlePath "shots-$language.xcresult" -parallel-testing-enabled NO
+          done
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ always() }}
+        with:
+          name: store-screenshots
+          path: ${{ runner.temp }}/reports/store-screenshots
+          if-no-files-found: ignore
+          retention-days: 7
 
   flaky-issues:
     # An issue per flaky test seen on integration, main or the nightly, opened or commented on, so no

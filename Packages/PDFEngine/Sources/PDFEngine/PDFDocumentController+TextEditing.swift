@@ -2,6 +2,7 @@ import Core
 import CoreGraphics
 import Foundation
 import PDFKit
+import PDFKitGuard
 
 /// Existing text the person picked to edit: the page it is on, and the region.
 public struct TextRegionSelection: Hashable, Sendable {
@@ -388,7 +389,8 @@ extension PDFDocumentController {
       let core = bounds.insetBy(dx: bounds.width * 0.1, dy: bounds.height * 0.25)
       guard !regions.contains(where: { $0.bounds.intersects(core) }) else { continue }
       let font =
-        page.selection(for: line.range)?.attributedString?.attribute(.font, at: 0, effectiveRange: nil)
+        page.selection(for: line.range).flatMap(guardedAttributedString(of:))?.attribute(
+          .font, at: 0, effectiveRange: nil)
         as? PlatformFont
       result.append(
         EditableTextRegion(
@@ -427,7 +429,7 @@ extension PDFDocumentController {
       guard !text.isEmpty, bounds.width > 1, bounds.height > 1, selection.numberOfTextRanges(on: page) > 0 else {
         continue
       }
-      let font = selection.attributedString?.attribute(.font, at: 0, effectiveRange: nil) as? PlatformFont
+      let font = guardedAttributedString(of: selection)?.attribute(.font, at: 0, effectiveRange: nil) as? PlatformFont
       let size = font?.pointSize ?? 12
       if bounds.height <= 2.5 * size, !text.contains("\n") {
         lines.append(ReadLine(range: selection.range(at: 0, on: page), text: text, bounds: bounds))

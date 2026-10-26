@@ -1,0 +1,5 @@
+# Runner labels actionlint doesn't know yet. `xcode-27` is GitHub's preview image with Xcode 27
+# (actions/runner-images#14404); `ios-27` in ci.yml runs on it (ADR-0023).
+self-hosted-runner:
+  labels:
+    - xcode-27

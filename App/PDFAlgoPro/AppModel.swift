@@ -216,6 +216,18 @@ final class AppModel {
           }
         }
       }
+      // The App Store screenshots' library (`showcase`, or `showcase-<key>` to open one of them):
+      // three documents in the device's language, each opened once, the lease a favourite.
+      if let showcase = seeds.first(where: { $0 == "showcase" || $0.hasPrefix("showcase-") }) {
+        for document in ShowcaseDocuments.current {
+          guard let id = await add(try? SyntheticPDF.make(pages: document.pages, title: document.title), document.title)
+          else { continue }
+          // The lease was last read on its second page, where it is signed.
+          try? await container.library.recordOpened(id, pageIndex: document.key == "lease" ? 1 : 0)
+          if document.key == "lease" { try? await container.library.setFavorite(true, for: id) }
+          if showcase == "showcase-\(document.key)" { opened = id }
+        }
+      }
       if seeds.contains("scanned"), let id = await add(try? SyntheticPDF.makeImageOnly(pages: ["Scanned page"]), "Scan")
       {
         opened = id

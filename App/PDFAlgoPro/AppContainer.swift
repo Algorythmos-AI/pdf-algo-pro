@@ -44,6 +44,9 @@ struct LaunchEnvironment {
   let route: Route?
   /// Make the scripted intelligence router report that Apple Intelligence is unavailable.
   let intelligenceUnavailable: Bool
+  /// Use the device's own model instead of the scripted one (`-intelligence live`), for the App Store
+  /// screenshots, which must show what the app really answers (Guideline 2.3.3).
+  let usesLiveIntelligence: Bool
   /// Turn off UIKit animations so UI tests do not wait on them.
   let disablesAnimations: Bool
   /// Whether editing existing text is available, locked or hidden (`-text-editing locked`), so UI
@@ -98,6 +101,7 @@ struct LaunchEnvironment {
         }
       route = value(of: "-open-route").flatMap(URL.init(string:)).flatMap(DeepLink.route(for:))
       intelligenceUnavailable = arguments.contains("-intelligence-unavailable")
+      usesLiveIntelligence = value(of: "-intelligence") == "live"
       disablesAnimations = arguments.contains("-disable-animations")
       let editing = arguments.firstIndex(of: "-text-editing").flatMap {
         arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil
@@ -172,6 +176,7 @@ struct LaunchEnvironment {
       appLockConfirms = nil
       route = nil
       intelligenceUnavailable = false
+      usesLiveIntelligence = false
       disablesAnimations = false
       textEditing = nil
       showsTips = false
@@ -319,7 +324,7 @@ final class AppContainer {
     let activity = AIActivityLog(url: folders.diagnostics.appendingPathComponent("ai-activity.json"))
     self.activity = activity
     #if DEBUG
-      if environment.isUITesting {
+      if environment.isUITesting, !environment.usesLiveIntelligence {
         intelligence = ScriptedIntelligence(unavailable: environment.intelligenceUnavailable, isHidden: isHidden)
       } else {
         intelligence = IntelligenceRouter(
