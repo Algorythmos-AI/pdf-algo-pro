@@ -144,7 +144,7 @@ struct ReaderModelTests {
     let url = try await harness.library.fileURL(for: document.id)
     #expect(try PDFDocumentController(url: url).annotationCount(onPage: 0) == 0)
     let sheet = VersionHistorySheet(model: reader).frame(width: 390, height: 700)
-    #expect(ImageRenderer(content: sheet).uiImage != nil)
+    #expect(ViewRendering.draws(sheet))
   }
 
   @Test("A document that won't open offers the version before its last save")
@@ -257,8 +257,8 @@ struct ReaderModelTests {
     await reader.load()
     let view = PageGrid(model: reader, isSelecting: true, selection: .constant([1])).frame(width: 390, height: 800)
       .environment(\.dynamicTypeSize, .accessibility3)
-    #expect(ImageRenderer(content: view).uiImage != nil)
-    #expect(ImageRenderer(content: PageGridSheet(model: reader).frame(width: 390, height: 800)).uiImage != nil)
+    #expect(ViewRendering.draws(view))
+    #expect(ViewRendering.draws(PageGridSheet(model: reader).frame(width: 390, height: 800)))
   }
 
   @Test("A signed document's changes go into a copy, so its signature stays valid (H9)")
@@ -664,13 +664,13 @@ struct ReaderModelTests {
     func draws() -> Bool {
       let view = SignatureSheet(model: reader).frame(width: 390, height: 800)
         .environment(\.dynamicTypeSize, .accessibility3)
-      return ImageRenderer(content: view).uiImage != nil
+      return ViewRendering.draws(view)
     }
     #expect(draws())
     _ = await reader.saveSignature(drawn: [[CGPoint(x: 0, y: 0), CGPoint(x: 50, y: 20)]])
     #expect(draws())
     let preview = SignaturePreview(signature: try #require(reader.savedSignatures.first)).frame(width: 200, height: 60)
-    #expect(ImageRenderer(content: preview).uiImage != nil)
+    #expect(ViewRendering.draws(preview))
   }
 
   @Test("Shapes are drawn with the chosen tool and text boxes are added, each saved (F2b)")
@@ -761,7 +761,7 @@ struct ReaderModelTests {
     let controller = try PDFDocumentController(data: SyntheticPDF.makeSample())
     controller.linkTapped(try #require(URL(string: address)))
     let view = Text(verbatim: "Page").modifier(LinkConfirmation(controller: controller)).frame(width: 390, height: 700)
-    #expect(ImageRenderer(content: view).uiImage != nil)
+    #expect(ViewRendering.draws(view))
     controller.dismissLink()
     #expect(controller.tappedLink == nil)
   }
@@ -775,7 +775,7 @@ struct ReaderModelTests {
     func draws() -> Bool {
       let sheet = AnnotationListSheet(model: reader).frame(width: 390, height: 700)
         .environment(\.dynamicTypeSize, .accessibility3)
-      return ImageRenderer(content: sheet).uiImage != nil
+      return ViewRendering.draws(sheet)
     }
     #expect(draws(), "The empty list draws")
     await reader.addTextBox("Check the total")
@@ -797,7 +797,7 @@ struct ReaderModelTests {
       onMove: { _ in }, onResize: { _ in }, onColor: { _ in }
     )
     .frame(width: 390).environment(\.dynamicTypeSize, .accessibility3)
-    #expect(ImageRenderer(content: view).uiImage != nil)
+    #expect(ViewRendering.draws(view))
   }
 
   @Test("Layout choices are remembered")
@@ -939,7 +939,7 @@ struct ReaderModelTests {
     func draws(_ reader: ReaderModel) -> Bool {
       let view = ReaderView(model: reader) { _ in EmptyView() }
         .frame(width: 390, height: 700).environment(\.dynamicTypeSize, .accessibility3)
-      return ImageRenderer(content: view).uiImage != nil
+      return ViewRendering.draws(view)
     }
     let locked = harness.reader(
       for: await harness.seed(try SyntheticPDF.makeEncrypted(pages: ["Private"], password: "pw")))
@@ -1261,7 +1261,7 @@ struct ReaderTextEditingTests {
       try SyntheticPDF.makeImageOnly(pages: ["A scanned letter"]), in: harness, textLayer: false)
     #expect(reader.isEditingText && reader.textEditMessage == .pageIsImage && reader.canRecognizeText)
     let hint = TextEditHint(model: reader).frame(width: 390).environment(\.dynamicTypeSize, .accessibility3)
-    #expect(ImageRenderer(content: hint).uiImage != nil)
+    #expect(ViewRendering.draws(hint))
   }
 
   @Test("What the reader says follows the page on screen")
@@ -1380,11 +1380,11 @@ struct ReaderTextEditingTests {
       draft.isInPlace = isInPlace
       let bar = TextEditBar(model: reader, draft: draft).frame(width: 390)
         .environment(\.dynamicTypeSize, .accessibility3)
-      #expect(ImageRenderer(content: bar).uiImage != nil)
+      #expect(ViewRendering.draws(bar))
     }
     let selection = try #require(reader.selectedTextRegion)
     let layer = TextEditLayer(model: reader, selection: selection, draft: draft).frame(width: 390, height: 700)
-    #expect(ImageRenderer(content: layer).uiImage != nil)
+    #expect(ViewRendering.draws(layer))
     #expect(!TextEditLayer.fitsInPlace(selection, anchor: nil))
     // Small print is edited in place too, at its own size: the person zooms the page if they want.
     let line = CGRect(x: 40, y: 200, width: 200, height: 6)
@@ -1413,7 +1413,7 @@ struct ReaderTextEditingTests {
       ReaderModel.TextEditMessage.pageIsImage, .pageNotEditable, .tooLong, .unsupportedCharacters, .cannotEdit,
       .fontMatched, .coversOriginal, .lookingForText, .noEditableText, .tookTooLong, .cannotEditOrCover,
     ] {
-      #expect(ImageRenderer(content: TextEditMessageLabel(message: message).frame(width: 300)).uiImage != nil)
+      #expect(ViewRendering.draws(TextEditMessageLabel(message: message).frame(width: 300)))
     }
     reader.cancelTextEdit()
     #expect(!reader.showsTextEditStartHint, "Once text has been picked, how to start is not said again")
@@ -1591,10 +1591,10 @@ struct ReaderTextEditingTests {
       for size in [DynamicTypeSize.large, .accessibility5] {
         let button = EditTextButton(model: reader).environment(\.colorScheme, scheme)
           .environment(\.dynamicTypeSize, size)
-        #expect(ImageRenderer(content: button).uiImage != nil)
+        #expect(ViewRendering.draws(button))
         let tip = EditTipCardBody(title: Text(verbatim: "Edit this PDF"), message: Text(verbatim: "Tap Edit.")) {}
           .frame(width: 390).environment(\.colorScheme, scheme).environment(\.dynamicTypeSize, size)
-        #expect(ImageRenderer(content: tip).uiImage != nil)
+        #expect(ViewRendering.draws(tip))
       }
     }
   }
@@ -1624,8 +1624,8 @@ struct ReaderTextEditingTests {
     #expect(log.summary().contains("Text editing session: made 0, covered 1, refused 1"))
     #expect(log.summary().contains("Text editing proof: newTextMissing 0/-14"))
     let card = TextEditNoticeCard(model: reader).frame(width: 390).environment(\.dynamicTypeSize, .accessibility3)
-    #expect(ImageRenderer(content: card).uiImage != nil)
-    #expect(ImageRenderer(content: TextEditHint(model: reader).frame(width: 390)).uiImage != nil)
+    #expect(ViewRendering.draws(card))
+    #expect(ViewRendering.draws(TextEditHint(model: reader).frame(width: 390)))
 
     // The rest of the page now says so before anyone types.
     try await pick("Materials", in: reader)
@@ -1736,7 +1736,7 @@ struct ReaderTextEditingTests {
     reader.cancelTextEdit()
     #expect(!reader.showsTextEditStartHint)
     let label = TextEditMessageLabel(message: .coversOriginalBriefly).frame(width: 300)
-    #expect(ImageRenderer(content: label).uiImage != nil)
+    #expect(ViewRendering.draws(label))
   }
 
   @Test("The field sits over upright text the page view has on screen, wherever it is; other text is typed in the bar")
@@ -1754,7 +1754,7 @@ struct ReaderTextEditingTests {
     // Then the field is in the bar, which is always in view.
     let draft = TextEditDraft()
     draft.isInPlace = false
-    #expect(ImageRenderer(content: TextEditBar(model: reader, draft: draft).frame(width: 390)).uiImage != nil)
+    #expect(ViewRendering.draws(TextEditBar(model: reader, draft: draft).frame(width: 390)))
   }
 
   @Test("A line is moved to where it was dropped, saved, and can be undone")
@@ -1796,8 +1796,8 @@ struct ReaderTextEditingTests {
     #expect(reader.textEditMessage == .somethingInTheWay && reader.textMoves == 0 && !reader.canUndo)
     #expect(controller.annotationCount(onPage: 0) == 0 && !controller.hasUnsavedTextEdits)
     let label = TextEditMessageLabel(message: .somethingInTheWay).frame(width: 300)
-    #expect(ImageRenderer(content: label).uiImage != nil)
-    #expect(ImageRenderer(content: TextEditHint(model: reader).frame(width: 390)).uiImage != nil)
+    #expect(ViewRendering.draws(label))
+    #expect(ViewRendering.draws(TextEditHint(model: reader).frame(width: 390)))
   }
 
   @Test("Text that cannot be moved in the page is covered and placed, and the reader says so")

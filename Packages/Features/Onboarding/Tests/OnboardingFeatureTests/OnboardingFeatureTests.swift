@@ -153,13 +153,13 @@ struct OnboardingModelTests {
 
   @Test("Each page renders, at the default and at an accessibility text size", arguments: OnboardingPage.allCases)
   func renders(page: OnboardingPage) {
-    #expect(ImageRenderer(content: OnboardingIllustration(page: page)).uiImage != nil)
+    #expect(ViewRendering.draws(OnboardingIllustration(page: page)))
     let still = OnboardingIllustration(page: page).environment(\.playsDecorativeMotion, false)
-    #expect(ImageRenderer(content: still).uiImage != nil)
+    #expect(ViewRendering.draws(still))
     let (model, _, _, _) = makeModel()
     let screen = OnboardingView(model: model).frame(width: 390, height: 844)
-    #expect(ImageRenderer(content: screen).uiImage != nil)
-    #expect(ImageRenderer(content: screen.dynamicTypeSize(.accessibility3)).uiImage != nil)
+    #expect(ViewRendering.draws(screen))
+    #expect(ViewRendering.draws(screen.dynamicTypeSize(.accessibility3)))
   }
 }
 
