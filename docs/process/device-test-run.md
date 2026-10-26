@@ -88,6 +88,11 @@ overrides it): the result bundle, the logs, `summary.md` and the attachments.
 session suite (it needs a run started from Xcode). It sets `UI_DEVICE=1` and `UI_EVIDENCE=all` for
 the tests, and has coverage off.
 
+When the UI test runner cannot start ("Timed out while enabling automation mode"), none of the UI tests
+run and xcodebuild cannot list them either; the summary says so under "Not listed" and the run fails.
+On the phone: wake and unlock it, check that Settings › Developer › Enable UI Automation is on, and run
+again; when it still times out, restart the phone.
+
 ## Xcode 27 here, Xcode 26.6 in CI
 
 The Mac builds with Xcode 27, the toolchain of [ADR-0023](../adr/0023-ios-26-floor-built-with-xcode-27.md);

@@ -142,3 +142,21 @@ def test_a_failed_tests_attachments_are_gathered_from_every_bundle(tmp_path):
     folder = out / f"{UI}_LibraryUITests_testB"
     assert sorted(p.name for p in folder.iterdir()) == ["Device-first.png", "Device-resume-1-second.png"]
     assert [p.name for p in out.iterdir()] == [folder.name]
+
+
+def test_a_runner_that_could_not_start_is_named_in_the_summary_and_fails_the_run(tmp_path):
+    listing = tmp_path / "enumerated.json"
+    listing.write_text(json.dumps({"errors": ["PDFAlgoProUITests-Runner (20565) encountered an error. (Underlying "
+                                              "Error: Timed out while enabling automation mode.)"],
+                                   "values": [{"enabledTests": [{"identifier": PLAN[0]}]}]}))
+    summary = tmp_path / "summary.md"
+    summary.write_text("### Tests\n")
+    assert device_resume.main(["unlisted", str(listing), str(summary)]) == 1
+    assert "#### Not listed" in summary.read_text() and "enabling automation mode" in summary.read_text()
+
+
+def test_a_full_listing_adds_nothing(tmp_path):
+    summary = tmp_path / "summary.md"
+    summary.write_text("### Tests\n")
+    assert device_resume.main(["unlisted", str(enumeration(tmp_path)), str(summary)]) == 0
+    assert summary.read_text() == "### Tests\n"
