@@ -206,6 +206,49 @@ else
   verdict=1
 fi
 
+# 4b. A runner that loses the phone (most often over Wi-Fi) ends the run: the tests it had not reached run
+# now, with the ones that failed, up to three times while tests are still missing (device_resume.py).
+resumed=()
+counts=""
+if [ "$verdict" != 0 ] && [ -n "$XCB_TESTS_JSON" ] && [ -f "$XCB_TESTS_JSON" ] \
+  && xcodebuild test-without-building "${XCB_TEST_ARGS[@]}" ${XCB_SELECTORS[@]+"${XCB_SELECTORS[@]}"} \
+    -enumerate-tests -test-enumeration-style flat -test-enumeration-format json \
+    -test-enumeration-output-path "$out/Device-enumerated.json" > "$out/Device-enumerate.log" 2>&1; then
+  resume_retry=()
+  if [ -n "$XCB_RETRY_JSON" ]; then
+    resume_retry=(--retries "$XCB_RETRY_JSON")
+  fi
+  for round in 1 2 3; do
+    with_failed=()
+    [ "$round" != 1 ] || with_failed=(--with-failed)
+    python3 scripts/dev/device_resume.py next "$out/Device-enumerated.json" "$XCB_TESTS_JSON" \
+      ${resumed[@]+"${resumed[@]}"} ${resume_retry[@]+"${resume_retry[@]}"} \
+      ${with_failed[@]+"${with_failed[@]}"} > "$out/Device-resume-$round.txt"
+    xcb_read_lines < "$out/Device-resume-$round.txt"
+    if [ "${#XCB_LINES[@]}" = 0 ]; then
+      break
+    fi
+    echo "== Round $round: running ${#XCB_LINES[@]} test(s) the stopped runner had not reached, or that failed"
+    set +e
+    xcodebuild test-without-building "${XCB_TEST_ARGS[@]}" -resultBundlePath "$out/Device-resume-$round.xcresult" \
+      "${XCB_LINES[@]}" 2>&1 | tee "$out/Device-resume-$round.log"
+    echo "== xcodebuild (round $round) exited ${PIPESTATUS[0]}"
+    set -e
+    if [ -f "$out/Device-resume-$round.xcresult/Info.plist" ] && xcrun xcresulttool get test-results tests \
+      --path "$out/Device-resume-$round.xcresult" > "$out/Device-resume-$round-tests.json"; then
+      resumed+=("$out/Device-resume-$round-tests.json")
+    fi
+  done
+  if [ "${#resumed[@]}" -gt 0 ]; then
+    if python3 scripts/dev/device_resume.py report "$out/Device-enumerated.json" "$XCB_TESTS_JSON" \
+      "${resumed[@]}" ${resume_retry[@]+"${resume_retry[@]}"} --summary "$out/Device-summary.md" \
+      --failed-ids "$XCB_FAILED_IDS" --counts "$out/Device-counts.txt"; then
+      verdict=0
+    fi
+    counts="$(cat "$out/Device-counts.txt")"
+  fi
+fi
+
 # 5. The evidence: everything the tests kept (UI_EVIDENCE=all keeps quarantined findings too), and
 # each failed test's attachments on their own, as CI's failed-attachments/.
 for bundle in "$out/Device.xcresult" "$out/Device-retry.xcresult"; do
@@ -232,6 +275,9 @@ if [ "$record" = 1 ]; then
   retries=()
   if [ -n "$XCB_RETRY_JSON" ]; then
     retries=(--retries "$XCB_RETRY_JSON")
+  fi
+  if [ -n "$counts" ]; then
+    retries+=(--counts "$counts")
   fi
   python3 scripts/dev/device_run_record.py record --tests "$XCB_TESTS_JSON" ${retries[@]+"${retries[@]}"} \
     --commit "$commit" --xcode "$xcode_version ($xcode_build)" --device "$model" --ios "$ios" \

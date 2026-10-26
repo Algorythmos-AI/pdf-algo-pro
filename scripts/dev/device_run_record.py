@@ -216,6 +216,7 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--doc", type=Path, default=DOC)
     r.add_argument("--tests", type=Path, help="`xcresulttool get test-results tests` JSON of the run")
     r.add_argument("--retries", type=Path, help="the same for the failed tests' second run")
+    r.add_argument("--counts", help="'passed / failed / flaky' when a resumed run decided them (device_resume.py)")
     r.add_argument("--date", default=dt.date.today().isoformat())
     for name in ("commit", "xcode", "device", "ios", "flags", "bundle"):
         r.add_argument(f"--{name}", required=True)
@@ -253,7 +254,7 @@ def main(argv: list[str] | None = None) -> int:
         if not re.fullmatch(r"[0-9a-f]{7,40}(-dirty)?", args.commit):
             raise SystemExit(f"--commit {args.commit!r} is not a commit hash")
         row = [args.date, args.commit, args.xcode, args.device, args.ios, args.flags,
-               counts(args.tests, args.retries), f"`{public_path(args.bundle)}`", args.ci_ios,
+               args.counts or counts(args.tests, args.retries), f"`{public_path(args.bundle)}`", args.ci_ios,
                args.checklist, args.issues]
         append_row(args.doc, row)
         print(f"Added the run to {args.doc.relative_to(ROOT) if args.doc.is_relative_to(ROOT) else args.doc}: "

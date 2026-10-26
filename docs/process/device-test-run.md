@@ -64,6 +64,12 @@ The script ([device_tests.sh](../../scripts/dev/device_tests.sh)):
    (`DEVICE_TESTS_DERIVED_DATA` overrides it).
 4. Runs the tests into a result bundle, then runs the failed tests once more on their own, as CI's UI
    shards do (at most three; [test_shards.py](../../scripts/ci/test_shards.py) `retry-args device`).
+   When the UI test runner loses the phone partway (most often over Wi-Fi), xcodebuild ends the run
+   and the tests it had not reached never run: the script lists the plan's tests
+   (`-enumerate-tests`), runs the ones no result holds, with the ones that failed, and repeats while
+   tests are still missing, up to three rounds
+   ([device_resume.py](../../scripts/dev/device_resume.py)). A test that never ran in any round fails
+   the run.
 5. Reports with [xcresult_report.py](../../scripts/ci/xcresult_report.py) and exports the
    attachments: every failed test's screens under `failed-attachments/`, and everything the tests kept
    (with `UI_EVIDENCE=all`, quarantined findings too) under `attachments/`.
