@@ -34,6 +34,11 @@ Store notes (see the changelog strategy).
 - Saving on iOS 27 kept bookmarks, the document's outline and links to other pages. iOS 27 left them
   out of the saved file: bookmarks added or removed were lost, and links inside the document went
   nowhere. The app now checks what it saved and puts them back, in password-protected documents too.
+- On iOS 27, making a scan searchable keeps the document's notes, links and bookmarks, and a
+  compressed copy keeps its bookmarks and links. iOS 27 left them out of the new file.
+- On iOS 27, stamps chosen from the Stamp menu, and notes, drawings, shapes, text boxes and
+  signatures that were pasted or duplicated, were lost when the document was saved. They are now
+  saved like everything else.
 - Reduce file size makes scans and photos smaller again on iOS 27. iOS 27 stopped re-encoding a
   document's pictures, so a scan was "already about as small as it gets". The app now re-encodes
   the pictures itself, as JPEG, and for email at most 1,600 pixels on their longest side; text and

@@ -715,7 +715,9 @@ struct ControllerTests {
     chapter.insertChild(section, at: 0)
     root.insertChild(chapter, at: 0)
     document.outlineRoot = root
-    let controller = try PDFDocumentController(data: try #require(document.dataRepresentation()))
+    // Written with the outline put back where PDFKit leaves it out (iOS 27, #307): this tests the reader.
+    let controller = try PDFDocumentController(
+      data: try #require(PDFDocumentController.dataRepresentation(of: document)))
     #expect(controller.outline.map(\.title) == ["Chapter", "Section"])
     #expect(controller.outline.map(\.depth) == [0, 1])
     #expect(controller.outline.map(\.pageIndex) == [1, 2])
@@ -1152,21 +1154,45 @@ struct SearchablePDFTests {
     outline.insertChild(entry, at: 0)
     source.outlineRoot = outline
     source.documentAttributes = [PDFDocumentAttribute.titleAttribute: "Invoice"]
-    let url = try write(try #require(source.dataRepresentation()))
+    // The fixture has its outline and link as another app would write them; PDFKit on iOS 27 leaves
+    // them out of `dataRepresentation()` (#307).
+    let url = try write(try #require(PDFDocumentController.dataRepresentation(of: source)))
 
     let result = try await SearchablePDFBuilder(recognizer: FakeRecognizer(), renderPixelSize: 600).addTextLayer(
       toPDFAt: url)
 
     let document = try #require(PDFDocument(data: result.data))
     let page = try #require(document.page(at: 0))
+    // What each file holds, so a failure on a device says whether the fixture or the copy lost it.
+    let state = "fixture: \(Self.contents(of: PDFDocument(url: url))); copy: \(Self.contents(of: document))"
     #expect(document.string?.contains("Recognised text") == true)
-    #expect(page.annotations.contains { $0.type == "Text" && $0.contents == "Check the total" })
-    let movedLink = try #require(page.annotations.first { $0.type == "Link" })
-    #expect(movedLink.destination?.page.map { document.index(for: $0) } == 1)
+    #expect(page.annotations.contains { $0.type == "Text" && $0.contents == "Check the total" }, "\(state)")
+    let kept = PDFDocument(url: url)?.page(at: 0)?.annotations.map(\.type)
+    #expect(page.annotations.map(\.type) == kept, "each annotation once, its note's pop-up too: \(state)")
+    let movedLink = try #require(page.annotations.first { $0.type == "Link" }, "\(state)")
+    #expect(movedLink.destination?.page.map { document.index(for: $0) } == 1, "\(state)")
     #expect(document.page(at: 1)?.rotation == 90)
-    let movedEntry = try #require(document.outlineRoot?.child(at: 0))
-    #expect(movedEntry.label == "Totals" && movedEntry.destination?.page.map { document.index(for: $0) } == 1)
+    let movedEntry = try #require(document.outlineRoot?.child(at: 0), "\(state)")
+    #expect(
+      movedEntry.label == "Totals" && movedEntry.destination?.page.map { document.index(for: $0) } == 1, "\(state)")
     #expect(document.documentAttributes?[PDFDocumentAttribute.titleAttribute] as? String == "Invoice")
+  }
+
+  /// Each page's annotations, with where a link goes, and the outline's titles with their pages.
+  private static func contents(of document: PDFDocument?) -> String {
+    guard let document else { return "unreadable" }
+    func target(_ destination: PDFDestination?) -> String {
+      guard let destination else { return "none" }
+      return destination.page.map { "\(document.index(for: $0))" } ?? "no page"
+    }
+    let pages = (0..<document.pageCount).map { index in
+      let annotations = document.page(at: index)?.annotations ?? []
+      return "page \(index) ["
+        + annotations.map { "\($0.type ?? "?") \($0.contents ?? "") → \(target($0.destination))" }
+        .joined(separator: ", ") + "]"
+    }
+    let outline = PDFDocumentController.outline(of: document).map { "\($0.title)@\($0.target ?? -1)" }
+    return pages.joined(separator: " ") + " outline \(outline)"
   }
 
   @Test("Adding a text layer to a document whose metadata has a key that isn't UTF-8 keeps the rest")
@@ -1176,6 +1202,45 @@ struct SearchablePDFTests {
       toPDFAt: url)
     let document = try #require(PDFDocument(data: result.data))
     #expect(document.documentAttributes?[PDFDocumentAttribute.titleAttribute] as? String == "Damaged metadata")
+  }
+
+  /// The page each entry of an outline's first branch goes to, from the top down, read without recursion.
+  private static func branchTargets(of document: PDFDocument) -> [Int] {
+    var targets: [Int] = []
+    var item = document.outlineRoot?.child(at: 0)
+    while let entry = item, targets.count < 1_000 {
+      targets.append(entry.destination?.page.map { document.index(for: $0) } ?? -1)
+      item = entry.numberOfChildren > 0 ? entry.child(at: 0) : nil
+    }
+    return targets
+  }
+
+  @Test("Adding a text layer points every outline entry at its new page, however deeply nested")
+  func textLayerKeepsDeepOutlines() async throws {
+    let source = try #require(PDFDocument(data: SyntheticPDF.makeImageOnly(pages: ["One", "Two"])))
+    let root = PDFOutline()
+    var parent = root
+    for level in 0..<150 {
+      let item = PDFOutline()
+      item.label = "Level \(level)"
+      item.destination = PDFDestination(page: try #require(source.page(at: level % 2)), at: .zero)
+      parent.insertChild(item, at: 0)
+      parent = item
+    }
+    source.outlineRoot = root
+    let url = try write(try #require(PDFDocumentController.dataRepresentation(of: source)))
+    // On macOS the fixture keeps all 150 levels. Where PDFKit leaves the outline out (iOS 27), the
+    // repair writes it 100 levels deep (`outlineDepthLimit`), and the copy must keep what the fixture has.
+    let fixture = Self.branchTargets(of: try #require(PDFDocument(url: url)))
+    #expect(fixture.count >= PDFDocumentController.outlineDepthLimit, "the fixture's outline: \(fixture.count) deep")
+
+    let result = try await SearchablePDFBuilder(recognizer: FakeRecognizer(), renderPixelSize: 600).addTextLayer(
+      toPDFAt: url)
+
+    let copy = Self.branchTargets(of: try #require(PDFDocument(data: result.data)))
+    #expect(copy.count == fixture.count, "the copy's outline is \(copy.count) deep, the fixture's \(fixture.count)")
+    #expect(copy == (0..<copy.count).map { $0 % 2 }, "pages, from the top: \(copy)")
+    #expect(copy.last == (fixture.count - 1) % 2, "the deepest entry, level \(copy.count - 1), goes to its page")
   }
 
   @Test("Recognition resumes: pages already done are reused, and each new page is handed back (P8)")

@@ -173,7 +173,7 @@ public enum GoldenCorpus {
       root.insertChild(item, at: index)
     }
     document.outlineRoot = root
-    guard let data = document.dataRepresentation() else { throw TestPDFs.Failure() }
+    guard let data = PDFDocumentController.dataRepresentation(of: document) else { throw TestPDFs.Failure() }
     return data
   }
 

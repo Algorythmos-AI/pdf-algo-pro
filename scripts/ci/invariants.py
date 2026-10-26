@@ -17,6 +17,7 @@ app and its packages, not to developer tools under scripts/:
   * networking APIs only in the Intelligence, Commerce and Telemetry packages;
   * colour literals only in the DesignSystem package;
   * the commercial PDF SDK imported only in the PDFEngine package;
+  * no PDF annotation copied with `copy()`, which PDFKit on iOS 27 never writes (#307);
   * a PrivacyInfo.xcprivacy exists and declares every required-reason API category the code uses.
 
 Exit 1 on any violation.
@@ -181,6 +182,19 @@ def identifier_literals(text: str) -> list[int]:
     return [no for no, line in enumerate(text.splitlines(), 1) if IDENTIFIER_LITERAL.search(line)]
 
 
+ANNOTATION_COPY = re.compile(r"\.copy\(\)\s*as[?!]?\s*PDFAnnotation\b|\b\w*[Aa]nnotation\w*\??\.copy\(\)")
+
+
+def annotation_copies(text: str) -> list[int]:
+    """Lines that copy a PDF annotation with `copy()`; comments do not count.
+
+    PDFKit on iOS 27 writes no annotation made with `copy()`, so it is lost at the next save (#307).
+    `PDFDocumentController.copy(of:)` makes a new annotation with the original's entries instead.
+    """
+    return [no for no, line in enumerate(text.splitlines(), 1)
+            if not line.strip().startswith("//") and ANNOTATION_COPY.search(line)]
+
+
 INTERNAL_ONLY = ("InternalFirstRunReplay", "isReplayingFirstRun", "resetFirstRunReplay", "firstRunReplay(")
 INTERNAL_CONFIGS = {"Debug", "Staging"}
 
@@ -258,6 +272,10 @@ def main() -> int:
                         errors.append(
                             f"{rel}:{no}: an accessibility identifier is a string literal; add it to "
                             "design/accessibility-ids.json and use its AccessibilityID constant")
+                for no in annotation_copies(text):
+                    errors.append(
+                        f"{rel}:{no}: an annotation is copied with `copy()`, which PDFKit on iOS 27 never writes "
+                        "to the file; use PDFDocumentController.copy(of:) (#307)")
                 for no in outside_internal_tools(text):
                     errors.append(
                         f"{rel}:{no}: the Staging first-run replay is named outside `#if INTERNAL_TOOLS`; "

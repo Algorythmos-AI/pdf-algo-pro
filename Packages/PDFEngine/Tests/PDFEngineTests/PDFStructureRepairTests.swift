@@ -234,6 +234,41 @@ struct PDFStructureRepairTests {
     #expect(titlesAndPages(reopened) == ["Chapter@0", "Résumé@1"], "the RC4 titles read back")
   }
 
+  @Test("A document written to data, not saved, gets back the outline and links PDFKit leaves out (#307)")
+  func writtenToData() throws {
+    let source = try document()
+    let root = PDFOutline()
+    let chapter = PDFOutline()
+    chapter.label = "Chapter"
+    chapter.destination = PDFDestination(page: try #require(source.page(at: 1)), at: .zero)
+    let section = PDFOutline()
+    section.label = "Section"
+    section.destination = PDFDestination(page: try #require(source.page(at: 2)), at: CGPoint(x: 0, y: 700))
+    chapter.insertChild(section, at: 0)
+    root.insertChild(chapter, at: 0)
+    source.outlineRoot = root
+    let link = PDFAnnotation(bounds: CGRect(x: 100, y: 200, width: 60, height: 20), forType: .link, withProperties: nil)
+    link.destination = PDFDestination(page: try #require(source.page(at: 2)), at: CGPoint(x: 0, y: 792))
+    try #require(source.page(at: 0)).addAnnotation(link)
+    // Writes the document as PDFKit on iOS 27 does: every link to nowhere, and no outline.
+    let iOS27 = { (document: PDFDocument) -> Data? in
+      guard let written = document.dataRepresentation(), let broken = try? self.breakingLinks(written) else {
+        return nil
+      }
+      return PDFStructureRepair.repaired(broken, links: [], outline: [])?.data
+    }
+    let lost = try #require(iOS27(source))
+    #expect(titlesAndPages(PDFDocument(data: lost)).isEmpty, "the outline is left out, as iOS 27 does")
+    #expect(linkTargets(PDFDocument(data: lost)).isEmpty, "the link goes nowhere, as iOS 27 writes it")
+
+    let written = try #require(PDFDocumentController.dataRepresentation(of: source, writtenBy: iOS27))
+    #expect(titlesAndPages(PDFDocument(data: written)) == ["Chapter@1", "Section@2"])
+    #expect(linkTargets(PDFDocument(data: written)) == [2])
+    let intact = try #require(PDFDocumentController.dataRepresentation(of: source))
+    #expect(titlesAndPages(PDFDocument(data: intact)) == ["Chapter@1", "Section@2"], "and with this PDFKit's writer")
+    #expect(linkTargets(PDFDocument(data: intact)) == [2])
+  }
+
   @Test("A file this can't read is left alone")
   func unreadableFiles() {
     #expect(PDFStructureRepair.repaired(Data("not a PDF".utf8), links: [], outline: []) == nil)

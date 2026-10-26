@@ -112,13 +112,66 @@ extension PDFDocumentController {
   }
 
   /// A copy of an annotation that keeps what it is and how it looks, but no page.
+  ///
+  /// It is a new annotation, made as the app makes any other, with the original's entries set on it.
+  /// It is never made with `copy()`: PDFKit on iOS 27 writes no annotation made that way, so a stamp
+  /// chosen from the menu, a paste or a duplicate was lost at the next save (#307).
   static func copy(of annotation: PDFAnnotation) -> PDFAnnotation? {
-    guard let copy = annotation.copy() as? PDFAnnotation else { return nil }
-    // PDFKit copies the drawing's paths as the same objects; the copy gets its own.
-    for path in copy.paths ?? [] { copy.remove(path) }
+    guard let type = annotation.type else { return nil }
+    let copy = PDFAnnotation(
+      bounds: annotation.bounds, forType: PDFAnnotationSubtype(rawValue: type), withProperties: nil)
+    // Every entry the original has (its subject, author, date, flags, alignment, text style, and any
+    // other app's), except those that tie it to its page and those set from their own properties below.
+    for (key, value) in annotation.annotationKeyValues {
+      guard let key = key as? String, !Self.entriesSetApart.contains(key) else { continue }
+      copy.setValue(value, forAnnotationKey: PDFAnnotationKey(rawValue: key))
+    }
+    copy.contents = annotation.contents
+    if type == "FreeText" {
+      if let font = annotation.font { copy.font = font }
+      if let color = annotation.fontColor { copy.fontColor = color }
+      copy.alignment = annotation.alignment
+    }
+    if type == "Line" {
+      copy.startPoint = annotation.startPoint
+      copy.endPoint = annotation.endPoint
+      copy.startLineStyle = annotation.startLineStyle
+      copy.endLineStyle = annotation.endLineStyle
+    }
+    if type == "Text" { copy.iconType = annotation.iconType }
+    if type == "Stamp", let name = annotation.stampName { copy.stampName = name }
+    if let interior = annotation.interiorColor { copy.interiorColor = interior }
+    // The colour after the font and before the border, in the order the app sets them when it makes an
+    // annotation. On a free-text annotation the colour is the fill, and a tick or a typed signature has
+    // a clear one. On iOS 27 a clear fill set before the font came back as another colour, and one set
+    // after the border came back as none at all, which `color` cannot even return (the test crashed).
+    // Read as an entry, since an annotation from another app may have no colour.
+    if let color = annotation.value(forAnnotationKey: .color) as? PlatformColor {
+      copy.color = color
+    } else if type == "FreeText" {
+      // No fill. On iOS 27 the clear fill the app gives a tick or a typed signature is kept as no colour
+      // entry at all, and a new free-text annotation starts yellow: left as it came, a copy was yellow
+      // behind its text (an iPhone with iOS 27.0.1, 2026-10-26).
+      copy.color = .clear
+    }
+    if let border = annotation.border {
+      let fresh = PDFBorder()
+      fresh.lineWidth = border.lineWidth
+      fresh.style = border.style
+      fresh.dashPattern = border.dashPattern
+      copy.border = fresh
+    }
+    // The drawing's paths, each its own object, in the annotation's own space.
     for path in annotation.paths ?? [] { copy.add(PlatformBezierPath(cgPath: path.cgPath)) }
     return copy
   }
+
+  /// The entries `copy(of:)` does not take as they are: what ties an annotation to its page and its
+  /// pop-up, its type and place (given when it is made), and what is set from its own property.
+  private static let entriesSetApart: Set<String> = [
+    "/P", "/Popup", "/Parent", "/IRT", "/Subtype", "/Type", "/Rect", "/NM",
+    "/Contents", "/C", "/IC", "/Border", "/BS", "/InkList", "/L", "/LE", "/Name",
+  ]
 
   private func clipboardChanged() {
     clipboardGeneration += 1

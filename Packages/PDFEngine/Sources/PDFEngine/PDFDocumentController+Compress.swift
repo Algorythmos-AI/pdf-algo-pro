@@ -51,6 +51,10 @@ extension PDFDocumentController {
     guard document.write(to: staging, withOptions: options), let check = PDFDocument(url: staging),
       check.isLocked || check.pageCount == document.pageCount
     else { throw PDFEngineError.saveFailed }
+    // A compressed copy keeps the bookmarks and links that PDFKit on iOS 27 leaves out (#307). First, so
+    // the pictures are re-encoded in the mended file: that rewrite follows the update's cross-reference
+    // chain and copies the outline and the links as they are.
+    _ = try mendStructure(in: check, at: staging, options: options)
     var data = try Data(contentsOf: staging, options: .mappedIfSafe)
     // PDFKit on iOS 27 ignores the image options and writes each image as it was (#308), so the images it
     // left are re-encoded here. The result is used only if it opens with every page.
