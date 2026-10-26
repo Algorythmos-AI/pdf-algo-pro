@@ -15,7 +15,8 @@
 # The build goes to DEVICE_TESTS_DERIVED_DATA (default: PDFAlgoPro-device-tests in Xcode's DerivedData
 # folder, outside the repository); the results to DEVICE_TESTS_RESULTS/<date>-<time>-<commit> (default:
 # .build/device-tests). Needs Xcode 27, XcodeGen and Config/Team.xcconfig. The device's id is never
-# printed or written to a file: the repository is public.
+# printed or written to a file: the repository is public. DEVICE_TESTS_MIN_FREE_GIB (default 8) is the
+# free space the run asks for; an incremental build into an existing DerivedData needs less.
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -46,7 +47,7 @@ done
 
 dd="${DEVICE_TESTS_DERIVED_DATA:-$HOME/Library/Developer/Xcode/DerivedData/PDFAlgoPro-device-tests}"
 results="${DEVICE_TESTS_RESULTS:-$root/.build/device-tests}"
-min_free_gib=8
+min_free_gib="${DEVICE_TESTS_MIN_FREE_GIB:-8}"
 team_file=Config/Team.xcconfig
 ui_target=PDFAlgoProUITests
 
