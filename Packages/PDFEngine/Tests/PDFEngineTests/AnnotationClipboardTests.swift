@@ -197,8 +197,11 @@ struct AnnotationClipboardTests {
       #expect(copy !== original)
       #expect(copy.type == original.type && copy.bounds == original.bounds, "\(what)")
       #expect(PDFDocumentController.kind(of: copy) == PDFDocumentController.kind(of: original), "\(what)")
-      #expect(copy.contents == original.contents && copy.color == original.color, "\(what)")
-      #expect(copy.interiorColor == original.interiorColor, "\(what)")
+      // Both colours and the entries that make up the look, so a difference on a device says what it is.
+      let looks = "\(what): original \(Self.look(of: original)); copy \(Self.look(of: copy))"
+      #expect(copy.contents == original.contents, "\(what)")
+      #expect(copy.color == original.color, "\(looks)")
+      #expect(copy.interiorColor == original.interiorColor, "\(looks)")
       #expect(copy.border?.lineWidth == original.border?.lineWidth, "\(what)")
       #expect(copy.font == original.font && copy.fontColor == original.fontColor, "\(what)")
       #expect(copy.alignment == original.alignment, "\(what)")
@@ -211,8 +214,23 @@ struct AnnotationClipboardTests {
       #expect(copy.value(forAnnotationKey: subject) as? String == original.value(forAnnotationKey: subject) as? String)
       let drawn = pixels(original)
       #expect(drawn.contains { $0 != 0 }, "\(what) draws something")
-      #expect(pixels(copy) == drawn, "\(what) looks the same")
+      let same = pixels(copy) == drawn
+      #expect(same, "looks the same: \(looks)")
     }
+  }
+
+  /// An annotation's colours (components and colour space) and the entries that make up its look.
+  private static func look(of annotation: PDFAnnotation) -> String {
+    func describe(_ color: PlatformColor?) -> String {
+      guard let cgColor = color?.cgColor else { return "none" }
+      let components = (cgColor.components ?? []).map { String(format: "%.3f", Double($0)) }.joined(separator: " ")
+      return "[\(components)] \(cgColor.colorSpace?.name.map { $0 as String } ?? "no colour space")"
+    }
+    let entries = ["/C", "/IC", "/DA", "/MK", "/BS", "/Border"].map { key in
+      "\(key)=\(annotation.annotationKeyValues[key].map { "\($0)" } ?? "absent")"
+    }
+    return "color \(describe(annotation.color)), interior \(describe(annotation.interiorColor)), "
+      + "font colour \(describe(annotation.fontColor)), " + entries.joined(separator: ", ")
   }
 
   @Test("Pasted and duplicated annotations of every kind the app copies survive a save (#307)")
