@@ -51,6 +51,9 @@ extension PDFDocumentController {
       check = try stage(to: staging, options: options, fault: fault)
       guard editsAreIntact(in: check, options: options) else { throw PDFEngineError.saveFailed }
     }
+    // The outline and the links to pages must read back as they are here: PDFKit on iOS 27 leaves them
+    // out, and they are put back (#307).
+    _ = try mendStructure(in: check, at: staging, options: options)
     do { try fault(.validated) } catch { throw Self.saveError(for: error) }
     try? fileManager.setAttributes(
       [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication], ofItemAtPath: staging.path)
