@@ -146,7 +146,14 @@ extension PDFDocumentController {
     // a clear one. On iOS 27 a clear fill set before the font came back as another colour, and one set
     // after the border came back as none at all, which `color` cannot even return (the test crashed).
     // Read as an entry, since an annotation from another app may have no colour.
-    if let color = annotation.value(forAnnotationKey: .color) as? PlatformColor { copy.color = color }
+    if let color = annotation.value(forAnnotationKey: .color) as? PlatformColor {
+      copy.color = color
+    } else if type == "FreeText" {
+      // No fill. On iOS 27 the clear fill the app gives a tick or a typed signature is kept as no colour
+      // entry at all, and a new free-text annotation starts yellow: left as it came, a copy was yellow
+      // behind its text (an iPhone with iOS 27.0.1, 2026-10-26).
+      copy.color = .clear
+    }
     if let border = annotation.border {
       let fresh = PDFBorder()
       fresh.lineWidth = border.lineWidth
