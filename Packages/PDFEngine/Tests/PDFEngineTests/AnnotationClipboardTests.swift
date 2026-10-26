@@ -200,8 +200,9 @@ struct AnnotationClipboardTests {
       // Both colours and the entries that make up the look, so a difference on a device says what it is.
       let looks = "\(what): original \(Self.look(of: original)); copy \(Self.look(of: copy))"
       #expect(copy.contents == original.contents, "\(what)")
-      #expect(copy.color == original.color, "\(looks)")
-      #expect(copy.interiorColor == original.interiorColor, "\(looks)")
+      // Read as entries: `color` traps when an annotation has none, as a copy had on iOS 27.
+      #expect(Self.color(of: copy) == Self.color(of: original), "\(looks)")
+      #expect(Self.color(of: copy, .interiorColor) == Self.color(of: original, .interiorColor), "\(looks)")
       #expect(copy.border?.lineWidth == original.border?.lineWidth, "\(what)")
       #expect(copy.font == original.font && copy.fontColor == original.fontColor, "\(what)")
       #expect(copy.alignment == original.alignment, "\(what)")
@@ -219,6 +220,11 @@ struct AnnotationClipboardTests {
     }
   }
 
+  /// An annotation's colour entry, or `nil` when it has none.
+  private static func color(of annotation: PDFAnnotation, _ key: PDFAnnotationKey = .color) -> PlatformColor? {
+    annotation.value(forAnnotationKey: key) as? PlatformColor
+  }
+
   /// An annotation's colours (components and colour space) and the entries that make up its look.
   private static func look(of annotation: PDFAnnotation) -> String {
     func describe(_ color: PlatformColor?) -> String {
@@ -229,7 +235,7 @@ struct AnnotationClipboardTests {
     let entries = ["/C", "/IC", "/DA", "/MK", "/BS", "/Border"].map { key in
       "\(key)=\(annotation.annotationKeyValues[key].map { "\($0)" } ?? "absent")"
     }
-    return "color \(describe(annotation.color)), interior \(describe(annotation.interiorColor)), "
+    return "color \(describe(color(of: annotation))), interior \(describe(color(of: annotation, .interiorColor))), "
       + "font colour \(describe(annotation.fontColor)), " + entries.joined(separator: ", ")
   }
 

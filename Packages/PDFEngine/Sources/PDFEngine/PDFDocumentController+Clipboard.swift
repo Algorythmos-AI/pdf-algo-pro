@@ -141,6 +141,12 @@ extension PDFDocumentController {
     if type == "Text" { copy.iconType = annotation.iconType }
     if type == "Stamp", let name = annotation.stampName { copy.stampName = name }
     if let interior = annotation.interiorColor { copy.interiorColor = interior }
+    // The colour after the font and before the border, in the order the app sets them when it makes an
+    // annotation. On a free-text annotation the colour is the fill, and a tick or a typed signature has
+    // a clear one. On iOS 27 a clear fill set before the font came back as another colour, and one set
+    // after the border came back as none at all, which `color` cannot even return (the test crashed).
+    // Read as an entry, since an annotation from another app may have no colour.
+    if let color = annotation.value(forAnnotationKey: .color) as? PlatformColor { copy.color = color }
     if let border = annotation.border {
       let fresh = PDFBorder()
       fresh.lineWidth = border.lineWidth
@@ -148,10 +154,6 @@ extension PDFDocumentController {
       fresh.dashPattern = border.dashPattern
       copy.border = fresh
     }
-    // The colour last, as the app sets it when it makes one. On a free-text annotation it is the fill,
-    // and a clear one (a tick, a typed signature) is no fill at all; on iOS 27, setting the font after
-    // it gave the copy a fill of its own, so a tick picked from the menu looked unlike the one chosen.
-    copy.color = annotation.color
     // The drawing's paths, each its own object, in the annotation's own space.
     for path in annotation.paths ?? [] { copy.add(PlatformBezierPath(cgPath: path.cgPath)) }
     return copy
