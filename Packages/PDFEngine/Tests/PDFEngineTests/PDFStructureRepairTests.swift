@@ -140,7 +140,7 @@ struct PDFStructureRepairTests {
     #expect(depth == PDFDocumentController.outlineDepthLimit)
   }
 
-  @Test("In an encrypted file, links are mended and the outline is left, its titles being encrypted")
+  @Test("In an encrypted file, links are mended and the outline is written with encrypted titles (#309)")
   func encryptedFiles() throws {
     let source = try document()
     let link = PDFAnnotation(bounds: CGRect(x: 100, y: 200, width: 60, height: 20), forType: .link, withProperties: nil)
@@ -148,17 +148,87 @@ struct PDFStructureRepairTests {
     try #require(source.page(at: 0)).addAnnotation(link)
     let url = FileManager.default.temporaryDirectory.appendingPathComponent("repair-\(UUID()).pdf")
     defer { try? FileManager.default.removeItem(at: url) }
-    #expect(source.write(to: url, withOptions: [.userPasswordOption: "fixture", .ownerPasswordOption: "fixture"]))
+    #expect(source.write(to: url, withOptions: [.userPasswordOption: "fixture", .ownerPasswordOption: "owner"]))
     let written = try Data(contentsOf: url)
-    let outline = [PDFStructureRepair.OutlineItem(title: "Kept out", target: 0, point: nil, isOpen: true, children: [])]
+    let outline = [
+      PDFStructureRepair.OutlineItem(title: "Chapter", target: 0, point: nil, isOpen: true, children: []),
+      PDFStructureRepair.OutlineItem(title: "Résumé", target: 1, point: nil, isOpen: true, children: []),
+    ]
     let links = PDFDocumentController.links(in: source)
-    if let result = PDFStructureRepair.repaired(written, links: links, outline: outline) {
-      #expect(!result.wroteOutline)
-      let reopened = try #require(PDFDocument(data: result.data))
-      reopened.unlock(withPassword: "fixture")
-      #expect(!reopened.isLocked, "the updated file still opens with its password")
-      #expect(linkTargets(reopened) == [1])
+    let result = try #require(
+      PDFStructureRepair.repaired(written, links: links, outline: outline, password: "fixture"))
+    #expect(result.wroteOutline)
+    let reopened = try #require(PDFDocument(data: result.data))
+    #expect(reopened.isLocked, "the updated file is still encrypted")
+    reopened.unlock(withPassword: "fixture")
+    #expect(!reopened.isLocked, "and opens with its password")
+    #expect(titlesAndPages(reopened) == ["Chapter@0", "Résumé@1"], "the encrypted titles read back")
+    #expect(linkTargets(reopened) == [1])
+
+    let wrong = PDFStructureRepair.repaired(written, links: [], outline: outline, password: "not it")
+    #expect(wrong == nil || wrong?.wroteOutline == false, "a wrong password writes no outline")
+  }
+
+  /// The `/Encrypt` values iOS 27.0.1 wrote for a file with the user password "fixture": the standard
+  /// handler at revision 3 with 128-bit RC4.
+  private static let iOS27Owner = "6478d42d9116632ee825fe8013e380d2f76830da0832472ce3491bcc28022da2"
+  private static let iOS27User = "e33e001cc448d8880dfc3fad4d0cdb0600000000000000000000000000000000"
+  private static let iOS27ID = "cb61a5ebd9ce7a9f7ded2cc5bc146ade"
+
+  /// A two-page file encrypted the way iOS 27 writes one.
+  ///
+  /// Its pages are empty, so it holds no other string or stream that would need encrypting.
+  private func iOS27EncryptedFile() -> Data {
+    let objects = [
+      "<< /Type /Catalog /Pages 2 0 R >>",
+      "<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>",
+      "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>",
+      "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>",
+      "<< /Filter /Standard /V 2 /R 3 /Length 128 /P -4 /O <\(Self.iOS27Owner)> /U <\(Self.iOS27User)> >>",
+    ]
+    var text = "%PDF-1.7\n"
+    var offsets: [Int] = []
+    for (index, object) in objects.enumerated() {
+      offsets.append(text.utf8.count)
+      text += "\(index + 1) 0 obj\n\(object)\nendobj\n"
     }
+    let start = text.utf8.count
+    text += "xref\n0 \(objects.count + 1)\n0000000000 65535 f\r\n"
+    for offset in offsets { text += String(format: "%010ld 00000 n\r\n", offset) }
+    text += "trailer\n<< /Size \(objects.count + 1) /Root 1 0 R /Encrypt 5 0 R "
+    text += "/ID [<\(Self.iOS27ID)> <\(Self.iOS27ID)>] >>\nstartxref\n\(start)\n%%EOF\n"
+    return Data(text.utf8)
+  }
+
+  @Test("The password iOS 27 encrypted a file with opens its RC4 handler, and no other does (#309)")
+  func iOS27Handler() throws {
+    func hexBytes(_ hex: String) -> [UInt8] { WrittenPDF.stringBytes(Data("<\(hex)>".utf8)) ?? [] }
+    func handler(_ password: String) -> PDFStandardSecurity? {
+      PDFStandardSecurity(
+        cipher: .rc4(keyLength: 16), owner: hexBytes(Self.iOS27Owner),
+        user: hexBytes(Self.iOS27User), permissions: -4,
+        firstID: hexBytes(Self.iOS27ID), encryptsMetadata: true, password: password)
+    }
+    #expect(handler("fixture") != nil)
+    #expect(handler("fixtures") == nil)
+    #expect(handler("") == nil)
+  }
+
+  @Test("In a file encrypted the way iOS 27 writes one, the outline is written with RC4 titles (#309)")
+  func iOS27EncryptedFiles() throws {
+    let written = iOS27EncryptedFile()
+    let before = try #require(PDFDocument(data: written))
+    #expect(before.isLocked && before.unlock(withPassword: "fixture"), "the fixture opens with its password")
+    let outline = [
+      PDFStructureRepair.OutlineItem(title: "Chapter", target: 0, point: nil, isOpen: true, children: []),
+      PDFStructureRepair.OutlineItem(title: "Résumé", target: 1, point: nil, isOpen: true, children: []),
+    ]
+    let result = try #require(PDFStructureRepair.repaired(written, links: [], outline: outline, password: "fixture"))
+    #expect(result.wroteOutline)
+    let reopened = try #require(PDFDocument(data: result.data))
+    #expect(reopened.isLocked, "the updated file is still encrypted")
+    #expect(reopened.unlock(withPassword: "fixture"), "and opens with its password")
+    #expect(titlesAndPages(reopened) == ["Chapter@0", "Résumé@1"], "the RC4 titles read back")
   }
 
   @Test("A file this can't read is left alone")

@@ -20,9 +20,10 @@ extension PDFDocumentController {
     let linksIntact = Set(links.map(LinkKey.init)).isSubset(of: Self.links(in: check).map(LinkKey.init))
     let outlineIntact = Self.shape(Self.outline(of: check)) == Self.shape(outline)
     guard !linksIntact || !outlineIntact else { return check }
+    let key = options[.userPasswordOption] as? String ?? password ?? ""
     guard let written = try? Data(contentsOf: staging),
       let result = PDFStructureRepair.repaired(
-        written, links: linksIntact ? [] : links, outline: outlineIntact ? nil : outline)
+        written, links: linksIntact ? [] : links, outline: outlineIntact ? nil : outline, password: key)
     else {
       Self.repairLog.error("Save: the outline or links were not written, and could not be repaired")
       return check
@@ -32,6 +33,19 @@ extension PDFDocumentController {
       throw PDFEngineError.saveFailed
     }
     unlock(mended, options: options)
+    // The repair must read back as the document, or what PDFKit wrote is kept instead: a repair that
+    // came out wrong, a garbled title say, must never replace a file that was only missing something.
+    let mendedLinks = Self.links(in: mended).map(LinkKey.init)
+    let repairedLinks = linksIntact || Set(links.map(LinkKey.init)).isSubset(of: mendedLinks)
+    let repairedOutline =
+      outlineIntact || !result.wroteOutline || Self.shape(Self.outline(of: mended)) == Self.shape(outline)
+    guard !mended.isLocked, repairedLinks, repairedOutline else {
+      try written.write(to: staging, options: .atomic)
+      Self.repairLog.error("Save: the repair did not read back as the document; kept the file as written")
+      guard let kept = PDFDocument(url: staging) else { throw PDFEngineError.saveFailed }
+      unlock(kept, options: options)
+      return kept
+    }
     Self.repairLog.info(
       "Save: mended \(result.mendedLinks) link(s); outline written: \(result.wroteOutline)")
     return mended

@@ -12,8 +12,9 @@ import Foundation
 /// wrote are kept as they are; an update is how PDF itself adds to a file (ISO 32000-1, 7.5.6).
 ///
 /// It understands what PDFKit writes: a cross-reference table, not a stream. Anything else, it leaves
-/// alone and says so by returning `nil`. In an encrypted file it mends links, which hold no strings, but
-/// not the outline, whose titles would have to be encrypted.
+/// alone and says so by returning `nil`. In an encrypted file it mends links, which hold no strings, and
+/// writes the outline only under the standard handler as PDFKit writes it (revision 3 with RC4 on iOS 27,
+/// revision 4 with AES-128 on macOS), encrypting the titles with the password (#309).
 enum PDFStructureRepair {
   /// A link as the document has it: on which page, where, and the page it goes to.
   struct Link: Equatable {
@@ -45,10 +46,13 @@ enum PDFStructureRepair {
   ///   - data: the file as PDFKit wrote it.
   ///   - links: every link to a page the file should have, with the page it goes to.
   ///   - outline: the outline the file should have; an empty array removes it; `nil` leaves it alone.
+  ///   - password: the user password of an encrypted file, to encrypt the outline's titles; empty when it
+  ///     opens without one.
   /// - Returns: the updated file and what was mended, or `nil` when the file isn't one this can read or
   ///   nothing needed mending.
-  static func repaired(_ data: Data, links: [Link], outline: [OutlineItem]?) -> Result? {
+  static func repaired(_ data: Data, links: [Link], outline: [OutlineItem]?, password: String = "") -> Result? {
     guard var file = WrittenPDF(data: data) else { return nil }
+    let security = file.isEncrypted ? file.standardSecurity(password: password) : nil
     var mended = 0
     // Each link claims one annotation, the first unclaimed one in the page's order with its rectangle,
     // so two links in the same place keep their own targets.
@@ -74,11 +78,14 @@ enum PDFStructureRepair {
       }
     }
     var wroteOutline = false
-    if let outline, !file.isEncrypted, var catalog = file.dictionary(file.root) {
+    if let outline, !file.isEncrypted || security != nil, var catalog = file.dictionary(file.root) {
       if outline.isEmpty {
         catalog.remove("Outlines")
       } else {
-        catalog["Outlines"] = file.addOutline(outline, destination: destination)
+        guard let reference = file.addOutline(outline, security: security, destination: destination) else {
+          return nil
+        }
+        catalog["Outlines"] = reference
       }
       if case .reference(let number, let generation) = file.root {
         file.replace(number, generation, with: .dictionary(catalog))
@@ -266,8 +273,10 @@ struct WrittenPDF {
 
   /// Writes an outline's objects and returns a reference to its root.
   mutating func addOutline(
-    _ items: [PDFStructureRepair.OutlineItem], destination: (WrittenPDFValue, CGPoint?) -> WrittenPDFValue
-  ) -> WrittenPDFValue {
+    _ items: [PDFStructureRepair.OutlineItem], security: PDFStandardSecurity?,
+    destination: (WrittenPDFValue, CGPoint?) -> WrittenPDFValue
+  ) -> WrittenPDFValue? {
+    var failed = false
     // Numbers first, so every item can point to its parent and its neighbours.
     let rootNumber = size
     size += 1
@@ -282,7 +291,16 @@ struct WrittenPDF {
       }
       for (index, item) in items.enumerated() {
         var dictionary = WrittenPDFDictionary()
-        dictionary["Title"] = .string(WrittenPDF.textString(item.title))
+        if let security {
+          guard let sealed = security.encrypt(WrittenPDF.textBytes(item.title), object: numbers[index], generation: 0)
+          else {
+            failed = true
+            continue
+          }
+          dictionary["Title"] = .string(WrittenPDF.hex(sealed))
+        } else {
+          dictionary["Title"] = .string(WrittenPDF.textString(item.title))
+        }
         dictionary["Parent"] = .reference(parent, 0)
         if index > 0 { dictionary["Prev"] = .reference(numbers[index - 1], 0) }
         if index < items.count - 1 { dictionary["Next"] = .reference(numbers[index + 1], 0) }
@@ -307,9 +325,109 @@ struct WrittenPDF {
       root["Last"] = .reference(top.last, 0)
       root["Count"] = .number(String(visibleCount(items)))
     }
+    guard !failed else { return nil }
     changed.append((rootNumber, 0, .dictionary(root)))
     for (number, dictionary) in dictionaries { changed.append((number, 0, .dictionary(dictionary))) }
     return .reference(rootNumber, 0)
+  }
+
+  /// A text string's bytes: ASCII as it is, anything else as UTF-16 with a byte order mark.
+  static func textBytes(_ text: String) -> [UInt8] {
+    if text.unicodeScalars.allSatisfy({ $0.value >= 0x20 && $0.value < 0x7F }) { return Array(text.utf8) }
+    return [0xFE, 0xFF] + Array(text.utf16).flatMap { [UInt8($0 >> 8), UInt8($0 & 0xFF)] }
+  }
+
+  /// A hexadecimal string token for bytes.
+  static func hex(_ bytes: [UInt8]) -> Data {
+    Data(("<" + bytes.map { String(format: "%02X", $0) }.joined() + ">").utf8)
+  }
+
+  /// The bytes of a string token, literal or hexadecimal, as written.
+  static func stringBytes(_ token: Data) -> [UInt8]? {
+    let raw = [UInt8](token)
+    guard let first = raw.first else { return nil }
+    if first == UInt8(ascii: "<") {
+      let digits = raw.dropFirst().filter { WrittenPDFReader.hexValue($0) != nil }
+      var bytes: [UInt8] = []
+      var index = digits.startIndex
+      while index < digits.endIndex {
+        let high = WrittenPDFReader.hexValue(digits[index]) ?? 0
+        let next = digits.index(after: index)
+        let low = next < digits.endIndex ? WrittenPDFReader.hexValue(digits[next]) ?? 0 : 0
+        bytes.append(high << 4 | low)
+        index = next < digits.endIndex ? digits.index(after: next) : next
+      }
+      return bytes
+    }
+    guard first == UInt8(ascii: "("), raw.count >= 2 else { return nil }
+    var bytes: [UInt8] = []
+    var index = 1
+    while index < raw.count - 1 {
+      let byte = raw[index]
+      guard byte == UInt8(ascii: "\\"), index + 1 < raw.count - 1 else {
+        bytes.append(byte)
+        index += 1
+        continue
+      }
+      let escaped = raw[index + 1]
+      index += 2
+      switch escaped {
+      case UInt8(ascii: "n"): bytes.append(10)
+      case UInt8(ascii: "r"): bytes.append(13)
+      case UInt8(ascii: "t"): bytes.append(9)
+      case UInt8(ascii: "b"): bytes.append(8)
+      case UInt8(ascii: "f"): bytes.append(12)
+      case 10, 13: break
+      case UInt8(ascii: "0")...UInt8(ascii: "7"):
+        var value = Int(escaped - UInt8(ascii: "0"))
+        var digits = 1
+        while digits < 3, index < raw.count - 1, (UInt8(ascii: "0")...UInt8(ascii: "7")).contains(raw[index]) {
+          value = value * 8 + Int(raw[index] - UInt8(ascii: "0"))
+          index += 1
+          digits += 1
+        }
+        bytes.append(UInt8(truncatingIfNeeded: value))
+      default: bytes.append(escaped)
+      }
+    }
+    return bytes
+  }
+
+  /// The handler that encrypts strings added to this file, when it is one this can write for.
+  func standardSecurity(password: String) -> PDFStandardSecurity? {
+    guard let encrypt = dictionary(trailer["Encrypt"]), encrypt["Filter"] == .name("Standard"),
+      let cipher = stringCipher(encrypt),
+      case .string(let ownerToken)? = resolve(encrypt["O"]), let owner = Self.stringBytes(ownerToken),
+      case .string(let userToken)? = resolve(encrypt["U"]), let user = Self.stringBytes(userToken),
+      case .number(let permissionText)? = resolve(encrypt["P"]), let permissions = Int32(permissionText),
+      case .string(let idToken)? = array(trailer["ID"])?.first, let firstID = Self.stringBytes(idToken)
+    else { return nil }
+    let encryptsMetadata = encrypt["EncryptMetadata"] != .boolean(false)
+    return PDFStandardSecurity(
+      cipher: cipher, owner: owner, user: user, permissions: permissions, firstID: firstID,
+      encryptsMetadata: encryptsMetadata, password: password)
+  }
+
+  /// The cipher an `/Encrypt` dictionary uses for strings, when it is one PDFKit writes: RC4 at revision 3
+  /// (iOS 27) or AES-128 at revision 4 (macOS).
+  private func stringCipher(_ encrypt: WrittenPDFDictionary) -> PDFStandardSecurity.Cipher? {
+    switch (encrypt["V"], encrypt["R"]) {
+    case (.number("2")?, .number("3")?):
+      var bits = 40
+      if case .number(let text)? = resolve(encrypt["Length"]) {
+        guard let value = Int(text) else { return nil }
+        bits = value
+      }
+      guard (40...128).contains(bits), bits.isMultiple(of: 8) else { return nil }
+      return .rc4(keyLength: bits / 8)
+    case (.number("4")?, .number("4")?):
+      guard encrypt["StrF"] == .name("StdCF"), let filters = dictionary(encrypt["CF"]),
+        let standard = dictionary(filters["StdCF"]), standard["CFM"] == .name("AESV2")
+      else { return nil }
+      return .aes128
+    default:
+      return nil
+    }
   }
 
   /// A PDF text string: plain where it can be, otherwise UTF-16 with a byte order mark, in hexadecimal.
@@ -359,6 +477,15 @@ struct WrittenPDFReader {
   var position: Int
 
   private static func isWhitespace(_ byte: UInt8) -> Bool { [0, 9, 10, 12, 13, 32].contains(byte) }
+
+  static func hexValue(_ byte: UInt8) -> UInt8? {
+    switch byte {
+    case UInt8(ascii: "0")...UInt8(ascii: "9"): byte - UInt8(ascii: "0")
+    case UInt8(ascii: "a")...UInt8(ascii: "f"): byte - UInt8(ascii: "a") + 10
+    case UInt8(ascii: "A")...UInt8(ascii: "F"): byte - UInt8(ascii: "A") + 10
+    default: nil
+    }
+  }
   private static func isDelimiter(_ byte: UInt8) -> Bool { Array("()<>[]{}/%".utf8).contains(byte) }
 
   private mutating func skipWhitespace() {
