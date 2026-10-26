@@ -37,7 +37,7 @@ public struct VisionDocumentRecognizer: TextRecognizing {
   func documentLines(in image: CGImage) async throws -> [RecognizedLine] {
     var request = RecognizeDocumentsRequest()
     request.textRecognitionOptions.automaticallyDetectLanguage = fallback.detectsLanguage
-    request.textRecognitionOptions.useLanguageCorrection = true
+    request.textRecognitionOptions.useLanguageCorrection = fallback.correctsLanguage
     let known = Set(request.supportedRecognitionLanguages.map(\.maximalIdentifier))
     let usable = fallback.languages.filter { known.contains($0.maximalIdentifier) }
     if !usable.isEmpty { request.textRecognitionOptions.recognitionLanguages = usable }

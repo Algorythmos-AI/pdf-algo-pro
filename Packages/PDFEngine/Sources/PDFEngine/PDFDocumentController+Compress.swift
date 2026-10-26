@@ -3,8 +3,10 @@ import PDFKit
 
 /// Compression presets (FR-ORG-004).
 ///
-/// PDFKit re-encodes the images and, for email, scales them for screens; text, vector drawing and
-/// annotations stay as they are, so the document stays searchable.
+/// The images are re-encoded as JPEG and, for email, scaled for screens; text, vector drawing and
+/// annotations stay as they are, so the document stays searchable. PDFKit does the re-encoding on
+/// iOS 26 and macOS; on iOS 27 it writes the images as they were, so `PDFImageRecompression` does it
+/// (#308).
 extension PDFDocumentController {
   /// How hard to compress.
   public enum CompressionPreset: Sendable, CaseIterable {
@@ -17,6 +19,17 @@ extension PDFDocumentController {
       switch self {
       case .email: [.saveImagesAsJPEGOption: true, .optimizeImagesForScreenOption: true]
       case .balanced: [.saveImagesAsJPEGOption: true]
+      }
+    }
+
+    /// The same, for the images PDFKit leaves as they were.
+    ///
+    /// Email keeps 1,600 pixels on an image's longest side, an A4 page at about 140 dots per inch, which
+    /// keeps a scanned page's text easy to read.
+    var recompression: PDFImageRecompression.Settings {
+      switch self {
+      case .email: PDFImageRecompression.Settings(maximumSide: 1_600, quality: 0.5)
+      case .balanced: PDFImageRecompression.Settings(maximumSide: nil, quality: 0.75)
       }
     }
   }
@@ -38,9 +51,18 @@ extension PDFDocumentController {
     guard document.write(to: staging, withOptions: options), let check = PDFDocument(url: staging),
       check.isLocked || check.pageCount == document.pageCount
     else { throw PDFEngineError.saveFailed }
-    // A compressed copy keeps the bookmarks and links that PDFKit on iOS 27 leaves out (#307).
+    // A compressed copy keeps the bookmarks and links that PDFKit on iOS 27 leaves out (#307). First, so
+    // the pictures are re-encoded in the mended file: that rewrite follows the update's cross-reference
+    // chain and copies the outline and the links as they are.
     _ = try mendStructure(in: check, at: staging, options: options)
-    let data = try Data(contentsOf: staging, options: .mappedIfSafe)
+    var data = try Data(contentsOf: staging, options: .mappedIfSafe)
+    // PDFKit on iOS 27 ignores the image options and writes each image as it was (#308), so the images it
+    // left are re-encoded here. The result is used only if it opens with every page.
+    if let recompressed = PDFImageRecompression.recompressed(data, settings: preset.recompression),
+      let reread = PDFDocument(data: recompressed), reread.pageCount == document.pageCount
+    {
+      data = recompressed
+    }
     return data.count < originalSize ? data : nil
   }
 }

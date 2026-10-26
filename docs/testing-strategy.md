@@ -156,6 +156,11 @@ and never shipped ([ADR-0018](adr/0018-snapshot-testing-test-only-dependency.md)
   (`Assumption:` 0.98, validated by running the suite twice on the pinned runtime and on a second
   machine); a larger tolerance needs a reason in review.
 - References live in `__Snapshots__` folders next to the tests that own them.
+- **Render checks without a reference.** The feature packages' tests check that a screen draws at
+  all, at a large text size or in each state, with `ViewRendering.draws` (`CoreTestSupport`), not
+  `ImageRenderer` directly. It keeps each renderer until the tests end: on iOS 27.0, releasing an
+  `ImageRenderer` whose view has a `NavigationStack` or a `Form` with `.task` or `.onAppear` inside
+  stops the test process in SwiftUI's teardown, which the app never runs (#308).
 
 ## Accessibility tests
 

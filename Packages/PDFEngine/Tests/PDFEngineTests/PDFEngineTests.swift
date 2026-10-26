@@ -858,12 +858,30 @@ struct ToolkitTests {
     return try ImagePDF.make(from: [image])
   }
 
+  /// What each step of the email preset makes of `original`, for a failure message: what PDFKit wrote,
+  /// and what re-encoding its pictures made of that (#308).
+  private func compressionReport(_ original: Data) -> Comment {
+    let url = temporaryURL()
+    defer { try? FileManager.default.removeItem(at: url) }
+    let preset = PDFDocumentController.CompressionPreset.email
+    let wrote = PDFDocument(data: original)?.write(to: url, withOptions: preset.options) ?? false
+    let written = (try? Data(contentsOf: url)) ?? Data()
+    let text = String(decoding: written, as: UTF8.self)
+    let filters = ["FlateDecode", "DCTDecode"].map { "\($0) ×\(text.components(separatedBy: "/" + $0).count - 1)" }
+    let again = PDFImageRecompression.recompressed(written, settings: preset.recompression)
+    return """
+      original \(original.count) bytes; PDFKit wrote: \(wrote), \(written.count) bytes, \(filters), \
+      cross-reference table: \(text.contains("\nxref")), encrypted: \(text.contains("/Encrypt")); \
+      re-encoded: \(again.map { "\($0.count) bytes" } ?? "nothing")
+      """
+  }
+
   @Test("The email preset shrinks a scan and keeps its pages; nothing bigger is ever returned (FR-ORG-004)")
   func compress() throws {
     let original = try photoPDF()
     let controller = try PDFDocumentController(data: original)
-    let email = try #require(try controller.compressed(.email, comparedTo: original.count))
-    #expect(email.count < original.count / 2)
+    let email = try #require(try controller.compressed(.email, comparedTo: original.count), compressionReport(original))
+    #expect(email.count < original.count / 2, compressionReport(original))
     #expect(try PDFDocumentController(data: email).pageCount == 1)
     let balanced = try controller.compressed(.balanced, comparedTo: original.count)
     #expect(balanced.map { $0.count < original.count } ?? true)

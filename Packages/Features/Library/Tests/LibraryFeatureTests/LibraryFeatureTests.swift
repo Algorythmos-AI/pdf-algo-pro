@@ -190,7 +190,7 @@ struct LibraryModelTests {
     #expect(details.pageCount == 3 && details.fileSize != nil)
     let view = DocumentInfoView(document: document, details: details).frame(width: 390, height: 900)
       .environment(\.dynamicTypeSize, .accessibility3)
-    #expect(ImageRenderer(content: view).uiImage != nil)
+    #expect(ViewRendering.draws(view))
     #expect(DocumentInfoView.permission(false) != DocumentInfoView.permission(true))
     let missing = Document(title: "Gone", fileName: "g.pdf", addedAt: .now)
     #expect(await harness.model.details(for: missing) == nil)
@@ -506,7 +506,7 @@ struct LibraryModelTests {
       for size in [DynamicTypeSize.large, .accessibility3] {
         // Home is a scroll view of cards, so it draws whole without a window.
         let home = library.home.frame(width: 390).environment(\.dynamicTypeSize, size)
-        #expect(ImageRenderer(content: home).uiImage != nil)
+        #expect(ViewRendering.draws(home))
         for width in [UserInterfaceSizeClass.compact, .regular] {
           let host = UIHostingController(
             rootView: library.environment(\.horizontalSizeClass, width).environment(\.dynamicTypeSize, size))
@@ -525,7 +525,7 @@ struct LibraryModelTests {
       Text(verbatim: "Tap")
     }
     .buttonStyle(DimmingButtonStyle())
-    #expect(ImageRenderer(content: button).uiImage != nil)
+    #expect(ViewRendering.draws(button))
   }
 
   @Test("Section copy exists for every section and home action")
@@ -573,7 +573,7 @@ struct TagEditorTests {
       let document = Document(title: "Lease", fileName: "l.pdf", addedAt: .now, tags: tags)
       let view = TagEditor(document: document, available: ["Home"]) { _ in }
         .frame(width: 390, height: 700).environment(\.dynamicTypeSize, .accessibility3)
-      #expect(ImageRenderer(content: view).uiImage != nil)
+      #expect(ViewRendering.draws(view))
     }
   }
 }

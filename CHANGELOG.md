@@ -9,6 +9,11 @@ Store notes (see the changelog strategy).
 
 ## [Unreleased]
 
+### Added
+- Answers, summaries and extracted fields you copy or share now end with a line saying that PDF
+  Algo Pro generated them from the document and that they may contain errors. In a CSV it is the
+  last row, so the file still opens as a table.
+
 ### Changed
 - The App Store version now has what TestFlight builds have had: the page strip and keyboard
   commands in the reader, recognition in more languages and in reading order, search that finds a
@@ -31,6 +36,10 @@ Store notes (see the changelog strategy).
 - On iOS 27, stamps chosen from the Stamp menu, and notes, drawings, shapes, text boxes and
   signatures that were pasted or duplicated, were lost when the document was saved. They are now
   saved like everything else.
+- Reduce file size makes scans and photos smaller again on iOS 27. iOS 27 stopped re-encoding a
+  document's pictures, so a scan was "already about as small as it gets". The app now re-encodes
+  the pictures itself, as JPEG, and for email at most 1,600 pixels on their longest side; text and
+  notes stay as they were. Password-protected documents are made smaller only where iOS does it.
 - Editing text could close the app when the system failed to load one of a page's fonts while the
   app read the page's lines. The line is now read without that font's details, as for text with none.
 - App Lock: removing the device passcode no longer locks you out of the app for good. Without a

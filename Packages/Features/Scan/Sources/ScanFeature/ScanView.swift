@@ -202,7 +202,7 @@ public struct ScanView: View {
             } label: {
               VStack(spacing: Spacing.s050) {
                 Image(decorative: page, scale: 1).resizable().scaledToFit().frame(height: 140)
-                Text("\(index + 1)").font(.caption.monospacedDigit())
+                Text(index + 1, format: .number).font(.caption.monospacedDigit())
               }
             }
             .accessibilityIdentifier(AccessibilityID.Scan.page(index + 1))

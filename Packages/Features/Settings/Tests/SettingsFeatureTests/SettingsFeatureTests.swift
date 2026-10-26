@@ -25,7 +25,7 @@ struct SettingsModelTests {
     #expect(model.activity?.requests[.onDevice] == 4 && model.activity?.documentsSentToCloud == 0)
     let view = NavigationStack { PrivacyReportView(model: model) }.frame(width: 390, height: 800)
       .environment(\.dynamicTypeSize, .accessibility3)
-    #expect(ImageRenderer(content: view).uiImage != nil)
+    #expect(ViewRendering.draws(view))
     let empty = SettingsModel(store: InMemorySettingsStore(), diagnostics: { "" }, onChange: { _ in })
     await empty.loadActivity()
     #expect(empty.activity == AIActivity())
@@ -173,7 +173,7 @@ struct SettingsModelTests {
           .environment(\.locale, Locale(identifier: language))
           .environment(\.dynamicTypeSize, size)
           .frame(width: 390, height: 844)
-        #expect(ImageRenderer(content: about).uiImage != nil)
+        #expect(ViewRendering.draws(about))
       }
     }
   }
@@ -189,12 +189,12 @@ struct SettingsModelTests {
   @Test func screenRenders() {
     let (model, _, _) = makeModel()
     #expect(
-      ImageRenderer(content: SettingsView(model: model, version: "0.1.0").frame(width: 390, height: 844)).uiImage != nil
+      ViewRendering.draws(SettingsView(model: model, version: "0.1.0").frame(width: 390, height: 844))
     )
     for intent in OnboardingIntent.allCases { _ = SettingsView.intentTitle(intent) }
     // At an accessibility text size the header is left out, so the AI switch stays on the first screen.
     let large = SettingsView(model: model, version: "0.1.0").environment(\.dynamicTypeSize, .accessibility3)
-    #expect(ImageRenderer(content: large.frame(width: 390, height: 844)).uiImage != nil)
+    #expect(ViewRendering.draws(large.frame(width: 390, height: 844)))
   }
 }
 
