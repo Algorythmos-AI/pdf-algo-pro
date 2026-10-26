@@ -23,6 +23,8 @@ Store notes (see the changelog strategy).
   only ever means a red annotation or Delete.
 
 ### Fixed
+- Editing text could close the app when the system failed to load one of a page's fonts while the
+  app read the page's lines. The line is now read without that font's details, as for text with none.
 - App Lock: removing the device passcode no longer locks you out of the app for good. Without a
   passcode nothing can confirm it is you, so App Lock now turns itself off and the app tells you
   why; set a passcode and turn it on again in Settings. With a passcode it always asks.
