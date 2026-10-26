@@ -203,3 +203,14 @@ def test_verdict_cli_reads_an_empty_reporter_exit_as_no_results(capsys):
     assert test_shards.main(["verdict", "ui-1", "--xcodebuild-exit", "65", "--reporter-exit", ""]) == 1
     assert "no test results" in capsys.readouterr().out
     assert test_shards.main(["verdict", "ui-1", "--xcodebuild-exit", "65", "--reporter-exit", "0"]) == 0
+
+
+def test_the_device_run_retries_like_a_ui_shard_but_is_never_in_the_matrix(capsys):
+    assert test_shards.retries("device")
+    assert "device" not in test_shards.matrix("")["shard"]
+    failed = ["PDFAlgoProUITests/ReaderUITests/testGoToPage\n"]
+    assert test_shards.retry_args("device", failed)[0] == ["-only-testing:PDFAlgoProUITests/ReaderUITests/testGoToPage"]
+    assert test_shards.verdict("device", 65, 0)[0] is True
+    assert test_shards.verdict("device", 65, 1)[0] is False
+    with pytest.raises(ValueError):
+        test_shards.args_for("device", config=CONFIG)

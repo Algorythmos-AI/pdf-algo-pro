@@ -4,7 +4,8 @@ The short check each Staging build gets on a real iPhone before anyone relies on
 §9, "Devices"). CI proves each change on the simulator. This checks what only a device shows: real
 files, real Face ID, real Apple Intelligence, the system's privacy report, and a kill in the middle of
 a save. It complements the [VoiceOver script](voiceover-script.md), which covers accessibility, and
-the release checklist in [release management](../release-management.md).
+the release checklist in [release management](../release-management.md). The automated tests on a
+phone, from a commit rather than a TestFlight build, are the [device test run](device-test-run.md).
 
 Owner: Quality · Reviewed: whenever a build adds a feature that only a device can show
 

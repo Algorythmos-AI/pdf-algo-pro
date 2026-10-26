@@ -161,13 +161,16 @@ def load(paths: list[str]) -> tuple[list[Case], list[str]]:
 
 def apply_retries(found: list[Case], retried: list[Case]) -> None:
     """A failed test that passed when run again on its own is flaky; one that failed again stays failed,
-    with the messages of both runs. Tests that did not fail first are left as they were."""
+    with the messages of both runs. Tests that did not fail first are left as they were.
+
+    A second run whose only findings were quarantined (expected failures) passed: on an iPhone, an audit
+    measured while the screen moved failed the first run and was quarantined in the second."""
     again = {case.selector: case for case in retried}
     for case in found:
         second = again.get(case.selector)
         if case.verdict != "failed" or second is None:
             continue
-        if second.verdict == "passed":
+        if second.verdict in ("passed", "quarantined"):
             case.verdict = "flaky"
         else:
             case.messages += [m for m in second.messages if m not in case.messages]
