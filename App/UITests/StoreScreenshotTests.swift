@@ -18,7 +18,15 @@ import XCTest
 @MainActor
 final class StoreScreenshotTests: UITestCase {
   /// How long the device's own model may take to answer.
-  private static let modelTimeout: TimeInterval = 120
+  ///
+  /// A simulator gets less: on CI's, the model neither answers nor says it is unavailable.
+  private static var modelTimeout: TimeInterval {
+    #if targetEnvironment(simulator)
+      45
+    #else
+      120
+    #endif
+  }
 
   private var language: String { ProcessInfo.processInfo.environment["STORE_LANGUAGE"] ?? "en" }
   private var isFrench: Bool { language == "fr" }
@@ -141,15 +149,27 @@ final class StoreScreenshotTests: UITestCase {
   }
 
   /// Waits for the device's model; skips the frame where the device has none, instead of faking it.
+  ///
+  /// On a simulator, a model that doesn't answer in time, or fails, skips the frame too: CI's simulator
+  /// has no working model, and the frames with answers are taken on a device.
   private func waitForAnswer(_ answer: XCUIElement, in app: XCUIApplication) throws {
     let unavailable = app.descendants(matching: .any)[ID.Assistant.unavailable].firstMatch
+    let retry = app.buttons[ID.Assistant.retry].firstMatch
     let deadline = Date().addingTimeInterval(Self.modelTimeout)
     while Date() < deadline {
       if answer.exists { return }
       if unavailable.exists { throw XCTSkip("This device has no Apple Intelligence; the frame needs its answer") }
+      if retry.exists { break }
       Thread.sleep(forTimeInterval: 1)
     }
-    XCTFail("No answer from the device's model within \(Int(Self.modelTimeout)) seconds")
+    let state = retry.exists ? "the model failed (Try again shown)" : "still answering"
+    #if targetEnvironment(simulator)
+      throw XCTSkip(
+        "No answer from the simulator's model within \(Int(Self.modelTimeout)) seconds (\(state)); take this frame on a device"
+      )
+    #else
+      XCTFail("No answer from the device's model within \(Int(Self.modelTimeout)) seconds (\(state))")
+    #endif
   }
 
   private enum Mark: String {
