@@ -6,6 +6,7 @@
     python3 scripts/dev/device_resume.py report enumerated.json tests.json [more.json ...] \
         [--retries retry-tests.json] --summary summary.md --failed-ids failed.txt --counts counts.txt
     python3 scripts/dev/device_resume.py attachments failed.txt attachments/ failed-attachments/
+    python3 scripts/dev/device_resume.py unlisted enumerated.json summary.md
 
 On an iPhone reached over Wi-Fi the UI test runner can lose the phone partway ("An error occurred while
 communicating with a remote process"). xcodebuild then ends the run: the tests the runner had not reached
@@ -27,6 +28,12 @@ record, and exits 1 when any test failed or never ran.
 
 `attachments` copies each failed test's attachments out of every result bundle's export, the first run's,
 its retry's and each resumed run's, into a folder per test, as CI's failed-attachments/ holds them.
+
+`unlisted` adds to the summary what kept xcodebuild from listing the plan's tests, and exits 1 when
+anything did. A target whose runner cannot start is left out of the listing, so its tests are not
+counted as missing: on 2026-10-26 the UI test runner timed out "while enabling automation mode", the
+listing held only the 70 unit tests, and the summary showed a single runner error for the whole of the
+UI tests.
 """
 from __future__ import annotations
 
@@ -128,6 +135,12 @@ def failed_attachments(failed_ids: Path, exported: Path, out: Path) -> int:
     return copied
 
 
+def listing_errors(path: Path) -> list[str]:
+    """What xcodebuild said kept it from listing the plan's tests, if anything."""
+    data = json.loads(path.read_text(encoding="utf-8"))
+    return [str(error) for error in data.get("errors", []) if str(error).strip()]
+
+
 def missing(plan: dict[str, str], cases: list[Case]) -> list[str]:
     ran = {case.selector for case in cases if not is_runner_stop(case)}
     return [test for test in plan if test not in ran]
@@ -147,11 +160,26 @@ def main(argv: list[str] | None = None) -> int:
             p.add_argument("--summary", type=Path, required=True)
             p.add_argument("--failed-ids", type=Path, required=True)
             p.add_argument("--counts", type=Path, required=True)
+    p = sub.add_parser("unlisted")
+    p.add_argument("enumerated", type=Path, help="`xcodebuild -enumerate-tests` JSON")
+    p.add_argument("summary", type=Path, help="the run's summary, added to")
     p = sub.add_parser("attachments")
     p.add_argument("failed_ids", type=Path, help="the failed tests' selectors, one per line")
     p.add_argument("exported", type=Path, help="a folder of `xcresulttool export attachments` folders, one per bundle")
     p.add_argument("out", type=Path, help="where each failed test's folder goes")
     args = ap.parse_args(argv)
+
+    if args.command == "unlisted":
+        errors = listing_errors(args.enumerated)
+        if not errors:
+            return 0
+        note = ("\n#### Not listed\n\nxcodebuild could not list every test of the plan, so the tests of a "
+                "target whose runner did not start are in no count above and did not run:\n\n"
+                + "".join(f"- {error}\n" for error in errors))
+        with args.summary.open("a", encoding="utf-8") as summary:
+            summary.write(note)
+        print(f"xcodebuild could not list every test ({len(errors)} error(s)); see the summary")
+        return 1
 
     if args.command == "attachments":
         print(f"{failed_attachments(args.failed_ids, args.exported, args.out)} attachment(s) of failed tests")

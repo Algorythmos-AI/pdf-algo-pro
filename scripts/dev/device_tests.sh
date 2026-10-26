@@ -261,6 +261,13 @@ if [ "$verdict" != 0 ] && [ -n "$XCB_TESTS_JSON" ] && [ -f "$XCB_TESTS_JSON" ] \
   fi
 fi
 
+# A runner that never started leaves its target out of the listing, so no test of it counts as missing:
+# say so in the summary, and fail the run.
+if [ -f "$out/Device-enumerated.json" ] && [ -f "$out/Device-summary.md" ] \
+  && ! python3 scripts/dev/device_resume.py unlisted "$out/Device-enumerated.json" "$out/Device-summary.md"; then
+  verdict=1
+fi
+
 # 5. The evidence: everything the tests kept (UI_EVIDENCE=all keeps quarantined findings too), and
 # each failed test's attachments on their own, as CI's failed-attachments/: from every bundle, since a
 # test can fail in a resumed run as well as the first.
