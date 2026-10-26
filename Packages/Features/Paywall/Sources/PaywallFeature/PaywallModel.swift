@@ -60,6 +60,9 @@ public final class PaywallModel {
   public private(set) var alreadyHasPro = false
   /// Whether the trial reminder is asked for on the confirmation.
   public var wantsReminder = false
+  /// Why the reminder is off although it was asked for: notifications declined, too little of the trial
+  /// left, or the system didn't schedule it; `nil` when it is on, or was never asked for.
+  public private(set) var reminderProblem: TrialReminderOutcome?
   /// Whether the last restore found nothing to bring back or could not be made.
   public var restoreFailed = false
 
@@ -78,7 +81,7 @@ public final class PaywallModel {
   @ObservationIgnored private let entitlements: EntitlementStore
   @ObservationIgnored private let telemetry: any TelemetryRecording
   @ObservationIgnored private let now: @Sendable () -> Date
-  @ObservationIgnored private let setReminder: (Bool, Date) async -> Bool
+  @ObservationIgnored private let setReminder: (Bool, Date) async -> TrialReminderOutcome
   @ObservationIgnored private let onClose: () -> Void
   /// Whether the person had Pro when the offer appeared; `nil` until it has appeared.
   @ObservationIgnored private var hadPro: Bool?
@@ -89,14 +92,15 @@ public final class PaywallModel {
 
   /// Creates the model.
   ///
-  /// `setReminder` turns the trial reminder on or off for a trial ending at a date and returns
-  /// whether it is now on, since asking for notification permission can be declined. `onClose`
-  /// takes the presentation away.
+  /// `setReminder` turns the trial reminder on or off for a trial ending at a date and returns what
+  /// became of it, since asking for notification permission can be declined and a trial can be too
+  /// close to its end. `onClose` takes the presentation away.
   public init(
     trigger: PaywallTrigger, productIDs: [String], benefits: [PaywallBenefit], termsOfUse: URL, privacyPolicy: URL,
     offering: any StoreOffering, entitlements: EntitlementStore, telemetry: any TelemetryRecording,
     now: @escaping @Sendable () -> Date = { Date() },
-    setReminder: @escaping (Bool, Date) async -> Bool = { _, _ in false }, onClose: @escaping () -> Void
+    setReminder: @escaping (Bool, Date) async -> TrialReminderOutcome = { _, _ in .failed },
+    onClose: @escaping () -> Void
   ) {
     self.trigger = trigger
     self.productIDs = productIDs
@@ -118,6 +122,14 @@ public final class PaywallModel {
   public var trialEndsAt: Date? {
     guard case .trial(let endsAt) = entitlements.entitlement, endsAt > now() else { return nil }
     return endsAt
+  }
+
+  /// Whether a reminder can still be set: the day before the trial ends is ahead.
+  ///
+  /// With less of the trial left the confirmation offers no switch, which could only turn itself off
+  /// again.
+  public var canRemind: Bool {
+    trialEndsAt.map { TrialReminder.canRemind(trialEndsAt: $0, now: now()) } ?? false
   }
 
   /// The offer came on screen.
@@ -239,13 +251,20 @@ public final class PaywallModel {
     }
   }
 
-  /// The person switched the trial reminder on or off; it stays off when permission is declined.
+  /// The person switched the trial reminder on or off.
+  ///
+  /// It stays off, and `reminderProblem` says why, when it can't be set.
   public func reminderChanged() async {
     guard let trialEndsAt else {
       wantsReminder = false
       return
     }
-    let isOn = await setReminder(wantsReminder, trialEndsAt)
+    let asked = wantsReminder
+    let outcome = await setReminder(asked, trialEndsAt)
+    let isOn = outcome == .scheduled
+    // Only turning it on says anything: the switch going back off after a refusal calls this again,
+    // and that must not take the reason away.
+    if asked { reminderProblem = isOn ? nil : outcome }
     if wantsReminder != isOn { wantsReminder = isOn }
   }
 

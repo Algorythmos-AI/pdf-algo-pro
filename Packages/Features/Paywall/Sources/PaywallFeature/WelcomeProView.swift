@@ -1,6 +1,7 @@
 import AccessibilityIDs
 import DesignSystem
 import SwiftUI
+import UIKit
 
 /// "Welcome to Pro": what is now available, when a trial ends, and one button to start
 /// (FR-STORE-007; design system, "Purchase confirmation").
@@ -8,6 +9,7 @@ struct WelcomeProView: View {
   @Bindable var model: PaywallModel
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @Environment(\.dynamicTypeSize) private var typeSize
+  @Environment(\.openURL) private var openURL
   @State private var celebrates = false
 
   var body: some View {
@@ -86,16 +88,60 @@ struct WelcomeProView: View {
       Text("Your trial ends on \(endsAt, format: .dateTime.day().month(.wide).year()).", bundle: .module)
         .font(.subheadline)
         .accessibilityIdentifier(AccessibilityID.Paywall.Welcome.trialEnd)
-      Toggle(isOn: $model.wantsReminder) {
-        Text("Remind me the day before", bundle: .module)
+      if model.canRemind {
+        Toggle(isOn: $model.wantsReminder) {
+          Text("Remind me the day before", bundle: .module)
+        }
+        .accessibilityIdentifier(AccessibilityID.Paywall.Welcome.reminder)
+        .onChange(of: model.wantsReminder) { Task { await model.reminderChanged() } }
+        reminderProblem
+      } else {
+        // A switch here could only turn itself off again: its day before has passed (a tester's
+        // report, 2026-10-26, on a TestFlight trial that ended the next day).
+        Text("Less than a day of your trial is left, so there’s no reminder to set.", bundle: .module)
+          .font(.footnote)
+          .foregroundStyle(Color.ds.labelSecondary)
+          .accessibilityIdentifier(AccessibilityID.Paywall.Welcome.reminderUnavailable)
       }
-      .accessibilityIdentifier(AccessibilityID.Paywall.Welcome.reminder)
-      .onChange(of: model.wantsReminder) { Task { await model.reminderChanged() } }
       Text("You can cancel at any time in Settings, under Subscription.", bundle: .module)
         .font(.footnote)
         .foregroundStyle(Color.ds.labelSecondary)
     }
     .cardStyle()
+  }
+
+  /// Why the switch went back off, when it did: a switch that turns itself off without a word looks
+  /// broken.
+  @ViewBuilder private var reminderProblem: some View {
+    switch model.reminderProblem {
+    case .notificationsDeclined:
+      VStack(alignment: .leading, spacing: Spacing.s050) {
+        Text("Notifications are off for PDF Algo Pro, so there’s no reminder.", bundle: .module)
+          .font(.footnote)
+          .foregroundStyle(Color.ds.labelSecondary)
+          .accessibilityIdentifier(AccessibilityID.Paywall.Welcome.reminderProblem)
+        Button {
+          if let url = URL(string: UIApplication.openNotificationSettingsURLString) { openURL(url) }
+        } label: {
+          Text("Allow notifications in Settings", bundle: .module)
+        }
+        .font(.footnote)
+        .minimumTarget()
+        .accessibilityIdentifier(AccessibilityID.Paywall.Welcome.notificationSettings)
+      }
+    case .tooLate:
+      Text("Less than a day of your trial is left, so there’s no reminder to set.", bundle: .module)
+        .font(.footnote)
+        .foregroundStyle(Color.ds.labelSecondary)
+        .accessibilityIdentifier(AccessibilityID.Paywall.Welcome.reminderProblem)
+    case .failed:
+      Text("The reminder couldn’t be set. Try again.", bundle: .module)
+        .font(.footnote)
+        .foregroundStyle(Color.ds.labelSecondary)
+        .accessibilityIdentifier(AccessibilityID.Paywall.Welcome.reminderProblem)
+    case .scheduled, .off, nil:
+      EmptyView()
+    }
   }
 }
 

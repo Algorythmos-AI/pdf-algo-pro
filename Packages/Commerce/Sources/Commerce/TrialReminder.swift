@@ -1,5 +1,19 @@
 import Foundation
 
+/// What became of turning the trial reminder on or off.
+public enum TrialReminderOutcome: Sendable, Equatable {
+  /// A notification is scheduled for the day before the trial ends.
+  case scheduled
+  /// No reminder, as asked.
+  case off
+  /// No reminder: the person has not allowed notifications.
+  case notificationsDeclined
+  /// No reminder: less than a day of the trial is left, so its day before has passed.
+  case tooLate
+  /// No reminder: the system did not schedule it.
+  case failed
+}
+
 /// When to remind the user that a trial is about to convert to a paid period (FR-STORE-006).
 ///
 /// It only computes dates; scheduling a notification or showing a notice is the caller's work.
@@ -26,6 +40,11 @@ public enum TrialReminder {
   public static func notificationDate(for entitlement: Entitlement, now: Date) -> Date? {
     guard let date = reminderDate(for: entitlement), date > now else { return nil }
     return date
+  }
+
+  /// Whether a reminder can still be set for a trial that ends at a date: its day before is ahead.
+  public static func canRemind(trialEndsAt: Date, now: Date) -> Bool {
+    notificationDate(for: .trial(endsAt: trialEndsAt), now: now) != nil
   }
 
   /// Whether a reminder should be shown at launch.

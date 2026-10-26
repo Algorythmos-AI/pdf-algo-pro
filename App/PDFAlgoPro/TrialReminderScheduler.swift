@@ -78,14 +78,16 @@ final class TrialReminderScheduler {
 
   /// Turns the reminder on or off for a trial that ends at a date.
   ///
-  /// - Returns: Whether a reminder is now scheduled. It is not when the person declines
-  ///   notifications, or when less than a day of the trial is left.
-  func set(_ isOn: Bool, trialEndsAt: Date) async -> Bool {
+  /// - Returns: Whether a reminder is now scheduled, and why not when it isn't: the person turned it
+  ///   off, declined notifications, or less than a day of the trial is left.
+  func set(_ isOn: Bool, trialEndsAt: Date) async -> TrialReminderOutcome {
     await notifications.cancel(identifier: Self.identifier)
     if remindedTrialEnd == trialEndsAt { remindedTrialEnd = nil }
-    guard isOn, let date = TrialReminder.notificationDate(for: .trial(endsAt: trialEndsAt), now: now()),
-      await notifications.requestAuthorization()
-    else { return false }
+    guard isOn else { return .off }
+    guard let date = TrialReminder.notificationDate(for: .trial(endsAt: trialEndsAt), now: now()) else {
+      return .tooLate
+    }
+    guard await notifications.requestAuthorization() else { return .notificationsDeclined }
     let day = trialEndsAt.formatted(.dateTime.day().month(.wide))
     let scheduled = await notifications.schedule(
       identifier: Self.identifier, title: String(localized: "Your trial ends tomorrow"),
@@ -93,7 +95,7 @@ final class TrialReminderScheduler {
       at: date)
     // The notification is the reminder for this trial; the in-app notice then stays away.
     if scheduled { remindedTrialEnd = trialEndsAt }
-    return scheduled
+    return scheduled ? .scheduled : .failed
   }
 
   /// The in-app notice for someone with no notification: the trial's end, when it is a day away or less.

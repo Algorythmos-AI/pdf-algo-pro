@@ -28,6 +28,9 @@ Store notes (see the changelog strategy).
   only ever means a red annotation or Delete.
 
 ### Fixed
+- Welcome to Pro: the "Remind me the day before" switch no longer turns itself back off without a
+  word. With less than a day of the trial left there's no switch, since its day has passed; when
+  notifications are off for the app, it says so and offers to open Settings.
 - Saving on iOS 27 kept bookmarks, the document's outline and links to other pages. iOS 27 left them
   out of the saved file: bookmarks added or removed were lost, and links inside the document went
   nowhere. The app now checks what it saved and puts them back, in password-protected documents too.

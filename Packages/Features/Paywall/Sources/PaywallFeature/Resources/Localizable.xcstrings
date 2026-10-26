@@ -51,6 +51,16 @@
         }
       }
     },
+    "Allow notifications in Settings" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Autoriser les notifications dans Réglages"
+          }
+        }
+      }
+    },
     "Best Value" : {
       "localizations" : {
         "fr" : {
@@ -161,6 +171,16 @@
         }
       }
     },
+    "Less than a day of your trial is left, so there’s no reminder to set." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il reste moins d’un jour d’essai, il n’y a donc plus de rappel à programmer."
+          }
+        }
+      }
+    },
     "Loading plans" : {
       "localizations" : {
         "fr" : {
@@ -197,6 +217,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Rien n’a été débité. Vous pouvez réessayer."
+          }
+        }
+      }
+    },
+    "Notifications are off for PDF Algo Pro, so there’s no reminder." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les notifications sont désactivées pour PDF Algo Pro, il n’y aura donc pas de rappel."
           }
         }
       }
@@ -467,6 +497,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "L’achat se terminera une fois approuvé. Rien n’a été débité."
+          }
+        }
+      }
+    },
+    "The reminder couldn’t be set. Try again." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le rappel n’a pas pu être programmé. Réessayez."
           }
         }
       }
