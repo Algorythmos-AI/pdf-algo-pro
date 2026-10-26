@@ -137,16 +137,20 @@ public actor SearchablePDFBuilder {
         }
       }
     }
-    func walk(_ item: PDFOutline, depth: Int) {
-      guard depth < PDFDocumentController.outlineDepthLimit else { return }
+    // Every outline entry, however deep: each original page is replaced, so an entry left out would
+    // keep a destination on a page that is gone. A stack, not recursion, so a deep outline can't
+    // exhaust the stack, and each entry once, so a malformed outline that loops back can't loop here.
+    var stack = original.outlineRoot.map { [$0] } ?? []
+    var visited: [ObjectIdentifier: PDFOutline] = [:]
+    while let item = stack.popLast() {
+      guard visited.updateValue(item, forKey: ObjectIdentifier(item)) == nil else { continue }
       if !note(item.destination, { item.destination = $0 }) {
         _ = note((item.action as? PDFActionGoTo)?.destination) { item.action = PDFActionGoTo(destination: $0) }
       }
-      for index in 0..<item.numberOfChildren {
-        if let child = item.child(at: index) { walk(child, depth: depth + 1) }
+      for index in (0..<item.numberOfChildren).reversed() {
+        if let child = item.child(at: index) { stack.append(child) }
       }
     }
-    if let root = original.outlineRoot { walk(root, depth: 0) }
     for (index, (old, new)) in zip(replaced, replacements).enumerated() {
       new.rotation = old.rotation
       // The new page goes into the document before anything is moved onto it: a form field moved to

@@ -1186,6 +1186,45 @@ struct SearchablePDFTests {
     #expect(document.documentAttributes?[PDFDocumentAttribute.titleAttribute] as? String == "Damaged metadata")
   }
 
+  /// The page each entry of an outline's first branch goes to, from the top down, read without recursion.
+  private static func branchTargets(of document: PDFDocument) -> [Int] {
+    var targets: [Int] = []
+    var item = document.outlineRoot?.child(at: 0)
+    while let entry = item, targets.count < 1_000 {
+      targets.append(entry.destination?.page.map { document.index(for: $0) } ?? -1)
+      item = entry.numberOfChildren > 0 ? entry.child(at: 0) : nil
+    }
+    return targets
+  }
+
+  @Test("Adding a text layer points every outline entry at its new page, however deeply nested")
+  func textLayerKeepsDeepOutlines() async throws {
+    let source = try #require(PDFDocument(data: SyntheticPDF.makeImageOnly(pages: ["One", "Two"])))
+    let root = PDFOutline()
+    var parent = root
+    for level in 0..<150 {
+      let item = PDFOutline()
+      item.label = "Level \(level)"
+      item.destination = PDFDestination(page: try #require(source.page(at: level % 2)), at: .zero)
+      parent.insertChild(item, at: 0)
+      parent = item
+    }
+    source.outlineRoot = root
+    let url = try write(try #require(PDFDocumentController.dataRepresentation(of: source)))
+    // On macOS the fixture keeps all 150 levels. Where PDFKit leaves the outline out (iOS 27), the
+    // repair writes it 100 levels deep (`outlineDepthLimit`), and the copy must keep what the fixture has.
+    let fixture = Self.branchTargets(of: try #require(PDFDocument(url: url)))
+    #expect(fixture.count >= PDFDocumentController.outlineDepthLimit, "the fixture's outline: \(fixture.count) deep")
+
+    let result = try await SearchablePDFBuilder(recognizer: FakeRecognizer(), renderPixelSize: 600).addTextLayer(
+      toPDFAt: url)
+
+    let copy = Self.branchTargets(of: try #require(PDFDocument(data: result.data)))
+    #expect(copy.count == fixture.count, "the copy's outline is \(copy.count) deep, the fixture's \(fixture.count)")
+    #expect(copy == (0..<copy.count).map { $0 % 2 }, "pages, from the top: \(copy)")
+    #expect(copy.last == (fixture.count - 1) % 2, "the deepest entry, level \(copy.count - 1), goes to its page")
+  }
+
   @Test("Recognition resumes: pages already done are reused, and each new page is handed back (P8)")
   func textLayerResumes() async throws {
     let url = try write(SyntheticPDF.makeImageOnly(pages: ["One", "Two", "Three"]))
