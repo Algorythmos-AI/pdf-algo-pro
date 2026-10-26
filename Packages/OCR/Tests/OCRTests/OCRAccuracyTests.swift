@@ -26,22 +26,50 @@ struct OCRAccuracyTests {
     var report = [
       "# OCR accuracy", "", "| Language | Condition | Pages | CER | WER | Gate |", "|---|---|---|---|---|---|",
     ]
+    var wrongWords: [String] = []
     // The same gates for English and French alone and among the wider set of languages: adding
     // languages must not make the first two worse.
-    let recognizers: [(String, any TextRecognizing)] = [
-      ("", VisionTextRecognizer()), (" (wider set)", VisionTextRecognizer.wider),
-      (" (as a document)", VisionDocumentRecognizer()),
+    let recognizers: [(String, any TextRecognizing, gated: Bool)] = [
+      ("", VisionTextRecognizer(), true), (" (wider set)", VisionTextRecognizer.wider, true),
+      (" (as a document)", VisionDocumentRecognizer(), true),
+      // Reported, not gated: the same recognisers without language correction, so a run shows how
+      // much the dictionaries help or hurt on that system (issue 308: French on iOS 27).
+      (" (no correction)", VisionTextRecognizer(correctsLanguage: false), false),
+      (
+        " (as a document, no correction)",
+        VisionDocumentRecognizer(
+          fallback: VisionTextRecognizer(
+            languages: VisionTextRecognizer.widerLanguages, detectsLanguage: true, findsWords: true,
+            correctsLanguage: false)), false
+      ),
     ]
-    for (name, recognizer) in recognizers {
+    for (name, recognizer, gated) in recognizers {
       for language in OCRCorpus.Language.allCases {
         for condition in OCRCorpus.Condition.allCases {
           let pages = OCRCorpus.pages(language, condition, count: counts[condition] ?? 0, seed: 2026)
           var score = RecognitionScore()
-          for page in pages {
+          // Each page's wrong words, so a failure names them and the log alone says what to fix.
+          var misread: [String] = []
+          for (index, page) in pages.enumerated() {
             let lines = try await recognizer.recognizeText(in: page.image)
-            score = score + RecognitionScore(recognised: lines.map(\.text).joined(separator: "\n"), truth: page.truth)
+            let recognised = lines.map(\.text).joined(separator: "\n")
+            score = score + RecognitionScore(recognised: recognised, truth: page.truth)
+            let edits = RecognitionScore.wordDifferences(recognised: recognised, truth: page.truth)
+            if !edits.isEmpty {
+              misread.append("page \(index + 1) (\(page.font)): " + edits.joined(separator: "; "))
+            }
           }
+          let label = "\(language.rawValue)\(name) \(condition.rawValue)"
+          if !misread.isEmpty { wrongWords.append("- \(label): " + misread.joined(separator: " | ")) }
+          let detail = misread.isEmpty ? "" : "; wrong words: " + misread.joined(separator: " | ")
           let gate = try #require(Self.gates[condition])
+          guard gated else {
+            report.append(
+              "| \(language.rawValue)\(name) | \(condition.rawValue) | \(pages.count) | "
+                + String(format: "%.2f%% | %.2f%% | ", score.characterErrorRate * 100, score.wordErrorRate * 100)
+                + "not gated |")
+            continue
+          }
           let passes = score.characterErrorRate <= gate.cer && (gate.wer.map { score.wordErrorRate <= $0 } ?? true)
           report.append(
             "| \(language.rawValue)\(name) | \(condition.rawValue) | \(pages.count) | "
@@ -49,15 +77,17 @@ struct OCRAccuracyTests {
               + (passes ? "pass" : "FAIL") + " |")
           #expect(
             score.characterErrorRate <= gate.cer,
-            "\(language.rawValue)\(name) \(condition.rawValue): CER \(score.characterErrorRate) above \(gate.cer)")
+            "\(label): CER \(score.characterErrorRate) above \(gate.cer)\(detail)")
           if let wer = gate.wer {
             #expect(
               score.wordErrorRate <= wer,
-              "\(language.rawValue)\(name) \(condition.rawValue): WER \(score.wordErrorRate) above \(wer)")
+              "\(label): WER \(score.wordErrorRate) (\(score.wordEdits) of \(score.words) words) above \(wer)\(detail)")
           }
         }
       }
     }
+    // Every subset's wrong words, passing or not, so two systems' runs compare word by word.
+    report += ["", "## Wrong words", ""] + (wrongWords.isEmpty ? ["None."] : wrongWords)
     let text = report.joined(separator: "\n") + "\n"
     print(text)
     SuiteReport.write(text, named: "ocr-accuracy.md")
@@ -84,5 +114,12 @@ struct RecognitionScoreTests {
     #expect(total.characters == exact.characters + 4 && total.characterEdits == 4)
     #expect(RecognitionScore().characterErrorRate == 0)
     #expect(RecognitionScore.distance(Array("kitten"), Array("sitting")) == 3)
+    #expect(RecognitionScore.wordDifferences(recognised: "Facture n° 42", truth: "Facture n° 42").isEmpty)
+    #expect(
+      RecognitionScore.wordDifferences(recognised: "Facture a ete", truth: "Facture à été")
+        == [#""à" read as "a""#, #""été" read as "ete""#])
+    #expect(
+      RecognitionScore.wordDifferences(recognised: "la facture", truth: "la facture émise") == [#""émise" missed"#])
+    #expect(RecognitionScore.wordDifferences(recognised: "la x facture", truth: "la facture") == [#""x" added"#])
   }
 }

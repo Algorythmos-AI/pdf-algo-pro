@@ -21,6 +21,8 @@ enum OCRCorpus {
   struct Page {
     let truth: String
     let image: CGImage
+    /// The typeface the page is set in, so a failure can say which one was misread.
+    let font: String
   }
 
   /// Pages for a language and condition, the same on every run for a given seed.
@@ -31,7 +33,7 @@ enum OCRCorpus {
       let font = index.isMultiple(of: 2) ? "Helvetica" : "Times New Roman"
       guard let clean = render(lines, font: font) else { return nil }
       let image = condition == .clean ? clean : degrade(clean, using: &generator)
-      return image.map { Page(truth: lines.joined(separator: "\n"), image: $0) }
+      return image.map { Page(truth: lines.joined(separator: "\n"), image: $0, font: font) }
     }
   }
 

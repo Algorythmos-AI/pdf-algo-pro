@@ -64,6 +64,42 @@ struct RecognitionScore: Equatable {
       .replacing(#/« /#, with: "«")
   }
 
+  /// The word edits between the recognised text and the ground truth, in reading order.
+  ///
+  /// Each reads `"été" read as "ete"`, `"à" missed` or `"x" added`, after normalisation; none when
+  /// every word is right. A failing gate reports these, so the log alone names the wrong words.
+  static func wordDifferences(recognised: String, truth: String) -> [String] {
+    let found = normalised(recognised).split(separator: " ").map(String.init)
+    let wanted = normalised(truth).split(separator: " ").map(String.init)
+    // The full table of distances between prefixes, walked back from the end to find the edits.
+    var table = Array(repeating: Array(repeating: 0, count: wanted.count + 1), count: found.count + 1)
+    for i in 0...found.count { table[i][0] = i }
+    for j in 0...wanted.count { table[0][j] = j }
+    for i in stride(from: 1, through: found.count, by: 1) {
+      for j in stride(from: 1, through: wanted.count, by: 1) {
+        let same = found[i - 1] == wanted[j - 1] ? 0 : 1
+        table[i][j] = min(table[i - 1][j] + 1, table[i][j - 1] + 1, table[i - 1][j - 1] + same)
+      }
+    }
+    var edits: [String] = []
+    var i = found.count
+    var j = wanted.count
+    while i > 0 || j > 0 {
+      if i > 0, j > 0, table[i][j] == table[i - 1][j - 1] + (found[i - 1] == wanted[j - 1] ? 0 : 1) {
+        if found[i - 1] != wanted[j - 1] { edits.append("\"\(wanted[j - 1])\" read as \"\(found[i - 1])\"") }
+        i -= 1
+        j -= 1
+      } else if j > 0, table[i][j] == table[i][j - 1] + 1 {
+        edits.append("\"\(wanted[j - 1])\" missed")
+        j -= 1
+      } else {
+        edits.append("\"\(found[i - 1])\" added")
+        i -= 1
+      }
+    }
+    return edits.reversed()
+  }
+
   /// The minimum number of insertions, deletions and substitutions turning one sequence into another.
   static func distance<Element: Equatable>(_ lhs: [Element], _ rhs: [Element]) -> Int {
     guard !lhs.isEmpty else { return rhs.count }
