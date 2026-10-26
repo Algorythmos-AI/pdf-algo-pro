@@ -758,13 +758,10 @@ extension PDFDocumentController {
     document.removePage(at: index)
     document.insert(new, at: index)
     let fields = old.annotations.map { (widget: $0, name: $0.fieldName) }
-    // A pop-up travels with the note it belongs to.
-    for annotation in old.annotations where annotation.type != "Popup" {
-      old.removeAnnotation(annotation)
+    // Each once, a note's pop-up included, whichever way PDFKit treats pop-ups (#307).
+    old.moveAnnotations(to: new) { annotation in
       if shift != .zero { annotation.bounds = annotation.bounds.offsetBy(dx: shift.dx, dy: shift.dy) }
-      new.addAnnotation(annotation)
     }
-    for annotation in old.annotations { old.removeAnnotation(annotation) }
     for field in fields where field.widget.fieldName != field.name { field.widget.fieldName = field.name }
     repoint(from: old, to: new, shift: shift, links: links)
 

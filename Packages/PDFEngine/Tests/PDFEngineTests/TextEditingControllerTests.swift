@@ -201,9 +201,12 @@ struct TextEditingControllerTests {
     #expect(controller.markUp(text: "Ribosomes", as: .highlight))
     controller.addNote("Check this", onPage: 0)
     let before = controller.annotationSummaries()
+    let onPage = controller.document.page(at: 0)?.annotations.map(\.type)
     try await edit(
       controller, containing: "mitocondria", to: "The mitochondria is where the cell makes most of its energy.")
     #expect(controller.annotationSummaries() == before, "The same annotations, on the new page")
+    let moved = controller.document.page(at: 0)?.annotations.map(\.type)
+    #expect(moved == onPage, "each once, the note's pop-up too: before \(String(describing: onPage))")
     try controller.save(to: url)
     let reopened = try PDFDocumentController(url: url)
     #expect(squeezed(reopened).contains("mitochondria") && !squeezed(reopened).contains("mitocondria"))

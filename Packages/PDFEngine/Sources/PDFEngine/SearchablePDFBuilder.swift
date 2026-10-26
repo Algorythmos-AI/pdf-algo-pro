@@ -158,11 +158,7 @@ public actor SearchablePDFBuilder {
       original.removePage(at: index)
       original.insert(new, at: index)
       let fields = old.annotations.map { (widget: $0, name: $0.fieldName) }
-      // A pop-up travels with the note it belongs to; moved on its own as well, it would be there twice.
-      for annotation in old.annotations where annotation.type != "Popup" {
-        old.removeAnnotation(annotation)
-        new.addAnnotation(annotation)
-      }
+      old.moveAnnotations(to: new)
       for field in fields where field.widget.fieldName != field.name { field.widget.fieldName = field.name }
     }
     for pointer in pointers {
