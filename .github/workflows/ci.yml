@@ -40,6 +40,13 @@ on:
         description: Build with Xcode 27 and test on iOS 27 (ios-27)
         type: boolean
         default: false
+      ocr_full_suite:
+        # Runs `ocr-full-suite`: the OCR accuracy suite on its full corpus (200 clean and 100 degraded
+        # pages per language), one recogniser per job, on the iOS 27 simulator and on the pinned iOS 26.5
+        # one (issue 308). Combine with `only_testing: OCRTests/OCRAccuracyTests` to skip the rest.
+        description: Run the OCR accuracy suite on its full corpus on iOS 27 and iOS 26.5 (ocr-full-suite)
+        type: boolean
+        default: false
       store_screenshots:
         # Runs `store-screenshots` (the App Store screenshot suite, on the simulator) on this run as well.
         # It also runs on a pull request that changes the suite, its plan or its documents.
@@ -844,6 +851,66 @@ jobs:
           path: ios-27-xcresult.tgz
           if-no-files-found: ignore
           retention-days: 7
+
+  ocr-full-suite:
+    # Not required, and not part of `ios`: the OCR accuracy suite on its full corpus
+    # (docs/testing-strategy.md, "OCR accuracy testing"), only on a manual run that asks for it. One
+    # recogniser per job, because the corpus takes too long for one job on a simulator. iOS 27 runs the
+    # three gated recognisers; the pinned iOS 26.5 runs the line and document ones for comparison.
+    # Only the OCR package is built, so nothing of the app is needed. The report is kept as an artifact.
+    name: ocr-full-suite (iOS ${{ matrix.ios }}, ${{ matrix.recognizer }})
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.ocr_full_suite }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { ios: "27", runner: xcode-27, xcode: XCODE27_APP, build: XCODE27_BUILD, runtime: SIMULATOR27_RUNTIME, recognizer: line }
+          - { ios: "27", runner: xcode-27, xcode: XCODE27_APP, build: XCODE27_BUILD, runtime: SIMULATOR27_RUNTIME, recognizer: wider }
+          - { ios: "27", runner: xcode-27, xcode: XCODE27_APP, build: XCODE27_BUILD, runtime: SIMULATOR27_RUNTIME, recognizer: document }
+          - { ios: "26.5", runner: macos-26, xcode: XCODE_APP, build: XCODE_BUILD, runtime: SIMULATOR_RUNTIME, recognizer: line }
+          - { ios: "26.5", runner: macos-26, xcode: XCODE_APP, build: XCODE_BUILD, runtime: SIMULATOR_RUNTIME, recognizer: document }
+    env:
+      # The names of the workflow variables to use, read indirectly: a matrix cannot read `env`.
+      XCODE_VAR: ${{ matrix.xcode }}
+      BUILD_VAR: ${{ matrix.build }}
+      RUNTIME_VAR: ${{ matrix.runtime }}
+      RECOGNIZER: ${{ matrix.recognizer }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Select the pinned Xcode (fail if missing)
+        run: |
+          app="${!XCODE_VAR}"
+          build="${!BUILD_VAR}"
+          xcode="/Applications/$app"
+          if [ ! -d "$xcode" ]; then
+            echo "::error::$app is not installed on this runner image; update the pin"
+            exit 1
+          fi
+          sudo xcode-select -s "$xcode/Contents/Developer"
+          xcodebuild -version
+          if ! xcodebuild -version | grep -q "Build version $build"; then
+            echo "::error::$app is not build $build; update the pin"
+            exit 1
+          fi
+      - name: The accuracy suite on the full corpus
+        run: |
+          device="$(SIMULATOR_RUNTIME="${!RUNTIME_VAR}" scripts/ci/pinned_simulator.sh)"
+          xcrun simctl boot "$device" || true
+          mkdir -p "$RUNNER_TEMP/reports"
+          cd Packages/OCR
+          TEST_RUNNER_FULL_SUITE=1 TEST_RUNNER_OCR_RECOGNIZERS="$RECOGNIZER" \
+            TEST_RUNNER_REPORTS_DIR="$RUNNER_TEMP/reports" \
+            xcodebuild test -scheme OCR -destination "id=$device" -derivedDataPath "$RUNNER_TEMP/DD" \
+            -only-testing:OCRTests/OCRAccuracyTests -parallel-testing-enabled NO
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ always() }}
+        with:
+          name: ocr-full-suite-ios${{ matrix.ios }}-${{ matrix.recognizer }}
+          path: ${{ runner.temp }}/reports
+          if-no-files-found: ignore
+          retention-days: 30
 
   store-screenshots:
     # Not required, and not part of `ios`: the App Store screenshot suite (`StoreScreenshotTests`,

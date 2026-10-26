@@ -9,7 +9,9 @@ import Testing
 /// condition, against the thresholds in docs/testing-strategy.md ("OCR accuracy testing", "Thresholds").
 ///
 /// Every pull request runs a subset; `FULL_SUITE=1` (or `TEST_RUNNER_FULL_SUITE=1` through xcodebuild)
-/// runs the full corpus of 200 clean and 100 degraded pages per language.
+/// runs the full corpus of 200 clean and 100 degraded pages per language. `OCR_RECOGNIZERS` (a
+/// comma-separated list of `line`, `wider`, `document`, `line-uncorrected`, `document-uncorrected`)
+/// runs only those recognisers, so CI can split the full corpus across jobs.
 @Suite("OCR accuracy", .tags(.ocr))
 struct OCRAccuracyTests {
   /// The gates: character and word error rates a subset may not exceed.
@@ -18,6 +20,29 @@ struct OCRAccuracyTests {
   ]
 
   static var isFullSuite: Bool { ProcessInfo.processInfo.environment["FULL_SUITE"] == "1" }
+
+  /// The recognisers asked for by `OCR_RECOGNIZERS`, or nil for all of them.
+  static var chosenRecognizers: Set<String>? {
+    guard let value = ProcessInfo.processInfo.environment["OCR_RECOGNIZERS"], !value.isEmpty else { return nil }
+    return Set(value.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) })
+  }
+
+  /// Whether this system reads French worse than the gate allows, a known issue (#308).
+  ///
+  /// iOS 27.0's recogniser misreads French ligatures and accents ("vitæ" as "vita", "sœur" as
+  /// "sceur", "signé" as "signe"), with or without language correction, and no request setting
+  /// avoids it. The gate stays 5% on every system for consistency (owner's decision, 2026-10-26,
+  /// PAP-069); on iOS 27 or later only the French clean word-error check is marked as a known issue.
+  /// When Apple fixes the recogniser the check passes, Swift Testing reports that the known issue
+  /// no longer occurs, and this marker is removed.
+  static var readsFrenchWorse: Bool {
+    #if os(iOS)
+      ProcessInfo.processInfo.isOperatingSystemAtLeast(
+        OperatingSystemVersion(majorVersion: 27, minorVersion: 0, patchVersion: 0))
+    #else
+      false
+    #endif
+  }
 
   @Test("Recognition meets the accuracy gates in English and French (FR-SCAN-002)")
   func accuracy() async throws {
@@ -29,35 +54,43 @@ struct OCRAccuracyTests {
     var wrongWords: [String] = []
     // The same gates for English and French alone and among the wider set of languages: adding
     // languages must not make the first two worse.
-    let recognizers: [(String, any TextRecognizing, gated: Bool)] = [
-      ("", VisionTextRecognizer(), true), (" (wider set)", VisionTextRecognizer.wider, true),
-      (" (as a document)", VisionDocumentRecognizer(), true),
+    let recognizers: [(key: String, name: String, recognizer: any TextRecognizing, gated: Bool)] = [
+      ("line", "", VisionTextRecognizer(), true), ("wider", " (wider set)", VisionTextRecognizer.wider, true),
+      ("document", " (as a document)", VisionDocumentRecognizer(), true),
       // Reported, not gated: the same recognisers without language correction, so a run shows how
       // much the dictionaries help or hurt on that system (issue 308: French on iOS 27).
-      (" (no correction)", VisionTextRecognizer(correctsLanguage: false), false),
+      ("line-uncorrected", " (no correction)", VisionTextRecognizer(correctsLanguage: false), false),
       (
-        " (as a document, no correction)",
+        "document-uncorrected", " (as a document, no correction)",
         VisionDocumentRecognizer(
           fallback: VisionTextRecognizer(
             languages: VisionTextRecognizer.widerLanguages, detectsLanguage: true, findsWords: true,
             correctsLanguage: false)), false
       ),
     ]
-    for (name, recognizer, gated) in recognizers {
+    let chosen = Self.chosenRecognizers
+    for (key, name, recognizer, gated) in recognizers where chosen?.contains(key) ?? true {
       for language in OCRCorpus.Language.allCases {
         for condition in OCRCorpus.Condition.allCases {
           let pages = OCRCorpus.pages(language, condition, count: counts[condition] ?? 0, seed: 2026)
           var score = RecognitionScore()
-          // Each page's wrong words, so a failure names them and the log alone says what to fix.
+          // Each page's wrong words, so a failure names them and the log alone says what to fix; on
+          // the full corpus, how often each misreading happens instead, the most frequent first.
           var misread: [String] = []
+          var tally: [String: Int] = [:]
           for (index, page) in pages.enumerated() {
             let lines = try await recognizer.recognizeText(in: page.image)
             let recognised = lines.map(\.text).joined(separator: "\n")
             score = score + RecognitionScore(recognised: recognised, truth: page.truth)
             let edits = RecognitionScore.wordDifferences(recognised: recognised, truth: page.truth)
+            for edit in edits { tally[edit, default: 0] += 1 }
             if !edits.isEmpty {
               misread.append("page \(index + 1) (\(page.font)): " + edits.joined(separator: "; "))
             }
+          }
+          if Self.isFullSuite {
+            misread = tally.sorted { $0.value != $1.value ? $0.value > $1.value : $0.key < $1.key }.prefix(25)
+              .map { "\($0.value)x \($0.key)" }
           }
           let label = "\(language.rawValue)\(name) \(condition.rawValue)"
           if !misread.isEmpty { wrongWords.append("- \(label): " + misread.joined(separator: " | ")) }
@@ -70,18 +103,34 @@ struct OCRAccuracyTests {
                 + "not gated |")
             continue
           }
-          let passes = score.characterErrorRate <= gate.cer && (gate.wer.map { score.wordErrorRate <= $0 } ?? true)
+          let knownIssue = language == .french && condition == .clean && Self.readsFrenchWorse
+          let passesCER = score.characterErrorRate <= gate.cer
+          let passesWER = gate.wer.map { score.wordErrorRate <= $0 } ?? true
+          let verdict =
+            passesCER && passesWER ? "pass" : passesCER && knownIssue ? "FAIL, known issue #308" : "FAIL"
           report.append(
             "| \(language.rawValue)\(name) | \(condition.rawValue) | \(pages.count) | "
               + String(format: "%.2f%% | %.2f%% | ", score.characterErrorRate * 100, score.wordErrorRate * 100)
-              + (passes ? "pass" : "FAIL") + " |")
+              + verdict + " |")
           #expect(
             score.characterErrorRate <= gate.cer,
             "\(label): CER \(score.characterErrorRate) above \(gate.cer)\(detail)")
           if let wer = gate.wer {
-            #expect(
-              score.wordErrorRate <= wer,
-              "\(label): WER \(score.wordErrorRate) (\(score.wordEdits) of \(score.words) words) above \(wer)\(detail)")
+            let check = {
+              #expect(
+                score.wordErrorRate <= wer,
+                "\(label): WER \(score.wordErrorRate) (\(score.wordEdits) of \(score.words) words) above \(wer)\(detail)"
+              )
+            }
+            if knownIssue {
+              // Known issue (#308): the 5% gate stands; on iOS 27 French misses it. If this check
+              // passes here, Swift Testing reports the known issue as gone: remove this marker.
+              withKnownIssue("iOS 27 reads French ligatures and accents worse (#308); gate stays \(wer)") {
+                check()
+              }
+            } else {
+              check()
+            }
           }
         }
       }
