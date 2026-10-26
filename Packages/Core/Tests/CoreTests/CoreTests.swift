@@ -200,6 +200,26 @@ struct IntelligenceValueTests {
     #expect(english.hasPrefix("field,value,page\r\n\"total\",\"1 234,56 €\",1\r\n"))
   }
 
+  @Test("A notice is the CSV's last row, in the same three columns (EU AI Act Art 50(2), L3)")
+  func csvNotice() throws {
+    let extraction = Extraction(
+      fields: [ExtractedField(key: "total", value: "12", pageIndex: 0)], tier: .onDevice)
+    let notice = "Made by \"AI\"; may contain errors."
+    #expect(
+      extraction.csv(notice: notice)
+        == "field,value,page\r\n\"total\",\"12\",1\r\n\"notice\",\"Made by \"\"AI\"\"; may contain errors.\",\r\n")
+    let french = try #require(
+      String(
+        data: extraction.csvFile(locale: Locale(identifier: "fr_FR"), notice: notice).dropFirst(3), encoding: .utf8))
+    #expect(
+      french == "field;value;page\r\n\"total\";\"12\";1\r\n\"notice\";\"Made by \"\"AI\"\"; may contain errors.\";\r\n")
+    // Without a notice, nothing changes.
+    #expect(extraction.csv == "field,value,page\r\n\"total\",\"12\",1\r\n")
+    #expect(
+      extraction.csvFile(locale: Locale(identifier: "fr_FR"), notice: nil)
+        == extraction.csvFile(locale: Locale(identifier: "fr_FR")))
+  }
+
   @Test(
     "Extracted values a spreadsheet would run as formulas are made inert (CSV injection, H2)",
     arguments: [

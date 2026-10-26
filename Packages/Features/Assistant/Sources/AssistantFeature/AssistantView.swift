@@ -314,7 +314,7 @@ public struct AssistantView: View {
         }
       }
       Button {
-        UIPasteboard.general.string = extraction.csv
+        UIPasteboard.general.string = model.shareableText
         Task { await model.recordKept() }
       } label: {
         Label {
@@ -325,7 +325,9 @@ public struct AssistantView: View {
       }
       .accessibilityIdentifier(AccessibilityID.Assistant.copyCSV)
       ShareLink(
-        item: CSVFile(extraction, name: String(localized: "Extracted fields", bundle: .module)),
+        item: CSVFile(
+          extraction, name: String(localized: "Extracted fields", bundle: .module),
+          notice: AssistantModel.generatedFooter),
         preview: SharePreview(Text("Extracted fields", bundle: .module))
       ) {
         Label {
