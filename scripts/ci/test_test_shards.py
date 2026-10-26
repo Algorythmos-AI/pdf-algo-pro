@@ -208,8 +208,13 @@ def test_verdict_cli_reads_an_empty_reporter_exit_as_no_results(capsys):
 def test_the_device_run_retries_like_a_ui_shard_but_is_never_in_the_matrix(capsys):
     assert test_shards.retries("device")
     assert "device" not in test_shards.matrix("")["shard"]
-    failed = ["PDFAlgoProUITests/ReaderUITests/testGoToPage\n"]
-    assert test_shards.retry_args("device", failed)[0] == ["-only-testing:PDFAlgoProUITests/ReaderUITests/testGoToPage"]
+    # With "()" on the device, so that a failed Swift Testing test (the app's unit tests) runs again too.
+    failed = ["PDFAlgoProUITests/ReaderUITests/testGoToPage\n", "PDFAlgoProTests/AppLockTests/off\n"]
+    assert test_shards.retry_args("device", failed)[0] == [
+        "-only-testing:PDFAlgoProUITests/ReaderUITests/testGoToPage()",
+        "-only-testing:PDFAlgoProTests/AppLockTests/off()"]
+    # A simulator shard keeps the selectors as they are.
+    assert test_shards.retry_args("ui-1", failed[:1])[0] == ["-only-testing:PDFAlgoProUITests/ReaderUITests/testGoToPage"]
     assert test_shards.verdict("device", 65, 0)[0] is True
     assert test_shards.verdict("device", 65, 1)[0] is False
     with pytest.raises(ValueError):

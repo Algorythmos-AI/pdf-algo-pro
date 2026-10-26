@@ -69,9 +69,18 @@ def test_the_tests_a_stopped_runner_never_reached_run_next_with_the_one_it_was_i
     first = results(tmp_path, "first", [case("LibraryUITests/testA()", "Passed"),
                                          case("LibraryUITests/testB()", "Failed", "No matches found")],
                     unit=[case("AppLockTests/backgroundLocks()", "Passed")], stopped=True)
-    assert run_next(tmp_path, first, capsys=capsys) == [f"-only-testing:{UI}/ReaderUITests/testC"]
+    assert run_next(tmp_path, first, capsys=capsys) == [f"-only-testing:{UI}/ReaderUITests/testC()"]
     assert run_next(tmp_path, first, with_failed=True, capsys=capsys) == [
-        f"-only-testing:{UI}/ReaderUITests/testC", f"-only-testing:{UI}/LibraryUITests/testB"]
+        f"-only-testing:{UI}/ReaderUITests/testC()", f"-only-testing:{UI}/LibraryUITests/testB()"]
+
+
+def test_a_unit_test_is_asked_for_as_listed_so_that_swift_testing_finds_it(tmp_path, capsys):
+    # On the iPhone run of 2026-10-26, `-only-testing:PDFAlgoProTests/AppLockTests/off` matched nothing,
+    # three rounds in a row, and 65 unit tests "never ran"; with "()" xcodebuild finds it.
+    first = results(tmp_path, "first", [case("LibraryUITests/testA()", "Passed")], stopped=True)
+    assert run_next(tmp_path, first, capsys=capsys) == [
+        f"-only-testing:{UNIT}/AppLockTests/backgroundLocks()", f"-only-testing:{UI}/LibraryUITests/testB()",
+        f"-only-testing:{UI}/ReaderUITests/testC()"]
 
 
 def test_a_class_with_no_tests_of_its_own_is_never_asked_for(tmp_path, capsys):
@@ -112,3 +121,24 @@ def test_a_test_that_never_ran_and_one_that_failed_again_fail_the_run(tmp_path):
     assert counts == "2 / 2 / 0"
     assert failed.splitlines() == [f"{UI}/LibraryUITests/testB", f"{UI}/ReaderUITests/testC"]
     assert "never ran" in summary and "first" in summary
+
+
+def test_a_failed_tests_attachments_are_gathered_from_every_bundle(tmp_path):
+    exported = tmp_path / "attachments"
+    for bundle, test, name in [("Device", "LibraryUITests/testB()", "first.png"),
+                               ("Device-resume-1", "LibraryUITests/testB()", "second.png"),
+                               ("Device-resume-1", "ReaderUITests/testC()", "passed.png")]:
+        folder = exported / bundle
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / name).write_bytes(b"png")
+        manifest = folder / "manifest.json"
+        entries = json.loads(manifest.read_text()) if manifest.exists() else []
+        entries.append({"testIdentifier": test, "attachments": [{"exportedFileName": name}]})
+        manifest.write_text(json.dumps(entries))
+    failed = tmp_path / "failed.txt"
+    failed.write_text(f"{UI}/LibraryUITests/testB\n")
+    out = tmp_path / "failed-attachments"
+    assert device_resume.main(["attachments", str(failed), str(exported), str(out)]) == 0
+    folder = out / f"{UI}_LibraryUITests_testB"
+    assert sorted(p.name for p in folder.iterdir()) == ["Device-first.png", "Device-resume-1-second.png"]
+    assert [p.name for p in out.iterdir()] == [folder.name]

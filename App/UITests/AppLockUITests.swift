@@ -25,7 +25,7 @@ final class AppLockUITests: UITestCase {
       keepEvidence(app, named: "no unlock button", notes: "The cover showed no Unlock button")
       XCTFail("The cover asks to unlock")
     }
-    try audit(app)
+    try auditInBothAppearances(app)
     unlock.tap()
     XCTAssertTrue(unlock.waitForExistence(timeout: Self.settleTimeout), "A refusal keeps the cover")
     XCTAssertTrue(

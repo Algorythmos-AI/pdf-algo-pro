@@ -19,9 +19,14 @@ final class ManualChecklistDeviceUITests: UITestCase {
     XCTAssertTrue(app.staticTexts[ID.Reader.pageIndicator].waitForExistence(timeout: 15), "The sample opens")
     // From at once to well after the save, so some kills land before it, some during and some after.
     for (attempt, delay) in [0.0, 0.05, 0.1, 0.2, 0.3, 0.5, 0.8, 1.2, 1.8, 2.5].enumerated() {
-      let more = app.buttons[ID.Reader.more]
-      tap(more, until: app.buttons[ID.Reader.bookmark])
-      app.buttons[ID.Reader.bookmark].tap()
+      // By its title too: on iOS 27 a menu item can lose its identifier (#292), and then the second tap on
+      // More closed the menu again (the iPhone run of 2026-10-26, after four kills had passed).
+      let bookmark = submenuItem(
+        ID.Reader.bookmark,
+        titles: ["Bookmark this page", "Remove bookmark", "Ajouter un signet à cette page", "Retirer le signet"],
+        in: app)
+      tap(app.buttons[ID.Reader.more], until: bookmark)
+      bookmark.tap()
       Thread.sleep(forTimeInterval: delay)
       app.terminate()
 

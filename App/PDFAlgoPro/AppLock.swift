@@ -148,9 +148,11 @@ struct LockScreen: View {
           Button {
             Task { await lock.unlock() }
           } label: {
-            Text(Self.unlockTitle(for: method)).frame(minHeight: 44)
+            Text(Self.unlockTitle(for: method))
           }
-          .buttonStyle(.borderedProminent)
+          // The design system's prominent button: the system's picks a white title, 2.3:1 on the brand
+          // fill in dark mode (the accessibility audit on an iPhone, 2026-10-26).
+          .buttonStyle(.primary)
           .disabled(lock.isAuthenticating)
           .accessibilityIdentifier(AccessibilityID.AppLock.unlock)
         }

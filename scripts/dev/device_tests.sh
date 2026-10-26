@@ -179,8 +179,17 @@ out="$results/$(date +%Y%m%d-%H%M%S)-$sha"
 mkdir -p "$out" "$dd"
 xcb_regenerate
 
+# Over Wi-Fi the connection to the phone can drop between steps, and xcodebuild then waits for it and
+# gives up ("The tunnel was interrupted while establishing connectivity", 2026-10-26): asking devicectl
+# about the phone sets the connection up again, so this runs before each xcodebuild that needs it.
+wake_phone() {
+  xcrun devicectl device info details --device "$udid" --timeout 60 > /dev/null 2>&1 \
+    || echo "warning: devicectl could not reach the phone; xcodebuild will wait for it" >&2
+}
+
 # 3. Build for testing: Debug, automatic signing with the team in Config/Team.xcconfig.
 destination="platform=iOS,id=$udid"
+wake_phone
 echo "== Building for testing (Device plan, Debug) into $dd"
 set +e
 xcodebuild build-for-testing -scheme PDFAlgoPro -testPlan Device -configuration Debug \
@@ -200,6 +209,7 @@ echo "== Device tests: ${selectors[*]:-the whole plan}"
 XCB_TEST_ARGS=(-scheme PDFAlgoPro -testPlan Device -destination "$destination" -derivedDataPath "$dd"
   -disableAutomaticPackageResolution -skipPackageUpdates)
 XCB_SELECTORS=(${selectors[@]+"${selectors[@]}"})
+wake_phone
 if xcb_test_with_retry device "$out" Device; then
   verdict=0
 else
@@ -210,6 +220,7 @@ fi
 # now, with the ones that failed, up to three times while tests are still missing (device_resume.py).
 resumed=()
 counts=""
+[ "$verdict" = 0 ] || wake_phone
 if [ "$verdict" != 0 ] && [ -n "$XCB_TESTS_JSON" ] && [ -f "$XCB_TESTS_JSON" ] \
   && xcodebuild test-without-building "${XCB_TEST_ARGS[@]}" ${XCB_SELECTORS[@]+"${XCB_SELECTORS[@]}"} \
     -enumerate-tests -test-enumeration-style flat -test-enumeration-format json \
@@ -229,6 +240,7 @@ if [ "$verdict" != 0 ] && [ -n "$XCB_TESTS_JSON" ] && [ -f "$XCB_TESTS_JSON" ] \
       break
     fi
     echo "== Round $round: running ${#XCB_LINES[@]} test(s) the stopped runner had not reached, or that failed"
+    wake_phone
     set +e
     xcodebuild test-without-building "${XCB_TEST_ARGS[@]}" -resultBundlePath "$out/Device-resume-$round.xcresult" \
       "${XCB_LINES[@]}" 2>&1 | tee "$out/Device-resume-$round.log"
@@ -250,8 +262,9 @@ if [ "$verdict" != 0 ] && [ -n "$XCB_TESTS_JSON" ] && [ -f "$XCB_TESTS_JSON" ] \
 fi
 
 # 5. The evidence: everything the tests kept (UI_EVIDENCE=all keeps quarantined findings too), and
-# each failed test's attachments on their own, as CI's failed-attachments/.
-for bundle in "$out/Device.xcresult" "$out/Device-retry.xcresult"; do
+# each failed test's attachments on their own, as CI's failed-attachments/: from every bundle, since a
+# test can fail in a resumed run as well as the first.
+for bundle in "$out/Device.xcresult" "$out/Device-retry.xcresult" "$out"/Device-resume-*.xcresult; do
   if [ -f "$bundle/Info.plist" ]; then
     folder="$out/attachments/$(basename "$bundle" .xcresult)"
     mkdir -p "$folder"
@@ -259,13 +272,9 @@ for bundle in "$out/Device.xcresult" "$out/Device-retry.xcresult"; do
       || echo "warning: could not export the attachments of $bundle" >&2
   fi
 done
-if [ -s "$XCB_FAILED_IDS" ]; then
-  while IFS= read -r test; do
-    folder="$out/failed-attachments/$(printf '%s' "$test" | tr -c 'A-Za-z0-9._-' '_')"
-    mkdir -p "$folder"
-    xcrun xcresulttool export attachments --path "$out/Device.xcresult" --output-path "$folder" \
-      --test-id "$test" > /dev/null 2>&1 || true
-  done < "$XCB_FAILED_IDS"
+if [ -s "$XCB_FAILED_IDS" ] && [ -d "$out/attachments" ]; then
+  python3 scripts/dev/device_resume.py attachments "$XCB_FAILED_IDS" "$out/attachments" "$out/failed-attachments" \
+    || echo "warning: could not gather the failed tests' attachments" >&2
 fi
 
 # 6. The record: a row in docs/process/device-test-run.md, then the manual checklist.
