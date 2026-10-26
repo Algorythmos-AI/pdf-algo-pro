@@ -102,52 +102,75 @@ public actor SearchablePDFBuilder {
       data: try Self.carryOver(from: original, onto: data), pages: Self.pageTexts(recognized))
   }
 
-  /// Moves what drawing a page leaves out from the original onto the rebuilt pages.
+  /// Puts the rebuilt pages into the original document, in place of its own, and writes it.
   ///
-  /// `drawPDFPage` draws the page's content only, so annotations, rotation, the outline and the
-  /// metadata are carried over with PDFKit, and links and outline entries are pointed at the new pages.
+  /// `drawPDFPage` draws a page's content only. The original document keeps everything else: its
+  /// metadata and outline, and each page's annotations and rotation move to the page that replaces
+  /// it, as a text edit swaps a page. Links and outline entries are pointed at the new pages.
+  ///
+  /// The annotations stay in the document they were read from. Moved into another document instead,
+  /// PDFKit on iOS 27 wrote none of them: a note and a link were missing from the searchable copy,
+  /// while a text edit's swap kept them (#307). The outline and links PDFKit leaves out are put back.
   private static func carryOver(from originalData: Data, onto rebuiltData: Data) throws -> Data {
     guard let original = PDFDocument(data: originalData), let rebuilt = PDFDocument(data: rebuiltData),
       original.pageCount == rebuilt.pageCount
     else { throw PDFEngineError.saveFailed }
-    func retarget(_ destination: PDFDestination?) -> PDFDestination? {
-      guard let destination, let page = destination.page else { return destination }
-      guard let target = rebuilt.page(at: original.index(for: page)) else { return nil }
-      let moved = PDFDestination(page: target, at: destination.point)
-      moved.zoom = destination.zoom
-      return moved
+    let replaced = (0..<original.pageCount).compactMap { original.page(at: $0) }
+    let replacements = (0..<rebuilt.pageCount).compactMap { rebuilt.page(at: $0) }
+    guard replaced.count == original.pageCount, replacements.count == replaced.count else {
+      throw PDFEngineError.saveFailed
     }
-    func retarget(_ action: PDFAction?) -> PDFAction? {
-      guard let goTo = action as? PDFActionGoTo else { return action }
-      return retarget(goTo.destination).map { PDFActionGoTo(destination: $0) }
+    // Where each link and outline entry goes, read while the original pages are in place: a
+    // destination whose page has left the document no longer says which page it was.
+    var pointers: [(page: Int, destination: PDFDestination, point: (PDFDestination) -> Void)] = []
+    func note(_ destination: PDFDestination?, _ point: @escaping (PDFDestination) -> Void) -> Bool {
+      guard let destination, let page = destination.page else { return false }
+      let index = original.index(for: page)
+      guard index != NSNotFound else { return false }
+      pointers.append((index, destination, point))
+      return true
     }
-    func copy(_ item: PDFOutline) -> PDFOutline {
-      let result = PDFOutline()
-      result.label = item.label
-      if let destination = retarget(item.destination) {
-        result.destination = destination
-      } else {
-        result.action = retarget(item.action)
+    for page in replaced {
+      for annotation in page.annotations where !note(annotation.destination, { annotation.destination = $0 }) {
+        _ = note((annotation.action as? PDFActionGoTo)?.destination) {
+          annotation.action = PDFActionGoTo(destination: $0)
+        }
+      }
+    }
+    func walk(_ item: PDFOutline, depth: Int) {
+      guard depth < PDFDocumentController.outlineDepthLimit else { return }
+      if !note(item.destination, { item.destination = $0 }) {
+        _ = note((item.action as? PDFActionGoTo)?.destination) { item.action = PDFActionGoTo(destination: $0) }
       }
       for index in 0..<item.numberOfChildren {
-        if let child = item.child(at: index) { result.insertChild(copy(child), at: result.numberOfChildren) }
-      }
-      result.isOpen = item.isOpen
-      return result
-    }
-    for index in 0..<original.pageCount {
-      guard let source = original.page(at: index), let target = rebuilt.page(at: index) else { continue }
-      target.rotation = source.rotation
-      for annotation in source.annotations {
-        source.removeAnnotation(annotation)
-        if annotation.destination != nil { annotation.destination = retarget(annotation.destination) }
-        if annotation.action != nil { annotation.action = retarget(annotation.action) }
-        target.addAnnotation(annotation)
+        if let child = item.child(at: index) { walk(child, depth: depth + 1) }
       }
     }
-    if let root = original.outlineRoot { rebuilt.outlineRoot = copy(root) }
-    rebuilt.documentAttributes = original.readableAttributes
-    guard let data = rebuilt.dataRepresentation() else { throw PDFEngineError.saveFailed }
+    if let root = original.outlineRoot { walk(root, depth: 0) }
+    for (index, (old, new)) in zip(replaced, replacements).enumerated() {
+      new.rotation = old.rotation
+      // The new page goes into the document before anything is moved onto it: a form field moved to
+      // a page that is not in a document yet loses its name when the page is inserted.
+      original.removePage(at: index)
+      original.insert(new, at: index)
+      let fields = old.annotations.map { (widget: $0, name: $0.fieldName) }
+      // A pop-up travels with the note it belongs to; moved on its own as well, it would be there twice.
+      for annotation in old.annotations where annotation.type != "Popup" {
+        old.removeAnnotation(annotation)
+        new.addAnnotation(annotation)
+      }
+      for field in fields where field.widget.fieldName != field.name { field.widget.fieldName = field.name }
+    }
+    for pointer in pointers {
+      let destination = PDFDestination(page: replacements[pointer.page], at: pointer.destination.point)
+      destination.zoom = pointer.destination.zoom
+      pointer.point(destination)
+    }
+    // A damaged metadata key would end the app as PDFKit writes it; its readable entries are kept.
+    original.repairAttributesIfNeeded()
+    // `rebuilt` holds the new pages' content, so it lives until the document is written.
+    let data = withExtendedLifetime(rebuilt) { PDFDocumentController.dataRepresentation(of: original) }
+    guard let data else { throw PDFEngineError.saveFailed }
     return data
   }
 

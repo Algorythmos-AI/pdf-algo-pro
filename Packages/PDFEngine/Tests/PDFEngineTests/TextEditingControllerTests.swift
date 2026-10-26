@@ -261,9 +261,17 @@ struct TextEditingControllerTests {
     let link = PDFAnnotation(bounds: CGRect(x: 72, y: 695, width: 120, height: 16), forType: .link, withProperties: nil)
     link.destination = PDFDestination(page: try #require(document.page(at: 0)), at: CGPoint(x: 0, y: 792))
     document.page(at: 1)?.addAnnotation(link)
-    let linked = try #require(document.dataRepresentation())
+    // PDFKit on iOS 27 writes the link to nowhere; the fixture has it as another app would (#307).
+    let linked = try #require(PDFDocumentController.dataRepresentation(of: document))
     let (controller, url) = try open(linked)
+    let opened = controller.document.page(at: 1)?.annotations.first { $0.type == "Link" }
+    try #require(
+      opened?.destination?.page === controller.document.page(at: 0),
+      "the fixture's link goes to page \(opened?.destination?.page.map { controller.document.index(for: $0) } ?? -1)")
+    let original = controller.document.page(at: 0)
     try await edit(controller, containing: "Target heading", to: "Target title")
+    let edited = controller.document.page(at: 0)
+    let afterEdit = opened?.destination?.page === edited && edited !== original
     try controller.save(to: url)
     let reopened = try #require(PDFDocument(url: url))
     let saved = try #require(reopened.page(at: 1)?.annotations.first { $0.type == "Link" })
@@ -271,7 +279,13 @@ struct TextEditingControllerTests {
     // Undo sends the link back to the original page object.
     controller.undoManager.undo()
     let live = controller.document.page(at: 1)?.annotations.first { $0.type == "Link" }
-    #expect(live?.destination?.page === controller.document.page(at: 0))
+    #expect(
+      live?.destination?.page === controller.document.page(at: 0),
+      """
+      after the edit the link went to the new page: \(afterEdit); after undo, page 0 is the original page: \
+      \(controller.document.page(at: 0) === original), the link is the same object: \(live === opened), \
+      and it goes to \(live?.destination.map { $0.page === original ? "the original page" : $0.page === edited ? "the edited page" : $0.page == nil ? "no page" : "another page" } ?? "nowhere")
+      """)
   }
 
   @Test("A password-protected document is edited in memory and stays protected on disk")

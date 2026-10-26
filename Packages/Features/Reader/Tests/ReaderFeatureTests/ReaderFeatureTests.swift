@@ -428,7 +428,16 @@ struct ReaderModelTests {
     await reader.addStamp(.text("  "))
     #expect(!reader.isPastingAnnotations, "An empty stamp is not picked up")
     let url = try await harness.library.fileURL(for: document.id)
-    #expect(try PDFDocumentController(url: url).annotationCount(onPage: 0) == 2)
+    let saved = try PDFDocumentController(url: url).annotationCount(onPage: 0)
+    // What the file and the page hold, so a failure on a device says what the save lost (#307).
+    func describe(_ document: PDFDocument?) -> String {
+      (document?.page(at: 0)?.annotations ?? []).map { "\($0.type ?? "?") \"\($0.contents ?? "")\"" }
+        .joined(separator: ", ")
+    }
+    #expect(
+      saved == 2,
+      "file: [\(describe(PDFDocument(url: url)))]; in memory: [\(describe(reader.controller?.document))]; \(reader.errorMessage ?? "no error shown")"
+    )
     #expect(reader.canUndo)
   }
 

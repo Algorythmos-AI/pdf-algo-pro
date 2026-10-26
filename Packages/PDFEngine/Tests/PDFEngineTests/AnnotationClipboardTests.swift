@@ -137,6 +137,59 @@ struct AnnotationClipboardTests {
     #expect(!controller.pickUpStamp(.text("  ")))
   }
 
+  @Test("Stamps picked up from the menu survive each save, as stamps put straight on the page do (FR-ANN-006)")
+  func pickedUpStampsAreSaved() throws {
+    // As the reader does it: pick up, paste in the middle of the page, save; then the next stamp.
+    let picked = try savedStamps { controller, stamp in
+      controller.clearSelection()
+      #expect(controller.pickUpStamp(stamp))
+      #expect(controller.pasteAnnotationOnCurrentPage())
+      controller.isPastingAnnotations = false
+    }
+    let placed = try savedStamps { controller, stamp in
+      #expect(controller.addStamp(stamp, onPage: 0))
+    }
+    // What each file held after each save, so a failure on a device says which way of placing a stamp,
+    // and which save, lost it (#307).
+    #expect(picked.count == 2, "picked up and pasted: \(picked.files); placed: \(placed.files)")
+    #expect(placed.count == 2, "placed: \(placed.files); picked up and pasted: \(picked.files)")
+  }
+
+  /// Puts a tick and then initials on a document's first page, saving after each, and reads the file.
+  private func savedStamps(
+    _ put: (PDFDocumentController, PDFDocumentController.Stamp) -> Void
+  ) throws -> (count: Int, files: [String]) {
+    AnnotationClipboard.shared.annotation = nil
+    let url = FileManager.default.temporaryDirectory.appendingPathComponent("stamps-\(UUID().uuidString).pdf")
+    defer { try? FileManager.default.removeItem(at: url) }
+    try SyntheticPDF.makeSample().write(to: url)
+    let controller = try PDFDocumentController(url: url)
+    var files: [String] = []
+    for stamp in [PDFDocumentController.Stamp.tick, .text("SK")] {
+      put(controller, stamp)
+      try controller.save(to: url)
+      files.append(Self.stamps(in: url))
+    }
+    files.append("in memory: " + Self.stamps(on: controller.document))
+    return (try PDFDocumentController(url: url).annotationCount(onPage: 0), files)
+  }
+
+  /// The annotations on a file's first page, and how many free-text objects its bytes hold.
+  private static func stamps(in url: URL) -> String {
+    let bytes = (try? Data(contentsOf: url)).map { String(decoding: $0, as: UTF8.self) } ?? ""
+    let freeText = bytes.components(separatedBy: "/FreeText").count - 1
+    return "file: " + (PDFDocument(url: url).map(stamps(on:)) ?? "unreadable") + " (/FreeText ×\(freeText))"
+  }
+
+  private static func stamps(on document: PDFDocument) -> String {
+    let annotations = document.page(at: 0)?.annotations ?? []
+    return "["
+      + annotations.map {
+        "\($0.type ?? "?") \"\($0.contents ?? "")\" at \(Int($0.bounds.midX)),\(Int($0.bounds.midY))"
+      }
+      .joined(separator: ", ") + "]"
+  }
+
   @Test("Placing, drawing, marking and editing text are one mode at a time")
   func oneModeAtATime() throws {
     let controller = try document()

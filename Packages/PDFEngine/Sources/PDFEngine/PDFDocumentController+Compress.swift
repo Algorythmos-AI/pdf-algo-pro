@@ -38,6 +38,8 @@ extension PDFDocumentController {
     guard document.write(to: staging, withOptions: options), let check = PDFDocument(url: staging),
       check.isLocked || check.pageCount == document.pageCount
     else { throw PDFEngineError.saveFailed }
+    // A compressed copy keeps the bookmarks and links that PDFKit on iOS 27 leaves out (#307).
+    _ = try mendStructure(in: check, at: staging, options: options)
     let data = try Data(contentsOf: staging, options: .mappedIfSafe)
     return data.count < originalSize ? data : nil
   }
