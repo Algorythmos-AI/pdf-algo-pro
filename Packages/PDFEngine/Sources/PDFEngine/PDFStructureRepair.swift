@@ -50,13 +50,16 @@ enum PDFStructureRepair {
   static func repaired(_ data: Data, links: [Link], outline: [OutlineItem]?) -> Result? {
     guard var file = WrittenPDF(data: data) else { return nil }
     var mended = 0
+    // Each link claims one annotation, the first unclaimed one in the page's order with its rectangle,
+    // so two links in the same place keep their own targets.
+    var claimed: Set<Int> = []
     for link in links {
       guard let pageRef = file.pageReferences[safe: link.pageIndex],
         let targetRef = file.pageReferences[safe: link.target],
         let page = file.dictionary(pageRef),
         let annots = file.array(page["Annots"])
       else { continue }
-      for case .reference(let number, let generation) in annots {
+      for case .reference(let number, let generation) in annots where !claimed.contains(number) {
         guard var annotation = file.dictionary(.reference(number, generation)),
           annotation["Subtype"] == .name("Link"),
           let rect = file.rect(annotation["Rect"]),
@@ -65,7 +68,9 @@ enum PDFStructureRepair {
         annotation.remove("A")
         annotation["Dest"] = destination(targetRef, link.point)
         file.replace(number, generation, with: .dictionary(annotation))
+        claimed.insert(number)
         mended += 1
+        break
       }
     }
     var wroteOutline = false

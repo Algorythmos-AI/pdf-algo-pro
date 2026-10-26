@@ -93,17 +93,25 @@ extension PDFDocumentController {
     return links
   }
 
+  /// How deep an outline is read.
+  ///
+  /// Real outlines are a few levels deep; a file nested deeper than this
+  /// is read to this depth, the same on both sides of the comparison, so a hostile file can't exhaust
+  /// the stack during a save.
+  static let outlineDepthLimit = 100
+
   /// A document's outline, as titles, targets and children.
   static func outline(of document: PDFDocument) -> [PDFStructureRepair.OutlineItem] {
-    func items(_ parent: PDFOutline) -> [PDFStructureRepair.OutlineItem] {
-      (0..<parent.numberOfChildren).compactMap { parent.child(at: $0) }.map { item in
+    func items(_ parent: PDFOutline, depth: Int) -> [PDFStructureRepair.OutlineItem] {
+      guard depth < outlineDepthLimit else { return [] }
+      return (0..<parent.numberOfChildren).compactMap { parent.child(at: $0) }.map { item in
         let destination = item.destination ?? (item.action as? PDFActionGoTo)?.destination
         let target = destination?.page.map { document.index(for: $0) }
         return .init(
           title: item.label ?? "", target: target == NSNotFound ? nil : target, point: destination?.point,
-          isOpen: item.isOpen, children: items(item))
+          isOpen: item.isOpen, children: items(item, depth: depth + 1))
       }
     }
-    return document.outlineRoot.map(items) ?? []
+    return document.outlineRoot.map { items($0, depth: 0) } ?? []
   }
 }

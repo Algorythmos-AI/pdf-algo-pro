@@ -102,6 +102,44 @@ struct PDFStructureRepairTests {
     #expect(linkTargets(PDFDocument(data: result.data)) == [2])
   }
 
+  @Test("Two links in the same place keep their own targets")
+  func linksInTheSamePlace() throws {
+    let source = try document()
+    let bounds = CGRect(x: 100, y: 200, width: 60, height: 20)
+    for target in [1, 2] {
+      let link = PDFAnnotation(bounds: bounds, forType: .link, withProperties: nil)
+      link.destination = PDFDestination(page: try #require(source.page(at: target)), at: .zero)
+      try #require(source.page(at: 0)).addAnnotation(link)
+    }
+    let broken = try breakingLinks(try #require(source.dataRepresentation()))
+    let links = PDFDocumentController.links(in: source)
+    try #require(links.map(\.target) == [1, 2])
+    let result = try #require(PDFStructureRepair.repaired(broken, links: links, outline: nil))
+    #expect(result.mendedLinks == 2)
+    #expect(linkTargets(PDFDocument(data: result.data)) == [1, 2])
+  }
+
+  @Test("An outline nested far deeper than any real one is read to a limit, without running out of stack")
+  func deepOutlines() throws {
+    let source = try document()
+    let root = PDFOutline()
+    var parent = root
+    for level in 0..<300 {
+      let item = PDFOutline()
+      item.label = "Level \(level)"
+      parent.insertChild(item, at: 0)
+      parent = item
+    }
+    source.outlineRoot = root
+    var depth = 0
+    var items = PDFDocumentController.outline(of: source)
+    while let first = items.first {
+      depth += 1
+      items = first.children
+    }
+    #expect(depth == PDFDocumentController.outlineDepthLimit)
+  }
+
   @Test("In an encrypted file, links are mended and the outline is left, its titles being encrypted")
   func encryptedFiles() throws {
     let source = try document()
