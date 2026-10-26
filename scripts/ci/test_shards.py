@@ -26,6 +26,9 @@ the shard ends sooner without them. xcodebuild's own -retry-tests-on-failure is 
 37924545633 it ran all 41 tests of ui-2 again for 3 failures, and the shard ran out of time. The unit
 and focused shards never retry. To rebalance, move classes between the shards by editing
 test_shards.json; the tests in test_test_shards.py check that every listed class exists.
+
+The device shard is not one of the job's: it is scripts/dev/device_tests.sh's run of Device.xctestplan
+on an iPhone, which retries its failed tests the same way (retry-args device, verdict device).
 """
 from __future__ import annotations
 
@@ -40,6 +43,8 @@ LISTED = ("ui-1", "ui-2")
 COMPLEMENT = "ui-3"
 SHARDS = ("unit",) + LISTED + (COMPLEMENT,)
 FOCUSED = "focused"
+# scripts/dev/device_tests.sh on an iPhone: never in the job's matrix, but it retries like a UI shard.
+DEVICE = "device"
 # Target, Target/Class or Target/Class/method, optionally with "()": nothing else reaches xcodebuild.
 IDENTIFIER = re.compile(r"^[A-Za-z0-9_]+(/[A-Za-z0-9_]+){0,2}(\(\))?$")
 MAX_FOCUSED = 20
@@ -98,7 +103,7 @@ def matrix(only_testing: str | None, record: bool = False) -> dict:
 
 
 def retries(shard: str) -> bool:
-    return shard in LISTED or shard == COMPLEMENT
+    return shard in LISTED or shard in (COMPLEMENT, DEVICE)
 
 
 def args_for(shard: str, only_testing: str | None = None, config: dict | None = None) -> list[str]:
