@@ -524,7 +524,7 @@ final class ReaderUITests: UITestCase {
     point(0.5, 0.42, in: pages, of: app).tap()
     let bar = app.descendants(matching: .any)[ID.Reader.Selection.actionBar].firstMatch
     XCTAssertTrue(bar.waitForExistence(timeout: Self.settleTimeout), "Tapping the drawing selects it (F3)")
-    try audit(app)
+    try auditInBothAppearances(app)
     tapMenuItem(app.buttons["Larger"], in: app.buttons[ID.Reader.Selection.style], until: bar)
     XCTAssertTrue(bar.waitForExistence(timeout: Self.settleTimeout), "Resizing keeps it selected (FR-ANN-005)")
     app.buttons[ID.Reader.Selection.delete].tap()

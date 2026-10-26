@@ -313,6 +313,20 @@ class UITestCase: XCTestCase {
     submenuItem(ID.Reader.Markup.Stamp.tick, titles: ["Tick", "Coche"], in: app)
   }
 
+  /// The accessibility audit in light mode and in dark mode, then back to the appearance it started in.
+  ///
+  /// A colour can pass in one and fail in the other: on an iPhone in dark mode (2026-10-26) the Unlock
+  /// button and the selection bar's Delete failed contrast, and the simulators CI runs are light.
+  func auditInBothAppearances(
+    _ app: XCUIApplication, onSheet: Bool = false, file: StaticString = #filePath, line: UInt = #line
+  ) throws {
+    try audit(app, onSheet: onSheet, file: file, line: line)
+    let original = XCUIDevice.shared.appearance
+    XCUIDevice.shared.appearance = original == .dark ? .light : .dark
+    defer { XCUIDevice.shared.appearance = original }
+    try audit(app, onSheet: onSheet, file: file, line: line)
+  }
+
   /// The accessibility audit on the current screen.
   ///
   /// Five kinds of finding are excluded narrowly everywhere, and a sixth on sheets (below):

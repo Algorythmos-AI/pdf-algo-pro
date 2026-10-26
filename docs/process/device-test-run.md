@@ -56,7 +56,9 @@ The script ([device_tests.sh](../../scripts/dev/device_tests.sh)):
 1. Checks the preconditions and says how to fix each one that fails: Xcode 27, a Team ID in
    `Config/Team.xcconfig` (never printed), XcodeGen, free disk, and the phone in `devicectl` (paired,
    Developer Mode on). A phone reached over Wi-Fi shows as "available (paired)" rather than "connected":
-   the run works, but can drop, so the script warns and goes on.
+   the run works, but can drop, so the script warns and goes on. Before each xcodebuild run that needs
+   the phone it asks `devicectl` about it, which sets the connection up again: on 2026-10-26 the first
+   run gave up on "The tunnel was interrupted while establishing connectivity".
 2. Generates the project and the test plans (`xcodegen generate`, then
    [write_testplan.py](../../scripts/ci/write_testplan.py)).
 3. Builds for testing with the `Device` plan, Debug, automatic signing
@@ -69,9 +71,11 @@ The script ([device_tests.sh](../../scripts/dev/device_tests.sh)):
    (`-enumerate-tests`), runs the ones no result holds, with the ones that failed, and repeats while
    tests are still missing, up to three rounds
    ([device_resume.py](../../scripts/dev/device_resume.py)). A test that never ran in any round fails
-   the run.
+   the run. Tests are asked for as `-enumerate-tests` lists them, "()" and all: the app's unit tests use
+   Swift Testing, which `-only-testing` finds only with it.
 5. Reports with [xcresult_report.py](../../scripts/ci/xcresult_report.py) and exports the
-   attachments: every failed test's screens under `failed-attachments/`, and everything the tests kept
+   attachments of every result bundle, the resumed rounds' too: every failed test's screens under
+   `failed-attachments/`, and everything the tests kept
    (with `UI_EVIDENCE=all`, quarantined findings too) under `attachments/`.
 6. Adds a row to the runs table with [device_run_record.py](../../scripts/dev/device_run_record.py)
    and prints the manual checklist.

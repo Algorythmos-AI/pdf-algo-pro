@@ -5,6 +5,7 @@
         [--retries retry-tests.json] [--with-failed]
     python3 scripts/dev/device_resume.py report enumerated.json tests.json [more.json ...] \
         [--retries retry-tests.json] --summary summary.md --failed-ids failed.txt --counts counts.txt
+    python3 scripts/dev/device_resume.py attachments failed.txt attachments/ failed-attachments/
 
 On an iPhone reached over Wi-Fi the UI test runner can lose the phone partway ("An error occurred while
 communicating with a remote process"). xcodebuild then ends the run: the tests the runner had not reached
@@ -23,11 +24,16 @@ that failed and later passed is flaky, one that failed again stays failed with b
 test that never ran in any of them is failed ("never ran"). The runner's crash entries are not tests:
 the summary says how often the runner stopped, and only the tests decide the verdict. It writes the summary, the failed tests' selectors and "passed / failed / flaky" for the
 record, and exits 1 when any test failed or never ran.
+
+`attachments` copies each failed test's attachments out of every result bundle's export, the first run's,
+its retry's and each resumed run's, into a folder per test, as CI's failed-attachments/ holds them.
 """
 from __future__ import annotations
 
 import argparse
 import json
+import re
+import shutil
 import sys
 from pathlib import Path
 
@@ -41,23 +47,29 @@ RUNNER_STOP = "System Failures"
 
 
 def selector(identifier: str) -> str:
-    """A test as `-only-testing` names it, the way xcresult_report.Case.selector does: without "()"."""
+    """A test as the results name it, the way xcresult_report.Case.selector does: without "()"."""
     return identifier[:-2] if identifier.endswith("()") else identifier
 
 
-def enabled(path: Path) -> list[str]:
-    """The selectors of the plan's enabled tests, in the order xcodebuild lists them.
+def enabled(path: Path) -> dict[str, str]:
+    """The plan's enabled tests, in the order xcodebuild lists them: each one's selector, and the
+    identifier `-only-testing` needs for it.
+
+    That is the identifier as listed, "()" and all: a Swift Testing test is found only with it (on the
+    iPhone run of 2026-10-26, `PDFAlgoProTests/AppLockTests/off` matched nothing and 65 unit tests never
+    ran), and an XCTest test is found with it or without.
 
     Only Target/Class/test entries: xcodebuild also lists a test class with no tests of its own, such as
     UITestCase, the UI tests' base class, as Target/Class, and no result ever holds it.
     """
     data = json.loads(path.read_text(encoding="utf-8"))
-    found: list[str] = []
+    found: dict[str, str] = {}
     for value in data.get("values", []):
         for test in value.get("enabledTests", []):
-            ident = selector(test.get("identifier", ""))
+            identifier = test.get("identifier", "")
+            ident = selector(identifier)
             if ident.count("/") >= 2 and ident not in found:
-                found.append(ident)
+                found[ident] = identifier
     return found
 
 
@@ -91,7 +103,32 @@ def merged(results: list[Path], retries: Path | None) -> list[Case]:
     return order
 
 
-def missing(plan: list[str], cases: list[Case]) -> list[str]:
+def failed_attachments(failed_ids: Path, exported: Path, out: Path) -> int:
+    """Copies each failed test's attachments, from every bundle exported under `exported`, into
+    out/<test>/; returns how many files it copied.
+
+    A test can fail in a resumed run as well as the first, so every bundle's export is read. An export's
+    manifest names a test Class/method(), without its bundle; the folder is named as CI names it.
+    """
+    failed = [line.strip() for line in failed_ids.read_text(encoding="utf-8").splitlines() if line.strip()]
+    wanted = {selector(test.partition("/")[2]): test for test in failed}
+    copied = 0
+    for manifest in sorted(exported.glob("*/manifest.json")):
+        for entry in json.loads(manifest.read_text(encoding="utf-8")):
+            test = wanted.get(selector(entry.get("testIdentifier", "")))
+            if test is None:
+                continue
+            folder = out / re.sub(r"[^A-Za-z0-9._-]", "_", test)
+            folder.mkdir(parents=True, exist_ok=True)
+            for attachment in entry.get("attachments", []):
+                source = manifest.parent / attachment.get("exportedFileName", "")
+                if source.is_file():
+                    shutil.copy2(source, folder / f"{manifest.parent.name}-{source.name}")
+                    copied += 1
+    return copied
+
+
+def missing(plan: dict[str, str], cases: list[Case]) -> list[str]:
     ran = {case.selector for case in cases if not is_runner_stop(case)}
     return [test for test in plan if test not in ran]
 
@@ -110,7 +147,15 @@ def main(argv: list[str] | None = None) -> int:
             p.add_argument("--summary", type=Path, required=True)
             p.add_argument("--failed-ids", type=Path, required=True)
             p.add_argument("--counts", type=Path, required=True)
+    p = sub.add_parser("attachments")
+    p.add_argument("failed_ids", type=Path, help="the failed tests' selectors, one per line")
+    p.add_argument("exported", type=Path, help="a folder of `xcresulttool export attachments` folders, one per bundle")
+    p.add_argument("out", type=Path, help="where each failed test's folder goes")
     args = ap.parse_args(argv)
+
+    if args.command == "attachments":
+        print(f"{failed_attachments(args.failed_ids, args.exported, args.out)} attachment(s) of failed tests")
+        return 0
 
     plan = enabled(args.enumerated)
     cases = merged(args.results, args.retries)
@@ -122,7 +167,7 @@ def main(argv: list[str] | None = None) -> int:
         if absent and args.with_failed:
             selectors += [c.selector for c in cases if c.verdict == "failed" and not is_runner_stop(c)
                           and c.selector not in selectors]
-        print("\n".join(f"-only-testing:{s}" for s in selectors))
+        print("\n".join(f"-only-testing:{plan.get(s, s)}" for s in selectors))
         return 0
 
     stops = [c for c in cases if is_runner_stop(c)]

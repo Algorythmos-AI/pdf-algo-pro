@@ -136,6 +136,10 @@ def retry_args(shard: str, failed: list[str]) -> tuple[list[str], str]:
     for value in failed:
         if not IDENTIFIER.fullmatch(value) or value.count("/") != 2:
             return [], f"{value!r} is not Target/Class/method, so the failed tests are not run again"
+    if shard == DEVICE:
+        # The device plan holds the app's Swift Testing tests, which -only-testing finds only with "()";
+        # Xcode 27 finds an XCTest test with it or without (an iPhone, 2026-10-26).
+        failed = [value if value.endswith("()") else f"{value}()" for value in failed]
     return [f"-only-testing:{value}" for value in failed], f"running {len(failed)} failed test(s) again"
 
 
