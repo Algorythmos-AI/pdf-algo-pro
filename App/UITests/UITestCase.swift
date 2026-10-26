@@ -206,6 +206,11 @@ class UITestCase: XCTestCase {
   /// pass `origin`, something only the screen being left shows: the second tap is made only while it
   /// still shows. Otherwise a first tap that was merely slow and a second tap together skip a screen;
   /// on a loaded runner the introduction went from its first page straight to its third.
+  ///
+  /// Wait for something the screen always shows, such as its bar's Done, not a row of a list: at a
+  /// large text size a row can be below the part of the list on screen, and then it doesn't exist.
+  /// Where the target never appears, the screen and the element tree are kept (`keepEvidence`): a
+  /// device run of issue #76 failed here and kept no screenshot.
   func tap(
     _ control: XCUIElement, until target: XCUIElement, from origin: XCUIElement? = nil,
     file: StaticString = #filePath, line: UInt = #line
@@ -214,9 +219,30 @@ class UITestCase: XCTestCase {
     control.tap()
     if !target.waitForExistence(timeout: 3) {
       if origin?.exists ?? true { control.tap() }
-      XCTAssertTrue(
-        target.waitForExistence(timeout: Self.settleTimeout), "The tap opens what it should", file: file, line: line)
+      if !target.waitForExistence(timeout: Self.settleTimeout) {
+        let state =
+          "Waited \(Int(Self.settleTimeout)) s for \(target). The control, \(control), "
+          + "exists: \(control.exists), hittable: \(control.exists && control.isHittable)."
+        keepEvidence(XCUIApplication(), named: "tap \(line)", notes: state)
+        XCTFail("The tap opens what it should. \(state)", file: file, line: line)
+      }
     }
+  }
+
+  /// Waits until `element` can be tapped: nothing covers it any more, such as a sheet sliding away.
+  ///
+  /// An element under a closing sheet exists before it can be tapped, and a tap on it then can be lost
+  /// (issue #76: after the scan sheet was cancelled, Settings did not open on a device). Where it never
+  /// becomes hittable, the screen and the element tree are kept.
+  func waitUntilHittable(
+    _ element: XCUIElement, in app: XCUIApplication, _ message: String, file: StaticString = #filePath,
+    line: UInt = #line
+  ) {
+    let uncovered = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isHittable == true"), object: element)
+    guard XCTWaiter.wait(for: [uncovered], timeout: Self.settleTimeout) != .completed else { return }
+    let state = "\(element) exists: \(element.exists), hittable: \(element.exists && element.isHittable)."
+    keepEvidence(app, named: "covered \(line)", notes: state)
+    XCTFail("\(message). \(state)", file: file, line: line)
   }
 
   /// Taps a control that takes its own screen away, and waits for the screen that replaces it.
