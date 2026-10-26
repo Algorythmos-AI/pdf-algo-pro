@@ -7,9 +7,10 @@ nonisolated struct CSVFile: Transferable {
   let data: Data
   let name: String
 
-  /// Creates the file; `name` is its name without the extension.
-  init(_ extraction: Extraction, name: String, locale: Locale = .current) {
-    data = extraction.csvFile(locale: locale)
+  /// Creates the file; `name` is its name without the extension, and `notice`, the generated-text
+  /// footer, is its last row (EU AI Act Art 50(2), plan item L3).
+  init(_ extraction: Extraction, name: String, notice: String, locale: Locale = .current) {
+    data = extraction.csvFile(locale: locale, notice: notice)
     self.name = name + ".csv"
   }
 

@@ -9,6 +9,11 @@ Store notes (see the changelog strategy).
 
 ## [Unreleased]
 
+### Added
+- Answers, summaries and extracted fields you copy or share now end with a line saying that PDF
+  Algo Pro generated them from the document and that they may contain errors. In a CSV it is the
+  last row, so the file still opens as a table.
+
 ### Changed
 - The App Store version now has what TestFlight builds have had: the page strip and keyboard
   commands in the reader, recognition in more languages and in reading order, search that finds a
