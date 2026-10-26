@@ -25,7 +25,7 @@ Store notes (see the changelog strategy).
 ### Fixed
 - Saving on iOS 27 kept bookmarks, the document's outline and links to other pages. iOS 27 left them
   out of the saved file: bookmarks added or removed were lost, and links inside the document went
-  nowhere. The app now checks what it saved and puts them back.
+  nowhere. The app now checks what it saved and puts them back, in password-protected documents too.
 - App Lock: removing the device passcode no longer locks you out of the app for good. Without a
   passcode nothing can confirm it is you, so App Lock now turns itself off and the app tells you
   why; set a passcode and turn it on again in Settings. With a passcode it always asks.
