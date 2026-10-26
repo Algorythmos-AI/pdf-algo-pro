@@ -183,7 +183,7 @@ class UITestCase: XCTestCase {
   /// #69). A sheet's bar buttons sit on glass that finishes appearing after the sheet, and a single
   /// quarter-second match could fall between those two steps (issue #76). A screen that never stops
   /// changing, such as one with a blinking caret, is audited after the four seconds.
-  private func waitUntilStill(_ app: XCUIApplication) {
+  func waitUntilStill(_ app: XCUIApplication) {
     var previous = app.screenshot().pngRepresentation
     var matches = 0
     let deadline = Date().addingTimeInterval(4)

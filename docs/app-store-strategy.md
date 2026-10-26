@@ -194,10 +194,26 @@ in use (Guideline 2.3.3).
 
 Production rules:
 
-- Frames are shot from the build being submitted, not drawn: the app is started on the simulator with
-  an empty private library (`-ui-testing -skip-onboarding`, in a Debug build of the same commit), the
-  synthetic documents are imported, and the screen is captured with `xcrun simctl io <device> screenshot`.
-  What a frame shows is then what the build does, which is what the caption check below relies on.
+- Frames are shot from the build being submitted, not drawn. `App/UITests/StoreScreenshotTests.swift`
+  takes them, through its own test plan (`StoreScreenshots.xctestplan`, never run in CI), on an iPhone
+  with a 6.9-inch display, which shoots at exactly 1320 × 2868:
+
+  ```
+  TEST_RUNNER_STORE_LANGUAGE=fr xcodebuild test -scheme PDFAlgoPro -testPlan StoreScreenshots \
+    -destination "platform=iOS,id=<device>" -resultBundlePath shots-fr.xcresult
+  ```
+
+  Each frame is attached to the result bundle as `store-<language>-<frame>`. The library is the Debug
+  seed `showcase`: an invoice, a lease and a quarterly report, synthetic and in the frame's language.
+  The frames with answers (1, 3, 6, 7) use the device's own model (`-intelligence live`), never the
+  scripted one UI tests use, so each shows what the app really answered. On a device without Apple
+  Intelligence they are skipped. What a frame shows is then what the build does, which is what the
+  caption check below relies on. Before shooting, turn on Do Not Disturb and Portrait Orientation
+  Lock, and leave the phone alone: a notification banner, or a tap from another app, ends up in the
+  frame. Frames 2 (scanning) and 4 (editing text) are not taken this way yet. CI runs the same suite on
+  the simulator (`store-screenshots`, not required) when the suite, its plan or its documents change,
+  in English and French; there the frames with answers are skipped, since the simulator has no
+  Apple Intelligence.
 - Frame 10 needs a library that looks used: at least three synthetic documents opened, one marked as
   a favourite, none in Recently deleted, so no count reads "0" beside a section the caption talks about.
 
