@@ -28,14 +28,17 @@ struct PDFStructureRepairTests {
     return PDFDocumentController.links(in: document).map(\.target)
   }
 
-  /// The bytes with the first page reference in a destination replaced by the placeholder iOS 27
+  /// The bytes with every page reference in a destination replaced by the placeholder iOS 27
   /// writes, keeping the length so every offset in the file still holds.
+  ///
+  /// A file iOS 27 wrote already has the placeholder, and is taken as it is.
   private func breakingLinks(_ data: Data) throws -> Data {
     // Latin-1 maps every byte to one character, so the file's binary parts keep their length.
     var text = try #require(String(data: data, encoding: .isoLatin1))
     let pattern = try NSRegularExpression(pattern: #"(/D(?:est)?\s*\[\s*)(\d+ \d+ R)"#)
     let matches = pattern.matches(in: text, range: NSRange(text.startIndex..., in: text))
-    try #require(!matches.isEmpty, "the written file has a destination to break")
+    if matches.isEmpty, text.contains("/#23233") { return data }
+    try #require(!matches.isEmpty, "the written file has a destination to break, or iOS 27's placeholder")
     for match in matches.reversed() {
       let range = try #require(Range(match.range(at: 2), in: text))
       let length = text[range].count
