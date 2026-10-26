@@ -26,8 +26,22 @@ enum PDFImageRecompression {
     var quality: Double
   }
 
-  /// The largest picture it decodes, in pixels, so a damaged size can't exhaust memory.
+  /// The largest picture it reads, in pixels: a bigger size is a damaged file.
   static let largestPicture = 60_000_000
+
+  /// The most it decodes of a picture that isn't a JPEG, in bytes of samples.
+  ///
+  /// Flate can only be decoded whole, at the picture's full size, so a bigger picture is left as PDFKit
+  /// wrote it. 40 MB holds a 12-megapixel camera photo in RGB (36 MB), and keeps a compression's peak
+  /// memory near 50 MB: the samples, the scaled copy and the JPEG. A JPEG is decoded straight at the
+  /// size it is scaled to, so it needs no budget.
+  static let largestDecodedPicture = 40_000_000
+
+  /// Whether a picture that isn't a JPEG is small enough to decode.
+  static func decodes(width: Int, height: Int, components: Int) -> Bool {
+    width > 0 && height > 0 && components > 0 && width <= largestPicture / height
+      && width * height * components <= largestDecodedPicture
+  }
 
   /// The file with its pictures re-encoded, or `nil` when it can't read the file or no picture got smaller.
   static func recompressed(_ data: Data, settings: Settings) -> Data? {
@@ -68,31 +82,27 @@ enum PDFImageRecompression {
     else { return nil }
     let longest = max(width, height)
     let shrinks = settings.maximumSide.map { longest > $0 } ?? false
-    let source: CGImage?
+    var picture: CGImage
     switch encoding {
     case .jpeg:
       // A JPEG is only made smaller, never encoded again at its own size, which would only lose detail.
-      guard shrinks else { return nil }
-      source = CGImageSourceCreateWithData(Data(stream) as CFData, nil).flatMap {
-        CGImageSourceCreateImageAtIndex($0, 0, nil)
+      // ImageIO decodes it straight at the smaller size, so it never takes its full size in memory.
+      guard shrinks, let side = settings.maximumSide, let small = thumbnail(stream, maximumSide: side) else {
+        return nil
       }
-    case .plain:
-      source = image(Array(stream), width: width, height: height, components: components)
-    case .flate(let predictor):
-      let rowLength = width * components + (predictor >= 10 ? 1 : 0)
-      guard let inflated = inflate(stream, count: rowLength * height) else { return nil }
-      let samples =
-        predictor >= 10
-        ? unpredicted(inflated, width: width, height: height, components: components) : inflated
-      source = samples.flatMap { image($0, width: width, height: height, components: components) }
-    }
-    guard let source else { return nil }
-    var picture = source
-    if shrinks, let side = settings.maximumSide {
-      let scale = Double(side) / Double(longest)
-      let size = (max(1, Int((Double(width) * scale).rounded())), max(1, Int((Double(height) * scale).rounded())))
-      guard let scaled = resized(source, to: size, components: components) else { return nil }
-      picture = scaled
+      picture = small
+    case .plain, .flate:
+      guard decodes(width: width, height: height, components: components),
+        let samples = samples(stream, encoding: encoding, width: width, height: height, components: components),
+        let full = image(samples, width: width, height: height, components: components)
+      else { return nil }
+      picture = full
+      if shrinks, let side = settings.maximumSide {
+        let scale = Double(side) / Double(longest)
+        let size = (max(1, Int((Double(width) * scale).rounded())), max(1, Int((Double(height) * scale).rounded())))
+        guard let scaled = resized(full, to: size, components: components) else { return nil }
+        picture = scaled
+      }
     }
     guard let jpeg = jpeg(picture, quality: settings.quality), jpeg.count < stream.count else { return nil }
     var updated = dictionary
@@ -143,38 +153,64 @@ enum PDFImageRecompression {
     }
   }
 
-  /// A zlib stream (RFC 1950) inflated to exactly `count` bytes, or `nil` when it holds fewer.
-  static func inflate(_ stream: ArraySlice<UInt8>, count: Int) -> [UInt8]? {
-    guard stream.count > 2, count > 0 else { return nil }
+  /// The picture's samples in one buffer, the only full-size copy it makes: Flate is inflated straight
+  /// into it and the predictor undone in place.
+  private static func samples(
+    _ stream: ArraySlice<UInt8>, encoding: Encoding, width: Int, height: Int, components: Int
+  ) -> NSMutableData? {
+    let rowLength = width * components
+    let count = rowLength * height
+    switch encoding {
+    case .jpeg:
+      return nil
+    case .plain:
+      guard stream.count >= count else { return nil }
+      return stream.withUnsafeBytes { NSMutableData(bytes: $0.baseAddress, length: count) }
+    case .flate(let predictor):
+      let predicted = predictor >= 10
+      guard let buffer = NSMutableData(length: (rowLength + (predicted ? 1 : 0)) * height) else { return nil }
+      let bytes = UnsafeMutableBufferPointer(
+        start: buffer.mutableBytes.assumingMemoryBound(to: UInt8.self), count: buffer.length)
+      guard inflate(stream, into: bytes) else { return nil }
+      if predicted {
+        guard unpredict(bytes, width: width, height: height, components: components) else { return nil }
+        buffer.length = count
+      }
+      return buffer
+    }
+  }
+
+  /// Inflates a zlib stream (RFC 1950) into `destination`; `false` unless it fills it exactly.
+  static func inflate(_ stream: ArraySlice<UInt8>, into destination: UnsafeMutableBufferPointer<UInt8>) -> Bool {
+    guard stream.count > 2, let into = destination.baseAddress, !destination.isEmpty else { return false }
     let method = stream[stream.startIndex]
     let flags = stream[stream.startIndex + 1]
     // Deflate, a valid header check, and no preset dictionary.
-    guard method & 0x0F == 8, (Int(method) << 8 | Int(flags)) % 31 == 0, flags & 0x20 == 0 else { return nil }
-    let body = Array(stream.dropFirst(2))
-    var output = [UInt8](repeating: 0, count: count)
-    let written = body.withUnsafeBufferPointer { source in
-      output.withUnsafeMutableBufferPointer { destination in
-        guard let from = source.baseAddress, let into = destination.baseAddress else { return 0 }
-        return compression_decode_buffer(into, count, from, source.count, nil, COMPRESSION_ZLIB)
-      }
+    guard method & 0x0F == 8, (Int(method) << 8 | Int(flags)) % 31 == 0, flags & 0x20 == 0 else { return false }
+    let written = stream.withUnsafeBufferPointer { source -> Int in
+      guard let from = source.baseAddress else { return 0 }
+      return compression_decode_buffer(into, destination.count, from + 2, source.count - 2, nil, COMPRESSION_ZLIB)
     }
-    return written == count ? output : nil
+    return written == destination.count
   }
 
-  /// Samples with the PNG predictor undone (ISO 32000-1, 7.4.4.4; PNG, section 9): each row starts with
-  /// the filter it was written with.
-  static func unpredicted(_ data: [UInt8], width: Int, height: Int, components: Int) -> [UInt8]? {
+  /// Undoes the PNG predictor in place (ISO 32000-1, 7.4.4.4; PNG, section 9): rows that each start with
+  /// the filter they were written with become rows of samples, from the start of the same buffer.
+  ///
+  /// Each row is written before where it was read from, and after the row above, which it still needs.
+  static func unpredict(
+    _ buffer: UnsafeMutableBufferPointer<UInt8>, width: Int, height: Int, components: Int
+  ) -> Bool {
     let rowLength = width * components
-    var output = [UInt8](repeating: 0, count: rowLength * height)
-    var previous = [UInt8](repeating: 0, count: rowLength)
+    guard buffer.count >= (rowLength + 1) * height else { return false }
     for row in 0..<height {
-      let start = row * (rowLength + 1)
-      let filter = data[start]
-      var current = Array(data[(start + 1)..<(start + 1 + rowLength)])
+      let input = row * (rowLength + 1) + 1
+      let output = row * rowLength
+      let filter = buffer[input - 1]
       for index in 0..<rowLength {
-        let left = index >= components ? Int(current[index - components]) : 0
-        let up = Int(previous[index])
-        let upLeft = index >= components ? Int(previous[index - components]) : 0
+        let left = index >= components ? Int(buffer[output + index - components]) : 0
+        let up = row > 0 ? Int(buffer[output - rowLength + index]) : 0
+        let upLeft = row > 0 && index >= components ? Int(buffer[output - rowLength + index - components]) : 0
         let predicted: Int
         switch filter {
         case 0: predicted = 0
@@ -185,19 +221,28 @@ enum PDFImageRecompression {
           let estimate = left + up - upLeft
           let (toLeft, toUp, toUpLeft) = (abs(estimate - left), abs(estimate - up), abs(estimate - upLeft))
           predicted = toLeft <= toUp && toLeft <= toUpLeft ? left : (toUp <= toUpLeft ? up : upLeft)
-        default: return nil
+        default: return false
         }
-        current[index] = current[index] &+ UInt8(truncatingIfNeeded: predicted)
+        buffer[output + index] = buffer[input + index] &+ UInt8(truncatingIfNeeded: predicted)
       }
-      output.replaceSubrange((row * rowLength)..<((row + 1) * rowLength), with: current)
-      previous = current
     }
-    return output
+    return true
   }
 
-  private static func image(_ samples: [UInt8], width: Int, height: Int, components: Int) -> CGImage? {
-    guard samples.count >= width * height * components,
-      let provider = CGDataProvider(data: Data(samples.prefix(width * height * components)) as CFData)
+  /// A JPEG decoded at most `maximumSide` pixels on its longest side, without decoding it at full size.
+  private static func thumbnail(_ stream: ArraySlice<UInt8>, maximumSide: Int) -> CGImage? {
+    guard let source = CGImageSourceCreateWithData(Data(stream) as CFData, nil) else { return nil }
+    let options: [CFString: Any] = [
+      kCGImageSourceCreateThumbnailFromImageAlways: true,
+      kCGImageSourceThumbnailMaxPixelSize: maximumSide,
+      kCGImageSourceShouldCacheImmediately: true,
+    ]
+    return CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
+  }
+
+  /// The samples as an image, without copying them.
+  private static func image(_ samples: NSData, width: Int, height: Int, components: Int) -> CGImage? {
+    guard samples.length >= width * height * components, let provider = CGDataProvider(data: samples as CFData)
     else { return nil }
     return CGImage(
       width: width, height: height, bitsPerComponent: 8, bitsPerPixel: 8 * components,

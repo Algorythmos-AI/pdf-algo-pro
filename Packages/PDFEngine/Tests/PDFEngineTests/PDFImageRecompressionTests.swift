@@ -113,7 +113,10 @@ struct PDFImageRecompressionTests {
     #expect(PDFImageRecompression.recompressed(original, settings: balanced) == nil)
     let smaller = PDFImageRecompression.Settings(maximumSide: 500, quality: 0.5)
     let result = try #require(PDFImageRecompression.recompressed(original, settings: smaller))
-    #expect(String(decoding: result, as: UTF8.self).contains("/Width 500") && result.count < original.count)
+    // Decoded straight at that size by ImageIO, never at its own.
+    let text = String(decoding: result, as: UTF8.self)
+    #expect(text.contains("/Width 500") && text.contains("/Height 400") && result.count < original.count)
+    #expect(PDFDocument(data: result)?.pageCount == 1)
   }
 
   @Test("Text and line art, encrypted files and what isn't a PDF are left alone")
@@ -130,17 +133,18 @@ struct PDFImageRecompressionTests {
 
   // MARK: - A file written by hand: grey, a PNG predictor, an indirect length and a soft mask
 
-  /// Rows of grey samples written with each PNG filter in turn, as ISO 32000-1 7.4.4.4 describes.
-  private func predicted(_ samples: [UInt8], width: Int, height: Int) -> [UInt8] {
+  /// Rows of samples written with each PNG filter in turn, as ISO 32000-1 7.4.4.4 describes.
+  private func predicted(_ samples: [UInt8], width: Int, height: Int, components: Int = 1) -> [UInt8] {
     var output: [UInt8] = []
+    let length = width * components
     for row in 0..<height {
       let filter = UInt8(row % 5)
       output.append(filter)
-      for column in 0..<width {
-        let value = Int(samples[row * width + column])
-        let left = column > 0 ? Int(samples[row * width + column - 1]) : 0
-        let up = row > 0 ? Int(samples[(row - 1) * width + column]) : 0
-        let upLeft = row > 0 && column > 0 ? Int(samples[(row - 1) * width + column - 1]) : 0
+      for column in 0..<length {
+        let value = Int(samples[row * length + column])
+        let left = column >= components ? Int(samples[row * length + column - components]) : 0
+        let up = row > 0 ? Int(samples[(row - 1) * length + column]) : 0
+        let upLeft = row > 0 && column >= components ? Int(samples[(row - 1) * length + column - components]) : 0
         let predicted: Int
         switch filter {
         case 1: predicted = left
@@ -201,15 +205,45 @@ struct PDFImageRecompressionTests {
     return data
   }
 
-  @Test("The PNG predictor is undone exactly, for each of its five filters")
+  @Test("The PNG predictor is undone exactly and in place, for each of its five filters, in grey and RGB")
   func predictorUndone() throws {
-    let (width, height) = (37, 23)
-    let samples = greySamples(width: width, height: height)
-    let stream = try zlib(predicted(samples, width: width, height: height))
-    let inflated = try #require(PDFImageRecompression.inflate(stream[...], count: (width + 1) * height))
-    #expect(PDFImageRecompression.unpredicted(inflated, width: width, height: height, components: 1) == samples)
-    #expect(PDFImageRecompression.inflate(stream[...], count: (width + 1) * height + 1) == nil, "Too short")
-    #expect(PDFImageRecompression.inflate([0x00, 0x01, 0x02][...], count: 3) == nil, "Not zlib")
+    for components in [1, 3] {
+      let (width, height) = (37, 23)
+      let samples = greySamples(width: width * components, height: height)
+      let stream = try zlib(predicted(samples, width: width, height: height, components: components))
+      var buffer = [UInt8](repeating: 0, count: (width * components + 1) * height)
+      #expect(buffer.withUnsafeMutableBufferPointer { PDFImageRecompression.inflate(stream[...], into: $0) })
+      let undone = buffer.withUnsafeMutableBufferPointer {
+        PDFImageRecompression.unpredict($0, width: width, height: height, components: components)
+      }
+      #expect(undone && Array(buffer.prefix(samples.count)) == samples, "\(components) component(s)")
+      var longer = [UInt8](repeating: 0, count: buffer.count + 1)
+      #expect(!longer.withUnsafeMutableBufferPointer { PDFImageRecompression.inflate(stream[...], into: $0) })
+    }
+    var three = [UInt8](repeating: 0, count: 3)
+    #expect(!three.withUnsafeMutableBufferPointer { PDFImageRecompression.inflate([0, 1, 2][...], into: $0) })
+  }
+
+  @Test("A picture that isn't a JPEG is decoded only up to 40 MB of samples; a bigger one is left as written")
+  func decodeBudget() throws {
+    #expect(PDFImageRecompression.decodes(width: 4_032, height: 3_024, components: 3), "A 12-megapixel photo")
+    #expect(PDFImageRecompression.decodes(width: 2_480, height: 3_508, components: 3), "A4 at 300 dpi")
+    #expect(!PDFImageRecompression.decodes(width: 6_000, height: 4_000, components: 3), "72 MB")
+    #expect(!PDFImageRecompression.decodes(width: 7_745, height: 7_745, components: 1), "Just under 60 MP")
+    #expect(!PDFImageRecompression.decodes(width: 100_000, height: 100_000, components: 3))
+    #expect(!PDFImageRecompression.decodes(width: 0, height: 10, components: 3))
+    // A file whose picture is over the budget is left alone before anything is decoded.
+    let stream = try zlib(greySamples(width: 64, height: 64))
+    let objects: [[UInt8]] = [
+      Array("<< /Type /Catalog /Pages 2 0 R >>".utf8),
+      Array("<< /Type /Pages /Kids [3 0 R] /Count 1 >>".utf8),
+      Array("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 400 300] ".utf8)
+        + Array("/Resources << /XObject << /Im1 4 0 R >> >> >>".utf8),
+      Array(
+        "<< /Type /XObject /Subtype /Image /Width 6000 /Height 4000 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /Length \(stream.count) >>\nstream\n"
+          .utf8) + stream + Array("\nendstream".utf8),
+    ]
+    #expect(PDFImageRecompression.recompressed(handWritten(objects), settings: email) == nil)
   }
 
   @Test("A grey picture with a PNG predictor, an indirect length and a soft mask is re-encoded; the mask is not")
