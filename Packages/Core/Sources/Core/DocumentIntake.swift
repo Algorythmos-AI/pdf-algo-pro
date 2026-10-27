@@ -37,21 +37,38 @@ public struct DocumentIntake: Sendable {
     try? await pending?.add(id, protecting: protecting)
   }
 
-  /// Refreshes every document a refresh is still owed to (#236); a document no longer in the
-  /// library is crossed off.
+  /// How many refreshes of one change are tried before it is given up.
+  public static let attempts = 3
+
+  /// Refreshes every document a refresh is still owed to (#236).
   ///
-  /// - Returns: how many failed again; they stay on the list.
+  /// A document no longer in the library is crossed off. One whose file isn't a readable PDF any
+  /// more is crossed off at once, its old text taken out of search. One that has failed
+  /// `attempts` times is given up, except that a protected document is crossed off only once its
+  /// words are out of search and Spotlight: that is tried every time until it works. A cancelled
+  /// pass stops, and counts nothing.
+  ///
+  /// - Returns: how many failed again.
   @discardableResult
   public func refreshPending() async -> Int {
     guard let pending else { return 0 }
     var failed = 0
     for id in await pending.all {
+      guard let owed = await pending.owed(id) else { continue }
       do {
         _ = try await run(id, recordsChange: false, changedAt: nil)
       } catch LibraryError.notFound {
         try? await pending.remove(id)
+      } catch is CancellationError {
+        return failed
+      } catch LibraryError.notAPDF {
+        // Final, and crossed off by the refresh itself once its old text is out.
+        continue
       } catch {
         failed += 1
+        let removedWords = owed.protects ? (try? await index.remove(id)) != nil : true
+        let failures = await pending.owed(id)?.failures ?? Self.attempts
+        if failures >= Self.attempts, removedWords { try? await pending.remove(id) }
       }
     }
     return failed
@@ -108,6 +125,14 @@ public struct DocumentIntake: Sendable {
       }
       if let covers { try? await pending?.finished(id, upTo: covers) }
       return try await library.document(withID: id) ?? refreshed
+    } catch LibraryError.notAPDF {
+      // Final: reading it again won't help. Its old text goes, and then nothing more is owed.
+      if (try? await index.remove(id)) != nil {
+        try? await pending?.remove(id)
+      } else {
+        _ = try? await pending?.failed(id)
+      }
+      throw LibraryError.notAPDF
     } catch {
       if !(error is CancellationError) { _ = try? await pending?.failed(id) }
       throw error

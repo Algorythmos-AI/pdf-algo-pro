@@ -62,6 +62,35 @@ public actor FileDocumentLibrary: DocumentLibrary {
     Document.normalizedTags(try await index.all().filter { !$0.isDeleted }.flatMap(\.tags))
   }
 
+  /// The documents whose file changed after the library last recorded a change, with when it did
+  /// (#242): one listing of the folder, off the main thread.
+  ///
+  /// The app records each change it makes after writing the file, so only changes made elsewhere
+  /// are found; two seconds allow for the moment between writing and recording.
+  public func changedSinceRecorded() async throws -> [DocumentID: Date] {
+    let keys: [URLResourceKey] = [.contentModificationDateKey]
+    let files = (try? fileManager.contentsOfDirectory(at: documentsFolder, includingPropertiesForKeys: keys)) ?? []
+    var dates: [String: Date] = [:]
+    for file in files {
+      dates[file.lastPathComponent] = try? file.resourceValues(forKeys: Set(keys)).contentModificationDate
+    }
+    var changed: [DocumentID: Date] = [:]
+    for document in try await index.all() where !document.isDeleted {
+      guard let date = dates[document.fileName], date > document.modifiedAt.addingTimeInterval(2) else { continue }
+      changed[document.id] = date
+    }
+    return changed
+  }
+
+  /// Records that the file's contents changed at `date`.
+  public func recordModified(_ id: DocumentID, at date: Date) async throws {
+    try await exclusively {
+      var document = try await existing(id)
+      document.modifiedAt = date
+      try await index.upsert(document)
+    }
+  }
+
   /// The file URL of a document, for reading and coordinated writing.
   ///
   /// A file renamed or moved in the Files app while the app runs is found by its identity, and the
