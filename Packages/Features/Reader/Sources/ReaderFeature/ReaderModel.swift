@@ -1276,7 +1276,16 @@ public final class ReaderModel {
   /// the person sees. `nil` when saving failed, which has been explained.
   public func fileForSharing() async -> URL? {
     guard phase == .ready, await save() else { return nil }
-    return try? await library.fileURL(for: documentID)
+    // Saved, but the file may be gone, say because it was moved in the Files app while the document was
+    // open: the library still names the old place, so the file itself is looked for (#260).
+    guard let url = try? await library.fileURL(for: documentID), FileManager.default.fileExists(atPath: url.path)
+    else {
+      errorMessage = String(
+        localized: "Couldn't find this document's file. It may have been moved or deleted in the Files app.",
+        bundle: .module)
+      return nil
+    }
+    return url
   }
 
   /// Whether the document's author allows printing; always true for unencrypted documents.

@@ -2288,6 +2288,16 @@
           }
         }
       }
+    },
+    "Couldn't find this document's file. It may have been moved or deleted in the Files app." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible de trouver le fichier de ce document. Il a peut-être été déplacé ou supprimé dans l’app Fichiers."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
