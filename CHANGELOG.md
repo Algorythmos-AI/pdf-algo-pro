@@ -136,8 +136,10 @@ Store notes (see the changelog strategy).
   closed the columns up.
 - Editing text (internal builds): invisible text in a page is no longer offered for editing when
   the page sets it with a decimal number. Editing and undoing many times no longer shortens the
-  undo history. Undo on the "Your text covers the old text" notice, tapped while another line was
-  picked, no longer puts the notice away without undoing.
+  undo history. Past its memory limit the history still drops its oldest steps, notes and other
+  annotations included; that is being looked at separately. Undo on the "Your text covers the old
+  text" notice, tapped while another line was picked, no longer puts the notice away without
+  undoing, and with nothing left to undo it puts the notice away.
 - Signatures: a typed signature is now selected and listed as a signature, as a drawn one is, and
   no longer offers Edit text. Before, it was called a text box and could be retyped.
 - French: the bar shown with an annotation selected keeps to one line. Before, its titles wrapped
