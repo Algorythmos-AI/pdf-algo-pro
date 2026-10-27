@@ -374,7 +374,7 @@ public final class ReaderModel {
     controller.undoManager.undo()
     updateUndoState()
     // Only undoing or redoing a text edit changes the words that search finds.
-    if controller.hasUnsavedTextEdits { textChangedSinceIndexing = true }
+    if controller.hasUnsavedTextEdits { await wordsChanged() }
     await save()
   }
 
@@ -384,7 +384,7 @@ public final class ReaderModel {
     controller.undoManager.redo()
     updateUndoState()
     // Only undoing or redoing a text edit changes the words that search finds.
-    if controller.hasUnsavedTextEdits { textChangedSinceIndexing = true }
+    if controller.hasUnsavedTextEdits { await wordsChanged() }
     await save()
   }
 
@@ -673,6 +673,13 @@ public final class ReaderModel {
   private var hasConfirmedEditingSigned = false
   /// Whether the document's words changed since the search text was last brought up to date.
   private var textChangedSinceIndexing = false
+
+  /// Notes that the document's words changed, and writes down that search owes it a refresh, before
+  /// the change is saved: a stop between the save and the refresh is caught up at the next load (#236).
+  private func wordsChanged() async {
+    textChangedSinceIndexing = true
+    await intake.willChange(documentID)
+  }
   /// Whether, in this reader, the person has been told a font will be matched, and that text
   /// will be covered, and has picked any text at all.
   private var hasExplainedFontMatching = false
@@ -843,7 +850,7 @@ public final class ReaderModel {
       textEditMessage = nil
       updateUndoState()
       // Covered text is still what the page reads as, so the search text is unchanged by it.
-      if mode != .visualReplacement { textChangedSinceIndexing = true }
+      if mode != .visualReplacement { await wordsChanged() }
       await save()
       await textEditingPageChanged()
       return true
@@ -940,7 +947,7 @@ public final class ReaderModel {
     case .edited(let mode):
       textEditMessage = nil
       // Covered text is still in the file where it was, and the person must know.
-      if mode == .visualReplacement { textEditNotice = .coveredInstead } else { textChangedSinceIndexing = true }
+      if mode == .visualReplacement { textEditNotice = .coveredInstead } else { await wordsChanged() }
       textMoves += 1
       updateUndoState()
       await save()
@@ -1476,6 +1483,8 @@ public final class ReaderModel {
     speech.stop()
     controller = nil
     phase = .loading
+    // Owed from before the swap, so a stop after it still brings search up to date (#236).
+    await intake.willChange(documentID)
     do {
       try await swap()
       // The two versions can differ in their text (a restore across text recognition), so the search
@@ -1590,6 +1599,8 @@ public final class ReaderModel {
         localized: "This document's author doesn't allow its password to be changed.", bundle: .module)
       return
     }
+    // Owed from before the save: whatever stops after it, the words still leave search (#236).
+    await intake.willChange(documentID, protecting: true)
     if await save() {
       // The library's record follows the file: its lock, its page count and its search text. If that
       // fails, the words still leave search and Spotlight now: removing them needs no space, so it
@@ -1614,6 +1625,7 @@ public final class ReaderModel {
         localized: "Only the document's owner password can remove its protection.", bundle: .module)
       return
     }
+    await intake.willChange(documentID)
     if await save() {
       // The library's record follows the file: its lock, its page count and its search text.
       _ = await refreshLibraryRecord()

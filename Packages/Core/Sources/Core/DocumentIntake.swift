@@ -32,7 +32,10 @@ public struct DocumentIntake: Sendable {
   ///   - id: The document about to change.
   ///   - protecting: Whether the change protects the document, whose words must then leave search
   ///     and Spotlight whatever else fails.
-  public func willChange(_ id: DocumentID, protecting: Bool = false) async {}
+  public func willChange(_ id: DocumentID, protecting: Bool = false) async {
+    // If the list can't be written, the change still goes ahead; only its retry is lost.
+    try? await pending?.add(id, protecting: protecting)
+  }
 
   /// Refreshes every document a refresh is still owed to (#236); a document no longer in the
   /// library is crossed off.
@@ -44,7 +47,7 @@ public struct DocumentIntake: Sendable {
     var failed = 0
     for id in await pending.all {
       do {
-        _ = try await refresh(id)
+        _ = try await run(id, recordsChange: false, changedAt: nil)
       } catch LibraryError.notFound {
         try? await pending.remove(id)
       } catch {
@@ -80,13 +83,35 @@ public struct DocumentIntake: Sendable {
   ///
   /// - Throws: the inspection error when the file cannot be read; the document is kept.
   public func refresh(_ id: DocumentID) async throws -> Document {
+    try await run(id, recordsChange: true, changedAt: nil)
+  }
+
+  /// Re-reads a document whose file another app changed at `date`, which is recorded as its change.
+  public func refresh(_ id: DocumentID, changedAt date: Date) async throws -> Document {
+    try await run(id, recordsChange: true, changedAt: date)
+  }
+
+  /// Runs a refresh, crossing off only the changes written down before it began.
+  ///
+  /// A change made while it runs still gets its own refresh (#236).
+  private func run(_ id: DocumentID, recordsChange: Bool, changedAt: Date?) async throws -> Document {
     guard let document = try await library.document(withID: id) else { throw LibraryError.notFound }
     // If the list can't be written, the refresh still runs; only a retry of a failure is lost.
-    try? await pending?.add(id)
-    let refreshed = try await finish(document, isNew: false, changedAt: Date())
-    try await library.recordModified(id)
-    try? await pending?.remove(id)
-    return try await library.document(withID: id) ?? refreshed
+    if recordsChange { try? await pending?.add(id) }
+    let covers = await pending?.owed(id)?.change
+    do {
+      let refreshed = try await finish(document, isNew: false, changedAt: changedAt ?? Date())
+      if let changedAt {
+        try await library.recordModified(id, at: changedAt)
+      } else {
+        try await library.recordModified(id)
+      }
+      if let covers { try? await pending?.finished(id, upTo: covers) }
+      return try await library.document(withID: id) ?? refreshed
+    } catch {
+      if !(error is CancellationError) { _ = try? await pending?.failed(id) }
+      throw error
+    }
   }
 
   /// Inspects, records and indexes a document; `changedAt` is the change search and Spotlight are
