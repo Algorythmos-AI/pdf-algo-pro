@@ -139,6 +139,7 @@ public final class LibraryModel {
     // Refreshes that failed, or were cut short, since the last launch: after a password, an edit or
     // a restore, search and Spotlight still hold the old text until this runs (#236).
     for _ in 0..<(await intake.refreshPending()) { await telemetry.record("quality.operation.failed") }
+    await refreshChangedFiles()
     await pruneDerivedData()
     await reload()
     phase = .loaded
@@ -167,6 +168,34 @@ public final class LibraryModel {
       }
     } catch {
       await telemetry.record("quality.operation.failed")
+    }
+  }
+
+  /// Reads again each document whose file changed since the library last recorded a change, as when
+  /// another app edits it or the Files app replaces it with another PDF of the same name (#242), so
+  /// its page count, reading position, search text and Spotlight entry follow the file.
+  ///
+  /// The app records every change it makes after writing the file, so only changes made elsewhere are
+  /// found. Its tags and favourite stay: without a file identity (#224), an edit made in another app
+  /// can't be told from a replacement.
+  private func refreshChangedFiles() async {
+    let documents: [Core.Document]
+    do {
+      documents = try await library.documents(in: .all, sortedBy: .title)
+    } catch {
+      await telemetry.record("quality.operation.failed")
+      return
+    }
+    for document in documents {
+      guard let url = try? await library.fileURL(for: document.id),
+        let changed = try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate,
+        changed > document.modifiedAt.addingTimeInterval(2)
+      else { continue }
+      do {
+        _ = try await intake.refresh(document.id)
+      } catch {
+        await telemetry.record("quality.operation.failed")
+      }
     }
   }
 
