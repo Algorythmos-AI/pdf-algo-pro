@@ -113,6 +113,8 @@ jobs:
         run: python3 scripts/ci/check_docs.py
       - name: Tester notes (a file for every locale, alike in shape, within the limit)
         run: python3 scripts/ci/check_tester_notes.py
+      - name: Every string in every String Catalog has its French translation
+        run: python3 scripts/ci/untranslated.py
 
   invariants:
     name: invariants

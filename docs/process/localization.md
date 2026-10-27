@@ -37,6 +37,11 @@ Owner: Product and Design · Reviewed: each milestone, and whenever a language i
 5. A French speaker reviews every changed string in the pull request before the build reaches
    testers.
 
+Every pull request runs `python3 scripts/ci/untranslated.py` with no argument in the `docs` job
+(`ci.yml`). It reads every String Catalog in the repository and fails when a string has no French
+translation, or one marked as needing work. A string added in code is checked once it is in its
+catalog, which Xcode writes when it builds; the export in step 4 also finds the ones not there yet.
+
 ## French conventions
 
 - **Terms follow iOS in French:**
