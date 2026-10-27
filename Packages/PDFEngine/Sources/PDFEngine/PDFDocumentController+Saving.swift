@@ -14,10 +14,15 @@ extension PDFDocumentController {
   ///   - previous: Where to keep the file as it was before this save (FR-EDIT-008, first step), replacing
   ///     any version kept there before; `nil` keeps none. On APFS the copy is a clone, so it takes no
   ///     space until the files differ.
+  ///   - isUnchanged: Whether the file is still the version the caller expects, asked with write
+  ///     access coordinated, straight before the file is replaced; `nil` asks nothing.
   /// - Throws: `PDFEngineError.restricted` when the document's author does not allow the change;
   ///   `PDFEngineError.insufficientSpace` when the device is too full to save safely;
+  ///   `PDFEngineError.changedOnDisk` when `isUnchanged` says the file changed, which is left as it is;
   ///   `PDFEngineError.saveFailed` when writing fails, or when the earlier version can't be kept.
-  public func save(to url: URL, keepingPreviousAt previous: URL? = nil) throws {
+  public func save(
+    to url: URL, keepingPreviousAt previous: URL? = nil, onlyIf isUnchanged: ((URL) -> Bool)? = nil
+  ) throws {
     textEditsPutBack = []
     let interval = Signposts.begin("Document.Save")
     defer { interval.end() }
@@ -67,6 +72,8 @@ extension PDFDocumentController {
       do {
         try fault(.coordinated)
         let exists = fileManager.fileExists(atPath: target.path)
+        // Another app's write while this save was staged is not replaced (#257).
+        if let isUnchanged, exists, !isUnchanged(target) { throw PDFEngineError.changedOnDisk }
         if let previous, exists {
           if fileManager.fileExists(atPath: previous.path) { try fileManager.removeItem(at: previous) }
           try fileManager.copyItem(at: target, to: previous)
@@ -82,7 +89,10 @@ extension PDFDocumentController {
         writeError = error
       }
     }
-    if let writeError { throw Self.saveError(for: writeError) }
+    if let writeError {
+      if writeError as? PDFEngineError == .changedOnDisk { throw PDFEngineError.changedOnDisk }
+      throw Self.saveError(for: writeError)
+    }
     guard coordinationError == nil else { throw PDFEngineError.saveFailed }
     switch pendingProtection {
     case .set(let newPassword):

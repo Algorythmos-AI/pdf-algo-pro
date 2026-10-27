@@ -407,10 +407,16 @@ struct ReaderModelTests {
     await reader.keepMineAsCopy()
     #expect(reader.errorMessage != nil)
     #expect(reader.controller?.needsSaving == true, "My version must still count as unsaved")
+    #expect(reader.hasConflictingChange, "The choice is offered again (#257)")
     reader.errorMessage = nil
     let shared = try #require(await reader.fileForSharing())
     let file = try PDFDocumentController(url: shared)
     #expect(file.pageCount == 1 && file.annotationCount(onPage: 0) == 1, "The file shared is my version")
+    // Neither sharing nor a later save writes my version over theirs while the choice waits (#257).
+    #expect(await !reader.save())
+    let pagesOnDisk = (try? PDFDocumentController(url: url))?.pageCount ?? 0
+    #expect(pagesOnDisk == 2, "The other app's 2 pages were written over; the file has \(pagesOnDisk)")
+    #expect(reader.controller?.needsSaving == true)
     reader.stopWatching()
   }
 
@@ -429,8 +435,13 @@ struct ReaderModelTests {
     try #require(await inspector.isWaiting, "The first save reached the library")
     reader.controller?.addNote("Two", onPage: 0)
     let second = Task { await reader.save() }
-    // Time for a second save that does not wait for the first to start a copy of its own.
-    try await Task.sleep(for: .milliseconds(200))
+    // Until the second save waits for the first, or, without that, starts a copy of its own.
+    for _ in 0..<500 {
+      let reads = await inspector.calls
+      if reader.savesWaiting > 0 || reads > 1 { break }
+      try await Task.sleep(for: .milliseconds(10))
+    }
+    let waited = reader.savesWaiting
     await inspector.open()
     let firstSaved = await first.value
     let secondSaved = await second.value
@@ -438,7 +449,9 @@ struct ReaderModelTests {
     #expect(
       firstSaved && secondSaved, "Saved: \(firstSaved), \(secondSaved); \(String(describing: reader.errorMessage))")
     let titles = try await harness.library.documents(in: .all, sortedBy: .title).map(\.title)
-    #expect(titles.filter { $0.hasPrefix("Signed (edited)") }.count == 1, "Titles: \(titles)")
+    #expect(
+      titles.filter { $0.hasPrefix("Signed (edited)") }.count == 1,
+      "Titles: \(titles); saves waiting for the first: \(waited)")
     let copyURL = try #require(reader.fileURL)
     let annotations = try PDFDocumentController(url: copyURL).annotationCount(onPage: 0)
     #expect(annotations == existing + 2, "The copy the reader shows has \(annotations - existing) of the 2 notes")
@@ -499,9 +512,7 @@ struct ReaderModelTests {
     #expect(
       kept?.pageCount == 1 && notes.contains("Unsaved mine"),
       "The copy has \(kept?.pageCount ?? 0) pages and notes \(notes)")
-    #expect(
-      reader.hasConflictingChange && reader.controller?.needsSaving == true,
-      "The choice must still be open, with my version unsaved here")
+    #expect(reader.hasConflictingChange, "The choice must still be open")
 
     // Going to the background again under the same conflict, then keeping mine, makes no second copy.
     await reader.saveBeforeSuspending(keepAlive: { {} })
@@ -510,6 +521,110 @@ struct ReaderModelTests {
     #expect(titles.sorted() == ["Shared", "Shared (conflict)"], "Titles: \(titles)")
     #expect(try Data(contentsOf: url) == theirs)
     #expect(reader.controller?.pageCount == 2 && reader.notice != nil, "The original shows the other app's version")
+    reader.stopWatching()
+  }
+
+  /// Opens a one-page document with an unsaved note while another app's two-page version waits for
+  /// the person's choice.
+  private func conflicted(_ harness: Harness, note: String = "Unsaved mine") async throws -> (ReaderModel, URL, Data) {
+    let document = await harness.seed(try SyntheticPDF.make(pages: ["Mine"]), title: "Shared")
+    let reader = harness.reader(for: document)
+    await reader.load()
+    let url = try await harness.library.fileURL(for: document.id)
+    reader.controller?.addNote(note, onPage: 0)
+    let theirs = try SyntheticPDF.make(pages: ["Theirs", "Two"])
+    try theirs.write(to: url)
+    await reader.fileChangedOnDisk()
+    try #require(reader.hasConflictingChange, "Another app's change waits for the person's choice")
+    return (reader, url, theirs)
+  }
+
+  /// The notes on the first page of each document whose title starts with `prefix`, by title.
+  private func copiesAndNotes(in harness: Harness, titled prefix: String) async throws -> [String: [String]] {
+    var found: [String: [String]] = [:]
+    let documents = try await harness.library.documents(in: .all, sortedBy: .title)
+    for document in documents where document.title.hasPrefix(prefix) {
+      let url = try await harness.library.fileURL(for: document.id)
+      found[document.title] = PDFDocument(url: url)?.page(at: 0)?.annotations.compactMap(\.contents) ?? []
+    }
+    return found
+  }
+
+  @Test("Another app's write while a save is being made is not replaced; the person is asked instead (#257)")
+  func writeDuringTheSaveIsNotReplaced() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.make(pages: ["Mine"]), title: "Shared")
+    let reader = harness.reader(for: document)
+    await reader.load()
+    let url = try await harness.library.fileURL(for: document.id)
+    reader.controller?.addNote("Mine", onPage: 0)
+    let theirs = try SyntheticPDF.make(pages: ["Theirs", "Two"])
+    // Another app writes once the save has staged and checked its file, before the replace.
+    PDFDocumentController.saveFault = { step, target in
+      guard step == .validated, target == url else { return }
+      try theirs.write(to: target)
+    }
+    defer { PDFDocumentController.saveFault = nil }
+
+    let saved = await reader.save()
+    PDFDocumentController.saveFault = nil
+    let pagesOnDisk = (try? PDFDocumentController(url: url))?.pageCount ?? 0
+    #expect(!saved, "The save reported success over another app's write")
+    #expect(
+      try Data(contentsOf: url) == theirs, "The other app's 2 pages were replaced; the file has \(pagesOnDisk)")
+    #expect(
+      reader.hasConflictingChange && reader.errorMessage == nil,
+      "Conflict: \(reader.hasConflictingChange); error: \(String(describing: reader.errorMessage))")
+    #expect(reader.controller?.needsSaving == true, "My version must still count as unsaved")
+    await reader.useOtherVersion()
+    #expect(reader.controller?.pageCount == 2)
+    reader.stopWatching()
+  }
+
+  @Test("Closing the reader while another app's change waits keeps my version in a copy beside it (#257)")
+  func closingDuringAConflictKeepsACopy() async throws {
+    let harness = Harness()
+    let (reader, url, theirs) = try await conflicted(harness)
+    await reader.saveBeforeClosing()
+    #expect(try Data(contentsOf: url) == theirs, "The other app's version was written over")
+    let kept = try await copiesAndNotes(in: harness, titled: "Shared (")
+    #expect(
+      kept.keys.sorted() == ["Shared (conflict)"] && kept["Shared (conflict)"]?.contains("Unsaved mine") == true,
+      "Copies and their notes: \(kept)")
+    reader.stopWatching()
+  }
+
+  @Test("Keep mine after a change made since my version was kept aside keeps that change too (#257)")
+  func keepMineBringsTheConflictCopyUpToDate() async throws {
+    let harness = Harness()
+    let (reader, url, theirs) = try await conflicted(harness, note: "Before")
+    await reader.saveBeforeSuspending(keepAlive: { {} })
+    // A change lands after the copy, as an edit that was being worked out would.
+    reader.controller?.addNote("After", onPage: 0)
+    await reader.keepMineAsCopy()
+    let kept = try await copiesAndNotes(in: harness, titled: "Shared (")
+    #expect(kept.keys.sorted() == ["Shared (conflict)"], "One copy, the conflict's: \(kept)")
+    let notes = kept["Shared (conflict)"] ?? []
+    #expect(notes.contains("Before") && notes.contains("After"), "The copy kept: \(notes)")
+    #expect(try Data(contentsOf: url) == theirs)
+    #expect(reader.controller?.pageCount == 2 && !reader.hasConflictingChange && reader.errorMessage == nil)
+    reader.stopWatching()
+  }
+
+  @Test("A conflict alert closed without a choice still protects the other app's version, and comes back (#257)")
+  func conflictOutlivesItsAlert() async throws {
+    let harness = Harness()
+    let (reader, url, theirs) = try await conflicted(harness)
+    // The alert's binding goes false without either button.
+    reader.hasConflictingChange = false
+    let saved = await reader.save()
+    #expect(!saved, "The save reported success while the choice waited")
+    #expect(try Data(contentsOf: url) == theirs, "The other app's version was written over")
+    #expect(reader.hasConflictingChange, "A save offers the choice again")
+    reader.hasConflictingChange = false
+    await reader.setWatching(true)
+    #expect(reader.hasConflictingChange, "Coming back to the app offers the choice again")
+    #expect(reader.controller?.needsSaving == true)
     reader.stopWatching()
   }
 
@@ -2081,6 +2196,26 @@ struct ReaderTextEditingTests {
     reader.stopWatching()
   }
 
+  @Test("Another app's change while a line is only picked shows once the editor lets go of it, without asking (#249)")
+  func fileChangeWhileALineIsPickedReloadsAfterward() async throws {
+    let harness = Harness()
+    let (reader, document) = try await editing(try TextEditFixtures.invoice(), in: harness, picking: "John Smith")
+    let controller = try #require(reader.controller)
+    let url = try await harness.library.fileURL(for: document.id)
+    try SyntheticPDF.make(pages: ["Theirs", "Two"]).write(to: url)
+    await reader.fileChangedOnDisk()
+    #expect(!reader.hasConflictingChange, "Nothing is unsaved, so there is nothing to choose")
+    #expect(reader.controller === controller && reader.selectedTextRegion != nil, "The editor must stay open")
+
+    reader.cancelTextEdit()
+    for _ in 0..<200 where reader.controller?.pageCount != 2 { try await Task.sleep(for: .milliseconds(10)) }
+    #expect(
+      reader.controller?.pageCount == 2 && reader.notice != nil,
+      "Pages shown: \(reader.controller?.pageCount ?? 0); notice: \(String(describing: reader.notice))")
+    #expect(!reader.hasConflictingChange)
+    reader.stopWatching()
+  }
+
   @Test("Return finishes the edit, and a pasted line break becomes a space")
   func fieldIsOneLine() throws {
     let draft = TextEditDraft()
@@ -2123,21 +2258,27 @@ private actor GatedRecognizer: TextRecognizing {
 }
 
 /// An inspector that waits until the test lets it read the file, then reads it with PDFKit.
+///
+/// Every read made before it opens waits, and all go on when it opens, so a second read fails the
+/// test that didn't expect it rather than hanging it.
 private actor GatedInspector: PDFInspecting {
   private(set) var isWaiting = false
+  /// How many reads have asked so far.
+  private(set) var calls = 0
   private var isOpen = false
-  private var gate: CheckedContinuation<Void, Never>?
+  private var waiting: [CheckedContinuation<Void, Never>] = []
 
   func open() {
     isOpen = true
-    gate?.resume()
-    gate = nil
+    for waiter in waiting { waiter.resume() }
+    waiting = []
   }
 
   func inspect(_ url: URL) async throws -> PDFInspection {
+    calls += 1
     if !isOpen {
       isWaiting = true
-      await withCheckedContinuation { gate = $0 }
+      await withCheckedContinuation { waiting.append($0) }
     }
     return try await PDFKitInspector().inspect(url)
   }
