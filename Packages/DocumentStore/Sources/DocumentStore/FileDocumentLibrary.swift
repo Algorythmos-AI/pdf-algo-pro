@@ -132,6 +132,9 @@ public actor FileDocumentLibrary: DocumentLibrary {
       document.pageCount = inspection.pageCount
       document.isEncrypted = inspection.isEncrypted
       document.hasTextLayer = inspection.hasTextLayer
+      // A file replaced or changed outside the app may have fewer pages now (#242); a locked one's
+      // count is unknown, so its position stays.
+      if inspection.pageCount > 0 { document.lastPageIndex = min(document.lastPageIndex, inspection.pageCount - 1) }
       try await index.upsert(document)
     }
   }
