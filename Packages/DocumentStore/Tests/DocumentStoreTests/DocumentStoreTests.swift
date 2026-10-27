@@ -513,12 +513,60 @@ struct RenamedInFilesTests {
     #expect(try await harness.library.document(at: moved)?.id == document.id, "Opened from Files, it is found")
     #expect(try await harness.library.reconcileWithFiles() == Reconciliation(), "Nothing left to pick up")
 
-    // A PDF put straight into a folder is listed too, and renaming in the app keeps a file in its folder.
-    try pdf.write(to: folder.appendingPathComponent("Deed.pdf"))
-    #expect(try await harness.library.reconcileWithFiles().added.map(\.fileName) == ["Contracts/Deed.pdf"])
+    // Renaming in the app keeps a file in its folder.
     let renamed = try await harness.library.rename(document.id, to: "Lease 2026")
     #expect(renamed.fileName == "Contracts/Lease 2026.pdf")
     #expect(FileManager.default.fileExists(atPath: folder.appendingPathComponent("Lease 2026.pdf").path))
+  }
+
+  @Test("A PDF the library doesn't track, put in a folder, is neither added nor touched (PAP-030 item 7)")
+  func untrackedFileInAFolderIsLeftAlone() async throws {
+    let harness = try Harness()
+    let folder = harness.documentsFolder.appendingPathComponent("Contracts", isDirectory: true)
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    let deed = folder.appendingPathComponent("Deed.pdf")
+    try pdf.write(to: deed)
+
+    for round in 1...2 {
+      let result = try await harness.library.reconcileWithFiles()
+      let state = try await harness.state()
+      #expect(result == Reconciliation(), "round \(round): added \(result.added.map(\.fileName)); \(state)")
+      #expect(try await harness.library.documents(in: .all, sortedBy: .title).isEmpty, "round \(round); \(state)")
+      #expect(try await harness.library.documents(in: .recentlyDeleted, sortedBy: .title).isEmpty, "round \(round)")
+    }
+    #expect(try Data(contentsOf: deed) == pdf, "The file is left where it is, as it was")
+    #expect(try await harness.library.document(at: deed) == nil, "Opened from Files, it is imported as a copy")
+  }
+
+  @Test("A tracked file in a folder, deleted and restored, comes back in that folder with its entry (#224)")
+  func restoredIntoItsFolder() async throws {
+    let harness = try Harness()
+    let document = try await harness.library.addDocument(data: pdf, title: "Lease")
+    try await harness.library.setTags(["home"], for: document.id)
+    try await harness.library.setFavorite(true, for: document.id)
+    let folder = harness.documentsFolder.appendingPathComponent("Contracts", isDirectory: true)
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    try FileManager.default.moveItem(
+      at: try await harness.library.fileURL(for: document.id), to: folder.appendingPathComponent("Lease.pdf"))
+    let followed = try await harness.library.reconcileWithFiles()
+    let moved = try await harness.state()
+    #expect(followed == Reconciliation(), "\(followed); \(moved)")
+    let before = try #require(try await harness.library.document(withID: document.id))
+    try #require(before.fileName == "Contracts/Lease.pdf", "\(before); \(moved)")
+
+    try await harness.library.moveToRecentlyDeleted(document.id)
+    #expect(try await harness.library.reconcileWithFiles() == Reconciliation(), "Still in Recently Deleted")
+    #expect(try await harness.library.documents(in: .recentlyDeleted, sortedBy: .title).map(\.id) == [document.id])
+    // The folder goes in the meantime, so restoring makes it again.
+    try FileManager.default.removeItem(at: folder)
+    try await harness.library.restore(document.id)
+
+    let after = try #require(try await harness.library.document(withID: document.id))
+    let state = try await harness.state()
+    #expect(after.fileName == "Contracts/Lease.pdf" && !after.isDeleted, "\(after); \(state)")
+    #expect(after.tags == ["home"] && after.isFavorite, "\(after)")
+    #expect(try Data(contentsOf: folder.appendingPathComponent("Lease.pdf")) == pdf, "\(state)")
+    #expect(try await harness.library.reconcileWithFiles() == Reconciliation(), "\(state)")
   }
 
   @Test("A file another app saved in place is still found after a later rename (#224)")

@@ -30,8 +30,8 @@ Store notes (see the changelog strategy).
 ### Fixed
 - A PDF renamed in the Files app, or moved into a folder inside PDF Algo Pro's folder, keeps its
   tags, favourite, reading position and earlier versions, and stays in the library. It used to come
-  back as a new document, and a PDF in a folder wasn't listed at all. PDFs you put in such a folder
-  now appear in the library too.
+  back as a new document, or disappear from the library once it was in a folder. Restoring it from
+  Recently Deleted puts it back in its folder.
 - Dark mode: the App Lock's "Unlock with Face ID" button and the selection bar's Delete are easy to
   read again. Both fell below the 4.5:1 contrast text needs on an iPhone in dark mode.
 - Welcome to Pro: the "Remind me the day before" switch no longer turns itself back off without a
