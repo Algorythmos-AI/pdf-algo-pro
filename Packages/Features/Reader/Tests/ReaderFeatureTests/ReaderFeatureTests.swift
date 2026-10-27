@@ -1709,6 +1709,29 @@ struct ReaderTextEditingTests {
     #expect(try PDFDocumentController(url: url).annotationCount(onPage: 0) == 0, "And the file is as it was")
   }
 
+  /// Undo waits while text is being edited, so the notice that offers it must wait too (#269).
+  @Test("Undo on the notice, while other text is picked, keeps the notice until it can undo")
+  func coveredInsteadUndoWhileBusy() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try TextEditFixtures.invoice())
+    let reader = harness.reader(for: document, editor: RefusingEditor(rehearsalsFail: false))
+    await reader.load()
+    await reader.beginTextEditing()
+    try await pick("John Smith", in: reader)
+    #expect(await reader.commitTextEdit("Customer: David Smith"))
+    let controller = try #require(reader.controller)
+    // A line is picked on the page before the reader hears of it: text editing is busy.
+    let regions = await controller.pageText(onPage: 0).regions
+    controller.selectTextRegion(try #require(regions.first { $0.text.contains("Materials") }), onPage: 0)
+    await reader.undoCoverInstead()
+    #expect(
+      reader.textEditNotice == .coveredInstead || controller.annotationCount(onPage: 0) == 0,
+      "The notice went away and nothing was undone")
+    reader.cancelTextEdit()
+    await reader.undoCoverInstead()
+    #expect(reader.textEditNotice == nil && controller.annotationCount(onPage: 0) == 0)
+  }
+
   @Test("On a page that cannot be edited, the editor says it will cover before a letter is typed")
   func unprovablePageSaysSoFirst() async throws {
     let harness = Harness()
