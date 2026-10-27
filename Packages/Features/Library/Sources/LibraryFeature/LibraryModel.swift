@@ -345,10 +345,12 @@ public final class LibraryModel {
   ///   - photos: The chosen photos that loaded.
   ///   - unreadable: How many chosen photos didn't load at all.
   public func addPhotos(_ photos: [Data], unreadable: Int = 0) async {
-    guard !photos.isEmpty else { return }
+    // When none loaded, the person is told rather than nothing happening (#238).
+    guard !photos.isEmpty || unreadable > 0 else { return }
     isImporting = true
     defer { isImporting = false }
     let images = await Task.detached(priority: .userInitiated) { photos.compactMap(Self.image) }.value
+    let leftOut = photos.count - images.count + unreadable
     do {
       guard !images.isEmpty else { throw LibraryError.notAPDF }
       let title = String(
@@ -356,9 +358,8 @@ public final class LibraryModel {
       let document = try await intake.add(data: ImagePDF.make(from: images), title: title)
       await reload()
       selection = DocumentSelection(id: document.id)
-      if images.count < photos.count {
-        errorMessage = String(
-          localized: "\(photos.count - images.count) photo(s) couldn't be read and were left out.", bundle: .module)
+      if leftOut > 0 {
+        errorMessage = String(localized: "\(leftOut) photo(s) couldn't be read and were left out.", bundle: .module)
       }
     } catch {
       errorMessage = String(localized: "Couldn't make a PDF from those photos. Nothing changed.", bundle: .module)

@@ -198,10 +198,17 @@ public final class ScanModel {
   ///   - unreadable: How many chosen photos didn't load at all.
   public func process(photos: [Data], unreadable: Int = 0) async {
     let images = ImageLoader.images(from: photos)
-    let skipped = photos.count - images.count
-    notice =
-      skipped > 0
-      ? String(localized: "\(skipped) of the chosen files weren't images, so they were skipped.", bundle: .module) : nil
+    let skipped = photos.count - images.count + unreadable
+    if unreadable > 0 {
+      // Photos that didn't load are counted, and when none did, the notice says so (#238).
+      notice = String(
+        localized: "\(skipped) of the chosen photos couldn't be read, so they were skipped.", bundle: .module)
+    } else {
+      notice =
+        skipped > 0
+        ? String(localized: "\(skipped) of the chosen files weren't images, so they were skipped.", bundle: .module)
+        : nil
+    }
     await review(images)
   }
 

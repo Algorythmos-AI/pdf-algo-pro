@@ -47,6 +47,52 @@
         }
       }
     },
+    "%lld of the chosen photos couldn't be read, so they were skipped." : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld of the chosen photos couldn't be read, so it was skipped."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld of the chosen photos couldn't be read, so they were skipped."
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld des photos choisies n’ont pas pu être lues, elles ont donc été ignorées."
+                }
+              },
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld des photos choisies n’a pas pu être lue, elle a donc été ignorée."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld des photos choisies n’ont pas pu être lues, elles ont donc été ignorées."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "Cancel" : {
       "localizations" : {
         "fr" : {
