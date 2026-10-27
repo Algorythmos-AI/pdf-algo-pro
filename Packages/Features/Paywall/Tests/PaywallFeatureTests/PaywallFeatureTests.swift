@@ -399,6 +399,20 @@ struct PaywallModelTests {
     #expect(model.alreadyHasPro, "The offer now says the account has Pro")
   }
 
+  @Test("Billing retry that ends in expiry, then a purchase while the offer is up, is a purchase")
+  func purchaseAfterRetryExpired() async {
+    let (model, fake, store, telemetry, _) = makeModel(.inBillingRetry, trigger: .settings)
+    await model.appeared()
+    await purchase(.expired, fake, store)
+    await model.entitlementChanged()
+    #expect(!model.paymentPaused)
+    await purchase(.subscribed, fake, store)
+    await model.entitlementChanged()
+    let events = await telemetry.events
+    #expect(model.phase == .welcome, "A purchase after billing retry expired was taken for a recovered payment")
+    #expect(events.contains("commerce.purchase.completed"), "The purchase was not recorded: \(events)")
+  }
+
   @Test("A purchase from no Pro is still welcomed when billing retry was never seen")
   func purchaseStillWelcomed() async {
     let (model, fake, store, telemetry, _) = makeModel(.none)

@@ -88,7 +88,8 @@ public final class PaywallModel {
   /// Whether Pro was seen paused in billing retry while the offer was up.
   ///
   /// Pro coming back after that is a payment the App Store recovered, not a purchase. It is set when
-  /// the offer appears or the entitlement changes, and kept for the life of the presentation.
+  /// the offer appears or the entitlement changes, and cleared when billing retry ends without Pro,
+  /// as in an expiry: a purchase after that is a purchase.
   @ObservationIgnored private var wasPaused = false
   /// Whether Pro arrived through Restore Purchases, so that it is not recorded as a purchase.
   @ObservationIgnored private var wasRestored = false
@@ -235,7 +236,14 @@ public final class PaywallModel {
   /// came back because the App Store recovered the payment: the offer then says they have Pro.
   public func entitlementChanged() async {
     // Billing retry can begin after the offer appeared: a payment recovered later is no sale either.
-    if hadPro != nil, paymentPaused { wasPaused = true }
+    // Retry that ends without Pro leaves nothing to recover, so what follows is judged afresh.
+    if hadPro != nil {
+      if paymentPaused {
+        wasPaused = true
+      } else if !grantsPro {
+        wasPaused = false
+      }
+    }
     guard phase == .offer, hadPro == false, grantsPro else { return }
     if wasPaused {
       hadPro = true
