@@ -291,6 +291,26 @@
         }
       }
     },
+    "Pro is paused because the App Store couldn’t take your last payment. Update your payment method in Manage subscription." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pro est en pause, car l’App Store n’a pas pu encaisser votre dernier paiement. Mettez à jour votre moyen de paiement dans Gérer l’abonnement."
+          }
+        }
+      }
+    },
+    "Pro paused, payment problem" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pro en pause, problème de paiement"
+          }
+        }
+      }
+    },
     "Pro, payment problem" : {
       "localizations" : {
         "fr" : {
