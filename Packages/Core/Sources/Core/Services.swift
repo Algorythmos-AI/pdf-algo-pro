@@ -59,6 +59,11 @@ public protocol DocumentLibrary: Sendable {
   func versionsSize() async -> Int64
   /// Deletes every kept version of every document.
   func deleteAllVersions() async throws
+  /// Records that the file's contents changed at `date`: when another app changed it, the time it did.
+  func recordModified(_ id: DocumentID, at date: Date) async throws
+  /// The documents whose file changed after the library last recorded a change, with when it did:
+  /// changes made outside the app (#242).
+  func changedSinceRecorded() async throws -> [DocumentID: Date]
 }
 
 /// An earlier version of a document, kept by a save (FR-EDIT-008).
@@ -93,6 +98,24 @@ extension DocumentLibrary {
   public func versionsSize() async -> Int64 { 0 }
   /// A library that keeps no earlier versions.
   public func deleteAllVersions() async throws {}
+
+  /// Records the change at the library's own time.
+  public func recordModified(_ id: DocumentID, at date: Date) async throws {
+    try await recordModified(id)
+  }
+
+  /// Asks for each live document's file in turn; a library with its own folder can list it at once.
+  public func changedSinceRecorded() async throws -> [DocumentID: Date] {
+    var changed: [DocumentID: Date] = [:]
+    for document in try await documents(in: .all, sortedBy: .title) {
+      guard let url = try? await fileURL(for: document.id),
+        let date = try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate,
+        date > document.modifiedAt.addingTimeInterval(2)
+      else { continue }
+      changed[document.id] = date
+    }
+    return changed
+  }
 }
 
 /// What reconciling the library index with the files changed.
@@ -185,6 +208,15 @@ public protocol DocumentIndexing: Sendable {
   func pages(of id: DocumentID) async throws -> [PageText]
   /// Documents matching a query, best first.
   func search(_ query: String, in documents: [Document]) async throws -> [SearchHit]
+  /// Gives search and Spotlight a document's new title or tags, keeping its stored text (#241).
+  func updateDetails(of document: Document) async throws
+}
+
+extension DocumentIndexing {
+  /// Indexes the document again with the text stored for it.
+  public func updateDetails(of document: Document) async throws {
+    try await index(document, pages: try await pages(of: document.id))
+  }
 }
 
 /// One word of a recognised line, with where it is.
