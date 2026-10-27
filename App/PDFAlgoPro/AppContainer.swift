@@ -418,12 +418,13 @@ final class AppContainer {
 
   /// Writes every document to Spotlight again, after the text setting changed (defect D11).
   ///
-  /// Returns whether the library could be listed.
+  /// Returns whether the library could be listed; when it couldn't, Spotlight is left as it is rather
+  /// than written with nothing (#237).
   @discardableResult
   func reindexSpotlight() async -> Bool {
-    let documents = try? await library.documents(in: .all, sortedBy: .title)
-    await index.reindexSpotlight(documents ?? [])
-    return documents != nil
+    guard let documents = try? await library.documents(in: .all, sortedBy: .title) else { return false }
+    await index.reindexSpotlight(documents)
+    return true
   }
 
   /// Moves Spotlight to the protected index once (defect D11).
@@ -437,13 +438,16 @@ final class AppContainer {
   }
 
   /// The Spotlight migration's steps, with what empties and what refills the index passed in.
+  ///
+  /// It is marked done only when the library could be listed, so a launch where listing failed tries
+  /// again next time instead of leaving Spotlight empty for good (#237).
   static func migrateSpotlight(
     defaults: UserDefaults, retire: () async -> Void, reindex: () async -> Bool
   ) async {
     let key = "spotlight.indexVersion"
     guard defaults.integer(forKey: key) < 2 else { return }
     await retire()
-    _ = await reindex()
+    guard await reindex() else { return }
     defaults.set(2, forKey: key)
   }
 
