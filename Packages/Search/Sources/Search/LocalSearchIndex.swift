@@ -30,10 +30,13 @@ public actor LocalSearchIndex: DocumentIndexing {
   }
 
   /// Adds or replaces a document in the index (and in Spotlight, FR-LIB-005).
+  ///
+  /// Memory changes only once the text is written, so a write that fails (a full disk) leaves memory,
+  /// the file and Spotlight agreeing on what was there before.
   public func index(_ document: Document, pages: [PageText]) async throws {
-    cache[document.id] = pages
     let data = try JSONEncoder().encode(pages)
     try data.write(to: file(for: document.id), options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+    cache[document.id] = pages
     await spotlight?.index(document, text: pages.map(\.text).joined(separator: "\n"))
   }
 

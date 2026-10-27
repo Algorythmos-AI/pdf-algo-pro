@@ -101,6 +101,9 @@ public struct DocumentIntake: Sendable {
       if error is CancellationError { throw error }
       throw LibraryError.notAPDF
     }
+    // A protected document's words leave search and Spotlight first. Removing needs no space, so
+    // this works on a full disk, where everything after it may fail (#236).
+    if inspection.isEncrypted { try await index.remove(document.id) }
     try await library.updateInspection(inspection, for: document.id)
     guard var updated = try await library.document(withID: document.id) else { throw LibraryError.notFound }
     if let changedAt { updated.modifiedAt = changedAt }
