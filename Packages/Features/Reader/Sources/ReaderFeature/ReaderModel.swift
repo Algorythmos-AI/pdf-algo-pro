@@ -106,6 +106,9 @@ public final class ReaderModel {
   private var documentID: DocumentID
   /// Whether this reader has moved from a signed document to the copy its changes are saved in.
   private var isEditingCopy = false
+  /// The document this reader's version was kept in while another app's change waited for the
+  /// person's choice, so it is kept once per conflict (#257).
+  @ObservationIgnored private var conflictCopy: Task<Document?, Never>?
   /// The save being made, which the next save waits for (#233).
   @ObservationIgnored private var saving: Task<Bool, Never>?
   private let startPage: Int?
@@ -1051,9 +1054,12 @@ public final class ReaderModel {
   ///
   /// `keepAlive` asks the system for time to finish (on iOS, a background task) and returns the call
   /// that ends it; the reader ends it once the save and the reading position are written (defect D2).
+  ///
+  /// While another app's change waits for the person's choice, nothing is written over either version:
+  /// this reader's version goes into a new document beside the original instead (#257).
   public func saveBeforeSuspending(keepAlive: () -> (@MainActor () -> Void)) async {
     let finished = keepAlive()
-    await save()
+    if await !save() { await keepUnsavedVersionAside() }
     await recordPosition()
     finished()
   }
@@ -1207,8 +1213,11 @@ public final class ReaderModel {
   }
 
   /// Saves and brings the search text up to date as the reader closes.
+  ///
+  /// While another app's change waits for the person's choice, this reader's version goes into a new
+  /// document beside the original, as on going to the background (#257).
   public func saveBeforeClosing() async {
-    await save()
+    if await !save() { await keepUnsavedVersionAside() }
     await refreshSearchTextIfNeeded()
   }
 
@@ -1238,22 +1247,57 @@ public final class ReaderModel {
   /// Drops this reader's unsaved changes and shows the version another app saved.
   public func useOtherVersion() async {
     hasConflictingChange = false
+    // A version kept aside meanwhile stays in the library; the next conflict gets its own (#257).
+    conflictCopy = nil
     await reload()
+  }
+
+  /// Keeps this reader's unsaved version in a new document beside the original, when a save was
+  /// refused because another app's change waits for the person's choice and the app may end before
+  /// they make it (#257).
+  ///
+  /// Once per conflict: the version stays unsaved here, so the choice can still be made, and keeping
+  /// it then makes no second copy.
+  private func keepUnsavedVersionAside() async {
+    guard hasConflictingChange, conflictCopy == nil, let controller, controller.needsSaving else { return }
+    let title = String(localized: "\(document?.title ?? "") (conflict)", bundle: .module)
+    let keeping = Task { () -> Document? in
+      let unsaved = controller.unsavedChanges
+      // The original doesn't have this version, so it still counts as unsaved here.
+      defer { controller.countAsUnsaved(unsaved) }
+      return try? await addCopy(of: controller, titled: title)
+    }
+    conflictCopy = keeping
+    // A copy that couldn't be added is tried again at the next chance.
+    if await keeping.value == nil, conflictCopy == keeping { conflictCopy = nil }
+  }
+
+  /// Writes the version this reader shows to a new document in the library, beside the original.
+  private func addCopy(of controller: PDFDocumentController, titled title: String) async throws -> Document {
+    let staged = FileManager.default.temporaryDirectory.appendingPathComponent("mine-\(UUID().uuidString).pdf")
+    defer { try? FileManager.default.removeItem(at: staged) }
+    try controller.save(to: staged)
+    let data = try Data(contentsOf: staged, options: .mappedIfSafe)
+    return try await intake.add(data: data, title: title)
   }
 
   /// Keeps this reader's version as a new document in the library, then shows the version another
   /// app saved in the original.
   public func keepMineAsCopy() async {
     hasConflictingChange = false
+    let keptAside = await conflictCopy?.value
+    conflictCopy = nil
     guard let controller else { return }
-    let staged = FileManager.default.temporaryDirectory.appendingPathComponent("mine-\(UUID().uuidString).pdf")
-    defer { try? FileManager.default.removeItem(at: staged) }
+    if let keptAside {
+      // Already kept beside the original while the choice waited: no second copy (#257).
+      await reload()
+      notice = String(localized: "Your version is saved as “\(keptAside.title)”.", bundle: .module)
+      return
+    }
     let unsaved = controller.unsavedChanges
     do {
-      try controller.save(to: staged)
-      let data = try Data(contentsOf: staged, options: .mappedIfSafe)
       let title = document?.title ?? ""
-      let copy = try await intake.add(data: data, title: String(localized: "\(title) (my version)", bundle: .module))
+      let copy = try await addCopy(of: controller, titled: String(localized: "\(title) (my version)", bundle: .module))
       await reload()
       notice = String(localized: "Your version is saved as “\(copy.title)”.", bundle: .module)
     } catch {

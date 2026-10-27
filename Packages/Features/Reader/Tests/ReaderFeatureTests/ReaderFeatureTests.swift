@@ -474,6 +474,45 @@ struct ReaderModelTests {
     reader.stopWatching()
   }
 
+  @Test("Going to the background while another app's change waits keeps my version in one copy beside it (#257)")
+  func backgroundSaveDuringAConflictKeepsACopy() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.make(pages: ["Mine"]), title: "Shared")
+    let reader = harness.reader(for: document)
+    await reader.load()
+    let url = try await harness.library.fileURL(for: document.id)
+    reader.controller?.addNote("Unsaved mine", onPage: 0)
+    let theirs = try SyntheticPDF.make(pages: ["Theirs", "Two"])
+    try theirs.write(to: url)
+    await reader.fileChangedOnDisk()
+    try #require(reader.hasConflictingChange, "Another app's change waits for the person's choice")
+
+    await reader.saveBeforeSuspending(keepAlive: { {} })
+    #expect(try Data(contentsOf: url) == theirs, "The other app's version was written over")
+    let afterFirst = try await harness.library.documents(in: .all, sortedBy: .title)
+    let copies = afterFirst.filter { $0.title == "Shared (conflict)" }
+    #expect(copies.count == 1, "Titles: \(afterFirst.map(\.title))")
+    let copy = try #require(copies.first)
+    let copyURL = try await harness.library.fileURL(for: copy.id)
+    let kept = PDFDocument(url: copyURL)
+    let notes = kept?.page(at: 0)?.annotations.compactMap(\.contents) ?? []
+    #expect(
+      kept?.pageCount == 1 && notes.contains("Unsaved mine"),
+      "The copy has \(kept?.pageCount ?? 0) pages and notes \(notes)")
+    #expect(
+      reader.hasConflictingChange && reader.controller?.needsSaving == true,
+      "The choice must still be open, with my version unsaved here")
+
+    // Going to the background again under the same conflict, then keeping mine, makes no second copy.
+    await reader.saveBeforeSuspending(keepAlive: { {} })
+    await reader.keepMineAsCopy()
+    let titles = try await harness.library.documents(in: .all, sortedBy: .title).map(\.title)
+    #expect(titles.sorted() == ["Shared", "Shared (conflict)"], "Titles: \(titles)")
+    #expect(try Data(contentsOf: url) == theirs)
+    #expect(reader.controller?.pageCount == 2 && reader.notice != nil, "The original shows the other app's version")
+    reader.stopWatching()
+  }
+
   @Test("Recognition on a signed document's copy is heard by the reader, so a later save keeps the text (#255)")
   func recognitionOnTheEditedCopyIsWatched() async throws {
     let harness = Harness()
