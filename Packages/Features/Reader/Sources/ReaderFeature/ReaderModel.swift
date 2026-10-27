@@ -1358,10 +1358,12 @@ public final class ReaderModel {
     }
     if await save() {
       // The library's record follows the file: its lock, its page count and its search text. If that
-      // fails, the words still leave search and Spotlight now (#236).
+      // fails, the words still leave search and Spotlight now: removing them needs no space, so it
+      // works on the full disk that made the refresh fail; then the title goes back if it can (#236).
       if await refreshLibraryRecord() == nil, var locked = document {
         locked.isEncrypted = true
         do {
+          try await index.remove(documentID)
           try await index.index(locked, pages: [])
         } catch {
           await telemetry.record("quality.operation.failed")
