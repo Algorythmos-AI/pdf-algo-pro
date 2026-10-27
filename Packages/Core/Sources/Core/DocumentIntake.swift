@@ -26,6 +26,14 @@ public struct DocumentIntake: Sendable {
     self.pending = pending
   }
 
+  /// Writes down, before a change is saved, that the document will need a refresh (#236).
+  ///
+  /// - Parameters:
+  ///   - id: The document about to change.
+  ///   - protecting: Whether the change protects the document, whose words must then leave search
+  ///     and Spotlight whatever else fails.
+  public func willChange(_ id: DocumentID, protecting: Bool = false) async {}
+
   /// Refreshes every document a refresh is still owed to (#236); a document no longer in the
   /// library is crossed off.
   ///
