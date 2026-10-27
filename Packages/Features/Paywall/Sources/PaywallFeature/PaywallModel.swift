@@ -53,6 +53,11 @@ public final class PaywallModel {
   public private(set) var selectedPlanID: String?
   /// Whether the App Store's own sheet is up, or about to be.
   public private(set) var isPurchasing = false
+  /// The plans whose purchase waits for approval, such as a parent's with Ask to Buy.
+  ///
+  /// Each is asked for once while the offer shows: a second request would only reach the approver
+  /// again (#266).
+  public private(set) var plansWaitingForApproval: Set<String> = []
   /// What to tell the person about the last purchase, if anything.
   public var notice: Notice?
   /// Whether the person already had Pro when the offer appeared: the offer then says so, and its
@@ -158,6 +163,11 @@ public final class PaywallModel {
     await loadPlans()
   }
 
+  /// Whether the selected plan's purchase waits for approval, so its button asks nothing more.
+  public var selectedPlanIsWaiting: Bool {
+    selectedPlanID.map(plansWaitingForApproval.contains) ?? false
+  }
+
   /// The plan that is selected, once the plans have loaded.
   public var selectedPlan: PlanOffer? {
     guard case .loaded(let offers) = plans else { return nil }
@@ -193,7 +203,9 @@ public final class PaywallModel {
   /// The App Store confirms the purchase in its own sheet. A purchase that succeeds is read back
   /// as an entitlement, and it is the entitlement that leads to the confirmation.
   public func purchase() async {
-    guard phase == .offer, !alreadyHasPro, !paymentPaused, !isPurchasing, let planID = selectedPlanID else { return }
+    guard phase == .offer, !alreadyHasPro, !paymentPaused, !isPurchasing, let planID = selectedPlanID,
+      !plansWaitingForApproval.contains(planID)
+    else { return }
     isPurchasing = true
     defer { isPurchasing = false }
     await telemetry.record("commerce.purchase.started")
@@ -202,6 +214,7 @@ public final class PaywallModel {
       await entitlements.refresh()
       await entitlementChanged()
     case .pending:
+      plansWaitingForApproval.insert(planID)
       notice = .pending
     case .cancelled:
       break

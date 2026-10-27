@@ -106,12 +106,20 @@ struct PaywallOfferView: View {
         Task { await model.purchase() }
       } label: {
         // The words keep their place while the App Store's sheet is on its way.
-        (plan.trial == nil ? Text("Subscribe", bundle: .module) : Text("Start free trial", bundle: .module))
-          .opacity(model.isPurchasing ? 0 : 1)
-          .overlay { if model.isPurchasing { ProgressView().tint(Color.ds.brandOnFill) } }
+        Group {
+          if model.selectedPlanIsWaiting {
+            Text("Waiting for approval", bundle: .module)
+          } else if plan.trial == nil {
+            Text("Subscribe", bundle: .module)
+          } else {
+            Text("Start free trial", bundle: .module)
+          }
+        }
+        .opacity(model.isPurchasing ? 0 : 1)
+        .overlay { if model.isPurchasing { ProgressView().tint(Color.ds.brandOnFill) } }
       }
       .buttonStyle(.primary)
-      .disabled(model.isPurchasing)
+      .disabled(model.isPurchasing || model.selectedPlanIsWaiting)
       .accessibilityIdentifier(AccessibilityID.Paywall.purchase)
     }
   }

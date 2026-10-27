@@ -94,6 +94,9 @@ Store notes (see the changelog strategy).
   of the app's windows, and typing stopped until you tapped the field again.
 - Free plan: two summaries or answers started at the same moment can no longer both use the day's
   last free request.
+- Pro: a purchase waiting for approval, as with Ask to Buy, now shows Waiting for approval on its
+  button until the plans screen closes. Before, the button was ready again, and a second tap sent
+  the approver a second request.
 - Editing text (internal builds): a name pasted from a web page with a hidden soft hyphen or
   zero-width space is now changed in the page. Before, the hidden character made the change fail,
   the line was covered instead, and every other line on that page could then only be covered.
