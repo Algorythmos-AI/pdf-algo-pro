@@ -349,10 +349,15 @@ public final class LibraryModel {
       }
     }
     if failures > 0 {
-      if otherFailure != nil, failures < urls.count {
-        // Some were added, so "nothing changed" would not be true.
-        errorMessage = String(
-          localized: "\(failures) file(s) couldn't be imported. The others were added.", bundle: .module)
+      let added = urls.count - failures
+      if added > 0 {
+        // Some were added, so "nothing changed" would not be true: say how many, each way.
+        let failed =
+          otherFailure == nil
+          ? String(
+            localized: "\(failures) file(s) couldn't be imported because they aren't readable PDFs.", bundle: .module)
+          : String(localized: "\(failures) file(s) couldn't be imported.", bundle: .module)
+        errorMessage = failed + " " + String(localized: "\(added) file(s) were added.", bundle: .module)
       } else {
         errorMessage =
           otherFailure.map(Self.message(for:))
