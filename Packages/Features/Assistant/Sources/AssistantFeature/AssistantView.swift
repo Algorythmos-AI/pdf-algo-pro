@@ -341,6 +341,15 @@ public struct AssistantView: View {
       GeneratedFootnote()
     }
     .cardStyle()
+    .onAppear { presentDocumentType(of: extraction) }
+  }
+
+  /// Puts the document type into the reader's language, as an edit to the value, so what is copied
+  /// and shared says what the screen says (#304).
+  private func presentDocumentType(of extraction: Extraction) {
+    guard let field = extraction.fields.first(where: { $0.key == "documentType" }) else { return }
+    let name = DocumentTypeName.presented(field.value)
+    if name != field.value { model.setValue(name, forField: field.key) }
   }
 
   // MARK: - Copy
