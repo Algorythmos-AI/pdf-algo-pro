@@ -65,6 +65,8 @@ public final class PaywallModel {
   public private(set) var reminderProblem: TrialReminderOutcome?
   /// Whether the last restore found nothing to bring back or could not be made.
   public var restoreFailed = false
+  /// How the last restore ended; `nil` before one.
+  public var restoreOutcome: RestoreOutcome?
 
   /// Why the offer is showing.
   public let trigger: PaywallTrigger
@@ -272,6 +274,7 @@ public final class PaywallModel {
   public func restore(using store: any StoreAccessing) async {
     let answered = await store.restorePurchases()
     restoreFailed = !answered
+    restoreOutcome = RestoreOutcome.after(answered: answered)
     await entitlements.refresh()
     if !answered {
       await telemetry.record("commerce.restore.failed")
