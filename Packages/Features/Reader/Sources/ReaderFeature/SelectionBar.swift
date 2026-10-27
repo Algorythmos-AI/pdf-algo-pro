@@ -499,11 +499,13 @@ struct WordFlow: Layout {
 
 extension View {
   /// Gives this control the Move actions when it is the one that carries them.
-  @ViewBuilder fileprivate func carryingMoveActions(_ carries: Bool, _ actions: some View) -> some View {
-    if carries {
-      accessibilityActions { actions }
-    } else {
-      self
+  ///
+  /// One view whatever `carries` is, with only the actions conditional: two branches would be two
+  /// view types, and SwiftUI would replace the control when the title hides or shows, which is when
+  /// the accessibility audit changes the text size and measures (#303).
+  fileprivate func carryingMoveActions(_ carries: Bool, _ actions: some View) -> some View {
+    accessibilityActions {
+      if carries { actions }
     }
   }
 }
