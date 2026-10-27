@@ -530,6 +530,121 @@ struct DocumentIntakeTests {
     _ = try? await intake.refresh(seeded.id)
     #expect(await index.fake.indexed.last?.isDeleted == true, "Spotlight's last word is that it is deleted")
   }
+
+  // MARK: - Third R1 review
+
+  @Test("A refresh while a password is being saved doesn't cross off the change; one after the save does (#236)")
+  func changeBeingSavedStaysOwed() async throws {
+    let library = FakeDocumentLibrary()
+    let pending = PendingRefreshes(url: nil)
+    let seeded = await library.seed(Document(title: "Lease", fileName: "lease.pdf", addedAt: .distantPast))
+    let intake = DocumentIntake(library: library, inspector: FakeInspector(), index: FakeIndex(), pending: pending)
+    let change = await intake.willChange(seeded.id, protecting: true)
+
+    // The launch pass reaches the document while the save is still writing: it reads the old file.
+    _ = await intake.refreshPending()
+
+    #expect(await pending.all == [seeded.id], "Still owed: what it read was from before the save")
+    #expect(await pending.owed(seeded.id)?.protects == true)
+    await intake.saveFinished(seeded.id, change: change)
+    _ = try await intake.refresh(seeded.id)
+    #expect(await pending.all.isEmpty, "A refresh after the save crosses it off")
+  }
+
+  @Test("Two refreshes of one document never overlap, so a stale one can't overwrite a newer result (#236)")
+  func refreshesOfOneDocumentRunInTurn() async throws {
+    let library = FakeDocumentLibrary()
+    let index = FakeIndex()
+    let gate = InspectionGate()
+    let seeded = await library.seed(Document(title: "Lease", fileName: "lease.pdf", addedAt: .distantPast))
+    let inspector = ScriptedInspector(
+      gate: gate,
+      results: [
+        PDFInspection(pageCount: 1, isEncrypted: false, pages: [PageText(pageIndex: 0, text: "old words")]),
+        PDFInspection(pageCount: 0, isEncrypted: true, pages: []),
+      ])
+    let intake = DocumentIntake(library: library, inspector: inspector, index: index)
+    let stale = Task { try await intake.refresh(seeded.id) }
+    await gate.waitForArrival()
+    let newer = Task { try await intake.refresh(seeded.id) }
+    try await Task.sleep(for: .milliseconds(100))
+    await gate.open()
+    _ = try await stale.value
+    _ = try await newer.value
+    #expect(await index.stored[seeded.id] == [], "The newer, locked result is the last word")
+    #expect(try await library.document(withID: seeded.id)?.isEncrypted == true)
+  }
+
+  @Test("A protecting change whose save failed doesn't take an unprotected document's words out of search")
+  func failedProtectionLeavesWordsIn() async throws {
+    let library = FakeDocumentLibrary()
+    let index = FakeIndex()
+    let pending = PendingRefreshes(url: nil)
+    let seeded = await library.seed(Document(title: "Lease", fileName: "lease.pdf", addedAt: .distantPast))
+    await index.seed(seeded.id, pages: [PageText(pageIndex: 0, text: "ordinary words")])
+    let intake = DocumentIntake(library: library, inspector: FakeInspector(), index: index, pending: pending)
+    let change = await intake.willChange(seeded.id, protecting: true)
+    await intake.saveFinished(seeded.id, change: change)  // The save failed: the file is as it was.
+    await index.failIndexing(true)
+    for _ in 0..<5 { _ = await intake.refreshPending() }
+    #expect(await index.stored[seeded.id] == [PageText(pageIndex: 0, text: "ordinary words")])
+  }
+
+  @Test("Removing a password clears the protection a change was owed")
+  func removingThePasswordClearsProtection() async throws {
+    let pending = PendingRefreshes(url: nil)
+    let id = DocumentID()
+    try await pending.add(id, protecting: true)
+    try await pending.add(id, protecting: false)
+    #expect(await pending.owed(id)?.protects == false)
+  }
+
+  @Test("A document with only an owner password stays in search when the disk is full")
+  func ownerPasswordOnlyStaysSearchable() async throws {
+    let library = FakeDocumentLibrary()
+    let index = FakeIndex()
+    let seeded = await library.seed(Document(title: "Lease", fileName: "lease.pdf", addedAt: .distantPast))
+    let words = [PageText(pageIndex: 0, text: "readable words")]
+    await index.seed(seeded.id, pages: words)
+    await index.failIndexing(true)
+    let readable = PDFInspection(pageCount: 1, isEncrypted: true, pages: words)
+    let intake = DocumentIntake(library: library, inspector: FakeInspector(result: readable), index: index)
+    await #expect(throws: (any Error).self) { try await intake.refresh(seeded.id) }
+    #expect(await index.stored[seeded.id] == words, "It opens without a password, so its words stay")
+  }
+
+  @Test("A file that isn't a PDF any more is given up after three tries even when its text can't be removed")
+  func unreadableFileIsGivenUp() async throws {
+    let library = FakeDocumentLibrary()
+    let index = FakeIndex()
+    let pending = PendingRefreshes(url: nil)
+    let seeded = await library.seed(Document(title: "Lease", fileName: "lease.pdf", addedAt: .distantPast))
+    try await pending.add(seeded.id)
+    await index.failRemoving(true)
+    let intake = DocumentIntake(
+      library: library, inspector: FakeInspector(fails: true), index: index, pending: pending)
+    for _ in 0..<3 { _ = await intake.refreshPending() }
+    #expect(await pending.all.isEmpty)
+  }
+}
+
+/// An inspector that returns its results in turn, the first held at a gate.
+private actor ScriptedInspector: PDFInspecting {
+  let gate: InspectionGate
+  private var results: [PDFInspection]
+  private var calls = 0
+
+  init(gate: InspectionGate, results: [PDFInspection]) {
+    self.gate = gate
+    self.results = results
+  }
+
+  func inspect(_ url: URL) async throws -> PDFInspection {
+    calls += 1
+    let result = results.removeFirst()
+    if calls == 1 { await gate.pass() }
+    return result
+  }
 }
 
 /// An inspector whose task was cancelled.

@@ -711,6 +711,17 @@ struct LibraryModelTests {
     #expect(await counter.count == 1)
   }
 
+  @Test("A changed file that can never be read is tried at most three times across launches (#242)")
+  func failingChangedFileIsTriedThreeTimes() async throws {
+    let counter = InspectionCounter()
+    let inspector = CountingInspector(counter: counter, error: .fileAccessFailed)
+    let harness = Harness(inspector: inspector, pending: PendingRefreshes(url: nil))
+    await harness.library.seed(Document(title: "Invoice", fileName: "i.pdf", addedAt: .distantPast))
+    for _ in 0..<5 { await harness.model.load() }
+    let attempts = await counter.count
+    #expect(attempts <= DocumentIntake.attempts, "\(attempts) attempts")
+  }
+
   @Test("A search cancelled by more typing is not reported as search being unavailable (#240)")
   func cancelledSearchIsQuiet() async {
     let harness = Harness()
@@ -762,9 +773,11 @@ private actor InspectionCounter {
 /// An inspector that counts what it is asked to read, and finds that it isn't a PDF.
 private struct CountingInspector: PDFInspecting {
   let counter: InspectionCounter
+  /// What every inspection throws.
+  var error: LibraryError = .notAPDF
   func inspect(_ url: URL) async throws -> PDFInspection {
     await counter.increment()
-    throw LibraryError.notAPDF
+    throw error
   }
 }
 
