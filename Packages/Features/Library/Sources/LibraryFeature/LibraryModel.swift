@@ -475,7 +475,9 @@ public final class LibraryModel {
     let ordered = documents.filter { ids.contains($0.id) }
     guard ordered.count > 1 else { return }
     do {
-      let urls = await fileURLs(for: ordered.map(\.id))
+      // Every file or none: a document whose file can't be found stops the merge, which says so (#239).
+      var urls: [URL] = []
+      for document in ordered { urls.append(try await library.fileURL(for: document.id)) }
       let data = try await Task.detached(priority: .userInitiated) { try PDFMerge.merge(urls) }.value
       let title = String(localized: "\(ordered[0].title) and \(ordered.count - 1) more", bundle: .module)
       let document = try await intake.add(data: data, title: title)
