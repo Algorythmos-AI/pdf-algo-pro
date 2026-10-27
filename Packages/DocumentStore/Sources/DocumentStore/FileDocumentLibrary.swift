@@ -69,21 +69,21 @@ public actor FileDocumentLibrary: DocumentLibrary {
 
   // MARK: - Adding
 
-  /// The document whose file is at `url`, or `nil` when `url` is not in the library's folder.
+  /// The document whose file is at `url`, or `nil` when `url` is not in the library's folder or a
+  /// folder inside it.
   ///
   /// The Files app shows that folder, so a file opened from there is already in the library. A PDF put
   /// there since the library last looked is added in place, not copied.
   public func document(at url: URL) async throws -> Document? {
-    let file = url.resolvingSymlinksInPath().standardizedFileURL
-    let folder = documentsFolder.resolvingSymlinksInPath().standardizedFileURL
-    guard file.isFileURL, file.deletingLastPathComponent().path == folder.path else { return nil }
+    guard url.isFileURL, let name = libraryName(of: url) else { return nil }
+    let file = documentsFolder.appendingPathComponent(name)
     return try await exclusively {
-      let name = file.lastPathComponent
       if let known = try await index.all().first(where: { !$0.isDeleted && $0.fileName == name }) { return known }
       guard file.pathExtension.lowercased() == "pdf", fileManager.fileExists(atPath: file.path) else { return nil }
       let createdAt = (try? file.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? now()
       let document = Document(title: file.deletingPathExtension().lastPathComponent, fileName: name, addedAt: createdAt)
       try await index.upsert(document)
+      await recordIdentity(of: document)
       return document
     }
   }
@@ -122,6 +122,7 @@ public actor FileDocumentLibrary: DocumentLibrary {
       try? fileManager.removeItem(at: url)
       throw error
     }
+    await recordIdentity(of: document)
     return document
   }
 
@@ -139,6 +140,8 @@ public actor FileDocumentLibrary: DocumentLibrary {
   // MARK: - Changing
 
   /// Renames a document; the title is trimmed and must not be empty.
+  ///
+  /// The file is renamed too, in the folder it is in.
   public func rename(_ id: DocumentID, to title: String) async throws -> Document {
     try await exclusively {
       var document = try await existing(id)
@@ -147,9 +150,10 @@ public actor FileDocumentLibrary: DocumentLibrary {
       let cleanTitle = Self.cleanTitle(trimmed)
       var moved: Move?
       if !document.isDeleted, cleanTitle != document.title {
-        let newName = uniqueFileName(for: cleanTitle, in: documentsFolder)
-        moved = try move(location(of: document), to: documentsFolder.appendingPathComponent(newName))
-        document.fileName = newName
+        let current = location(of: document)
+        let newName = uniqueFileName(for: cleanTitle, in: current.deletingLastPathComponent())
+        moved = try move(current, to: current.deletingLastPathComponent().appendingPathComponent(newName))
+        document.fileName = Self.replacingLastComponent(of: document.fileName, with: newName)
       }
       document.title = cleanTitle
       try await upsert(document, undoing: moved)
@@ -191,6 +195,8 @@ public actor FileDocumentLibrary: DocumentLibrary {
       var document = try await existing(id)
       document.modifiedAt = now()
       try await index.upsert(document)
+      // A save can write a new file in place of the old one, with a new file number.
+      await recordIdentity(of: document)
     }
   }
 
@@ -260,31 +266,72 @@ public actor FileDocumentLibrary: DocumentLibrary {
   /// Brings the index in line with the files: PDFs added outside the app (for example in the Files app) are added,
   /// entries whose file is gone are removed.
   ///
+  /// Folders inside the library's folder are looked in too.
+  ///
+  /// A file renamed or moved in the Files app keeps its entry, with its identifier, tags, favourite,
+  /// reading position and earlier versions (#224): an entry whose file is gone from its name takes
+  /// the one new file with the identity recorded for it (`FileIdentity`), and only that file's name
+  /// changes. When no file, or more than one, has that identity, or another entry's identity points
+  /// at the same file, nothing is guessed: the entry is removed and the file added, as before. An
+  /// entry recorded before identities were (schema V1) gets one here, while its file is at its name.
+  ///
   /// An entry's earlier versions stay when its file is gone, until their 30 days or the quota ends
-  /// them: the file may only have been renamed or moved in the Files app, which the library can't
-  /// yet tell from a deletion (#224; finding such a file is spike M4, #6).
+  /// them: the file may have been moved where the library can't follow it, such as iCloud Drive.
   ///
   /// Returns the documents added, which still need inspecting and indexing, and the entries removed,
   /// whose derived data must be removed too.
   public func reconcileWithFiles() async throws -> Reconciliation {
     try await exclusively {
       let entries = try await index.all()
+      let identities = try await index.fileIdentities()
       var removed: [DocumentID] = []
-      for document in entries where !fileManager.fileExists(atPath: location(of: document).path) {
-        try await index.delete(document.id)
-        removed.append(document.id)
+      var gone: [Document] = []
+      var files = libraryFiles()
+      for document in entries {
+        let file = location(of: document)
+        guard fileManager.fileExists(atPath: file.path) else {
+          if document.isDeleted {
+            try await index.delete(document.id)
+            removed.append(document.id)
+          } else {
+            gone.append(document)
+          }
+          continue
+        }
+        guard !document.isDeleted else { continue }
+        files[document.fileName] = nil
+        // At its name: its identity is recorded, or recorded again after another app saved it.
+        if let identity = FileIdentity(of: file), identities[document.id] != identity.stored {
+          try await index.setFileIdentity(identity.stored, for: document.id)
+        }
       }
       pruneVersions()
-      let known = Set(entries.filter { !$0.isDeleted }.map(\.fileName))
-      let files =
-        (try? fileManager.contentsOfDirectory(at: documentsFolder, includingPropertiesForKeys: [.creationDateKey]))
-        ?? []
+
+      let newIdentities = files.compactMapValues { FileIdentity(of: $0) }
+      let candidates = gone.map { document in
+        let recorded = identities[document.id].flatMap(FileIdentity.init(stored:))
+        return newIdentities.filter { recorded?.isSameFile(as: $0.value) == true }.map(\.key)
+      }
+      for (document, names) in zip(gone, candidates) {
+        // Only one file has its identity, and no other entry's identity is that file's.
+        if names.count == 1, let name = names.first, candidates.filter({ $0.contains(name) }).count == 1 {
+          var found = document
+          found.fileName = name
+          try await index.upsert(found)
+          files[name] = nil
+        } else {
+          try await index.delete(document.id)
+          removed.append(document.id)
+        }
+      }
+
       var added: [Document] = []
-      for file in files where file.pathExtension.lowercased() == "pdf" && !known.contains(file.lastPathComponent) {
+      for (name, file) in files.sorted(by: { $0.key < $1.key }) {
         let createdAt = (try? file.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? now()
-        let document = Document(
-          title: file.deletingPathExtension().lastPathComponent, fileName: file.lastPathComponent, addedAt: createdAt)
+        let title = file.deletingPathExtension().lastPathComponent
+        let document = Document(title: title, fileName: name, addedAt: createdAt)
         try await index.upsert(document)
+        if let identity = newIdentities[name] { try await index.setFileIdentity(identity.stored, for: document.id) }
         added.append(document)
       }
       // Files in Recently Deleted without an entry (after the index was rebuilt) come back as deleted
@@ -396,6 +443,7 @@ public actor FileDocumentLibrary: DocumentLibrary {
       guard coordinationError == nil, swapError == nil else { throw LibraryError.fileAccessFailed }
       document.modifiedAt = now()
       try await index.upsert(document)
+      await recordIdentity(of: document)
     }
   }
 
@@ -558,6 +606,68 @@ public actor FileDocumentLibrary: DocumentLibrary {
       if let moved { _ = try? move(moved.destination, to: moved.source) }
       throw error
     }
+  }
+
+  /// Records the identity of a document's file, so the file is found again if the Files app renames
+  /// or moves it.
+  ///
+  /// A failure only costs that, until the next reconciliation records it.
+  private func recordIdentity(of document: Document) async {
+    guard !document.isDeleted, let identity = FileIdentity(of: location(of: document)) else { return }
+    try? await index.setFileIdentity(identity.stored, for: document.id)
+  }
+
+  /// The top-level folder iOS puts copies of files other apps hand over in, which is not part of the
+  /// library.
+  ///
+  /// Apple's File System Programming Guide says an app can read and delete files there but not write
+  /// to them, and the app imports such a file as a copy, like a file from anywhere else.
+  static let inboxFolderName = "Inbox"
+
+  /// Every PDF in the library's folder and the folders inside it, by path inside the library folder,
+  /// such as `Report.pdf` or `Work/2026/Report.pdf`.
+  ///
+  /// Hidden folders, packages, symbolic links to folders and the top-level `Inbox` are not looked in.
+  private func libraryFiles() -> [String: URL] {
+    let keys: [URLResourceKey] = [.isDirectoryKey, .isPackageKey, .creationDateKey]
+    var files: [String: URL] = [:]
+    var folders: [(url: URL, prefix: String)] = [(documentsFolder, "")]
+    while let folder = folders.popLast() {
+      for item in (try? fileManager.contentsOfDirectory(at: folder.url, includingPropertiesForKeys: keys)) ?? [] {
+        let prefix = folder.prefix
+        let name = prefix + item.lastPathComponent
+        let values = try? item.resourceValues(forKeys: [.isDirectoryKey, .isPackageKey])
+        if values?.isDirectory == true {
+          let isInbox = prefix.isEmpty && item.lastPathComponent == Self.inboxFolderName
+          if values?.isPackage != true, !item.lastPathComponent.hasPrefix("."), !isInbox {
+            folders.append((item, name + "/"))
+          }
+        } else if item.pathExtension.lowercased() == "pdf" {
+          files[name] = item
+        }
+      }
+    }
+    return files
+  }
+
+  /// The path of `url` inside the library's folder, or `nil` when it is elsewhere (or in a folder
+  /// `libraryFiles` doesn't look in).
+  private func libraryName(of url: URL) -> String? {
+    let file = url.resolvingSymlinksInPath().standardizedFileURL.pathComponents
+    let folder = documentsFolder.resolvingSymlinksInPath().standardizedFileURL.pathComponents
+    guard file.count > folder.count, Array(file.prefix(folder.count)) == folder else { return nil }
+    let inside = Array(file.dropFirst(folder.count))
+    if inside.count > 1 {
+      let folders = inside.dropLast()
+      guard folders.first != Self.inboxFolderName, !folders.contains(where: { $0.hasPrefix(".") }) else { return nil }
+    }
+    return inside.joined(separator: "/")
+  }
+
+  /// A path inside the library's folder with its last component replaced: the same folder, a new name.
+  static func replacingLastComponent(of fileName: String, with name: String) -> String {
+    guard let slash = fileName.lastIndex(of: "/") else { return name }
+    return String(fileName[...slash]) + name
   }
 
   private func uniqueFileName(for title: String, in folder: URL) -> String {

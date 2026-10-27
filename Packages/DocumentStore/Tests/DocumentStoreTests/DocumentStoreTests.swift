@@ -12,20 +12,30 @@ private let pdf = Data("%PDF-1.7\n1 0 obj << >> endobj\n%%EOF\n".utf8)
 private struct Harness {
   let root: URL
   let clock: TestClock
+  let index: any LibraryStore
   let library: FileDocumentLibrary
 
   init(storeURL: URL? = nil, index: (any LibraryStore)? = nil) throws {
     root = FileManager.default.temporaryDirectory.appendingPathComponent("library-\(UUID().uuidString)")
     clock = TestClock()
     let clock = self.clock
+    self.index = index ?? LibraryIndex(storeURL: storeURL ?? root.appendingPathComponent("Index/library.store"))
     library = FileDocumentLibrary(
       documentsFolder: root.appendingPathComponent("Documents"), deletedFolder: root.appendingPathComponent("Deleted"),
-      previousVersionsFolder: root.appendingPathComponent("Previous"),
-      index: index ?? LibraryIndex(storeURL: storeURL ?? root.appendingPathComponent("Index/library.store")),
-      now: { clock.now })
+      previousVersionsFolder: root.appendingPathComponent("Previous"), index: self.index, now: { clock.now })
   }
 
   var documentsFolder: URL { root.appendingPathComponent("Documents") }
+
+  /// Every file under the library's folder with its identity now, and the identities the index
+  /// holds, for a failure message.
+  func state() async throws -> String {
+    let files = (FileManager.default.subpaths(atPath: documentsFolder.path) ?? []).sorted().map { path in
+      "\(path) (\(FileIdentity(of: documentsFolder.appendingPathComponent(path))?.stored ?? "no identity"))"
+    }
+    let identities = try await index.fileIdentities().map { "\($0.key): \($0.value)" }.sorted()
+    return "files \(files); recorded identities \(identities)"
+  }
 
   /// Every file in the library's folder and in Recently Deleted, as "Folder/name".
   func files() throws -> [String] {
@@ -453,26 +463,108 @@ struct RenamedInFilesTests {
     #expect(harness.versionFiles(of: document.id).isEmpty)
   }
 
-  @Test("A file renamed in the Files app keeps its tags and favourite (stays for spike M4, #6)")
+  @Test("A file renamed in the Files app keeps its entry: tags, favourite, position, earlier versions (#224)")
   func renamedInFilesKeepsItsEntry() async throws {
     let harness = try Harness()
     let document = try await harness.library.addDocument(data: pdf, title: "Report")
     try await harness.library.setTags(["tax"], for: document.id)
     try await harness.library.setFavorite(true, for: document.id)
-    let url = try await harness.library.fileURL(for: document.id)
-    try FileManager.default.moveItem(at: url, to: harness.documentsFolder.appendingPathComponent("Report 2026.pdf"))
+    try await harness.library.recordOpened(document.id, pageIndex: 40)
+    let kept = try #require(try await harness.library.previousVersionURL(for: document.id))
+    try pdf.write(to: kept)
+    let old = try await harness.library.fileURL(for: document.id)
+    try FileManager.default.moveItem(at: old, to: harness.documentsFolder.appendingPathComponent("Report 2026.pdf"))
+
     let result = try await harness.library.reconcileWithFiles()
-    await withKnownIssue("Finding a renamed file needs a stored file identity: spike M4 (#6)") {
-      #expect(result.removed.isEmpty)
-      let after = try #require(try await harness.library.document(withID: document.id))
-      #expect(after.fileName == "Report 2026.pdf" && after.tags == ["tax"] && after.isFavorite)
+
+    let state = try await harness.state()
+    #expect(result == Reconciliation(), "removed \(result.removed), added \(result.added.map(\.fileName)); \(state)")
+    let after = try #require(try await harness.library.document(withID: document.id), "Entry removed; \(state)")
+    #expect(
+      after.fileName == "Report 2026.pdf" && after.tags == ["tax"] && after.isFavorite && after.lastPageIndex == 40,
+      "\(after); \(state)")
+    #expect(after.title == "Report", "The title is the library's, like its tags")
+    #expect(await harness.library.hasPreviousVersion(of: document.id))
+    #expect(try await harness.library.documents(in: .all, sortedBy: .title).map(\.id) == [document.id])
+    #expect(try await harness.library.reconcileWithFiles() == Reconciliation(), "Nothing left to pick up")
+  }
+
+  @Test("A file moved into a folder in the Files app keeps its entry and stays listed (#224)")
+  func movedIntoAFolderKeepsItsEntry() async throws {
+    let harness = try Harness()
+    let document = try await harness.library.addDocument(data: pdf, title: "Lease")
+    try await harness.library.setTags(["home"], for: document.id)
+    try await harness.library.recordOpened(document.id, pageIndex: 12)
+    let folder = harness.documentsFolder.appendingPathComponent("Contracts", isDirectory: true)
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    let moved = folder.appendingPathComponent("Lease.pdf")
+    try FileManager.default.moveItem(at: try await harness.library.fileURL(for: document.id), to: moved)
+
+    let result = try await harness.library.reconcileWithFiles()
+
+    let state = try await harness.state()
+    #expect(result == Reconciliation(), "removed \(result.removed), added \(result.added.map(\.fileName)); \(state)")
+    let after = try #require(try await harness.library.document(withID: document.id), "Entry removed; \(state)")
+    #expect(
+      after.fileName == "Contracts/Lease.pdf" && after.tags == ["home"] && after.lastPageIndex == 12,
+      "\(after); \(state)")
+    #expect(try await harness.library.documents(in: .all, sortedBy: .title).map(\.id) == [document.id])
+    #expect(try await harness.library.fileURL(for: document.id).path == moved.path)
+    #expect(try await harness.library.document(at: moved)?.id == document.id, "Opened from Files, it is found")
+    #expect(try await harness.library.reconcileWithFiles() == Reconciliation(), "Nothing left to pick up")
+
+    // A PDF put straight into a folder is listed too, and renaming in the app keeps a file in its folder.
+    try pdf.write(to: folder.appendingPathComponent("Deed.pdf"))
+    #expect(try await harness.library.reconcileWithFiles().added.map(\.fileName) == ["Contracts/Deed.pdf"])
+    let renamed = try await harness.library.rename(document.id, to: "Lease 2026")
+    #expect(renamed.fileName == "Contracts/Lease 2026.pdf")
+    #expect(FileManager.default.fileExists(atPath: folder.appendingPathComponent("Lease 2026.pdf").path))
+  }
+
+  @Test("A file another app saved in place is still found after a later rename (#224)")
+  func savedElsewhereThenRenamed() async throws {
+    let harness = try Harness()
+    let document = try await harness.library.addDocument(data: pdf, title: "Notes")
+    try await harness.library.setFavorite(true, for: document.id)
+    let url = try await harness.library.fileURL(for: document.id)
+    // An atomic save writes a new file and swaps it in, so the file number changes.
+    try Data("%PDF-1.7\n% saved elsewhere\n%%EOF\n".utf8).write(to: url, options: .atomic)
+    #expect(try await harness.library.reconcileWithFiles() == Reconciliation())
+    try FileManager.default.moveItem(at: url, to: harness.documentsFolder.appendingPathComponent("Notes 2.pdf"))
+
+    let result = try await harness.library.reconcileWithFiles()
+
+    let state = try await harness.state()
+    #expect(result == Reconciliation(), "removed \(result.removed), added \(result.added.map(\.fileName)); \(state)")
+    let after = try #require(try await harness.library.document(withID: document.id), "Entry removed; \(state)")
+    #expect(after.fileName == "Notes 2.pdf" && after.isFavorite, "\(after); \(state)")
+  }
+
+  @Test("When two files could be the renamed one, neither is guessed (#224)")
+  func ambiguousCandidatesAreNotGuessed() async throws {
+    let harness = try Harness()
+    let document = try await harness.library.addDocument(data: pdf, title: "Report")
+    try await harness.library.setTags(["tax"], for: document.id)
+    let url = try await harness.library.fileURL(for: document.id)
+    // Hard links are one file under two names, so both have its identity.
+    for name in ["Report A.pdf", "Report B.pdf"] {
+      try FileManager.default.linkItem(at: url, to: harness.documentsFolder.appendingPathComponent(name))
     }
+    try FileManager.default.removeItem(at: url)
+
+    let result = try await harness.library.reconcileWithFiles()
+
+    let state = try await harness.state()
+    #expect(result.removed == [document.id], "\(state)")
+    #expect(result.added.map(\.fileName) == ["Report A.pdf", "Report B.pdf"], "\(state)")
+    #expect(try await harness.library.allTags().isEmpty)
   }
 }
 
 /// A library index whose writes start failing when told to, as they do on a full disk.
 private actor FailingStore: LibraryStore {
   private var entries: [DocumentID: Document] = [:]
+  private var identities: [DocumentID: String] = [:]
   private var failsWrites = false
 
   func failWrites() { failsWrites = true }
@@ -489,6 +581,14 @@ private actor FailingStore: LibraryStore {
   func delete(_ id: DocumentID) async throws {
     guard !failsWrites else { throw CocoaError(.fileWriteOutOfSpace) }
     entries[id] = nil
+    identities[id] = nil
+  }
+
+  func fileIdentities() async throws -> [DocumentID: String] { identities }
+
+  func setFileIdentity(_ identity: String?, for id: DocumentID) async throws {
+    guard !failsWrites else { throw CocoaError(.fileWriteOutOfSpace) }
+    if entries[id] != nil { identities[id] = identity }
   }
 }
 

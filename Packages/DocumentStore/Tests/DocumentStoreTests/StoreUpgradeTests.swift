@@ -162,10 +162,12 @@ private struct Staging27Library {
   var storeState: String {
     let metadata = try? NSPersistentStoreCoordinator.metadataForPersistentStore(type: .sqlite, at: indexStore)
     let stored = (metadata?[NSStoreModelVersionHashesKey] as? [String: Data])?.mapValues { $0.base64EncodedString() }
-    let current = NSManagedObjectModel.makeManagedObjectModel(for: LibrarySchemaV1.models)?
-      .entityVersionHashesByName.mapValues { $0.base64EncodedString() }
+    func hashes(_ schema: any VersionedSchema.Type) -> [String: String] {
+      NSManagedObjectModel.makeManagedObjectModel(for: schema.models)?
+        .entityVersionHashesByName.mapValues { $0.base64EncodedString() } ?? [:]
+    }
     return "Store hashes \(stored ?? [:]), identifiers \(metadata?[NSStoreModelVersionIdentifiersKey] ?? "none"); "
-      + "LibrarySchemaV1 hashes \(current ?? [:])"
+      + "LibrarySchemaV1 hashes \(hashes(LibrarySchemaV1.self)), LibrarySchemaV2 hashes \(hashes(LibrarySchemaV2.self))"
   }
 
   static func versionName(_ date: Date) -> String {
@@ -273,5 +275,47 @@ struct StoreUpgradeTests {
     statement.lastPageIndex = 2
     let expected = [old.taxReturn, statement, old.receipt, old.invoice].sorted { $0.title < $1.title }
     #expect(try await reopened.all().sorted { $0.title < $1.title } == expected)
+  }
+
+  @Test("A Staging 27 store moves to V2, and a file renamed and moved in Files after that keeps its entry (#224)")
+  func upgradedLibraryFollowsRenamedFiles() async throws {
+    let old = try Staging27Library()
+    let launch = Staging27Library.lastRun + 86_400
+    let (index, library) = old.open(now: launch)
+    #expect(index.level == .onDisk, "\(old.storeState)")
+    #expect(try await index.fileIdentities().isEmpty, "Build 27 recorded no file identities")
+
+    // The launch's reconciliation records an identity for each file still at its name.
+    #expect(try await library.reconcileWithFiles() == Reconciliation())
+    let recorded = try await index.fileIdentities()
+    #expect(
+      Set(recorded.keys) == Set([old.taxReturn.id, old.statement.id, old.receipt.id]),
+      "Recorded \(recorded); \(old.storeState)")
+    let metadata = try NSPersistentStoreCoordinator.metadataForPersistentStore(type: .sqlite, at: old.indexStore)
+    let current = try #require(NSManagedObjectModel.makeManagedObjectModel(for: LibrarySchemaV2.models))
+    #expect(current.isConfiguration(withName: nil, compatibleWithStoreMetadata: metadata), "\(old.storeState)")
+
+    // In Files, the tax return is renamed and moved into a folder; then the app launches again.
+    let folder = old.documents.appendingPathComponent("2025", isDirectory: true)
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    try FileManager.default.moveItem(
+      at: old.documents.appendingPathComponent(old.taxReturn.fileName),
+      to: folder.appendingPathComponent("Tax return 2025 filed.pdf"))
+    let (reopened, relaunched) = old.open(now: launch + 60)
+
+    let result = try await relaunched.reconcileWithFiles()
+
+    let identities = try await reopened.fileIdentities()
+    let found = FileIdentity(of: folder.appendingPathComponent("Tax return 2025 filed.pdf"))?.stored ?? "none"
+    #expect(
+      result == Reconciliation(),
+      "removed \(result.removed), added \(result.added.map(\.fileName)); recorded \(identities), the file's \(found)")
+    var taxReturn = old.taxReturn
+    taxReturn.fileName = "2025/Tax return 2025 filed.pdf"
+    #expect(try await reopened.document(old.taxReturn.id) == taxReturn, "Same entry, every field, a new path")
+    #expect(await relaunched.versions(of: old.taxReturn.id).map(\.savedAt) == old.taxReturnSaves.reversed())
+    #expect(
+      try Data(contentsOf: try await relaunched.fileURL(for: old.taxReturn.id))
+        == Staging27Library.pdf(old.taxReturn.title))
   }
 }
