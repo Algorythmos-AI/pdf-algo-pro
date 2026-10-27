@@ -97,6 +97,11 @@ public struct DocumentIntake: Sendable {
     guard var updated = try await library.document(withID: document.id) else { throw LibraryError.notFound }
     if let changedAt { updated.modifiedAt = changedAt }
     try await index.index(updated, pages: inspection.pages)
+    // Deleted for good while this ran: it must not come back in search or Spotlight.
+    guard try await library.document(withID: document.id) != nil else {
+      try await index.remove(document.id)
+      throw LibraryError.notFound
+    }
     return updated
   }
 }
