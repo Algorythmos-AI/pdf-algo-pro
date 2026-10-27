@@ -21,45 +21,31 @@ struct SelectionBar: View {
 
   var body: some View {
     // The longest row that fits on one line. French titles are longer than English ones, and wrapped
-    // they broke "Supprimer" in two (#303); what does not fit goes into a More menu, Delete last.
+    // they broke "Supprimer" in two (#303). Style and Copy become icons first, then go into a More
+    // menu; Edit text stays a button of its own for as long as there is room for it, and Delete goes
+    // into the menu last.
     ViewThatFits(in: .horizontal) {
+      row(iconOnly: false)
+      row(iconOnly: true)
       HStack(spacing: Spacing.s150) {
         title
         Spacer(minLength: Spacing.s100)
-        if selection.isMovable || selection.isRecolorable {
-          Menu {
-            styleItems
-          } label: {
-            Text("Style", bundle: .module).minimumTarget()
-          }
-          .accessibilityIdentifier(AccessibilityID.Reader.Selection.style)
-        }
-        if selection.isMovable {
-          Menu {
-            copyItems
-          } label: {
-            Text("Copy", bundle: .module).minimumTarget()
-          }
-          .accessibilityIdentifier(AccessibilityID.Reader.Selection.copy)
-        }
-        if selection.isTextEditable {
-          Button(action: onEdit) { Text("Edit text", bundle: .module).minimumTarget() }
-            .accessibilityIdentifier(AccessibilityID.Reader.Selection.edit)
-        }
+        editButton
+        if hasStyleOrCopy { more(includingEdit: false, includingDelete: false) }
         deleteButton
         doneButton
       }
       HStack(spacing: Spacing.s150) {
         title
         Spacer(minLength: Spacing.s100)
-        if hasMore { more(includingDelete: false) }
-        deleteButton
+        editButton
+        more(includingEdit: false, includingDelete: true)
         doneButton
       }
       HStack(spacing: Spacing.s150) {
         title
         Spacer(minLength: Spacing.s100)
-        more(includingDelete: true)
+        more(includingEdit: true, includingDelete: true)
         doneButton
       }
     }
@@ -106,8 +92,51 @@ struct SelectionBar: View {
       }
   }
 
-  /// Whether there is anything to offer besides Delete and Done.
-  private var hasMore: Bool { selection.isMovable || selection.isRecolorable || selection.isTextEditable }
+  /// Whether there is Style or Copy to offer.
+  private var hasStyleOrCopy: Bool { selection.isMovable || selection.isRecolorable }
+
+  /// Every action on one line: Style and Copy as words, or as icons where the words don't fit.
+  private func row(iconOnly: Bool) -> some View {
+    HStack(spacing: Spacing.s150) {
+      title
+      Spacer(minLength: Spacing.s100)
+      if hasStyleOrCopy { styleMenu(iconOnly: iconOnly) }
+      if selection.isMovable { copyMenu(iconOnly: iconOnly) }
+      editButton
+      deleteButton
+      doneButton
+    }
+  }
+
+  /// The colour and size: a word, an icon, or an entry in More, with the same identifier each way.
+  private func styleMenu(iconOnly: Bool) -> some View {
+    Menu {
+      styleItems
+    } label: {
+      Label {
+        Text("Style", bundle: .module)
+      } icon: {
+        Image(systemName: "paintpalette")
+      }
+      .labelStyle(SelectionBarLabelStyle(iconOnly: iconOnly)).minimumTarget()
+    }
+    .accessibilityIdentifier(AccessibilityID.Reader.Selection.style)
+  }
+
+  /// Copy, cut and duplicate: a word, an icon, or an entry in More, with the same identifier each way.
+  private func copyMenu(iconOnly: Bool) -> some View {
+    Menu {
+      copyItems
+    } label: {
+      Label {
+        Text("Copy", bundle: .module)
+      } icon: {
+        Image(systemName: "doc.on.doc")
+      }
+      .labelStyle(SelectionBarLabelStyle(iconOnly: iconOnly)).minimumTarget()
+    }
+    .accessibilityIdentifier(AccessibilityID.Reader.Selection.copy)
+  }
 
   /// The colour, and the size of what can be moved.
   @ViewBuilder private var styleItems: some View {
@@ -171,22 +200,11 @@ struct SelectionBar: View {
   }
 
   /// The actions a narrow row has no room for, in one menu.
-  private func more(includingDelete: Bool) -> some View {
+  private func more(includingEdit: Bool, includingDelete: Bool) -> some View {
     Menu {
-      if selection.isMovable || selection.isRecolorable {
-        Menu {
-          styleItems
-        } label: {
-          Label {
-            Text("Style", bundle: .module)
-          } icon: {
-            Image(systemName: "paintpalette")
-          }
-        }
-        .accessibilityIdentifier(AccessibilityID.Reader.Selection.style)
-      }
-      if selection.isMovable { copyItems }
-      if selection.isTextEditable {
+      if hasStyleOrCopy { styleMenu(iconOnly: false) }
+      if selection.isMovable { copyMenu(iconOnly: false) }
+      if includingEdit, selection.isTextEditable {
         Button(action: onEdit) {
           Label {
             Text("Edit text", bundle: .module)
@@ -215,6 +233,14 @@ struct SelectionBar: View {
       .labelStyle(.iconOnly).minimumTarget()
     }
     .accessibilityIdentifier(AccessibilityID.Reader.Selection.more)
+  }
+
+  /// Edit text, the Pro feature, as a button of its own, for text boxes and notes.
+  @ViewBuilder private var editButton: some View {
+    if selection.isTextEditable {
+      Button(action: onEdit) { Text("Edit text", bundle: .module).minimumTarget() }
+        .accessibilityIdentifier(AccessibilityID.Reader.Selection.edit)
+    }
   }
 
   // systemRed is below 4.5:1 on the material; the token keeps the contrast in every appearance.
@@ -253,6 +279,19 @@ struct SelectionBar: View {
     case .textBox: Text("Text box", bundle: .module)
     case .stamp: Text("Stamp", bundle: .module)
     case .other: Text("Annotation", bundle: .module)
+    }
+  }
+}
+
+/// A label as its title alone, or as its icon alone with the title kept for VoiceOver.
+private struct SelectionBarLabelStyle: LabelStyle {
+  let iconOnly: Bool
+
+  func makeBody(configuration: Configuration) -> some View {
+    if iconOnly {
+      Label(configuration).labelStyle(.iconOnly)
+    } else {
+      Label(configuration).labelStyle(.titleOnly)
     }
   }
 }

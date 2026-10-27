@@ -488,6 +488,37 @@ final class ReaderUITests: UITestCase {
       "The text box carries what was typed")
   }
 
+  /// Edit text is the selection bar's own button, not an entry under More, on the phone CI runs and
+  /// at the default text size; Style and Copy are on the bar or under More (#303).
+  func testASelectedTextBoxOffersEditTextOnTheBar() throws {
+    let app = launch(["-skip-onboarding", "-seed-library", "sample"])
+    XCTAssertTrue(app.staticTexts[ID.Reader.pageIndicator].waitForExistence(timeout: 15))
+    tapMenuItem(
+      app.buttons[ID.Reader.Markup.textBox], in: app.buttons[ID.Reader.markup],
+      until: app.alerts.firstMatch.textFields.firstMatch)
+    let text = app.alerts.firstMatch.textFields.firstMatch
+    text.tap()
+    text.typeText("Check with accounts")
+    app.alerts.buttons["Add"].tap()
+    let bar = app.descendants(matching: .any)[ID.Reader.Selection.actionBar].firstMatch
+    XCTAssertTrue(bar.waitForExistence(timeout: Self.settleTimeout), "A new text box is selected")
+    let edit = app.buttons[ID.Reader.Selection.edit]
+    XCTAssertTrue(edit.waitForExistence(timeout: Self.settleTimeout))
+    XCTAssertTrue(edit.isHittable, "Edit text is a button on the bar, not hidden under More")
+    let more = app.buttons[ID.Reader.Selection.more]
+    for id in [ID.Reader.Selection.style, ID.Reader.Selection.copy] {
+      if app.buttons[id].exists { continue }
+      XCTAssertTrue(more.exists, "\(id) is neither on the bar nor under More")
+      more.tap()
+      XCTAssertTrue(app.buttons[id].waitForExistence(timeout: Self.settleTimeout), "\(id) is under More")
+      // Close the menu again.
+      app.descendants(matching: .any)[ID.Reader.pages].firstMatch.coordinate(
+        withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2)
+      ).tap()
+    }
+    XCTAssertTrue(app.buttons[ID.Reader.Selection.delete].exists && app.buttons[ID.Reader.Selection.done].exists)
+  }
+
   func testDraggingAcrossTextWithTheHighlighterMarksItOnce() throws {
     let app = launch(["-skip-onboarding", "-seed-library", "sample"])
     XCTAssertTrue(app.staticTexts[ID.Reader.pageIndicator].waitForExistence(timeout: 15))
