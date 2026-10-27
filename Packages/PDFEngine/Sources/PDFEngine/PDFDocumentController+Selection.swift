@@ -34,11 +34,12 @@ public struct AnnotationSelection: Equatable, Sendable {
   public let pageIndex: Int
   /// Its text, for notes and text boxes.
   public let text: String?
-  /// Whether it is a drawn signature, so the reader can call it that.
+  /// Whether it is a placed signature, drawn or typed, so the reader can call it that.
   public var isSignature = false
 
-  /// Whether its text can be edited: notes and text boxes.
-  public var isTextEditable: Bool { kind == .note || kind == .textBox }
+  /// Whether its text can be edited: notes and text boxes, but not a typed signature, which is a
+  /// signature rather than text to retype (#305).
+  public var isTextEditable: Bool { !isSignature && (kind == .note || kind == .textBox) }
 }
 
 /// One annotation in the document's list of annotations (FR-ANN-003).
@@ -51,7 +52,7 @@ public struct AnnotationSummary: Identifiable, Equatable, Sendable {
   public let pageIndex: Int
   /// Its text: what a note or text box says, or the words a highlight, underline or strike-through marks.
   public let text: String?
-  /// Whether it is a placed signature.
+  /// Whether it is a placed signature, drawn or typed.
   public let isSignature: Bool
 
   /// Creates a summary.
@@ -86,7 +87,7 @@ extension PDFDocumentController {
         summaries.append(
           AnnotationSummary(
             id: summaries.count, kind: kind, pageIndex: pageIndex, text: trimmed?.isEmpty == false ? trimmed : nil,
-            isSignature: kind == .ink && annotation.contents == Self.signatureContents))
+            isSignature: Self.isSignature(annotation)))
       }
     }
     return summaries
@@ -115,7 +116,7 @@ extension PDFDocumentController {
     let kind = Self.kind(of: annotation)
     selection = AnnotationSelection(
       kind: kind, pageIndex: pageIndex, text: annotation.contents,
-      isSignature: kind == .ink && annotation.contents == Self.signatureContents)
+      isSignature: Self.isSignature(annotation))
   }
 
   /// Selects what a touch is on while a shape tool is in hand, so that the drag moves it.
@@ -182,7 +183,7 @@ extension PDFDocumentController {
     selected = (annotation, page)
     selection = AnnotationSelection(
       kind: kind, pageIndex: document.index(for: page), text: annotation.contents,
-      isSignature: kind == .ink && annotation.contents == Self.signatureContents)
+      isSignature: Self.isSignature(annotation))
   }
 
   /// Clears the selection.
@@ -225,6 +226,18 @@ extension PDFDocumentController {
 
   static func isSelectable(_ annotation: PDFAnnotation) -> Bool {
     !["widget", "link", "popup"].contains(annotation.type?.lowercased() ?? "")
+  }
+
+  /// Whether an annotation is a placed signature: ink drawn as one, or a typed name.
+  ///
+  /// A drawn signature says so in its contents; a typed one, whose contents are the name, in its
+  /// subject (#305).
+  static func isSignature(_ annotation: PDFAnnotation) -> Bool {
+    switch kind(of: annotation) {
+    case .ink: annotation.contents == signatureContents
+    case .textBox: annotation.value(forAnnotationKey: subjectKey) as? String == signatureContents
+    default: false
+    }
   }
 
   static func kind(of annotation: PDFAnnotation) -> AnnotationSelection.Kind {
