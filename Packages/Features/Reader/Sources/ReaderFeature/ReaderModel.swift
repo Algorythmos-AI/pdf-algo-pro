@@ -1150,7 +1150,9 @@ public final class ReaderModel {
         written: { target in written = FileVersion.current(at: target) })
       reportTextEditsPutBack(by: controller)
       knownVersion = written
-      try await library.recordModified(documentID)
+      // The file has every change now, so the save succeeded and counts as done; a library record that
+      // can't follow it is no failed save (#234).
+      try? await library.recordModified(documentID)
       canRestorePreviousVersion = await library.hasPreviousVersion(of: documentID)
       await telemetry.record("task.core.completed")
       return true
