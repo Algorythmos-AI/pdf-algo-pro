@@ -51,6 +51,71 @@ private final class StubIntelligence: DocumentIntelligence {
   }
 }
 
+/// An intelligence whose answers wait until the test lets them go, and that finishes a request even
+/// when it is cancelled, as an on-device model can.
+private final class GatedIntelligence: DocumentIntelligence {
+  private struct State {
+    var started = 0
+    var waiting: [CheckedContinuation<Void, Never>] = []
+  }
+  private let state = Mutex(State())
+
+  /// How many requests reached the model.
+  var started: Int { state.withLock { $0.started } }
+
+  /// Lets every waiting request finish.
+  func releaseAll() {
+    let waiting = state.withLock { state in
+      defer { state.waiting = [] }
+      return state.waiting
+    }
+    for request in waiting { request.resume() }
+  }
+
+  private func gate() async {
+    await withCheckedContinuation { request in
+      state.withLock {
+        $0.started += 1
+        $0.waiting.append(request)
+      }
+    }
+  }
+
+  func availability() async -> IntelligenceAvailability { .available(.onDevice) }
+  func summarize(_ pages: [PageText]) async throws -> Answer {
+    await gate()
+    return Answer(text: "summary", citations: [], tier: .onDevice, isGrounded: true)
+  }
+  func answer(_ question: String, from pages: [PageText]) async throws -> Answer {
+    await gate()
+    return Answer(text: "answer", citations: [], tier: .onDevice, isGrounded: true)
+  }
+  func extractFields(from pages: [PageText]) async throws -> Extraction {
+    await gate()
+    return Extraction(fields: [], tier: .onDevice)
+  }
+  func explainContract(_ pages: [PageText]) async throws -> Answer {
+    await gate()
+    return Answer(text: "contract", citations: [], tier: .onDevice, isGrounded: true)
+  }
+}
+
+/// A count that tasks add to.
+private final class Tally: Sendable {
+  private let count = Mutex(0)
+  var value: Int { count.withLock { $0 } }
+  func add() { count.withLock { $0 += 1 } }
+}
+
+@MainActor
+private func waitUntil(_ condition: () -> Bool) async throws {
+  for _ in 0..<400 {
+    if condition() { return }
+    try await Task.sleep(for: .milliseconds(5))
+  }
+  Issue.record("The condition never held")
+}
+
 /// Counts kept in memory.
 private final class MemoryStore: AllowanceStoring {
   private let data = Mutex<Data?>(nil)
@@ -64,7 +129,7 @@ extension AppTests {
   @Suite("Document intelligence within the free allowance (FR-STORE-008)")
   struct MeteredIntelligenceTests {
     private func make(
-      _ base: StubIntelligence = StubIntelligence(), limit: Int = 2, entitlement: Entitlement = .none
+      _ base: any DocumentIntelligence = StubIntelligence(), limit: Int = 2, entitlement: Entitlement = .none
     ) -> (MeteredIntelligence, UsageAllowance) {
       let allowance = UsageAllowance(
         limits: AllowanceLimits(scans: 1, intelligenceRequests: limit), store: MemoryStore())
@@ -119,6 +184,47 @@ extension AppTests {
       #expect(
         used == 0,
         "A request whose task was cancelled must not be counted; \(used) counted, the request gave \(outcome)")
+    }
+
+    @Test("Two requests started together can't both take the day's last request (#265)")
+    func lastRequestOnce() async throws {
+      let base = GatedIntelligence()
+      let (metered, allowance) = make(base, limit: 1)
+      let refused = Tally()
+      func request() -> Task<Answer?, Never> {
+        Task {
+          do {
+            return try await metered.summarize([])
+          } catch {
+            refused.add()
+            return nil
+          }
+        }
+      }
+      let first = request()
+      let second = request()
+      // Neither finishes before the test lets it: each has either reached the model or been refused.
+      try await waitUntil { base.started + refused.value == 2 }
+      base.releaseAll()
+      let answers = [await first.value, await second.value].compactMap { $0 }
+      #expect(answers.count == 1 && refused.value == 1)
+      #expect(await allowance.usedToday(.intelligenceRequest) == 1)
+    }
+
+    @Test(
+      "While a request holds the day's last one, the assistant says the allowance is used, until it is given back (#265)"
+    )
+    func heldUnitIsNotOnOffer() async throws {
+      let base = GatedIntelligence()
+      let (metered, _) = make(base, limit: 1)
+      let running = Task { try await metered.summarize([]) }
+      try await waitUntil { base.started == 1 }
+      #expect(await metered.availability() == .unavailable(.dailyAllowanceUsed))
+      // Switching task cancels it: its unit is free again before the next request asks.
+      running.cancel()
+      #expect(await metered.availability() == .available(.onDevice))
+      base.releaseAll()
+      _ = try? await running.value
     }
 
     @Test("With Pro there is no limit, and nothing is refused")

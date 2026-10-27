@@ -196,6 +196,26 @@ struct PaywallModelTests {
     #expect(await telemetry.events == ["commerce.paywall.viewed", "commerce.restore.failed"])
   }
 
+  @Test("A restore that finds nothing to bring back says so, rather than nothing at all (#247)")
+  func restoreFindsNothing() async {
+    let (model, _, _, _, _) = makeModel()
+    await model.appeared()
+    await model.restore(using: FixedStoreAccess(isAvailable: true))
+    #expect(model.restoreOutcome == .nothingFound)
+    #expect(model.phase == .offer && !model.grantsPro)
+  }
+
+  @Test("A restore says whether it brought Pro back or could not reach the App Store (#247)")
+  func restoreSaysWhichItWas() async {
+    let (model, fake, _, _, _) = makeModel()
+    await model.appeared()
+    await model.restore(using: FixedStoreAccess(isAvailable: false))
+    #expect(model.restoreOutcome == .failed)
+    fake.set(.subscribed)
+    await model.restore(using: FixedStoreAccess(isAvailable: true))
+    #expect(model.restoreOutcome == .restored)
+  }
+
   @Test("The offer going away without a purchase is recorded once, and not before it appeared")
   func dismissed() async {
     let (model, _, _, telemetry, _) = makeModel()
@@ -300,6 +320,19 @@ struct PaywallModelTests {
     await model.purchase()
     #expect(model.phase == .offer && model.notice == .pending && !model.grantsPro)
     #expect(await telemetry.events == ["commerce.paywall.viewed", "commerce.purchase.started"])
+  }
+
+  @Test("A purchase waiting for approval is remembered, so a second tap sends no second request (#266)")
+  func pendingIsRemembered() async {
+    let (model, _, _, telemetry, _) = makeModel(outcome: .pending)
+    await model.appeared()
+    await model.purchase()
+    model.notice = nil
+    await model.purchase()
+    #expect(model.phase == .offer && !model.grantsPro)
+    #expect(
+      await telemetry.events == ["commerce.paywall.viewed", "commerce.purchase.started"],
+      "One request went to the App Store")
   }
 
   @Test("A failed purchase is explained and recorded, and can be tried again")
