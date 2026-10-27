@@ -1115,6 +1115,8 @@ public final class ReaderModel {
     guard controller.needsSaving else { return true }
     do {
       if controller.digitalSignature.isSigned, !isEditingCopy {
+        // A copy made from a version another app has since replaced would skip their change (#257).
+        if let fileURL, raisesConflictIfChanged(at: fileURL) { return false }
         try await saveSignedAsCopy(controller)
         reportTextEditsPutBack(by: controller)
         return true
@@ -1128,12 +1130,8 @@ public final class ReaderModel {
         hasConflictingChange = true
         return false
       }
+      guard !raisesConflictIfChanged(at: url) else { return false }
       let expected = knownVersion
-      if let expected, let onDisk = FileVersion.current(at: url), onDisk != expected {
-        knownVersion = onDisk
-        raiseConflict()
-        return false
-      }
       try controller.save(to: url, keepingPreviousAt: previous) { target in
         expected == nil || FileVersion.current(at: target) == expected
       }
@@ -1282,6 +1280,18 @@ public final class ReaderModel {
       notice = String(
         localized: "This document was changed in another app, and now shows those changes.", bundle: .module)
     }
+  }
+
+  /// Asks the person which version to keep when the file isn't the version this reader last read or wrote.
+  ///
+  /// Returns whether it asked (#257).
+  private func raisesConflictIfChanged(at url: URL) -> Bool {
+    guard let expected = knownVersion, let onDisk = FileVersion.current(at: url), onDisk != expected else {
+      return false
+    }
+    knownVersion = onDisk
+    raiseConflict()
+    return true
   }
 
   /// Asks the person which version to keep, and writes nothing until they have chosen (#257).

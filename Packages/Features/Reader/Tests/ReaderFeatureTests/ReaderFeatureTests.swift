@@ -581,6 +581,28 @@ struct ReaderModelTests {
     reader.stopWatching()
   }
 
+  @Test("A signed document another app changed, not yet heard of, is not copied from the old version (#257)")
+  func signedDocumentChangedElsewhereIsNotCopied() async throws {
+    let harness = Harness()
+    let signed = await harness.seed(TestPDFs.makeSigned(.signed), title: "Signed")
+    let reader = harness.reader(for: signed)
+    await reader.load()
+    let url = try await harness.library.fileURL(for: signed.id)
+    reader.controller?.addNote("Mine", onPage: 0)
+    // Another app replaces the file, and the reader hasn't heard of it yet.
+    let theirs = try SyntheticPDF.make(pages: ["Theirs", "Two"])
+    try theirs.write(to: url)
+
+    let saved = await reader.save()
+    let titles = try await harness.library.documents(in: .all, sortedBy: .title).map(\.title)
+    #expect(!saved, "The save reported success; titles: \(titles)")
+    #expect(reader.hasConflictingChange, "The person must be asked which version to keep")
+    #expect(!titles.contains { $0.hasPrefix("Signed (edited)") }, "A copy was made from the old version: \(titles)")
+    #expect(try Data(contentsOf: url) == theirs, "The other app's version was written over")
+    #expect(reader.controller?.needsSaving == true, "My version must still count as unsaved")
+    reader.stopWatching()
+  }
+
   @Test("Closing the reader while another app's change waits keeps my version in a copy beside it (#257)")
   func closingDuringAConflictKeepsACopy() async throws {
     let harness = Harness()
