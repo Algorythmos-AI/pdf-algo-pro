@@ -28,6 +28,11 @@ Store notes (see the changelog strategy).
   only ever means a red annotation or Delete.
 
 ### Fixed
+- When another app changes a document just as PDF Algo Pro saves it, the app no longer saves over the
+  other app's version. It asks which version to keep. A change to a document's text that is still
+  being made when another app changes the file is kept too, so you can keep it as a copy.
+- Two quick changes to a digitally signed document now go into one "(edited)" copy instead of two.
+  Recognising text in a signed document's copy no longer loses the recognised text at the next save.
 - Dark mode: the App Lock's "Unlock with Face ID" button and the selection bar's Delete are easy to
   read again. Both fell below the 4.5:1 contrast text needs on an iPhone in dark mode.
 - Welcome to Pro: the "Remind me the day before" switch no longer turns itself back off without a

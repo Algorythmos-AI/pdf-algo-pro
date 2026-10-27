@@ -106,6 +106,8 @@ public final class ReaderModel {
   private var documentID: DocumentID
   /// Whether this reader has moved from a signed document to the copy its changes are saved in.
   private var isEditingCopy = false
+  /// The save being made, which the next save waits for (#233).
+  @ObservationIgnored private var saving: Task<Bool, Never>?
   private let startPage: Int?
   private let library: any DocumentLibrary
   private let intake: DocumentIntake
@@ -637,6 +639,8 @@ public final class ReaderModel {
   public private(set) var textEditNotice: TextEditNotice?
   /// Whether an edit is being worked out and proven; the editor waits.
   public private(set) var isCommittingTextEdit = false
+  /// Whether another app's change was heard while an edit was being worked out, to look at once it ends.
+  @ObservationIgnored private var heardFileChangeWhileCommitting = false
   /// Whether the person is being asked to confirm editing a digitally signed document.
   public var confirmsEditingSigned = false
   /// Whether the explanation that editing text needs a purchase is showing.
@@ -806,7 +810,7 @@ public final class ReaderModel {
       return false
     }
     isCommittingTextEdit = true
-    defer { isCommittingTextEdit = false }
+    defer { endCommittingTextEdit() }
     let outcome: TextEditOutcome
     if selection.region.capability.editsContent {
       outcome = await controller.replaceSelectedText(with: typed)
@@ -844,6 +848,14 @@ public final class ReaderModel {
       textEditMessage = .cannotEditOrCover
     }
     return false
+  }
+
+  /// Ends working out an edit, and then looks at another app's change heard meanwhile (#249).
+  private func endCommittingTextEdit() {
+    isCommittingTextEdit = false
+    guard heardFileChangeWhileCommitting else { return }
+    heardFileChangeWhileCommitting = false
+    Task { await fileChangedOnDisk() }
   }
 
   /// The text with every character no one sees taken out (issue #231).
@@ -890,7 +902,7 @@ public final class ReaderModel {
     guard let controller, controller.isEditingText, controller.selectedTextRegion == nil, !isCommittingTextEdit
     else { return false }
     isCommittingTextEdit = true
-    defer { isCommittingTextEdit = false }
+    defer { endCommittingTextEdit() }
     textEditNotice = nil
     hasPickedText = true
     let kept = controller.offset(offset, keeping: selection.region, onPage: selection.pageIndex)
@@ -1051,8 +1063,25 @@ public final class ReaderModel {
   /// Form entries count as changes, including text still being typed into a field (defect D1).
   ///
   /// Returns whether the file on disk now has every change; a failure has already been explained.
+  ///
+  /// Saves run one at a time, each after the one before has finished, so two quick changes to a
+  /// signed document make one copy, not two (#233). The file is not written while another app's
+  /// change waits for the person's choice, or over a change this reader has not heard of yet: the
+  /// person is asked which version to keep instead (#257).
   @discardableResult
   public func save() async -> Bool {
+    let earlier = saving
+    let current = Task {
+      _ = await earlier?.value
+      return await saveNow()
+    }
+    saving = current
+    let saved = await current.value
+    if saving == current { saving = nil }
+    return saved
+  }
+
+  private func saveNow() async -> Bool {
     guard let controller else { return false }
     controller.endEditing()
     guard controller.needsSaving else { return true }
@@ -1063,7 +1092,15 @@ public final class ReaderModel {
         return true
       }
       let url = try await library.fileURL(for: documentID)
-      try controller.save(to: url, keepingPreviousAt: try await library.previousVersionURL(for: documentID))
+      let previous = try await library.previousVersionURL(for: documentID)
+      // No suspension from here to the write, so another app's change can't slip in between.
+      guard !hasConflictingChange else { return false }
+      if let knownVersion, let onDisk = try? FileVersion(url), onDisk != knownVersion {
+        self.knownVersion = onDisk
+        hasConflictingChange = true
+        return false
+      }
+      try controller.save(to: url, keepingPreviousAt: previous)
       reportTextEditsPutBack(by: controller)
       // Straight after the write, before the file presenter hears of it, so it isn't taken for
       // another app's change.
@@ -1132,6 +1169,8 @@ public final class ReaderModel {
     knownVersion = try? FileVersion(copyURL)
     watch(copyURL)
     isEditingCopy = true
+    // Recognition of the copy must hear this reader too, so it never replaces the file behind it (#255).
+    watchRecognition()
     canRestorePreviousVersion = false
     notice = String(
       localized:
@@ -1175,12 +1214,19 @@ public final class ReaderModel {
 
   /// Handles a change to the file made by another app: with no unsaved changes, the reader shows the
   /// new version; with unsaved changes, it asks which version to keep.
+  ///
+  /// A text edit being worked out is not interrupted: the change is looked at once it ends. Text picked
+  /// to edit counts as unsaved, so what is typed is never thrown away without the person choosing (#249).
   func fileChangedOnDisk() async {
+    guard !isCommittingTextEdit else {
+      heardFileChangeWhileCommitting = true
+      return
+    }
     guard phase == .ready, let fileURL, let current = try? FileVersion(fileURL), current != knownVersion else {
       return
     }
     knownVersion = current
-    if controller?.needsSaving == true {
+    if controller?.needsSaving == true || selectedTextRegion != nil {
       hasConflictingChange = true
     } else {
       await reload()
@@ -1408,6 +1454,8 @@ public final class ReaderModel {
       await save()
       // A failed save has already said so; replacing the file now would lose those changes.
       guard controller?.needsSaving != true else { return }
+      // The save may have moved this reader to a signed document's copy (#255).
+      watchRecognition()
       recognition.start(documentID, startedFor: document?.title ?? "")
     }
   }
