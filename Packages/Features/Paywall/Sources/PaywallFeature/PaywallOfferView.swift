@@ -74,8 +74,10 @@ struct PaywallOfferView: View {
     .readableWidth()
   }
 
-  /// The one prominent button: buy the selected plan, or, for someone who has Pro, go on, or, for someone
-  /// whose Pro is paused over a payment, manage the subscription.
+  /// The one prominent button.
+  ///
+  /// It buys the selected plan; for someone who has Pro it goes on, and for someone whose Pro is paused
+  /// over a payment it manages the subscription.
   @ViewBuilder private var action: some View {
     if model.alreadyHasPro {
       VStack(spacing: Spacing.s050) {
@@ -307,8 +309,9 @@ struct AlreadyProNote: View {
   }
 }
 
-/// Said to someone whose renewal the App Store could not charge and is retrying: Pro is paused, and
-/// what brings it back is their payment method, not a new purchase (#248).
+/// Said to someone whose renewal the App Store could not charge and is retrying.
+///
+/// Pro is paused, and what brings it back is their payment method, not a new purchase (#248).
 struct PaymentPausedNote: View {
   var body: some View {
     Label {

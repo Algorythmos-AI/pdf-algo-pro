@@ -85,9 +85,11 @@ public final class PaywallModel {
   @ObservationIgnored private let onClose: () -> Void
   /// Whether the person had Pro when the offer appeared; `nil` until it has appeared.
   @ObservationIgnored private var hadPro: Bool?
-  /// Whether the offer appeared while Pro was paused in billing retry: Pro coming back then is a
-  /// payment the App Store recovered, not a purchase.
-  @ObservationIgnored private var openedPaused = false
+  /// Whether Pro was seen paused in billing retry while the offer was up.
+  ///
+  /// Pro coming back after that is a payment the App Store recovered, not a purchase. It is set when
+  /// the offer appears or the entitlement changes, and kept for the life of the presentation.
+  @ObservationIgnored private var wasPaused = false
   /// Whether Pro arrived through Restore Purchases, so that it is not recorded as a purchase.
   @ObservationIgnored private var wasRestored = false
   /// Whether the offer's going away has been recorded.
@@ -121,9 +123,10 @@ public final class PaywallModel {
   /// Whether the person has Pro now; the view watches it to learn of a purchase.
   public var grantsPro: Bool { entitlements.entitlement?.grantsPro(at: now()) ?? false }
 
-  /// Whether Pro is paused while the App Store retries a renewal it could not charge: the offer then
-  /// sends the person to update their payment method and sells nothing, since the subscription is
-  /// still theirs (#248).
+  /// Whether Pro is paused while the App Store retries a renewal it could not charge.
+  ///
+  /// The offer then sends the person to update their payment method and sells nothing, since the
+  /// subscription is still theirs (#248).
   public var paymentPaused: Bool { entitlements.entitlement == .inBillingRetry }
 
   /// When the trial ends, during a trial; `nil` otherwise.
@@ -147,7 +150,7 @@ public final class PaywallModel {
     let hasPro = entitlement.grantsPro(at: now())
     hadPro = hasPro
     alreadyHasPro = hasPro
-    openedPaused = entitlement == .inBillingRetry
+    if entitlement == .inBillingRetry { wasPaused = true }
     await telemetry.record("commerce.paywall.viewed")
     await loadPlans()
   }
@@ -231,8 +234,10 @@ public final class PaywallModel {
   /// plans from Settings with Pro already is not welcomed again, and nor is someone whose paused Pro
   /// came back because the App Store recovered the payment: the offer then says they have Pro.
   public func entitlementChanged() async {
+    // Billing retry can begin after the offer appeared: a payment recovered later is no sale either.
+    if hadPro != nil, paymentPaused { wasPaused = true }
     guard phase == .offer, hadPro == false, grantsPro else { return }
-    if openedPaused {
+    if wasPaused {
       hadPro = true
       alreadyHasPro = true
       return

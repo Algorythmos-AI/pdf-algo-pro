@@ -6,8 +6,9 @@ import UserNotifications
 protocol NotificationScheduling: Sendable {
   /// Asks the person to allow notifications; `true` when they are, or already were, allowed.
   func requestAuthorization() async -> Bool
-  /// Schedules one notification to arrive after an interval, replacing any with the same identifier;
-  /// `false` when it failed or the interval is not ahead.
+  /// Schedules one notification to arrive after an interval, replacing any with the same identifier.
+  ///
+  /// - Returns: `false` when it failed or the interval is not ahead.
   func schedule(identifier: String, title: String, body: String, after interval: TimeInterval) async -> Bool
   /// Removes a notification that has not been delivered yet.
   func cancel(identifier: String) async

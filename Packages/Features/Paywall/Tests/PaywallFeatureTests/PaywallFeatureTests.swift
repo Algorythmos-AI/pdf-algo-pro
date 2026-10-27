@@ -384,6 +384,32 @@ struct PaywallModelTests {
     #expect(model.alreadyHasPro && !model.paymentPaused, "The offer now says the account has Pro")
   }
 
+  @Test("Billing retry that begins while the offer is up, then a recovered payment, is no purchase either (#248)")
+  func pausedAfterAppearingIsNotASale() async {
+    let (model, fake, store, telemetry, _) = makeModel(.none, trigger: .settings)
+    await model.appeared()
+    await purchase(.inBillingRetry, fake, store)
+    await model.entitlementChanged()
+    #expect(model.paymentPaused)
+    await purchase(.subscribed, fake, store)
+    await model.entitlementChanged()
+    let events = await telemetry.events
+    #expect(model.phase == .offer, "The welcome screen showed after a payment recovered from billing retry")
+    #expect(events == ["commerce.paywall.viewed"], "A recovered payment was recorded: \(events)")
+    #expect(model.alreadyHasPro, "The offer now says the account has Pro")
+  }
+
+  @Test("A purchase from no Pro is still welcomed when billing retry was never seen")
+  func purchaseStillWelcomed() async {
+    let (model, fake, store, telemetry, _) = makeModel(.none)
+    await model.appeared()
+    await model.entitlementChanged()
+    await purchase(.subscribed, fake, store)
+    await model.entitlementChanged()
+    #expect(model.phase == .welcome)
+    #expect(await telemetry.events.contains("commerce.purchase.completed"))
+  }
+
   @Test("Every trigger has a headline and a line under it", arguments: PaywallTrigger.allCases)
   func triggerCopy(trigger: PaywallTrigger) {
     _ = trigger.headline
