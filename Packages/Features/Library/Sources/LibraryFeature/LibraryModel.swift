@@ -148,13 +148,14 @@ public final class LibraryModel {
     } catch {
       await telemetry.record("quality.operation.failed")
     }
-    // Refreshes that failed, or were cut short, since the last launch: after a password, an edit or
-    // a restore, search and Spotlight still hold the old text until this runs (#236).
-    for _ in 0..<(await intake.refreshPending()) { await telemetry.record("quality.operation.failed") }
-    await refreshChangedFiles()
     await pruneDerivedData()
     await reload()
     phase = .loaded
+    // With the list showing: refreshes that failed, or were cut short, since the last launch (after
+    // a password, an edit or a restore, search and Spotlight still hold the old text until this runs,
+    // #236), and files changed in other apps (#242).
+    for _ in 0..<(await intake.refreshPending()) { await telemetry.record("quality.operation.failed") }
+    if await refreshChangedFiles() { await reload() }
   }
 
   /// Reads again each document whose file changed since the library last recorded a change, as when
@@ -164,25 +165,30 @@ public final class LibraryModel {
   /// The app records every change it makes after writing the file, so only changes made elsewhere are
   /// found. Its tags and favourite stay: without a file identity (#224), an edit made in another app
   /// can't be told from a replacement.
-  private func refreshChangedFiles() async {
-    let documents: [Core.Document]
+  ///
+  /// The library lists its folder once, off the main actor. Each change is recorded at the time the
+  /// other app made it. A file that isn't a readable PDF any more is recorded as seen, so it isn't
+  /// read again at every launch. Returns whether anything was read again.
+  private func refreshChangedFiles() async -> Bool {
+    let changed: [DocumentID: Date]
     do {
-      documents = try await library.documents(in: .all, sortedBy: .title)
+      changed = try await library.changedSinceRecorded()
     } catch {
       await telemetry.record("quality.operation.failed")
-      return
+      return false
     }
-    for document in documents {
-      guard let url = try? await library.fileURL(for: document.id),
-        let changed = try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate,
-        changed > document.modifiedAt.addingTimeInterval(2)
-      else { continue }
+    for (id, date) in changed {
       do {
-        _ = try await intake.refresh(document.id)
+        _ = try await intake.refresh(id, changedAt: date)
+      } catch LibraryError.notAPDF {
+        try? await library.recordModified(id, at: date)
+      } catch is CancellationError {
+        return true
       } catch {
         await telemetry.record("quality.operation.failed")
       }
     }
+    return !changed.isEmpty
   }
 
   private func removeDerivedData(of id: DocumentID) async {
