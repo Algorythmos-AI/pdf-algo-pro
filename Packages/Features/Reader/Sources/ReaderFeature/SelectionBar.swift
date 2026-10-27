@@ -34,6 +34,9 @@ struct SelectionBar: View {
     case styleAndCopyInMore
     /// One row; Style, Copy and Delete are under More.
     case deleteInMore
+    /// One row without the title, which gives way before the bar stacks; Style, Copy and Delete are
+    /// under More.
+    case deleteInMoreNoTitle
     /// Taller, for when no row fits, as at accessibility sizes: the title on its own line, hidden
     /// when even that doesn't fit; Edit text across the bar, its words wrapping between words; More,
     /// with Style, Copy and Delete, and Done below.
@@ -52,7 +55,17 @@ struct SelectionBar: View {
     switch arrangement {
     case .everything: []
     case .styleAndCopyInMore: [.style, .copy]
-    case .deleteInMore, .stacked: [.style, .copy, .delete]
+    case .deleteInMore, .deleteInMoreNoTitle, .stacked: [.style, .copy, .delete]
+    }
+  }
+
+  /// Whether the bar shows the title in an arrangement; `stackedTitleFits` says whether it fits on
+  /// its own line in the stacked bar.
+  nonisolated static func showsTitle(in arrangement: Arrangement, stackedTitleFits: Bool) -> Bool {
+    switch arrangement {
+    case .everything, .styleAndCopyInMore, .deleteInMore: true
+    case .deleteInMoreNoTitle: false
+    case .stacked: stackedTitleFits
     }
   }
 
@@ -86,7 +99,7 @@ struct SelectionBar: View {
       .accessibilityLabel(kindName)
       .accessibilityActions {
         if Self.barCarriesMoveActions(
-          titleShown: arrangement != .stacked || titleShown, isMovable: selection.isMovable)
+          titleShown: Self.showsTitle(in: arrangement, stackedTitleFits: titleShown), isMovable: selection.isMovable)
         {
           moveActions
         }
@@ -107,6 +120,7 @@ struct SelectionBar: View {
       row(.everything).preference(key: ArrangementKey.self, value: .everything)
       row(.styleAndCopyInMore).preference(key: ArrangementKey.self, value: .styleAndCopyInMore)
       row(.deleteInMore).preference(key: ArrangementKey.self, value: .deleteInMore)
+      row(.deleteInMoreNoTitle).preference(key: ArrangementKey.self, value: .deleteInMoreNoTitle)
       row(.stacked).preference(key: ArrangementKey.self, value: .stacked)
     }
     .hidden()
@@ -138,7 +152,7 @@ struct SelectionBar: View {
       }
     } else {
       HStack(spacing: Self.spacing) {
-        title
+        if Self.showsTitle(in: arrangement, stackedTitleFits: true) { title }
         Spacer(minLength: Spacing.s100)
         if !underMore.contains(.style), hasStyleOrCopy { styleMenu(inMore: false) }
         if !underMore.contains(.copy), selection.isMovable { copyMenu(inMore: false) }

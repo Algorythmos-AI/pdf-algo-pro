@@ -819,7 +819,7 @@ struct ReaderModelTests {
     arguments: [DynamicTypeSize.large, .accessibility3, .accessibility5])
   func selectionBarFitsInFrench(size: DynamicTypeSize) throws {
     let room: CGFloat = 390 - 2 * SelectionBar.padding
-    let rows: [SelectionBar.Arrangement] = [.everything, .styleAndCopyInMore, .deleteInMore]
+    let rows: [SelectionBar.Arrangement] = [.everything, .styleAndCopyInMore, .deleteInMore, .deleteInMoreNoTitle]
     func width(of arrangement: SelectionBar.Arrangement, in language: String) -> CGFloat {
       let bar = SelectionBar(
         selection: AnnotationSelection(kind: .textBox, pageIndex: 0, text: "Text"), onEdit: {}, onDelete: {},
@@ -842,6 +842,10 @@ struct ReaderModelTests {
       #expect(!SelectionBar.underMore(in: chosen).contains(.editText), "Edit text is under More in \(chosen)")
     }
     #expect(SelectionBar.Arrangement.allCases.allSatisfy { !SelectionBar.underMore(in: $0).contains(.editText) })
+    // At the default size the bar is one row in both languages: the title gives way before it stacks.
+    if size == .large {
+      #expect(english != .stacked && french != .stacked, "English: \(english), French: \(french)")
+    }
     // Style and Copy go under More first, then Delete.
     #expect(SelectionBar.underMore(in: .styleAndCopyInMore) == [.style, .copy])
     #expect(SelectionBar.underMore(in: .deleteInMore) == [.style, .copy, .delete])
@@ -873,11 +877,24 @@ struct ReaderModelTests {
   }
 
   /// With the title hidden, the bar itself carries Move up, down, left and right (#303).
-  @Test("When the stacked bar hides its title, the bar carries the Move actions")
+  @Test("When the bar hides its title, in one row or stacked, the bar carries the Move actions")
   func moveActionsWhenTheTitleIsHidden() {
     #expect(SelectionBar.barCarriesMoveActions(titleShown: false, isMovable: true))
     #expect(!SelectionBar.barCarriesMoveActions(titleShown: true, isMovable: true), "The title carries them")
     #expect(!SelectionBar.barCarriesMoveActions(titleShown: false, isMovable: false), "Nothing to move")
+    // The title is hidden in the one row that gives it up, and in the stacked bar when it doesn't fit.
+    for arrangement in SelectionBar.Arrangement.allCases {
+      for fits in [true, false] {
+        let hidden = arrangement == .deleteInMoreNoTitle || (arrangement == .stacked && !fits)
+        #expect(SelectionBar.showsTitle(in: arrangement, stackedTitleFits: fits) == !hidden, "\(arrangement)")
+      }
+    }
+    #expect(
+      SelectionBar.barCarriesMoveActions(
+        titleShown: SelectionBar.showsTitle(in: .deleteInMoreNoTitle, stackedTitleFits: true), isMovable: true))
+    #expect(
+      SelectionBar.barCarriesMoveActions(
+        titleShown: SelectionBar.showsTitle(in: .stacked, stackedTitleFits: false), isMovable: true))
   }
 
   @Test("Layout choices are remembered")
