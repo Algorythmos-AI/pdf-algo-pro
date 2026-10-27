@@ -11,19 +11,22 @@ public struct DocumentIntake: Sendable {
   private let inspector: any PDFInspecting
   private let index: any DocumentIndexing
   private let pending: PendingRefreshes?
+  private let lanes: RefreshLanes
 
   /// Creates an intake over the library, an inspector and the search index.
   ///
   /// `pending` keeps the documents whose refresh hasn't worked yet, so they are refreshed at the next
-  /// library load; without it, a failed refresh waits for the next change to the document.
+  /// library load; without it, a failed refresh waits for the next change to the document. `lanes`
+  /// keeps refreshes of one document from overlapping; intakes over one library share them.
   public init(
     library: any DocumentLibrary, inspector: any PDFInspecting, index: any DocumentIndexing,
-    pending: PendingRefreshes? = nil
+    pending: PendingRefreshes? = nil, lanes: RefreshLanes = .shared
   ) {
     self.library = library
     self.inspector = inspector
     self.index = index
     self.pending = pending
+    self.lanes = lanes
   }
 
   /// Writes down, before a change is saved, that the document will need a refresh (#236).
@@ -36,12 +39,17 @@ public struct DocumentIntake: Sendable {
   @discardableResult
   public func willChange(_ id: DocumentID, protecting: Bool = false) async -> Int? {
     // If the list can't be written, the change still goes ahead; only its retry is lost.
-    try? await pending?.add(id, protecting: protecting)
-    return nil
+    try? await pending?.add(id, protecting: protecting, saved: false)
   }
 
   /// Tells the intake the save of a change has ended, whether it worked or not.
-  public func saveFinished(_ id: DocumentID, change: Int?) async {}
+  ///
+  /// Until then no refresh crosses the change off: what it reads may be the file from before the
+  /// save. After it, the next refresh reads the file as it is, saved or not.
+  public func saveFinished(_ id: DocumentID, change: Int?) async {
+    guard let change else { return }
+    await pending?.saveFinished(id, change: change)
+  }
 
   /// How many refreshes of one change are tried before it is given up.
   public static let attempts = 3
@@ -86,7 +94,8 @@ public struct DocumentIntake: Sendable {
   /// being copied again. One added there since the last launch is inspected and indexed first.
   public func importFile(at url: URL) async throws -> Document {
     if let existing = try await library.document(at: url) {
-      return existing.pageCount == 0 ? try await finish(existing, isNew: false) : existing
+      guard existing.pageCount == 0 else { return existing }
+      return try await inLane(existing.id) { try await finish(existing, isNew: false) }
     }
     let document = try await library.importDocument(from: url)
     return try await finish(document, isNew: true)
@@ -114,14 +123,33 @@ public struct DocumentIntake: Sendable {
     try await run(id, recordsChange: true, changedAt: date)
   }
 
-  /// Runs a refresh, crossing off only the changes written down before it began.
+  /// Runs `body` in the document's lane: refreshes of one document never overlap (#236).
+  private func inLane<T: Sendable>(_ id: DocumentID, _ body: () async throws -> T) async throws -> T {
+    await lanes.enter(id)
+    do {
+      let result = try await body()
+      await lanes.leave(id)
+      return result
+    } catch {
+      await lanes.leave(id)
+      throw error
+    }
+  }
+
+  /// Runs a refresh in the document's lane.
   ///
-  /// A change made while it runs still gets its own refresh (#236).
+  /// It crosses off only changes whose save had ended before it read the file, so a change made, or
+  /// still being saved, while it runs still gets its own refresh (#236).
   private func run(_ id: DocumentID, recordsChange: Bool, changedAt: Date?) async throws -> Document {
+    try await inLane(id) { try await runInLane(id, recordsChange: recordsChange, changedAt: changedAt) }
+  }
+
+  private func runInLane(_ id: DocumentID, recordsChange: Bool, changedAt: Date?) async throws -> Document {
     guard let document = try await library.document(withID: id) else { throw LibraryError.notFound }
-    // If the list can't be written, the refresh still runs; only a retry of a failure is lost.
-    if recordsChange { try? await pending?.add(id) }
-    let covers = await pending?.owed(id)?.change
+    // The caller has written the file. If the list can't be written, the refresh still runs; only a
+    // retry of a failure is lost.
+    if recordsChange { _ = try? await pending?.add(id) }
+    let covers = await pending?.coverage(id)
     do {
       let refreshed = try await finish(document, isNew: false, changedAt: changedAt ?? Date())
       if let changedAt {
