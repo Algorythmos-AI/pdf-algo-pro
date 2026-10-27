@@ -299,18 +299,24 @@ public final class LibraryModel {
     isImporting = true
     defer { isImporting = false }
     var failures = 0
+    // A failure that isn't a bad file, such as a full disk, is reported as what it is (#243).
+    var otherFailure: (any Error)?
     var last: Core.Document?
     for url in urls {
       do {
         last = try await intake.importFile(at: url)
       } catch {
         failures += 1
+        if error as? LibraryError != .notAPDF, otherFailure == nil { otherFailure = error }
       }
     }
     if failures > 0 {
-      errorMessage = String(
-        localized: "\(failures) file(s) couldn't be imported because they aren't readable PDFs. Nothing else changed.",
-        bundle: .module)
+      errorMessage =
+        otherFailure.map(Self.message(for:))
+        ?? String(
+          localized:
+            "\(failures) file(s) couldn't be imported because they aren't readable PDFs. Nothing else changed.",
+          bundle: .module)
       await telemetry.record("quality.operation.failed")
     }
     await reload()
