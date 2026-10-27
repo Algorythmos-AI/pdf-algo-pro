@@ -463,7 +463,11 @@ struct ReaderToolbar: ToolbarContent {
               model.recognizeText()
             } label: {
               Label {
-                Text("Recognise text", bundle: .module)
+                if model.canResumeRecognition {
+                  Text("Resume recognising", bundle: .module)
+                } else {
+                  Text("Recognise text", bundle: .module)
+                }
               } icon: {
                 Image(systemName: "text.viewfinder")
               }

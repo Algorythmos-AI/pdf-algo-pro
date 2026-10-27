@@ -1365,6 +1365,16 @@
         }
       }
     },
+    "Resume recognising" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reprendre la reconnaissance"
+          }
+        }
+      }
+    },
     "Rotate left" : {
       "localizations" : {
         "fr" : {
