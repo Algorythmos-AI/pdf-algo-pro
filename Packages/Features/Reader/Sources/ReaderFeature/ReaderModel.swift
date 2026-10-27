@@ -1408,7 +1408,15 @@ public final class ReaderModel {
       await save()
       // A failed save has already said so; replacing the file now would lose those changes.
       guard controller?.needsSaving != true else { return }
-      recognition.start(documentID, startedFor: document?.title ?? "")
+      // With App Lock on, the Live Activity on the Lock Screen and in the Dynamic Island must not say
+      // which document it is (#254).
+      var subtitle = document?.title ?? ""
+      if settings.load().isAppLockEnabled {
+        subtitle = String(
+          localized: "A document", bundle: .module,
+          comment: "Live Activity subtitle while text is recognised with App Lock on, in place of the title")
+      }
+      recognition.start(documentID, startedFor: subtitle)
     }
   }
 
