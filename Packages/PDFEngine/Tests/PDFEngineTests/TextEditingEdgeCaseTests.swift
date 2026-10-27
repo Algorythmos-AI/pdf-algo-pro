@@ -145,6 +145,42 @@ struct TextEditingEdgeCaseTests {
     #expect(controller.textUndoBytes > 0)
   }
 
+  /// Past the limit, the count is the bytes of the text steps the history still holds: each undo
+  /// of one gives back exactly what it holds, and redo takes it again, cycle after cycle.
+  @Test("Past the memory limit, undoing and redoing everything keeps the count exact (#269)")
+  func undoMemoryCountStaysExact() async throws {
+    let controller = try controller(TextEditFixtures.invoice())
+    for round in 0..<6 {
+      let regions = await controller.pageText(onPage: 0).regions
+      let region = try #require(regions.first { $0.text.contains("Customer:") })
+      let outcomes = await controller.applyTextEdits(
+        [TextEdit(region: region, replacement: "Customer: Jane Smith \(round)")], onPage: 0)
+      #expect(outcomes.allSatisfy { $0.isEdited }, "\(outcomes)")
+      // Room for about two edits, so the limit trims the history.
+      if round == 0 { controller.textUndoMemoryLimit = controller.textUndoBytes * 5 / 2 }
+    }
+    let held = controller.textUndoBytes
+    #expect(held > 0)
+    for cycle in 0..<4 {
+      var givenBack = 0
+      for _ in 0..<40 where controller.undoManager.canUndo {
+        let page = controller.document.page(at: 0)
+        let before = controller.textUndoBytes
+        controller.undoManager.undo()
+        let after = controller.textUndoBytes
+        if controller.document.page(at: 0) !== page {
+          #expect(after < before, "Cycle \(cycle): a text edit was undone and gave back nothing")
+          givenBack += before - after
+        } else {
+          #expect(after == before, "Cycle \(cycle): the count changed though no text edit was undone")
+        }
+      }
+      #expect(controller.textUndoBytes == 0 && givenBack == held, "Cycle \(cycle): \(givenBack) given back of \(held)")
+      for _ in 0..<40 where controller.undoManager.canRedo { controller.undoManager.redo() }
+      #expect(controller.textUndoBytes == held, "Cycle \(cycle): \(controller.textUndoBytes) counted, not \(held)")
+    }
+  }
+
   // MARK: - #305
 
   @Test("A typed signature is a signature: not a text box, and not text to edit (#305)")

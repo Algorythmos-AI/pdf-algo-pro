@@ -694,9 +694,10 @@ extension PDFDocumentController {
       return all(.notVerified)
     }
     view?.endEditing()
-    let bytes = found.snapshot.count + data.count
-    swap(page, for: replacement, keeping: source, links: links, undoBytes: bytes)
-    limitUndoMemory(adding: bytes)
+    let step = TextUndoStep(bytes: found.snapshot.count + data.count)
+    swap(page, for: replacement, keeping: source, links: links, step: step)
+    textUndoSteps.append(WeakTextUndoStep(step: step))
+    limitUndoMemory()
     return result.outcomes
   }
 
@@ -707,18 +708,29 @@ extension PDFDocumentController {
   /// test plan.
   static let undoMemoryLimit = 64_000_000
 
+  /// How many bytes of replaced pages the undo history holds for the text edits it can undo.
+  ///
+  /// The sum over the edits still in the history and not undone: one the history dropped, whether
+  /// by its length or because a new change ended the redo history, is no longer counted, and one
+  /// undone is counted again when it is redone. So it never drifts and is never negative (#269).
+  var textUndoBytes: Int {
+    textUndoSteps.reduce(0) { total, entry in
+      guard let step = entry.step, !step.isUndone else { return total }
+      return total + step.bytes
+    }
+  }
+
   /// Keeps the undo history's memory bounded: each text edit keeps the page it replaced.
   ///
-  /// The undo manager cannot drop one entry, so when the estimate passes the limit the history is
-  /// shortened to its newest half, oldest steps first, and stays at that length. Undoing an edit
-  /// takes it off the estimate and redoing it puts it back (`swap`), so editing and undoing again
-  /// and again never shortens the history (#269).
-  func limitUndoMemory(adding bytes: Int) {
-    textUndoBytes += bytes
-    guard textUndoBytes > Self.undoMemoryLimit else { return }
+  /// The undo manager cannot drop one entry, so when the count passes the limit the history is
+  /// shortened to its newest half, oldest steps first, and stays at that length. That trims
+  /// annotation steps too; it is tracked separately. The steps it drops leave the count.
+  func limitUndoMemory() {
+    textUndoSteps.removeAll { $0.step == nil }
+    guard textUndoBytes > textUndoMemoryLimit else { return }
     let current = undoManager.levelsOfUndo == 0 ? 64 : undoManager.levelsOfUndo
     undoManager.levelsOfUndo = max(4, current / 2)
-    textUndoBytes /= 2
+    textUndoSteps.removeAll { $0.step == nil }
   }
 
   // MARK: - Swapping a page
@@ -734,11 +746,11 @@ extension PDFDocumentController {
   ///   - new: The page to put in its place.
   ///   - source: The document `new` came from, kept alive for as long as the page can come back.
   ///   - links: Which links point at which page.
-  ///   - undoBytes: What the step holds, counted in `textUndoBytes`: taken off when it is undone,
-  ///     put back when it is redone.
+  ///   - step: The text edit this swap makes, undoes or redoes, counted in `textUndoBytes`; the undo
+  ///     handler holds it, so it lives exactly as long as the history keeps the edit.
   func swap(
     _ old: PDFPage, for new: PDFPage, keeping source: PDFDocument?, links: [ObjectIdentifier: [PDFAnnotation]],
-    undoBytes: Int = 0
+    step: TextUndoStep? = nil
   ) {
     let index = document.index(for: old)
     guard index != NSNotFound else { return }
@@ -789,15 +801,19 @@ extension PDFDocumentController {
     #if canImport(UIKit)
       view?.pageSwapped(to: new, keeping: place)
     #endif
-    if undoManager.isUndoing {
-      textUndoBytes = max(0, textUndoBytes - undoBytes)
-    } else if undoManager.isRedoing {
-      limitUndoMemory(adding: undoBytes)
+    if let step {
+      if undoManager.isUndoing {
+        step.isUndone = true
+      } else if undoManager.isRedoing {
+        step.isUndone = false
+        limitUndoMemory()
+      }
     }
     undoManager.registerUndo(withTarget: self) { controller in
       MainActor.assumeIsolated {
-        // `source` is captured so the page that may come back keeps its document.
-        controller.swap(new, for: old, keeping: source, links: controller.incomingLinks ?? [:], undoBytes: undoBytes)
+        // `source` is captured so the page that may come back keeps its document, and `step` so it
+        // is counted for as long as the history holds this edit.
+        controller.swap(new, for: old, keeping: source, links: controller.incomingLinks ?? [:], step: step)
       }
     }
   }
@@ -1034,8 +1050,28 @@ extension PDFDocumentController {
     }
     if !putBack.isEmpty {
       undoManager.removeAllActions()
-      textUndoBytes = 0
+      textUndoSteps = []
     }
     return putBack.sorted()
   }
+}
+
+/// One text edit in the undo history, and roughly how many bytes of pages it holds (#269).
+///
+/// Only the edit's undo handler keeps it, so it is gone once the history drops the edit.
+@MainActor
+final class TextUndoStep {
+  /// The bytes of the pages the edit keeps to swap back.
+  let bytes: Int
+  /// Whether the edit has been undone, so it waits in the redo history.
+  var isUndone = false
+
+  init(bytes: Int) {
+    self.bytes = bytes
+  }
+}
+
+/// A text edit in `textUndoSteps`, held weakly.
+struct WeakTextUndoStep {
+  weak var step: TextUndoStep?
 }
