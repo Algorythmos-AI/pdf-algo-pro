@@ -26,6 +26,9 @@ public final class RecognitionCoordinator {
 
   /// Progress from 0 to 1 for each document being recognised.
   public private(set) var progress: [DocumentID: Double] = [:]
+  /// Documents whose recognition was stopped from the system's interface, with the pages done kept:
+  /// they are not resumed at launch, and the reader offers to resume them (#253).
+  public private(set) var stopped: Set<DocumentID> = []
 
   @ObservationIgnored private let library: any DocumentLibrary
   @ObservationIgnored private let intake: DocumentIntake
@@ -38,6 +41,8 @@ public final class RecognitionCoordinator {
   @ObservationIgnored private var handles: [DocumentID: any ContinuedWorkHandle] = [:]
   @ObservationIgnored private var jobs: [DocumentID: Task<Void, Never>] = [:]
   @ObservationIgnored private var watchers: [DocumentID: Watcher] = [:]
+  /// Documents whose running recognition the system's interface is stopping, so their pages are kept.
+  @ObservationIgnored private var stoppedBySystem: Set<DocumentID> = []
 
   private struct Watcher {
     let canReplace: @MainActor () -> Bool
@@ -69,6 +74,12 @@ public final class RecognitionCoordinator {
     jobs[id] != nil
   }
 
+  /// Whether a document's recognition was stopped from the system's interface and can be resumed
+  /// from the pages already done.
+  public func isStopped(_ id: DocumentID) -> Bool {
+    stopped.contains(id)
+  }
+
   /// Lets the reader showing a document hear how recognition ended.
   ///
   /// `canReplace` stops the file being replaced while the reader has unsaved changes. `willReplace`
@@ -91,11 +102,12 @@ public final class RecognitionCoordinator {
   /// never asks, because the system allows that only after a person's action.
   public func start(_ id: DocumentID, startedFor title: String? = nil) {
     guard jobs[id] == nil else { return }
+    stopped.remove(id)
     progress[id] = 0
     if let title, let continued {
       handles[id] = continued.begin(
         title: String(localized: "Recognising text", bundle: .module), subtitle: title,
-        onCancel: { [weak self] in self?.cancel(id) })
+        onCancel: { [weak self] in self?.stopForNow(id) })
     }
     jobs[id] = Task { await run(id) }
   }
@@ -105,12 +117,46 @@ public final class RecognitionCoordinator {
   /// Once the file has been replaced it is too late: the library is still brought up to date, and the
   /// reader still hears that the file was replaced.
   public func cancel(_ id: DocumentID) {
+    stoppedBySystem.remove(id)
     jobs[id]?.cancel()
   }
 
+  /// Stops recognising a document from the system's interface, keeping the pages recognised so far and
+  /// the file as it was (P8b, #253).
+  ///
+  /// The system calls the same handler when a person taps Cancel in the Live Activity and when it ends
+  /// the work itself, and says nothing of which it was. Both are taken as the person's Cancel: the file
+  /// is never changed afterwards without them, so recognition is not resumed at launch, and the reader
+  /// offers to resume it from the pages kept. Cancel in the reader discards them.
+  func stopForNow(_ id: DocumentID) {
+    guard let job = jobs[id] else { return }
+    stoppedBySystem.insert(id)
+    job.cancel()
+  }
+
   /// Resumes every document whose recognition had not finished when the app last stopped.
+  ///
+  /// Recognition stopped from the system's interface is not resumed: it waits for the person (#253).
+  /// A file that already has text was replaced just before the app stopped, before its checkpoint
+  /// was discarded: it is not recognised again, which would give each page a second text layer, and
+  /// the library is brought up to date with it instead (#256).
   public func resumePending() async {
-    for id in await checkpoints.pending() { start(id) }
+    for id in await checkpoints.pending() {
+      if await checkpoints.isStopped(id) {
+        stopped.insert(id)
+      } else if await hasText(id) {
+        await checkpoints.remove(id)
+        _ = try? await intake.refresh(id)
+      } else {
+        start(id)
+      }
+    }
+  }
+
+  /// Whether a document's file has text on any page; `false` when it can't be read.
+  private func hasText(_ id: DocumentID) async -> Bool {
+    guard let url = try? await library.fileURL(for: id) else { return false }
+    return (try? await PDFKitInspector().inspect(url))?.hasTextLayer == true
   }
 
   /// Waits until recognition of a document has ended, if it is running.
@@ -127,9 +173,12 @@ public final class RecognitionCoordinator {
       handles[id] = nil
       progress[id] = nil
       jobs[id] = nil
+      stoppedBySystem.remove(id)
     }
     let outcome: Outcome
     do {
+      // Started again, it is no longer waiting for the person.
+      await checkpoints.clearStopped(id)
       let url = try await library.fileURL(for: id)
       let previous = try await library.previousVersionURL(for: id)
       let version = try FileVersion(url)
@@ -177,7 +226,14 @@ public final class RecognitionCoordinator {
         outcome = .fileChanged
       }
     } catch is CancellationError {
-      await checkpoints.remove(id)
+      // Stopped from the system's interface, the pages done so far are kept until the person
+      // resumes (#253).
+      if stoppedBySystem.contains(id) {
+        stopped.insert(id)
+        await checkpoints.markStopped(id)
+      } else {
+        await checkpoints.remove(id)
+      }
       return
     } catch {
       outcome = .failed
@@ -190,7 +246,8 @@ public final class RecognitionCoordinator {
 /// The pages recognised so far for documents whose recognition has not finished (P8).
 ///
 /// One folder per document, named by its identifier: `version.json`, the file version recognition
-/// started from, and one `<page>.json` per recognised page, so each page is written once.
+/// started from, one `<page>.json` per recognised page, so each page is written once, and
+/// `stopped.json` once it was stopped from the system's interface.
 actor RecognitionCheckpoints {
   private let folder: URL
 
@@ -243,6 +300,22 @@ actor RecognitionCheckpoints {
   func add(_ lines: [RecognizedLine], page index: Int, for id: DocumentID) {
     try? JSONEncoder().encode(lines).write(
       to: folder(of: id).appendingPathComponent("\(index).json"), options: .atomic)
+  }
+
+  /// Notes that a document's recognition was stopped from the system's interface, so it is not
+  /// resumed at launch.
+  func markStopped(_ id: DocumentID) {
+    try? JSONEncoder().encode(true).write(to: folder(of: id).appendingPathComponent("stopped.json"))
+  }
+
+  /// Whether a document's recognition was stopped from the system's interface.
+  func isStopped(_ id: DocumentID) -> Bool {
+    FileManager.default.fileExists(atPath: folder(of: id).appendingPathComponent("stopped.json").path)
+  }
+
+  /// Lets a document's recognition be resumed at launch again.
+  func clearStopped(_ id: DocumentID) {
+    try? FileManager.default.removeItem(at: folder(of: id).appendingPathComponent("stopped.json"))
   }
 
   /// Discards a document's checkpoint.

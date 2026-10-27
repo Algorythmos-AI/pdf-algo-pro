@@ -1606,6 +1606,12 @@ public final class ReaderModel {
     return !document.hasTextLayer && !document.isEncrypted
   }
 
+  /// Whether recognition was stopped from the system's interface with the pages done kept, so
+  /// "Resume recognising" is offered in place of "Recognise text"; recognising resumes from them (#253).
+  public var canResumeRecognition: Bool {
+    canRecognizeText && recognitionProgress == nil && recognition.isStopped(documentID)
+  }
+
   /// Recognises text on device and replaces the file with a searchable version, with progress.
   ///
   /// Unsaved notes, markup and form entries are saved first, so the searchable version includes them.

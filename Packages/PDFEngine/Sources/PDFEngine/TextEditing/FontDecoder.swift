@@ -165,7 +165,9 @@ extension TextFont {
           code = start
         } else if let name = item.name {
           if (0...255).contains(code) { map[code] = GlyphNames.text(for: name) }
-          code += 1
+          // A start code from the file can be any integer; past 255 nothing maps, so stop counting
+          // there instead of overflowing (#250).
+          code = min(code, 256) + 1
         }
       }
     }
@@ -176,8 +178,12 @@ extension TextFont {
     guard let items = object.array else { return [:] }
     var widths: [Int: Double] = [:]
     var index = 0
+    // Character identifiers are 0 to 65535; any other integer from the file is malformed, and would
+    // overflow the arithmetic below (#250).
+    let identifiers = 0...0xFFFF
     while index < items.count {
       guard let first = items[index].integer, index + 1 < items.count else { break }
+      guard identifiers.contains(first) else { throw PDFSyntaxError.malformed }
       if let list = try file.resolve(items[index + 1]).array {
         for (offset, width) in list.enumerated() {
           guard widths.count < TextEditingLimits.mappings else { throw PDFSyntaxError.tooLarge }
@@ -185,6 +191,7 @@ extension TextFont {
         }
         index += 2
       } else if let last = items[index + 1].integer, index + 2 < items.count, let value = items[index + 2].number {
+        guard identifiers.contains(last) else { throw PDFSyntaxError.malformed }
         guard last >= first, last - first < TextEditingLimits.mappings,
           widths.count + (last - first) < TextEditingLimits.mappings
         else { throw PDFSyntaxError.tooLarge }

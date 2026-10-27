@@ -6,8 +6,10 @@ import UserNotifications
 protocol NotificationScheduling: Sendable {
   /// Asks the person to allow notifications; `true` when they are, or already were, allowed.
   func requestAuthorization() async -> Bool
-  /// Schedules one notification, replacing any with the same identifier; `false` when it failed.
-  func schedule(identifier: String, title: String, body: String, at date: Date) async -> Bool
+  /// Schedules one notification to arrive after an interval, replacing any with the same identifier.
+  ///
+  /// - Returns: `false` when it failed or the interval is not ahead.
+  func schedule(identifier: String, title: String, body: String, after interval: TimeInterval) async -> Bool
   /// Removes a notification that has not been delivered yet.
   func cancel(identifier: String) async
 }
@@ -21,13 +23,12 @@ struct SystemNotifications: NotificationScheduling {
     (try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])) ?? false
   }
 
-  func schedule(identifier: String, title: String, body: String, at date: Date) async -> Bool {
+  func schedule(identifier: String, title: String, body: String, after interval: TimeInterval) async -> Bool {
+    guard let trigger = Self.trigger(after: interval) else { return false }
     let content = UNMutableNotificationContent()
     content.title = title
     content.body = body
     content.sound = .default
-    let parts = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: date)
-    let trigger = UNCalendarNotificationTrigger(dateMatching: parts, repeats: false)
     let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
     return (try? await UNUserNotificationCenter.current().add(request)) != nil
   }
@@ -35,12 +36,22 @@ struct SystemNotifications: NotificationScheduling {
   func cancel(identifier: String) async {
     UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [identifier])
   }
+
+  /// A trigger that fires once after an interval, measured in elapsed time; `nil` when it is not ahead.
+  ///
+  /// Not a calendar trigger: one built from date components floats with the time zone, so after a
+  /// flight it would fire hours early or late, possibly after the trial has been charged (#246).
+  static func trigger(after interval: TimeInterval) -> UNTimeIntervalNotificationTrigger? {
+    interval > 0 ? UNTimeIntervalNotificationTrigger(timeInterval: interval, repeats: false) : nil
+  }
 }
 
 /// Notifications that are always allowed and never shown, for UI tests.
 struct SilentNotifications: NotificationScheduling {
   func requestAuthorization() async -> Bool { true }
-  func schedule(identifier: String, title: String, body: String, at date: Date) async -> Bool { true }
+  func schedule(identifier: String, title: String, body: String, after interval: TimeInterval) async -> Bool {
+    true
+  }
   func cancel(identifier: String) async {}
 }
 
@@ -49,7 +60,8 @@ struct SilentNotifications: NotificationScheduling {
 /// There is at most one, a day before the trial ends. It is asked for on the purchase confirmation,
 /// the only place the app asks to send notifications, and it is removed as soon as the entitlement
 /// is no longer a trial: after a cancellation that has run out, a refund or the first paid period.
-/// Its words are true whether or not the person has already cancelled.
+/// The app learns of those only while it runs, so a reminder can still arrive for someone who has
+/// paid, changed plans or been refunded since without opening it; its words stay true then too (#264).
 @MainActor
 final class TrialReminderScheduler {
   static let identifier = "commerce.trial.reminder"
@@ -88,14 +100,24 @@ final class TrialReminderScheduler {
       return .tooLate
     }
     guard await notifications.requestAuthorization() else { return .notificationsDeclined }
-    let day = trialEndsAt.formatted(.dateTime.day().month(.wide))
+    let words = Self.words()
     let scheduled = await notifications.schedule(
-      identifier: Self.identifier, title: String(localized: "Your trial ends tomorrow"),
-      body: String(localized: "Your PDF Algo Pro trial ends on \(day). Manage it in Settings, under Subscription."),
-      at: date)
+      identifier: Self.identifier, title: words.title, body: words.body, after: date.timeIntervalSince(now()))
     // The notification is the reminder for this trial; the in-app notice then stays away.
     if scheduled { remindedTrialEnd = trialEndsAt }
     return scheduled ? .scheduled : .failed
+  }
+
+  /// The reminder's title and body.
+  ///
+  /// They say what is true when the reminder arrives whatever happened to the trial meanwhile: the
+  /// trial ends within a day if it is still running. They name no date, which would be written in
+  /// the time zone of the moment it was scheduled and could be the wrong day where it is read.
+  static func words() -> (title: String, body: String) {
+    let body = String(
+      localized:
+        "If your PDF Algo Pro trial is still running, it ends within a day. Manage it in Settings, under Subscription.")
+    return (String(localized: "Trial reminder"), body)
   }
 
   /// The in-app notice for someone with no notification: the trial's end, when it is a day away or less.

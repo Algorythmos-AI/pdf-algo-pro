@@ -128,6 +128,7 @@ struct LaunchEnvironment {
         case "trial": .trial(endsAt: Date().addingTimeInterval(24 * 60 * 60))
         case "subscribed": .subscribed
         case "expired": .expired
+        case "billingRetry": .inBillingRetry
         default: nil
         }
       let allowance = arguments.firstIndex(of: "-allowance").flatMap {
