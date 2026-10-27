@@ -159,9 +159,14 @@ public struct DocumentIntake: Sendable {
     if let changedAt { updated.modifiedAt = changedAt }
     try await index.index(updated, pages: inspection.pages)
     // Deleted for good while this ran: it must not come back in search or Spotlight.
-    guard try await library.document(withID: document.id) != nil else {
+    guard let current = try await library.document(withID: document.id) else {
       try await index.remove(document.id)
       throw LibraryError.notFound
+    }
+    // Moved to Recently Deleted while this ran: indexed as it is now, which takes it out of Spotlight.
+    if current.isDeleted, !updated.isDeleted {
+      try await index.index(current, pages: inspection.pages)
+      return current
     }
     return updated
   }
