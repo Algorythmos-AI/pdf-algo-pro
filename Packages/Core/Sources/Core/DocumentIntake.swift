@@ -81,8 +81,12 @@ public struct DocumentIntake: Sendable {
       } catch is CancellationError {
         return failed
       } catch LibraryError.notAPDF {
-        // Final, and crossed off by the refresh itself once its old text is out.
-        continue
+        // Final, and crossed off by the refresh itself once its old text is out. When that removal
+        // keeps failing, it is given up like any other, unless it protects the document.
+        if let now = await pending.owed(id), now.failures >= Self.attempts, !now.protects {
+          try? await pending.remove(id)
+          try? await library.recordModified(id)
+        }
       } catch {
         failed += 1
         // As the refresh left it: protection is cleared once the file was read and isn't locked.
