@@ -508,21 +508,23 @@ final class ReaderUITests: UITestCase {
     let more = app.buttons[ID.Reader.Selection.more]
     let style = app.buttons[ID.Reader.Selection.style]
     let copy = app.buttons[ID.Reader.Selection.copy]
-    if !(style.exists && copy.exists) {
-      // Whatever isn't on the bar is under More: opened once, both looked for, closed once.
-      XCTAssertTrue(more.exists, "Style or Copy is neither on the bar nor under More")
-      more.tap()
-      XCTAssertTrue(style.waitForExistence(timeout: Self.settleTimeout), "Style is under More")
-      XCTAssertTrue(copy.exists, "Copy is under More")
-      // A tap on the bar's title closes the menu; the title does nothing on a tap, so the text box
-      // stays selected whether or not the tap reaches it.
-      bar.coordinate(withNormalizedOffset: CGVector(dx: 0.04, dy: 0.5)).tap()
-      XCTAssertTrue(edit.waitForExistence(timeout: Self.settleTimeout) && edit.isHittable, "The menu closed")
-    }
-    XCTAssertTrue(bar.exists, "The text box is still selected")
     XCTAssertTrue(app.buttons[ID.Reader.Selection.done].exists)
     XCTAssertTrue(
       app.buttons[ID.Reader.Selection.delete].exists || more.exists, "Delete is on the bar or under More")
+    guard !(style.exists && copy.exists) else { return }
+    // Style and Copy are under More. It is opened once, both are found, and it is closed by one of its
+    // own items: Style › Larger, which keeps the text box selected. A tap elsewhere to close a menu can
+    // reach the page and let go of the selection.
+    XCTAssertTrue(more.exists, "Style or Copy is neither on the bar nor under More")
+    more.tap()
+    XCTAssertTrue(style.waitForExistence(timeout: Self.settleTimeout), "Style is under More")
+    XCTAssertTrue(copy.exists, "Copy is under More")
+    let larger = app.buttons["Larger"]
+    style.tap()
+    XCTAssertTrue(larger.waitForExistence(timeout: Self.settleTimeout), "Style opens its own menu")
+    larger.tap()
+    XCTAssertTrue(bar.waitForExistence(timeout: Self.settleTimeout), "The text box is still selected")
+    XCTAssertTrue(edit.waitForExistence(timeout: Self.settleTimeout) && edit.isHittable, "Edit text is back on the bar")
   }
 
   func testDraggingAcrossTextWithTheHighlighterMarksItOnce() throws {

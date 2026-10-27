@@ -18,45 +18,75 @@ struct SelectionBar: View {
 
   /// How far one step of "Move" goes, in points; page space runs up, so up is positive.
   private static let step: CGFloat = 12
+  /// The space around the row.
+  static let padding = Spacing.s150
+  /// The space between the actions: each is at least 44 points wide, so a small gap is enough, and
+  /// a wide one left no room for Edit text on a 6.3-inch iPhone in English (#303).
+  private static let spacing = Spacing.s050
+
+  /// How the actions sit on the bar's one row, roomiest first (#303).
+  nonisolated enum Arrangement: Int, CaseIterable, Equatable, Sendable {
+    /// Every action is a button of its own.
+    case everything
+    /// Style and Copy are under More; Edit text, Delete and Done are buttons.
+    case styleAndCopyInMore
+    /// Style, Copy and Delete are under More; Edit text and Done are buttons.
+    case deleteInMore
+    /// Everything but Done is under More.
+    case allInMore
+  }
+
+  /// The arrangement the unseen measure chose; see `measure`.
+  @State private var arrangement = Arrangement.everything
 
   var body: some View {
-    // The longest row that fits on one line. French titles are longer than English ones, and wrapped
-    // they broke "Supprimer" in two (#303). Style and Copy become icons first, then go into a More
-    // menu; Edit text stays a button of its own for as long as there is room for it, and Delete goes
-    // into the menu last.
+    row(arrangement)
+      .background { measure }
+      .onPreferenceChange(ArrangementKey.self) { chosen in arrangement = chosen }
+      // Plain labels, so that the only red on this bar is Delete (the app's accent is red too).
+      .tint(Color.ds.labelPrimary)
+      .padding(Self.padding)
+      // A system background, the kind the Delete token keeps 4.5:1 on. The regular material over a white
+      // page is mid-grey in dark mode (on an iPhone, 2026-10-26), where Delete was 3.0:1.
+      .background(Color.ds.backgroundSecondary, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+      .accessibilityElement(children: .contain)
+      .accessibilityIdentifier(AccessibilityID.Reader.Selection.actionBar)
+  }
+
+  /// The roomiest arrangement whose row fits on one line, at the text size and in the language in use.
+  ///
+  /// French titles are longer than English ones, and wrapped they broke "Supprimer" in two (#303).
+  /// Each arrangement is laid out here unseen and the shown row follows the one that fits, so the
+  /// shown controls stay the same controls when the arrangement changes. A row that swapped its
+  /// controls for others as the text grew failed the accessibility audit, which changes the text size
+  /// and measures at once. The text itself always scales; only where the controls sit changes.
+  private var measure: some View {
     ViewThatFits(in: .horizontal) {
-      row(iconOnly: false)
-      row(iconOnly: true)
-      HStack(spacing: Spacing.s150) {
-        title
-        Spacer(minLength: Spacing.s100)
-        editButton
-        if hasStyleOrCopy { more(includingEdit: false, includingDelete: false) }
-        deleteButton
-        doneButton
-      }
-      HStack(spacing: Spacing.s150) {
-        title
-        Spacer(minLength: Spacing.s100)
-        editButton
-        more(includingEdit: false, includingDelete: true)
-        doneButton
-      }
-      HStack(spacing: Spacing.s150) {
-        title
-        Spacer(minLength: Spacing.s100)
-        more(includingEdit: true, includingDelete: true)
-        doneButton
-      }
+      row(.everything).preference(key: ArrangementKey.self, value: .everything)
+      row(.styleAndCopyInMore).preference(key: ArrangementKey.self, value: .styleAndCopyInMore)
+      row(.deleteInMore).preference(key: ArrangementKey.self, value: .deleteInMore)
+      row(.allInMore).preference(key: ArrangementKey.self, value: .allInMore)
     }
-    // Plain labels, so that the only red on this bar is Delete (the app's accent is red too).
-    .tint(Color.ds.labelPrimary)
-    .padding(Spacing.s150)
-    // A system background, the kind the Delete token keeps 4.5:1 on. The regular material over a white
-    // page is mid-grey in dark mode (on an iPhone, 2026-10-26), where Delete was 3.0:1.
-    .background(Color.ds.backgroundSecondary, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-    .accessibilityElement(children: .contain)
-    .accessibilityIdentifier(AccessibilityID.Reader.Selection.actionBar)
+    .hidden()
+    .accessibilityHidden(true)
+    .allowsHitTesting(false)
+  }
+
+  /// The row in one arrangement.
+  ///
+  /// Each control keeps its place in it whatever the arrangement, so it stays the same control
+  /// when the arrangement changes.
+  func row(_ arrangement: Arrangement) -> some View {
+    HStack(spacing: Self.spacing) {
+      title
+      Spacer(minLength: Spacing.s100)
+      if arrangement == .everything, hasStyleOrCopy { styleMenu(inMore: false) }
+      if arrangement == .everything, selection.isMovable { copyMenu(inMore: false) }
+      if arrangement != .everything, hasStyleOrCopy || arrangement != .styleAndCopyInMore { more(arrangement) }
+      if arrangement != .allInMore { editButton }
+      if arrangement == .everything || arrangement == .styleAndCopyInMore { deleteButton }
+      doneButton
+    }
   }
 
   /// What is selected.
@@ -95,45 +125,38 @@ struct SelectionBar: View {
   /// Whether there is Style or Copy to offer.
   private var hasStyleOrCopy: Bool { selection.isMovable || selection.isRecolorable }
 
-  /// Every action on one line: Style and Copy as words, or as icons where the words don't fit.
-  private func row(iconOnly: Bool) -> some View {
-    HStack(spacing: Spacing.s150) {
-      title
-      Spacer(minLength: Spacing.s100)
-      if hasStyleOrCopy { styleMenu(iconOnly: iconOnly) }
-      if selection.isMovable { copyMenu(iconOnly: iconOnly) }
-      editButton
-      deleteButton
-      doneButton
-    }
-  }
-
-  /// The colour and size: a word, an icon, or an entry in More, with the same identifier each way.
-  private func styleMenu(iconOnly: Bool) -> some View {
+  /// The colour and size, on the bar or under More, with the same identifier either way.
+  private func styleMenu(inMore: Bool) -> some View {
     Menu {
       styleItems
     } label: {
-      Label {
-        Text("Style", bundle: .module)
-      } icon: {
-        Image(systemName: "paintpalette")
+      if inMore {
+        Label {
+          Text("Style", bundle: .module)
+        } icon: {
+          Image(systemName: "paintpalette")
+        }
+      } else {
+        Text("Style", bundle: .module).minimumTarget()
       }
-      .labelStyle(SelectionBarLabelStyle(iconOnly: iconOnly)).minimumTarget()
     }
     .accessibilityIdentifier(AccessibilityID.Reader.Selection.style)
   }
 
-  /// Copy, cut and duplicate: a word, an icon, or an entry in More, with the same identifier each way.
-  private func copyMenu(iconOnly: Bool) -> some View {
+  /// Copy, cut and duplicate, on the bar or under More, with the same identifier either way.
+  private func copyMenu(inMore: Bool) -> some View {
     Menu {
       copyItems
     } label: {
-      Label {
-        Text("Copy", bundle: .module)
-      } icon: {
-        Image(systemName: "doc.on.doc")
+      if inMore {
+        Label {
+          Text("Copy", bundle: .module)
+        } icon: {
+          Image(systemName: "doc.on.doc")
+        }
+      } else {
+        Text("Copy", bundle: .module).minimumTarget()
       }
-      .labelStyle(SelectionBarLabelStyle(iconOnly: iconOnly)).minimumTarget()
     }
     .accessibilityIdentifier(AccessibilityID.Reader.Selection.copy)
   }
@@ -199,12 +222,12 @@ struct SelectionBar: View {
     .accessibilityIdentifier(AccessibilityID.Reader.Selection.duplicate)
   }
 
-  /// The actions a narrow row has no room for, in one menu.
-  private func more(includingEdit: Bool, includingDelete: Bool) -> some View {
+  /// The actions an arrangement has no room for on the row, in one menu.
+  private func more(_ arrangement: Arrangement) -> some View {
     Menu {
-      if hasStyleOrCopy { styleMenu(iconOnly: false) }
-      if selection.isMovable { copyMenu(iconOnly: false) }
-      if includingEdit, selection.isTextEditable {
+      if hasStyleOrCopy { styleMenu(inMore: true) }
+      if selection.isMovable { copyMenu(inMore: true) }
+      if arrangement == .allInMore, selection.isTextEditable {
         Button(action: onEdit) {
           Label {
             Text("Edit text", bundle: .module)
@@ -214,7 +237,7 @@ struct SelectionBar: View {
         }
         .accessibilityIdentifier(AccessibilityID.Reader.Selection.edit)
       }
-      if includingDelete {
+      if arrangement == .deleteInMore || arrangement == .allInMore {
         Button(role: .destructive, action: onDelete) {
           Label {
             Text("Delete", bundle: .module)
@@ -283,15 +306,11 @@ struct SelectionBar: View {
   }
 }
 
-/// A label as its title alone, or as its icon alone with the title kept for VoiceOver.
-private struct SelectionBarLabelStyle: LabelStyle {
-  let iconOnly: Bool
+/// The arrangement the unseen measure chose, passed up to the bar.
+private nonisolated struct ArrangementKey: PreferenceKey {
+  static let defaultValue = SelectionBar.Arrangement.everything
 
-  func makeBody(configuration: Configuration) -> some View {
-    if iconOnly {
-      Label(configuration).labelStyle(.iconOnly)
-    } else {
-      Label(configuration).labelStyle(.titleOnly)
-    }
+  static func reduce(value: inout SelectionBar.Arrangement, nextValue: () -> SelectionBar.Arrangement) {
+    value = nextValue()
   }
 }
