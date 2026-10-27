@@ -216,14 +216,26 @@ extension PDFDocumentController {
 
   /// A document with copies of this one's pages (and their annotations), its metadata and its outline,
   /// but no encryption.
+  ///
+  /// Links between pages are pointed at the copies, as the outline is: a copied link still names this
+  /// document's page, and was written as a link to the first page (#235).
   func unencryptedCopy() -> PDFDocument {
     let copy = PDFDocument()
     var pages: [PDFPage: PDFPage] = [:]
+    var duplicates: [Int: PDFPage] = [:]
+    var targets = LinkTargets(in: document)
     for index in 0..<document.pageCount {
       guard let page = document.page(at: index), let duplicate = page.copy() as? PDFPage else { continue }
+      // Only the copy's own annotations: pointing one this document shares would break its link here.
+      let shared = Set(page.annotations.map { ObjectIdentifier($0) })
+      for annotation in duplicate.annotations where !shared.contains(ObjectIdentifier(annotation)) {
+        targets.note(annotation)
+      }
       copy.insert(duplicate, at: copy.pageCount)
       pages[page] = duplicate
+      duplicates[index] = duplicate
     }
+    targets.point { duplicates[$0] }
     copy.documentAttributes = document.documentAttributes
     if let outline = document.outlineRoot {
       copy.outlineRoot = Self.copyOutline(outline, pages: pages)
