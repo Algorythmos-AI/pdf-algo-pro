@@ -441,6 +441,95 @@ struct DocumentIntakeTests {
     await #expect(throws: LibraryError.notFound) { try await intake.refresh(seeded.id) }
     #expect(await index.fake.stored[seeded.id] == nil)
   }
+
+  // MARK: - Second R1 review
+
+  private let locked = PDFInspection(pageCount: 0, isEncrypted: true, pages: [])
+
+  @Test("A protected document's words leave search and Spotlight even when the disk stays full (#236)")
+  func protectedWordsLeaveOnAFullDisk() async throws {
+    let library = FakeDocumentLibrary()
+    let index = FakeIndex()
+    let seeded = await library.seed(Document(title: "Lease", fileName: "lease.pdf", addedAt: .distantPast))
+    await index.seed(seeded.id, pages: [PageText(pageIndex: 0, text: "private words")])
+    await index.failIndexing(true)
+    let intake = DocumentIntake(
+      library: library, inspector: FakeInspector(result: locked), index: index, pending: PendingRefreshes(url: nil))
+    await #expect(throws: (any Error).self) { try await intake.refresh(seeded.id) }
+    #expect(await index.stored[seeded.id] == nil, "Removing needs no space")
+    #expect(await index.removed == [seeded.id], "Spotlight's entry goes with it")
+  }
+
+  @Test("A refresh that began before a change doesn't cross off the refresh that change is owed (#236)")
+  func earlierRefreshLeavesALaterChangeOwed() async throws {
+    let library = FakeDocumentLibrary()
+    let pending = PendingRefreshes(url: nil)
+    let gate = InspectionGate()
+    let seeded = await library.seed(Document(title: "Lease", fileName: "lease.pdf", addedAt: .distantPast))
+    let intake = DocumentIntake(
+      library: library, inspector: GatedInspector(gate: gate), index: FakeIndex(), pending: pending)
+    let earlier = Task { try await intake.refresh(seeded.id) }
+    await gate.waitForArrival()
+    await intake.willChange(seeded.id)
+    await gate.open()
+    _ = try await earlier.value
+    #expect(await pending.all == [seeded.id], "The later change still needs its refresh")
+  }
+
+  @Test("A file that isn't a readable PDF any more is crossed off at once, and its old text goes (#236)")
+  func unreadableFileIsCrossedOff() async throws {
+    let library = FakeDocumentLibrary()
+    let index = FakeIndex()
+    let pending = PendingRefreshes(url: nil)
+    let seeded = await library.seed(Document(title: "Lease", fileName: "lease.pdf", addedAt: .distantPast))
+    await index.seed(seeded.id, pages: [PageText(pageIndex: 0, text: "old words")])
+    try await pending.add(seeded.id)
+    let intake = DocumentIntake(
+      library: library, inspector: FakeInspector(fails: true), index: index, pending: pending)
+    _ = await intake.refreshPending()
+    #expect(await pending.all.isEmpty)
+    #expect(await index.stored[seeded.id] == nil)
+  }
+
+  @Test("A refresh that keeps failing is given up after three tries (#236)")
+  func retriesStop() async throws {
+    let library = FakeDocumentLibrary()
+    let index = FakeIndex()
+    let pending = PendingRefreshes(url: nil)
+    let seeded = await library.seed(Document(title: "Lease", fileName: "lease.pdf", addedAt: .distantPast))
+    try await pending.add(seeded.id)
+    await index.failIndexing(true)
+    let intake = DocumentIntake(library: library, inspector: FakeInspector(), index: index, pending: pending)
+    for _ in 0..<3 { _ = await intake.refreshPending() }
+    #expect(await pending.all.isEmpty)
+  }
+
+  @Test("Taking a protected document's words out of search is never given up (#236)")
+  func protectedRemovalIsKept() async throws {
+    let library = FakeDocumentLibrary()
+    let index = FakeIndex()
+    let pending = PendingRefreshes(url: nil)
+    let seeded = await library.seed(Document(title: "Lease", fileName: "lease.pdf", addedAt: .distantPast))
+    let intake = DocumentIntake(library: library, inspector: FakeInspector(), index: index, pending: pending)
+    await intake.willChange(seeded.id, protecting: true)
+    await index.failIndexing(true)
+    await index.failRemoving(true)
+    for _ in 0..<5 { _ = await intake.refreshPending() }
+    #expect(await pending.all == [seeded.id])
+    await index.failRemoving(false)
+    _ = await intake.refreshPending()
+    #expect(await pending.all.isEmpty, "Once the words are out, the rest may be given up")
+  }
+
+  @Test("A document moved to Recently Deleted while its refresh runs is not put back in Spotlight")
+  func binnedDuringRefreshStaysOutOfSpotlight() async throws {
+    let library = FakeDocumentLibrary()
+    let seeded = await library.seed(Document(title: "Lease", fileName: "lease.pdf", addedAt: .distantPast))
+    let index = DeletingIndex(library: library, deleting: seeded.id, toRecentlyDeleted: true)
+    let intake = DocumentIntake(library: library, inspector: FakeInspector(), index: index)
+    _ = try? await intake.refresh(seeded.id)
+    #expect(await index.fake.indexed.last?.isDeleted == true, "Spotlight's last word is that it is deleted")
+  }
 }
 
 /// An inspector whose task was cancelled.
@@ -453,10 +542,18 @@ private struct CancelledInspector: PDFInspecting {
 private struct DeletingIndex: DocumentIndexing {
   let library: FakeDocumentLibrary
   let deleting: DocumentID
+  /// Moves it to Recently Deleted instead of deleting it for good.
+  var toRecentlyDeleted = false
   let fake = FakeIndex()
 
   func index(_ document: Document, pages: [PageText]) async throws {
-    try await library.deletePermanently(deleting)
+    if toRecentlyDeleted {
+      if try await library.document(withID: deleting)?.isDeleted == false {
+        try await library.moveToRecentlyDeleted(deleting)
+      }
+    } else {
+      try await library.deletePermanently(deleting)
+    }
     try await fake.index(document, pages: pages)
   }
 
