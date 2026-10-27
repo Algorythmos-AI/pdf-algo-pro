@@ -594,6 +594,29 @@ struct RenamedInFilesTests {
     #expect(after.fileName == "Notes 2.pdf" && after.isFavorite, "\(after); before the save \(before); now \(state)")
   }
 
+  @Test("Renamed while open, its old name then taken by another PDF: the moved file is the document's (#224)")
+  func oldNameTakenWhileOpen() async throws {
+    let harness = try Harness()
+    let document = try await harness.library.addDocument(data: pdf, title: "Report")
+    let url = try await harness.library.fileURL(for: document.id)
+    let renamed = harness.documentsFolder.appendingPathComponent("Report 2026.pdf")
+    try FileManager.default.moveItem(at: url, to: renamed)
+    // A new save, or "Keep Both" in Files, puts another document at the old name.
+    let other = Data("%PDF-1.7\n% another document\n%%EOF\n".utf8)
+    try other.write(to: url)
+
+    let resolved = try await harness.library.fileURL(for: document.id)
+
+    let state = try await harness.state()
+    #expect(resolved.path == renamed.path, "Resolved \(resolved.lastPathComponent); \(state)")
+    #expect(try await harness.library.document(withID: document.id)?.fileName == "Report 2026.pdf", "\(state)")
+    #expect(try Data(contentsOf: url) == other, "The other document is untouched")
+    #expect(try Data(contentsOf: renamed) == pdf)
+    let result = try await harness.library.reconcileWithFiles()
+    #expect(result.removed.isEmpty && result.added.map(\.fileName) == ["Report.pdf"], "\(result); \(state)")
+    #expect(result.added.first?.id != document.id)
+  }
+
   @Test("Two files that swap names keep their own details: the identity wins over the name (#224)")
   func swappedNamesKeepTheirDetails() async throws {
     let harness = try Harness()

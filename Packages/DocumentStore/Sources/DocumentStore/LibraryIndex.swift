@@ -194,8 +194,9 @@ public protocol LibraryStore: Sendable {
   func setFileIdentity(_ identity: String?, for id: DocumentID) async throws
   /// The entries whose file is gone, with when it was found gone (#224).
   func goneEntries() async throws -> [(document: Document, goneAt: Date)]
-  /// Marks an entry's file gone at a date, taking the entry out of `all()`, or back with `nil`; does
-  /// nothing without the entry. `upsert` never changes it.
+  /// Marks an entry's file gone at a date, taking the entry out of `all()`, or back with `nil`.
+  ///
+  /// It does nothing without the entry, and `upsert` never changes it.
   func setGone(_ date: Date?, for id: DocumentID) async throws
 }
 

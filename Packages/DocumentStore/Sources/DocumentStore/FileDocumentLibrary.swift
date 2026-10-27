@@ -65,15 +65,30 @@ public actor FileDocumentLibrary: DocumentLibrary {
   /// The file URL of a document, for reading and coordinated writing.
   ///
   /// A file renamed or moved in the Files app while the app runs is found by its identity, and the
-  /// entry follows it (#224). When it can't be found, this throws `LibraryError.notFound` rather than
-  /// give the old name, so a save never writes a new file there beside the moved one.
+  /// entry follows it (#224). That holds when another file has taken the old name since: as when
+  /// reconciling, the recorded identity wins over the name, so the other file is never read or
+  /// written as this document. When the file can't be found, this throws `LibraryError.notFound`
+  /// rather than give the old name, so a save never writes a new file there beside the moved one.
+  /// When the file at the name differs only by its file number (one side has no document
+  /// identifier, as after another app's save of a file the system wasn't tracking) and no other file
+  /// is the document's, that file is taken to be it, as reconciling does.
   public func fileURL(for id: DocumentID) async throws -> URL {
     try await exclusively {
       let document = try await existing(id)
       let url = location(of: document)
-      guard !document.isDeleted, !fileManager.fileExists(atPath: url.path) else { return url }
-      guard let found = try await followMovedFile(of: document) else { throw LibraryError.notFound }
-      return location(of: found)
+      guard !document.isDeleted else { return url }
+      guard fileManager.fileExists(atPath: url.path) else {
+        guard let found = try await followMovedFile(of: document) else { throw LibraryError.notFound }
+        return location(of: found)
+      }
+      let recorded = try await index.fileIdentities()[document.id].flatMap(FileIdentity.init(stored:))
+      guard let recorded, let current = FileIdentity(of: url), recorded.isOnSameVolume(as: current),
+        !recorded.isSameFile(as: current)
+      else { return url }
+      if let found = try await followMovedFile(of: document) { return location(of: found) }
+      // Both have a document identifier and they differ: the file at the name is another document.
+      guard recorded.document == nil || current.document == nil else { throw LibraryError.notFound }
+      return url
     }
   }
 
