@@ -27,7 +27,7 @@ struct SelectionBar: View {
   /// How the actions sit on the bar, roomiest first (#303).
   ///
   /// Style and Copy go under More first, then Delete. Edit text and Done are never under More.
-  nonisolated enum Arrangement: Int, CaseIterable, Equatable, Sendable {
+  nonisolated enum Arrangement: Int, CaseIterable, Comparable, Sendable {
     /// Every action on one row.
     case everything
     /// One row; Style and Copy are under More.
@@ -41,6 +41,9 @@ struct SelectionBar: View {
     /// when even that doesn't fit; Edit text across the bar, its words wrapping between words; More,
     /// with Style, Copy and Delete, and Done below.
     case stacked
+
+    /// The more compact arrangement is the greater.
+    static func < (lhs: Self, rhs: Self) -> Bool { lhs.rawValue < rhs.rawValue }
   }
 
   /// An action that can go under More.
@@ -417,11 +420,16 @@ struct SelectionBar: View {
 }
 
 /// The arrangement the unseen measure chose, passed up to the bar.
+///
+/// The shown row sets no arrangement, so it passes up the default, the roomiest, beside the measure's
+/// choice. The most compact of the two wins whatever order SwiftUI combines them in: with the last
+/// one winning, the shown row's default could replace the measure's choice, and the bar never left
+/// its first arrangement (on iOS 27 at the largest text size there was no More) (#303).
 private nonisolated struct ArrangementKey: PreferenceKey {
   static let defaultValue = SelectionBar.Arrangement.everything
 
   static func reduce(value: inout SelectionBar.Arrangement, nextValue: () -> SelectionBar.Arrangement) {
-    value = nextValue()
+    value = max(value, nextValue())
   }
 }
 
