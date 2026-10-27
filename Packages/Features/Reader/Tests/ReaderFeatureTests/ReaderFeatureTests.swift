@@ -366,7 +366,12 @@ struct ReaderModelTests {
     let url = try await harness.library.fileURL(for: document.id)
     try SyntheticPDF.make(pages: ["Theirs", "Two"]).write(to: url)
     await reader.fileChangedOnDisk()
-    #expect(reader.notice != nil && reader.controller?.pageCount == 2)
+    #expect(
+      reader.notice != nil && reader.controller?.pageCount == 2,
+      """
+      notice \(reader.notice ?? "none"), pages \(String(describing: reader.controller?.pageCount)), \
+      reader's file \(String(describing: reader.fileURL)), library's \(url)
+      """)
     reader.stopWatching()
   }
 

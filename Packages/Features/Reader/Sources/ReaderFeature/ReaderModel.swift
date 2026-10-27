@@ -1155,7 +1155,14 @@ public final class ReaderModel {
   /// whether another app changed the file meanwhile.
   public func setWatching(_ isActive: Bool) async {
     if isActive {
-      watcher?.start()
+      // A rename in the Files app while the app was away isn't heard, so the library finds the file
+      // (#224); otherwise the watcher would watch the old name for the rest of the session.
+      if phase == .ready, let moved = try? await library.fileURL(for: documentID), !Self.isSameURL(moved, fileURL) {
+        fileURL = moved
+        watch(moved)
+      } else {
+        watcher?.start()
+      }
       await fileChangedOnDisk()
     } else {
       watcher?.stop()
@@ -1176,12 +1183,10 @@ public final class ReaderModel {
   /// Handles a change to the file made by another app: with no unsaved changes, the reader shows the
   /// new version; with unsaved changes, it asks which version to keep.
   func fileChangedOnDisk() async {
-    // The file may have been renamed or moved in the Files app; the library follows it (#224), and so
-    // does the watcher, which would otherwise watch the old name for the rest of the session.
-    if phase == .ready, let moved = try? await library.fileURL(for: documentID), moved != fileURL {
-      fileURL = moved
-      watch(moved)
-    }
+    // The watcher follows a file renamed or moved in the Files app (#224). Nothing is awaited before
+    // the check below: a suspension would let the check the reader's own save set off claim another
+    // app's change, and this one return before that change is shown.
+    if let watched = watcher?.presentedItemURL, !Self.isSameURL(watched, fileURL) { fileURL = watched }
     guard phase == .ready, let fileURL, let current = try? FileVersion(fileURL), current != knownVersion else {
       return
     }
@@ -1193,6 +1198,13 @@ public final class ReaderModel {
       notice = String(
         localized: "This document was changed in another app, and now shows those changes.", bundle: .module)
     }
+  }
+
+  /// Whether two file URLs name the same place, however they are spelled.
+  private static func isSameURL(_ url: URL, _ other: URL?) -> Bool {
+    guard let other else { return false }
+    return url.standardizedFileURL.resolvingSymlinksInPath().path
+      == other.standardizedFileURL.resolvingSymlinksInPath().path
   }
 
   /// Drops this reader's unsaved changes and shows the version another app saved.
