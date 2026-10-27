@@ -16,6 +16,9 @@ public actor PendingRefreshes {
     public var failures: Int
     /// Whether a change protected the document, so its words must leave search whatever else fails.
     public var protects: Bool
+    /// Whether its words were taken out of search while it was protected; until a refresh puts them
+    /// back, it isn't given up.
+    public var wordsRemoved: Bool?
   }
 
   private struct Stored: Codable {
@@ -59,19 +62,38 @@ public actor PendingRefreshes {
   ///
   /// - Parameters:
   ///   - id: The document that changes.
-  ///   - protecting: Whether the change protects it; that stays until the refresh is crossed off.
+  ///   - protecting: `true` when the change protects it, `false` when it removes the protection (a
+  ///     password taken off), `nil` when it leaves that as it was.
   ///   - saved: Whether the file is already written; if not, `saveFinished(_:change:)` says when.
   /// - Returns: the change's number.
   /// - Throws: when the list can't be written, so the caller knows a failure would not be retried.
   @discardableResult
-  public func add(_ id: DocumentID, protecting: Bool = false, saved: Bool = true) throws -> Int {
+  public func add(_ id: DocumentID, protecting: Bool? = nil, saved: Bool = true) throws -> Int {
     changes += 1
-    let protects = protecting || (owed[id]?.protects ?? false)
+    let protects = protecting ?? (owed[id]?.protects ?? false)
     // Failures carry on: a file found changed again at every launch must not reset its tries.
-    owed[id] = Owed(change: changes, failures: owed[id]?.failures ?? 0, protects: protects)
+    owed[id] = Owed(
+      change: changes, failures: owed[id]?.failures ?? 0, protects: protects, wordsRemoved: owed[id]?.wordsRemoved)
     if !saved { saving[id, default: []].insert(changes) }
     try save()
     return changes
+  }
+
+  /// Notes that the file was read and isn't locked: no change protects it any more, unless a save is
+  /// still under way, which may yet lock it.
+  public func readUnlocked(_ id: DocumentID) throws {
+    guard saving[id] == nil, var entry = owed[id], entry.protects else { return }
+    entry.protects = false
+    owed[id] = entry
+    try save()
+  }
+
+  /// Notes that the document's words were taken out of search while it was protected.
+  public func wordsRemoved(_ id: DocumentID) throws {
+    guard var entry = owed[id], entry.wordsRemoved != true else { return }
+    entry.wordsRemoved = true
+    owed[id] = entry
+    try save()
   }
 
   /// Notes that the save of a change has ended, whether it worked or not.

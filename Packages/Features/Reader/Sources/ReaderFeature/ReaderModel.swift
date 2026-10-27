@@ -678,11 +678,11 @@ public final class ReaderModel {
   /// the change is saved: a stop between the save and the refresh is caught up at the next load (#236).
   private func wordsChanged() async {
     textChangedSinceIndexing = true
-    await willSave(protecting: false)
+    await willSave(protecting: nil)
   }
 
   /// Writes down that the next save makes a change search must catch up with (#236).
-  private func willSave(protecting: Bool) async {
+  private func willSave(protecting: Bool?) async {
     if let change = await intake.willChange(documentID, protecting: protecting) { changesBeingSaved.append(change) }
   }
   /// Whether, in this reader, the person has been told a font will be matched, and that text
