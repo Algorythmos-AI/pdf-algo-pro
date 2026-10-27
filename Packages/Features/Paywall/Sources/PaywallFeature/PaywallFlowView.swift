@@ -66,16 +66,7 @@ public struct PaywallFlowView: View {
     .background(Color.ds.backgroundPrimary)
     .offerCodeRedemption(isPresented: $redeemsCode)
     .manageSubscriptionsSheet(isPresented: $managesSubscription)
-    .alert(Text("Restore purchases", bundle: .module), isPresented: $model.restoreFailed) {
-      Button {
-      } label: {
-        Text("OK", bundle: .module)
-      }
-    } message: {
-      Text(
-        "Nothing could be restored. Check that you are signed in to the App Store with the account that bought Pro.",
-        bundle: .module)
-    }
+    .restoreAlert($model.restoreOutcome) { model.alertsAbout($0) }
     .alert(item: $model.notice) { notice in
       switch notice {
       case .pending:

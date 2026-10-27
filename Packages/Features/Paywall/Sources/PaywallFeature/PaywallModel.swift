@@ -63,10 +63,10 @@ public final class PaywallModel {
   /// Why the reminder is off although it was asked for: notifications declined, too little of the trial
   /// left, or the system didn't schedule it; `nil` when it is on, or was never asked for.
   public private(set) var reminderProblem: TrialReminderOutcome?
-  /// Whether the last restore found nothing to bring back or could not be made.
-  public var restoreFailed = false
-  /// How the last restore ended; `nil` before one.
+  /// How the last restore ended; `nil` before one, and once the person has read what it says.
   public var restoreOutcome: RestoreOutcome?
+  /// Whether a restore is under way; Restore Purchases waits for it.
+  public private(set) var isRestoring = false
 
   /// Why the offer is showing.
   public let trigger: PaywallTrigger
@@ -271,17 +271,33 @@ public final class PaywallModel {
   }
 
   /// Brings back purchases made elsewhere (Restore Purchases on the offer).
+  ///
+  /// `restoreOutcome` then says whether Pro came back, there was nothing to bring back, or the App
+  /// Store could not be asked (#247). A second tap while one runs is ignored.
   public func restore(using store: any StoreAccessing) async {
-    let answered = await store.restorePurchases()
-    restoreFailed = !answered
-    restoreOutcome = RestoreOutcome.after(answered: answered)
+    guard !isRestoring else { return }
+    isRestoring = true
+    defer { isRestoring = false }
+    restoreOutcome = nil
+    let answer = await store.restorePurchases()
     await entitlements.refresh()
-    if !answered {
+    restoreOutcome = RestoreOutcome.after(answer, hasPro: grantsPro)
+    if answer != .synced {
       await telemetry.record("commerce.restore.failed")
     } else if hadPro == false, grantsPro {
       // The confirmation follows, as after a purchase; it is recorded there as a restore.
       wasRestored = true
     }
+  }
+
+  /// Whether an alert tells the person how a restore ended.
+  ///
+  /// Not after a cancellation, which they chose, and not after a restore that brought Pro back to
+  /// someone who had none when the offer appeared: the confirmation follows and says it. Someone who
+  /// already had Pro is told their purchases are restored, since nothing else on screen changes.
+  public func alertsAbout(_ outcome: RestoreOutcome) -> Bool {
+    guard outcome.message != nil else { return false }
+    return outcome != .restored || !wasRestored
   }
 
   /// The person switched the trial reminder on or off.

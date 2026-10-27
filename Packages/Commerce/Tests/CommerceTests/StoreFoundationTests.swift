@@ -62,7 +62,8 @@ struct FixedStoreAccessTests {
   func fixed(isAvailable: Bool) async {
     let store = FixedStoreAccess(isAvailable: isAvailable)
     #expect(await store.productsAreAvailable(["a", "b"]) == isAvailable)
-    #expect(await store.restorePurchases() == isAvailable)
+    #expect(await store.restorePurchases() == (isAvailable ? .synced : .failed))
+    #expect(await FixedStoreAccess(isAvailable: true, restore: .cancelled).restorePurchases() == .cancelled)
   }
 }
 

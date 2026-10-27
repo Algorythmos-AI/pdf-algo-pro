@@ -66,7 +66,8 @@ struct PaywallOfferView: View {
       }
       action
       PaywallLinks(
-        termsOfUse: model.termsOfUse, privacyPolicy: model.privacyPolicy, onRestore: onRestore, onRedeem: onRedeem)
+        termsOfUse: model.termsOfUse, privacyPolicy: model.privacyPolicy, onRestore: onRestore, onRedeem: onRedeem,
+        isRestoring: model.isRestoring)
     }
     .padding(.horizontal, Spacing.s200)
     .padding(.top, Spacing.s150)
@@ -362,6 +363,8 @@ struct PaywallLinks: View {
   let privacyPolicy: URL
   let onRestore: () -> Void
   let onRedeem: () -> Void
+  /// Whether a restore is under way, so Restore Purchases waits for it.
+  var isRestoring = false
 
   var body: some View {
     ViewThatFits(in: .horizontal) {
@@ -386,6 +389,7 @@ struct PaywallLinks: View {
     Button(action: onRestore) {
       Text("Restore purchases", bundle: .module).minimumTarget()
     }
+    .disabled(isRestoring)
     .accessibilityIdentifier(AccessibilityID.Paywall.restore)
     Button(action: onRedeem) {
       Text("Redeem a code", bundle: .module).minimumTarget()

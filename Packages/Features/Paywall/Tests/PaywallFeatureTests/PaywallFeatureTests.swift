@@ -170,7 +170,7 @@ struct PaywallModelTests {
     let (model, fake, _, _, _) = makeModel()
     fake.set(.subscribed)
     await model.restore(using: FixedStoreAccess(isAvailable: answers))
-    #expect(model.restoreFailed == !answers)
+    #expect(model.restoreOutcome == (answers ? .restored : .failed))
     #expect(model.grantsPro, "What the App Store now reports is read either way")
   }
 
@@ -192,7 +192,7 @@ struct PaywallModelTests {
     let (model, _, _, telemetry, _) = makeModel()
     await model.appeared()
     await model.restore(using: FixedStoreAccess(isAvailable: false))
-    #expect(model.restoreFailed && model.phase == .offer)
+    #expect(model.restoreOutcome == .failed && model.phase == .offer)
     #expect(await telemetry.events == ["commerce.paywall.viewed", "commerce.restore.failed"])
   }
 
@@ -205,6 +205,22 @@ struct PaywallModelTests {
     #expect(model.phase == .offer && !model.grantsPro)
   }
 
+  @Test("Restoring on the offer with Pro already on says so; one that leads to the confirmation leaves it to it (#247)")
+  func restoreWithProAlready() async {
+    let (model, _, _, _, _) = makeModel(.subscribed, trigger: .settings)
+    await model.appeared()
+    await model.restore(using: FixedStoreAccess(isAvailable: true))
+    #expect(model.restoreOutcome == .restored && model.phase == .offer)
+    #expect(model.alertsAbout(.restored), "Nothing else on screen changes, so the alert says it")
+
+    let (fresh, fake, _, _, _) = makeModel()
+    await fresh.appeared()
+    fake.set(.subscribed)
+    await fresh.restore(using: FixedStoreAccess(isAvailable: true))
+    #expect(!fresh.alertsAbout(.restored), "The confirmation follows and says it")
+    #expect(fresh.alertsAbout(.failed) && fresh.alertsAbout(.nothingFound) && !fresh.alertsAbout(.cancelled))
+  }
+
   @Test("A restore says whether it brought Pro back or could not reach the App Store (#247)")
   func restoreSaysWhichItWas() async {
     let (model, fake, _, _, _) = makeModel()
@@ -214,6 +230,21 @@ struct PaywallModelTests {
     fake.set(.subscribed)
     await model.restore(using: FixedStoreAccess(isAvailable: true))
     #expect(model.restoreOutcome == .restored)
+  }
+
+  @Test(
+    "A cancelled sign-in says nothing and is not blamed on the Apple Account; every other ending says something (#247)"
+  )
+  func restoreCancelled() async {
+    let (model, _, _, telemetry, _) = makeModel()
+    await model.appeared()
+    await model.restore(using: FixedStoreAccess(isAvailable: true, restore: .cancelled))
+    #expect(model.restoreOutcome == .cancelled && model.restoreOutcome?.message == nil)
+    #expect(await telemetry.events == ["commerce.paywall.viewed", "commerce.restore.failed"])
+    for outcome in [RestoreOutcome.restored, .nothingFound, .failed] {
+      #expect(outcome.message != nil)
+    }
+    #expect(!model.isRestoring)
   }
 
   @Test("The offer going away without a purchase is recorded once, and not before it appeared")
@@ -229,10 +260,11 @@ struct PaywallModelTests {
 
   @Test("Restoring from Settings is counted only when it changed something or failed")
   func settingsRestoreEvent() {
-    #expect(SubscriptionSection.event(answered: false, hadPro: false, hasPro: false) == "commerce.restore.failed")
-    #expect(SubscriptionSection.event(answered: true, hadPro: false, hasPro: true) == "commerce.purchase.restored")
-    #expect(SubscriptionSection.event(answered: true, hadPro: true, hasPro: true) == nil)
-    #expect(SubscriptionSection.event(answered: true, hadPro: false, hasPro: false) == nil)
+    #expect(SubscriptionSection.event(.failed, hadPro: false, hasPro: false) == "commerce.restore.failed")
+    #expect(SubscriptionSection.event(.cancelled, hadPro: false, hasPro: false) == "commerce.restore.failed")
+    #expect(SubscriptionSection.event(.synced, hadPro: false, hasPro: true) == "commerce.purchase.restored")
+    #expect(SubscriptionSection.event(.synced, hadPro: true, hasPro: true) == nil)
+    #expect(SubscriptionSection.event(.synced, hadPro: false, hasPro: false) == nil)
   }
 
   @Test("The plans load when the offer appears, with the annual plan selected")
