@@ -38,6 +38,8 @@ public final class RecognitionCoordinator {
   @ObservationIgnored private var handles: [DocumentID: any ContinuedWorkHandle] = [:]
   @ObservationIgnored private var jobs: [DocumentID: Task<Void, Never>] = [:]
   @ObservationIgnored private var watchers: [DocumentID: Watcher] = [:]
+  /// Documents whose recognition the system stopped, so their pages are kept for the next launch.
+  @ObservationIgnored private var stoppedBySystem: Set<DocumentID> = []
 
   private struct Watcher {
     let canReplace: @MainActor () -> Bool
@@ -95,7 +97,7 @@ public final class RecognitionCoordinator {
     if let title, let continued {
       handles[id] = continued.begin(
         title: String(localized: "Recognising text", bundle: .module), subtitle: title,
-        onCancel: { [weak self] in self?.cancel(id) })
+        onCancel: { [weak self] in self?.stopForNow(id) })
     }
     jobs[id] = Task { await run(id) }
   }
@@ -105,12 +107,41 @@ public final class RecognitionCoordinator {
   /// Once the file has been replaced it is too late: the library is still brought up to date, and the
   /// reader still hears that the file was replaced.
   public func cancel(_ id: DocumentID) {
+    stoppedBySystem.remove(id)
     jobs[id]?.cancel()
   }
 
+  /// Stops recognising a document because the system ended the work, keeping the pages recognised so
+  /// far, so the next launch resumes from them (P8, #253).
+  ///
+  /// The system's interface gives one signal both when it ends the work and when a person cancels it
+  /// there, so both keep the pages; Cancel in the reader discards them.
+  func stopForNow(_ id: DocumentID) {
+    guard let job = jobs[id] else { return }
+    stoppedBySystem.insert(id)
+    job.cancel()
+  }
+
   /// Resumes every document whose recognition had not finished when the app last stopped.
+  ///
+  /// A file that already has text was replaced just before the app stopped, before its checkpoint
+  /// was discarded: it is not recognised again, which would give each page a second text layer, and
+  /// the library is brought up to date with it instead (#256).
   public func resumePending() async {
-    for id in await checkpoints.pending() { start(id) }
+    for id in await checkpoints.pending() {
+      if await hasText(id) {
+        await checkpoints.remove(id)
+        _ = try? await intake.refresh(id)
+      } else {
+        start(id)
+      }
+    }
+  }
+
+  /// Whether a document's file has text on any page; `false` when it can't be read.
+  private func hasText(_ id: DocumentID) async -> Bool {
+    guard let url = try? await library.fileURL(for: id) else { return false }
+    return (try? await PDFKitInspector().inspect(url))?.hasTextLayer == true
   }
 
   /// Waits until recognition of a document has ended, if it is running.
@@ -127,6 +158,7 @@ public final class RecognitionCoordinator {
       handles[id] = nil
       progress[id] = nil
       jobs[id] = nil
+      stoppedBySystem.remove(id)
     }
     let outcome: Outcome
     do {
@@ -177,7 +209,8 @@ public final class RecognitionCoordinator {
         outcome = .fileChanged
       }
     } catch is CancellationError {
-      await checkpoints.remove(id)
+      // Stopped by the system, the pages done so far are kept for the next launch (#253).
+      if !stoppedBySystem.contains(id) { await checkpoints.remove(id) }
       return
     } catch {
       outcome = .failed
