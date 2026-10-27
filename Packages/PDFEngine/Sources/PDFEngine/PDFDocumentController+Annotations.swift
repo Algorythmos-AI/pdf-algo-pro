@@ -436,8 +436,7 @@ extension PDFDocumentController {
   }
 
   func add(_ annotations: [(PDFAnnotation, PDFPage)]) {
-    // On the page that is in the document now, which a text edit may have swapped in (#269).
-    for (annotation, page) in annotations { livePage(for: page).addAnnotation(annotation) }
+    for (annotation, page) in annotations { page.addAnnotation(annotation) }
     redraw(annotations)
     hasUnsavedChanges = true
     undoManager.registerUndo(withTarget: self) { controller in
@@ -446,8 +445,7 @@ extension PDFDocumentController {
   }
 
   func remove(_ annotations: [(PDFAnnotation, PDFPage)]) {
-    // From the page it is on, which a text edit may have swapped in (#269).
-    for (annotation, page) in annotations { (annotation.page ?? livePage(for: page)).removeAnnotation(annotation) }
+    for (annotation, page) in annotations { page.removeAnnotation(annotation) }
     // A removed annotation is no longer the selection: nothing is left to frame or to act on.
     if let selected, annotations.contains(where: { $0.0 === selected.annotation }) { clearSelection() }
     redraw(annotations)

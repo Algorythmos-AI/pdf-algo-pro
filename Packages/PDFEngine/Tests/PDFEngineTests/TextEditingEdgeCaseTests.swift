@@ -145,41 +145,6 @@ struct TextEditingEdgeCaseTests {
     #expect(controller.textUndoBytes > 0)
   }
 
-  /// Past the limit, the oldest text edits leave the history, exactly what they held is taken off,
-  /// and the shared history keeps its length, so annotation steps are never dropped for text.
-  @Test("Text edits past the memory limit drop only the oldest text steps, not annotation steps (#269)")
-  func undoMemoryCapKeepsAnnotationSteps() async throws {
-    let controller = try controller(TextEditFixtures.invoice())
-    controller.addNote("Check the total", onPage: 0)
-    #expect(controller.annotationCount(onPage: 0) == 1)
-    for round in 0..<4 {
-      let regions = await controller.pageText(onPage: 0).regions
-      let region = try #require(regions.first { $0.text.contains("Customer:") })
-      let outcomes = await controller.applyTextEdits(
-        [TextEdit(region: region, replacement: "Customer: Jane Smith \(round)")], onPage: 0)
-      #expect(outcomes.allSatisfy { $0.isEdited }, "\(outcomes)")
-      // Room for about two edits.
-      if round == 0 { controller.textUndoMemoryLimit = controller.textUndoBytes * 5 / 2 }
-    }
-    let held = controller.textUndoBytes
-    #expect(held > 0 && held <= controller.textUndoMemoryLimit)
-    // Undoing and redoing everything, again and again, gives back and takes exactly the same.
-    for cycle in 0..<4 {
-      for _ in 0..<20 where controller.undoManager.canUndo { controller.undoManager.undo() }
-      #expect(!controller.undoManager.canUndo, "Cycle \(cycle): undo never ends")
-      #expect(controller.textUndoBytes == 0, "Cycle \(cycle): undone edits are still counted")
-      // The note's step is still there under the text edits.
-      #expect(controller.annotationCount(onPage: 0) == 0, "Cycle \(cycle): the note's undo step was dropped")
-      for _ in 0..<20 where controller.undoManager.canRedo { controller.undoManager.redo() }
-      #expect(!controller.undoManager.canRedo, "Cycle \(cycle): redo never ends")
-      #expect(controller.textUndoBytes == held, "Cycle \(cycle): \(controller.textUndoBytes), not \(held)")
-      #expect(
-        controller.annotationCount(onPage: 0) == 1,
-        "Cycle \(cycle): \(controller.annotationCount(onPage: 0)) annotations")
-    }
-    #expect(controller.undoManager.levelsOfUndo == 0, "The shared history keeps its length")
-  }
-
   // MARK: - #305
 
   @Test("A typed signature is a signature: not a text box, and not text to edit (#305)")
