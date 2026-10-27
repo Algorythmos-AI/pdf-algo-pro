@@ -89,7 +89,8 @@ public struct SubscriptionSection: View {
     let hadPro = entitlements.grantsPro
     let answer = await store.restorePurchases()
     await entitlements.refresh()
-    restoreOutcome = RestoreOutcome.after(answer, hasPro: entitlements.grantsPro)
+    restoreOutcome = RestoreOutcome.after(
+      answer, hasPro: entitlements.grantsPro, paused: entitlements.entitlement == .inBillingRetry)
     if let event = Self.event(answer, hadPro: hadPro, hasPro: entitlements.grantsPro) {
       await telemetry?.record(event)
     }

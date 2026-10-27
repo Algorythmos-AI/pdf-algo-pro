@@ -90,7 +90,8 @@ Store notes (see the changelog strategy).
   restore, or that the App Store couldn't be reached. Before, it said nothing when there was
   nothing to restore, and asked you to check your Apple Account when you were offline or had
   cancelled the sign-in. Cancelling now says nothing, and a second tap while a restore runs is
-  ignored.
+  ignored. While Pro is paused because a payment failed, it says so and points to Manage
+  subscription, rather than that there is nothing to restore.
 - App Lock: after the cover goes away, for example when you come back from Notification Center,
   typing goes on in the field you were typing in. Before, the keyboard could be given to another
   of the app's windows, and typing stopped until you tapped the field again.
