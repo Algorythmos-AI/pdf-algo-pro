@@ -36,8 +36,8 @@
       recognizer.delegate = self
       addGestureRecognizer(recognizer)
       isAccessibilityElement = true
-      // The engine has no resource bundle, so the label is looked up in the app's string catalog.
-      accessibilityLabel = String(localized: "Drawing area", comment: "VoiceOver label for the layer that draws ink")
+      accessibilityLabel = String(
+        localized: "Drawing area", bundle: .module, comment: "VoiceOver label for the layer that draws ink")
       accessibilityTraits = .allowsDirectInteraction
       accessibilityIdentifier = AccessibilityID.Reader.drawing
     }

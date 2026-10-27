@@ -52,7 +52,8 @@ run emit AccessibilityIDs non Packages/Core/Sources/AccessibilityIDs
 run emit Core non Packages/Core/Sources/Core
 run emit CoreTestSupport non Packages/Core/Sources/CoreTestSupport
 run emit DesignSystem main Packages/DesignSystem/Sources/DesignSystem bundle
-for m in PDFEngine DocumentStore OCR Scanning Search Intelligence Telemetry RemoteConfig Commerce; do
+run emit PDFEngine non Packages/PDFEngine/Sources/PDFEngine bundle
+for m in DocumentStore OCR Scanning Search Intelligence Telemetry RemoteConfig Commerce; do
   run emit $m non Packages/$m/Sources/$m
 done
 run emit CommerceTestSupport non Packages/Commerce/Sources/CommerceTestSupport

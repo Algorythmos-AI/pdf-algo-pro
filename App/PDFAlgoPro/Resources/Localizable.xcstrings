@@ -31,18 +31,6 @@
         }
       }
     },
-    "Drawing area" : {
-      "comment" : "VoiceOver label for the layer that draws ink",
-      "extractionState" : "stale",
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Zone de dessin"
-          }
-        }
-      }
-    },
     "Generated on this device. Check important details in the document." : {
       "localizations" : {
         "fr" : {
@@ -99,16 +87,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ouvre le scanner pour créer un PDF avec recherche, sur cet appareil."
-          }
-        }
-      }
-    },
-    "Page %lld" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Page %lld"
           }
         }
       }
