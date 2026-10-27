@@ -1068,7 +1068,9 @@ public final class ReaderModel {
       // Straight after the write, before the file presenter hears of it, so it isn't taken for
       // another app's change.
       knownVersion = try? FileVersion(url)
-      try await library.recordModified(documentID)
+      // The file has every change now, so the save succeeded and counts as done; a library record that
+      // can't follow it is no failed save (#234).
+      try? await library.recordModified(documentID)
       canRestorePreviousVersion = await library.hasPreviousVersion(of: documentID)
       await telemetry.record("task.core.completed")
       return true
