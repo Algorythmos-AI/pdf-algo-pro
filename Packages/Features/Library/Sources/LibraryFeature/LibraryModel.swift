@@ -454,7 +454,8 @@ public final class LibraryModel {
   /// writes them again.
   private func reindex(_ document: Core.Document) async {
     do {
-      try await index.index(document, pages: try await index.pages(of: document.id))
+      // Spotlight only: the stored text isn't written, so a refresh landing meanwhile keeps its own.
+      try await index.updateDetails(of: document)
     } catch {
       await telemetry.record("quality.operation.failed")
     }
