@@ -135,6 +135,9 @@ When that class passed, they are done; check them by hand only when it failed.
 9. **Report a problem.** Settings › Report a problem opens Mail with a summary that holds no document
    names or text.
 10. **VoiceOver.** Run the [VoiceOver script](voiceover-script.md).
+11. **Rate PDF Algo Pro (after release).** Settings › About › Rate PDF Algo Pro opens the App Store's
+    review page for the app. The page loads only once 1.0 is live on the App Store, so before then a page
+    that doesn't load is expected, not a defect.
 
 ## Runs
 
