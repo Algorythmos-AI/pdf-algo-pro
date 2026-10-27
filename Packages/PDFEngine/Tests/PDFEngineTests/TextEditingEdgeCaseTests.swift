@@ -100,6 +100,22 @@ struct TextEditingEdgeCaseTests {
     #expect(result.outcomes.last == .refused(.unsupportedCharacters), "The edit at fault still says why")
   }
 
+  /// A good edit in a batch that failed is not given another edit's reason: a line that fits is
+  /// never reported as too long.
+  @Test(
+    "A good edit in a failed batch is not blamed for the edit at fault (#268)",
+    arguments: ["", String(repeating: "A much longer description of the materials used ", count: 8)])
+  func goodEditIsNotBlamed(faulty replacement: String) async throws {
+    let (page, regions) = try await prepared(TextEditFixtures.invoice())
+    let good = TextEdit(
+      region: try #require(regions.first { $0.text.contains("John Smith") }), replacement: "Customer: David Smith")
+    let faulty = TextEdit(
+      region: try #require(regions.first { $0.text.contains("Materials") }), replacement: replacement)
+    let result = await editor.applying([good, faulty], toPage: page)
+    #expect(result.page == nil && !result.outcomes.contains { $0.isEdited }, "\(result.outcomes)")
+    #expect(result.outcomes.first != result.outcomes.last, "The good edit says \(result.outcomes)")
+  }
+
   // MARK: - #269
 
   @Test("Invisible text set with a real-number rendering mode is not offered (#269)", arguments: ["3", "3.0"])

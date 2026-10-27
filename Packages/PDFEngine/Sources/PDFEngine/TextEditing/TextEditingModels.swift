@@ -78,6 +78,9 @@ public enum TextEditRefusal: String, Hashable, Sendable, CaseIterable {
   case stale
   /// The work took longer than it is allowed; nothing was changed.
   case timedOut
+  /// This edit could have been made, but another edit given with it could not, and edits given
+  /// together are made together or not at all; nothing was changed.
+  case otherEditFailed
 }
 
 extension TextEditRefusal {
@@ -90,7 +93,7 @@ extension TextEditRefusal {
     case .notVerified, .overlapsOtherContent, .unsupportedFont, .unsupportedDrawing, .unsupportedScript,
       .pageNotEditable, .spacedColumns:
       true
-    case .scanned, .restricted, .unsupportedCharacters, .stale, .timedOut: false
+    case .scanned, .restricted, .unsupportedCharacters, .stale, .timedOut, .otherEditFailed: false
     }
   }
 }

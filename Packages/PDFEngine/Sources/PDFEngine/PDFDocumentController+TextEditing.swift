@@ -651,7 +651,9 @@ extension PDFDocumentController {
   public func applyTextEdits(_ edits: [TextEdit], onPage pageIndex: Int) async -> [TextEditOutcome] {
     let started = ContinuousClock.now
     let outcomes = await makeTextEdits(edits, onPage: pageIndex)
-    noteEdit(outcomes.first { !$0.isEdited } ?? outcomes.first, since: started)
+    // The edit at fault, not one that was only held back with it.
+    noteEdit(
+      outcomes.first { !$0.isEdited && $0 != .refused(.otherEditFailed) } ?? outcomes.first, since: started)
     return outcomes
   }
 
