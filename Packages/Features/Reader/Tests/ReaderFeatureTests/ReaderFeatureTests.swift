@@ -1750,6 +1750,25 @@ struct ReaderTextEditingTests {
     #expect(reader.textEditNotice == nil && controller.annotationCount(onPage: 0) == 0)
   }
 
+  /// With nothing left to undo, the notice's Undo puts the notice away rather than doing nothing (#269).
+  @Test("Undo on the notice with nothing left to undo puts the notice away")
+  func coveredInsteadUndoWithNothingToUndo() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try TextEditFixtures.invoice())
+    let reader = harness.reader(for: document, editor: RefusingEditor(rehearsalsFail: false))
+    await reader.load()
+    await reader.beginTextEditing()
+    try await pick("John Smith", in: reader)
+    #expect(await reader.commitTextEdit("Customer: David Smith"))
+    #expect(reader.textEditNotice == .coveredInstead)
+    let controller = try #require(reader.controller)
+    // As after an edit that could not be saved was put back: the history is gone.
+    controller.undoManager.removeAllActions()
+    await reader.undoCoverInstead()
+    #expect(reader.textEditNotice == nil, "The notice's Undo did nothing and the notice stayed")
+    #expect(controller.annotationCount(onPage: 0) == 2, "Nothing could be undone, so the cover stays")
+  }
+
   @Test("On a page that cannot be edited, the editor says it will cover before a letter is typed")
   func unprovablePageSaysSoFirst() async throws {
     let harness = Harness()
