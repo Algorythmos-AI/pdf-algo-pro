@@ -111,6 +111,9 @@ Store notes (see the changelog strategy).
   nothing to restore, and asked you to check your Apple Account when you were offline or had
   cancelled the sign-in. Cancelling now says nothing, and a second tap while a restore runs is
   ignored.
+- App Lock: after the cover goes away, for example when you come back from Notification Center,
+  typing goes on in the field you were typing in. Before, the keyboard could be given to another
+  of the app's windows, and typing stopped until you tapped the field again.
 - Editing text (internal builds): a name pasted from a web page with a hidden soft hyphen or
   zero-width space is now changed in the page. Before, the hidden character made the change fail,
   the line was covered instead, and every other line on that page could then only be covered.
