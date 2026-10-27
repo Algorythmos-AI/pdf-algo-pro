@@ -272,6 +272,13 @@ points against the baseline recorded at the last release, even while it stays un
 change in accuracy caused by a new operating-system version is recorded in
 [working memory](working-memory.md) and the baseline is re-recorded in its own pull request.
 
+**iOS 27 (PAP-069).** The gates are the same on every system. iOS 27.0 reads French ligatures and
+accents worse than iOS 26.5 (#308). On the full corpus it still meets the word-error gate (2.99% with
+the line recogniser and 3.07% as a document, against 2.29% and 2.39% on iOS 26.5;
+[run 40469533664](https://github.com/Algorythmos-AI/pdf-algo-pro/actions/runs/40469533664)), but
+on the three-page subset a few misread words take it over 5%. On iOS 27 or later only the subset's
+French clean word-error check is marked as a known issue; the full corpus is gated without one.
+
 ### What runs today
 
 `OCRAccuracyTests` generates the corpus at run time (`OCRCorpus`) and runs it through

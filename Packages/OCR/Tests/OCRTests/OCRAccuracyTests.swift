@@ -30,9 +30,12 @@ struct OCRAccuracyTests {
   /// Whether this system reads French worse than the gate allows, a known issue (#308).
   ///
   /// iOS 27.0's recogniser misreads French ligatures and accents ("vitæ" as "vita", "sœur" as
-  /// "sceur", "signé" as "signe"), with or without language correction, and no request setting
-  /// avoids it. The gate stays 5% on every system for consistency (owner's decision, 2026-10-26,
-  /// PAP-069); on iOS 27 or later only the French clean word-error check is marked as a known issue.
+  /// "sceur", "signé" as "signe") more often than iOS 26.5, with or without language correction,
+  /// and no request setting avoids it. On the full corpus it still meets the 5% gate (3.0% of
+  /// words against 2.3% on iOS 26.5, run 40469533664); on the three-page subset a few misread
+  /// words take it over. The gate stays 5% on every system for consistency (owner's decisions,
+  /// 2026-10-26 and 2026-10-27, PAP-069); on iOS 27 or later only the subset's French clean
+  /// word-error check is marked as a known issue, and the full corpus is gated without a marker.
   /// When Apple fixes the recogniser the check passes, Swift Testing reports that the known issue
   /// no longer occurs, and this marker is removed.
   static var readsFrenchWorse: Bool {
@@ -103,7 +106,7 @@ struct OCRAccuracyTests {
                 + "not gated |")
             continue
           }
-          let knownIssue = language == .french && condition == .clean && Self.readsFrenchWorse
+          let knownIssue = language == .french && condition == .clean && Self.readsFrenchWorse && !Self.isFullSuite
           let passesCER = score.characterErrorRate <= gate.cer
           let passesWER = gate.wer.map { score.wordErrorRate <= $0 } ?? true
           let verdict =
@@ -123,8 +126,9 @@ struct OCRAccuracyTests {
               )
             }
             if knownIssue {
-              // Known issue (#308): the 5% gate stands; on iOS 27 French misses it. If this check
-              // passes here, Swift Testing reports the known issue as gone: remove this marker.
+              // Known issue (#308): the 5% gate stands; on iOS 27 the three-page French subset
+              // misses it. If this check passes here, Swift Testing reports the known issue as
+              // gone: remove this marker.
               withKnownIssue("iOS 27 reads French ligatures and accents worse (#308); gate stays \(wer)") {
                 check()
               }
