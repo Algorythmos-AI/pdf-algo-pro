@@ -612,17 +612,24 @@ extension GoldenCorpusTests {
 @MainActor
 @Suite("Text editing: undo memory")
 struct TextEditingUndoMemoryTests {
-  @Test("The undo history is shortened once the pages it keeps pass the limit")
+  @Test("Past the limit the oldest text edits leave the history, and the history keeps its length")
   func bounded() throws {
     let controller = try PDFDocumentController(data: TextEditFixtures.invoice())
-    #expect(controller.undoManager.levelsOfUndo == 0, "Unlimited until there is a reason")
-    controller.limitUndoMemory(adding: 1_000_000)
-    #expect(controller.undoManager.levelsOfUndo == 0 && controller.textUndoBytes == 1_000_000)
-    controller.limitUndoMemory(adding: PDFDocumentController.undoMemoryLimit)
-    #expect(controller.undoManager.levelsOfUndo == 32)
-    #expect(controller.textUndoBytes <= PDFDocumentController.undoMemoryLimit)
-    for _ in 0..<10 { controller.limitUndoMemory(adding: PDFDocumentController.undoMemoryLimit) }
-    #expect(controller.undoManager.levelsOfUndo == 4, "Never shorter than a few steps")
+    #expect(controller.textUndoMemoryLimit == PDFDocumentController.undoMemoryLimit)
+    let steps = (0..<4).map { _ in TextUndoStep(bytes: 40) }
+    for step in steps {
+      controller.undoManager.registerUndo(withTarget: step) { _ in }
+      controller.textUndoSteps.append(step)
+    }
+    controller.limitUndoMemory()
+    #expect(controller.textUndoBytes == 160, "Within the limit, nothing leaves")
+    controller.textUndoMemoryLimit = 100
+    controller.limitUndoMemory()
+    #expect(controller.textUndoBytes == 80 && controller.textUndoSteps.first === steps[2], "Oldest first, exactly")
+    controller.textUndoMemoryLimit = 10
+    controller.limitUndoMemory()
+    #expect(controller.textUndoSteps.count == 1 && controller.textUndoSteps.first === steps[3], "The newest stays")
+    #expect(controller.undoManager.levelsOfUndo == 0, "The shared history keeps its length")
   }
 }
 
