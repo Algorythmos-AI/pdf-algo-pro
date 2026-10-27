@@ -812,12 +812,14 @@ struct ReaderModelTests {
   /// French titles are longer; the bar must not wrap them or break "Supprimer" in two (#303).
   ///
   /// The bar takes the roomiest arrangement whose row fits on one line, as its unseen ViewThatFits
-  /// does; this lays each row out at its ideal width the same way, in English and in French.
+  /// does, and stacks when none does; this lays each row out at its ideal width the same way, in
+  /// English and in French.
   @Test(
-    "In French the selection bar for a text box follows the same rule as in English, and never wraps where a row fits",
-    arguments: [DynamicTypeSize.large, .accessibility3])
+    "In French the selection bar for a text box follows the same rule as in English, and keeps Edit text on the bar",
+    arguments: [DynamicTypeSize.large, .accessibility3, .accessibility5])
   func selectionBarFitsInFrench(size: DynamicTypeSize) throws {
     let room: CGFloat = 390 - 2 * SelectionBar.padding
+    let rows: [SelectionBar.Arrangement] = [.everything, .styleAndCopyInMore, .deleteInMore]
     func width(of arrangement: SelectionBar.Arrangement, in language: String) -> CGFloat {
       let bar = SelectionBar(
         selection: AnnotationSelection(kind: .textBox, pageIndex: 0, text: "Text"), onEdit: {}, onDelete: {},
@@ -827,18 +829,55 @@ struct ReaderModelTests {
       return ViewRendering.image(of: row)?.size.width ?? .infinity
     }
     func arrangement(in language: String) -> SelectionBar.Arrangement {
-      SelectionBar.Arrangement.allCases.first { width(of: $0, in: language) <= room } ?? .allInMore
+      rows.first { width(of: $0, in: language) <= room } ?? .stacked
     }
     let english = arrangement(in: "en")
     let french = arrangement(in: "fr")
     // French is longer, so it never gets a roomier arrangement than English.
     #expect(french.rawValue >= english.rawValue, "French: \(french), English: \(english)")
-    // Each language's row fits on one line, unless even the last doesn't; then both share it.
-    let frenchFits = width(of: french, in: "fr") <= room
-    #expect(frenchFits || english == .allInMore, "French wraps in \(french) while English has \(english)")
-    if size == .large {
-      #expect(english != .allInMore, "In English, Edit text is a button on the bar at the default size")
+    // A row is used only where it fits on one line; otherwise the bar stacks.
+    #expect(french == .stacked || width(of: french, in: "fr") <= room, "French wraps in \(french)")
+    // Edit text is on the bar in every language at every size: never under More.
+    for chosen in [english, french] {
+      #expect(!SelectionBar.underMore(in: chosen).contains(.editText), "Edit text is under More in \(chosen)")
     }
+    #expect(SelectionBar.Arrangement.allCases.allSatisfy { !SelectionBar.underMore(in: $0).contains(.editText) })
+    // Style and Copy go under More first, then Delete.
+    #expect(SelectionBar.underMore(in: .styleAndCopyInMore) == [.style, .copy])
+    #expect(SelectionBar.underMore(in: .deleteInMore) == [.style, .copy, .delete])
+  }
+
+  /// Wrapped, Edit text breaks only between words, never inside one, so no word is hyphenated (#303).
+  @Test("Edit text wraps only between its words, in French as in English")
+  func editTextWrapsOnlyBetweenWords() {
+    #expect(SelectionBar.editTextWords(locale: Locale(identifier: "fr")) == ["Modifier", "le", "texte"])
+    #expect(SelectionBar.editTextWords(locale: Locale(identifier: "en")) == ["Edit", "text"])
+    // Each word is laid out whole: lines end only between words, and a word wider than the line has
+    // a line to itself rather than being broken.
+    let widths: [CGFloat] = [80, 20, 50]
+    #expect(WordFlow.lines(widths: widths, maxWidth: 200, spacing: 5) == [[0, 1, 2]])
+    #expect(WordFlow.lines(widths: widths, maxWidth: 110, spacing: 5) == [[0, 1], [2]])
+    #expect(WordFlow.lines(widths: widths, maxWidth: 60, spacing: 5) == [[0], [1], [2]])
+    #expect(WordFlow.lines(widths: widths, maxWidth: 30, spacing: 5) == [[0], [1], [2]])
+    #expect(WordFlow.lines(widths: [], maxWidth: 30, spacing: 5).isEmpty)
+    // Stacked at the largest size, the bar draws in both languages.
+    for language in ["en", "fr"] {
+      let bar = SelectionBar(
+        selection: AnnotationSelection(kind: .textBox, pageIndex: 0, text: "Text"), onEdit: {}, onDelete: {},
+        onDone: {}, onMove: { _ in }, onResize: { _ in }, onColor: { _ in }
+      )
+      .row(.stacked).frame(width: 390 - 2 * SelectionBar.padding)
+      .environment(\.locale, Locale(identifier: language)).environment(\.dynamicTypeSize, .accessibility5)
+      #expect(ViewRendering.draws(bar))
+    }
+  }
+
+  /// With the title hidden, the bar itself carries Move up, down, left and right (#303).
+  @Test("When the stacked bar hides its title, the bar carries the Move actions")
+  func moveActionsWhenTheTitleIsHidden() {
+    #expect(SelectionBar.barCarriesMoveActions(titleShown: false, isMovable: true))
+    #expect(!SelectionBar.barCarriesMoveActions(titleShown: true, isMovable: true), "The title carries them")
+    #expect(!SelectionBar.barCarriesMoveActions(titleShown: false, isMovable: false), "Nothing to move")
   }
 
   @Test("Layout choices are remembered")
