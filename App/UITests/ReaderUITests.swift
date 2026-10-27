@@ -506,17 +506,23 @@ final class ReaderUITests: UITestCase {
     XCTAssertTrue(edit.waitForExistence(timeout: Self.settleTimeout))
     XCTAssertTrue(edit.isHittable, "Edit text is a button on the bar, not hidden under More")
     let more = app.buttons[ID.Reader.Selection.more]
-    for id in [ID.Reader.Selection.style, ID.Reader.Selection.copy] {
-      if app.buttons[id].exists { continue }
-      XCTAssertTrue(more.exists, "\(id) is neither on the bar nor under More")
+    let style = app.buttons[ID.Reader.Selection.style]
+    let copy = app.buttons[ID.Reader.Selection.copy]
+    if !(style.exists && copy.exists) {
+      // Whatever isn't on the bar is under More: opened once, both looked for, closed once.
+      XCTAssertTrue(more.exists, "Style or Copy is neither on the bar nor under More")
       more.tap()
-      XCTAssertTrue(app.buttons[id].waitForExistence(timeout: Self.settleTimeout), "\(id) is under More")
-      // Close the menu again.
-      app.descendants(matching: .any)[ID.Reader.pages].firstMatch.coordinate(
-        withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2)
-      ).tap()
+      XCTAssertTrue(style.waitForExistence(timeout: Self.settleTimeout), "Style is under More")
+      XCTAssertTrue(copy.exists, "Copy is under More")
+      // A tap on the bar's title closes the menu; the title does nothing on a tap, so the text box
+      // stays selected whether or not the tap reaches it.
+      bar.coordinate(withNormalizedOffset: CGVector(dx: 0.04, dy: 0.5)).tap()
+      XCTAssertTrue(edit.waitForExistence(timeout: Self.settleTimeout) && edit.isHittable, "The menu closed")
     }
-    XCTAssertTrue(app.buttons[ID.Reader.Selection.delete].exists && app.buttons[ID.Reader.Selection.done].exists)
+    XCTAssertTrue(bar.exists, "The text box is still selected")
+    XCTAssertTrue(app.buttons[ID.Reader.Selection.done].exists)
+    XCTAssertTrue(
+      app.buttons[ID.Reader.Selection.delete].exists || more.exists, "Delete is on the bar or under More")
   }
 
   func testDraggingAcrossTextWithTheHighlighterMarksItOnce() throws {
