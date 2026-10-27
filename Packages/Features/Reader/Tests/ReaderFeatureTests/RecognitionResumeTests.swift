@@ -14,14 +14,22 @@ import Testing
 struct RecognitionResumeTests {
   private let library = FakeDocumentLibrary()
   private let folder = FileManager.default.temporaryDirectory.appendingPathComponent("checkpoints-\(UUID())")
+  private let index = FakeIndex()
 
-  private func coordinator(
+  private var intake: DocumentIntake { DocumentIntake(library: library, inspector: PDFKitInspector(), index: index) }
+
+  private func makeCoordinator(
     recognizer: any TextRecognizing = FakeRecognizer(), continued: (any ContinuedWork)? = nil
   ) -> RecognitionCoordinator {
     RecognitionCoordinator(
-      library: library, intake: DocumentIntake(library: library, inspector: PDFKitInspector(), index: FakeIndex()),
-      builder: SearchablePDFBuilder(recognizer: recognizer, renderPixelSize: 400), telemetry: RecordingTelemetry(),
-      folder: folder, keepAlive: BackgroundLog().begin, continued: continued)
+      library: library, intake: intake, builder: SearchablePDFBuilder(recognizer: recognizer, renderPixelSize: 400),
+      telemetry: RecordingTelemetry(), folder: folder, keepAlive: BackgroundLog().begin, continued: continued)
+  }
+
+  private func makeReader(for id: DocumentID, recognition: RecognitionCoordinator) -> ReaderModel {
+    ReaderModel(
+      selection: id, library: library, intake: intake, index: index, settings: InMemorySettingsStore(),
+      telemetry: RecordingTelemetry(), recognition: recognition, signatures: InMemorySignatureStore())
   }
 
   private func seedImageOnly(pages: [String]) async throws -> Core.Document {
@@ -35,7 +43,7 @@ struct RecognitionResumeTests {
     (FileManager.default.subpaths(atPath: folder.path) ?? []).sorted()
   }
 
-  @Test("When the system ends recognition, the pages done so far are kept and the next launch resumes (#253)")
+  @Test("Cancel in the Live Activity keeps the pages done and the file; the reader offers to resume from them (#253)")
   func systemStopKeepsTheCheckpoint() async throws {
     let document = try await seedImageOnly(pages: ["One", "Two", "Three"])
     let url = try await library.fileURL(for: document.id)
@@ -43,12 +51,13 @@ struct RecognitionResumeTests {
     let checkpoints = RecognitionCheckpoints(folder: folder)
     let recognizer = HeldOnSecondPage()
     let continued = ContinuedLog()
-    let first = coordinator(recognizer: recognizer, continued: continued)
+    let first = makeCoordinator(recognizer: recognizer, continued: continued)
 
     first.start(document.id, startedFor: "Scan")
     for _ in 0..<500 where await !recognizer.isWaiting { try await Task.sleep(for: .milliseconds(10)) }
     try #require(await recognizer.isWaiting, "Recognition reached the second page")
-    // The system ends the continued work: its expiration handler is the `onCancel` the coordinator gave.
+    // Cancel in the Live Activity, or the system ending the work: either runs the expiration handler,
+    // which is the `onCancel` the coordinator gave.
     let stop = try #require(continued.cancel, "The coordinator asked the system to keep the work going")
     stop()
     await recognizer.open()
@@ -58,21 +67,41 @@ struct RecognitionResumeTests {
     #expect(continued.handles.first?.finished == false, "The system hears the work did not finish")
     #expect(
       await checkpoints.pending() == [document.id],
-      "The checkpoint must survive a system stop; the folder holds: \(checkpointFiles())")
+      "The checkpoint must survive a stop from the system's interface; the folder holds: \(checkpointFiles())")
     // The second page may be kept too: its lines arrive as the stop is heard.
     let kept = await checkpoints.pages(of: document.id).keys.sorted()
     #expect(kept.first == 0, "The first page's lines must be kept; the folder holds: \(checkpointFiles())")
 
-    // The next launch resumes from the pages already done.
+    // The next launch doesn't resume it: the file never changes after a Cancel without the person.
     let counting = CountingPages()
-    let next = coordinator(recognizer: counting)
+    let next = makeCoordinator(recognizer: counting)
     await next.resumePending()
+    let resumedAtLaunch = next.isRecognizing(document.id)
     await next.finished(document.id)
+    let recognizedAtLaunch = await counting.count
+    let pendingAtLaunch = await checkpoints.pending()
+    #expect(!resumedAtLaunch, "Recognition stopped from the system's interface was resumed at launch")
+    #expect(
+      try Data(contentsOf: url) == original, "The file changed after a Cancel; \(recognizedAtLaunch) pages recognised")
+    #expect(
+      next.isStopped(document.id) && pendingAtLaunch == [document.id],
+      "Stopped: \(next.isStopped(document.id)); pending: \(pendingAtLaunch)")
+
+    // The reader offers to resume, and resuming goes on from the pages kept.
+    let reader = makeReader(for: document.id, recognition: next)
+    await reader.load()
+    #expect(
+      reader.canResumeRecognition, "Resume recognising must be offered; can recognise: \(reader.canRecognizeText)")
+    reader.recognizeText()
+    for _ in 0..<500 where reader.recognitionProgress != nil { try await Task.sleep(for: .milliseconds(20)) }
     let recognizedAgain = await counting.count
     #expect(
-      recognizedAgain == 3 - kept.count, "Kept pages \(kept); pages recognised at the next launch: \(recognizedAgain)")
+      recognizedAgain == 3 - kept.count, "Kept pages \(kept); pages recognised on resuming: \(recognizedAgain)")
     #expect((PDFDocument(url: url)?.string ?? "").contains("Recognised text"))
     #expect(try await library.document(withID: document.id)?.hasTextLayer == true)
+    #expect(!reader.canResumeRecognition && !next.isStopped(document.id))
+    #expect(await checkpoints.pending().isEmpty, "The folder holds: \(checkpointFiles())")
+    reader.stopWatching()
   }
 
   @Test("Cancel in the reader still discards the pages done so far, after the system tried to stop it too")
@@ -81,7 +110,7 @@ struct RecognitionResumeTests {
     let checkpoints = RecognitionCheckpoints(folder: folder)
     let recognizer = HeldOnSecondPage()
     let continued = ContinuedLog()
-    let coordinator = coordinator(recognizer: recognizer, continued: continued)
+    let coordinator = makeCoordinator(recognizer: recognizer, continued: continued)
 
     coordinator.start(document.id, startedFor: "Scan")
     for _ in 0..<500 where await !recognizer.isWaiting { try await Task.sleep(for: .milliseconds(10)) }
@@ -92,6 +121,7 @@ struct RecognitionResumeTests {
     await coordinator.finished(document.id)
 
     #expect(await checkpoints.pending().isEmpty, "The folder holds: \(checkpointFiles())")
+    #expect(!coordinator.isStopped(document.id))
   }
 
   @Test("A file replaced just before the app stopped is not recognised again at the next launch (#256)")
@@ -107,7 +137,7 @@ struct RecognitionResumeTests {
     try searchable.data.write(to: url, options: .atomic)
     let written = try Data(contentsOf: url)
     let counting = CountingPages()
-    let coordinator = coordinator(recognizer: counting)
+    let coordinator = makeCoordinator(recognizer: counting)
 
     await coordinator.resumePending()
     let wasRecognizing = coordinator.isRecognizing(document.id)
