@@ -17,7 +17,8 @@ public struct SubscriptionSection: View {
   private let onSeePlans: () -> Void
   @State private var managesSubscription = false
   @State private var redeemsCode = false
-  @State private var restoreFailed = false
+  @State private var restoreOutcome: RestoreOutcome?
+  @State private var isRestoring = false
 
   /// Creates the section; `onSeePlans` opens the subscription offer, and `telemetry` hears of a
   /// restore that brought Pro back or could not be made.
@@ -53,10 +54,12 @@ public struct SubscriptionSection: View {
       }
       .accessibilityIdentifier(AccessibilityID.Settings.Subscription.manage)
       Button {
-        Task { restoreFailed = !(await restore()) }
+        Task { await restore() }
       } label: {
         Text("Restore purchases", bundle: .module)
       }
+      // One restore at a time: a second tap would only ask the App Store again (#247).
+      .disabled(isRestoring)
       .accessibilityIdentifier(AccessibilityID.Settings.Subscription.restore)
       Button {
         redeemsCode = true
@@ -75,32 +78,26 @@ public struct SubscriptionSection: View {
     }
     .manageSubscriptionsSheet(isPresented: $managesSubscription)
     .offerCodeRedemption(isPresented: $redeemsCode)
-    .alert(Text("Restore purchases", bundle: .module), isPresented: $restoreFailed) {
-      Button {
-      } label: {
-        Text("OK", bundle: .module)
-      }
-    } message: {
-      Text(
-        "Nothing could be restored. Check that you are signed in to the App Store with the account that bought Pro.",
-        bundle: .module)
-    }
+    .restoreAlert($restoreOutcome)
   }
 
-  /// Asks the App Store again, then reads the entitlement that results.
-  private func restore() async -> Bool {
+  /// Asks the App Store again, then reads the entitlement that results and says how it ended.
+  private func restore() async {
+    guard !isRestoring else { return }
+    isRestoring = true
+    defer { isRestoring = false }
     let hadPro = entitlements.grantsPro
-    let answered = await store.restorePurchases()
+    let answer = await store.restorePurchases()
     await entitlements.refresh()
-    if let event = Self.event(answered: answered, hadPro: hadPro, hasPro: entitlements.grantsPro) {
+    restoreOutcome = RestoreOutcome.after(answer, hasPro: entitlements.grantsPro)
+    if let event = Self.event(answer, hadPro: hadPro, hasPro: entitlements.grantsPro) {
       await telemetry?.record(event)
     }
-    return answered
   }
 
   /// What a restore is recorded as; `nil` when it changed nothing worth counting.
-  static func event(answered: Bool, hadPro: Bool, hasPro: Bool) -> String? {
-    if !answered { return "commerce.restore.failed" }
+  static func event(_ answer: RestoreAnswer, hadPro: Bool, hasPro: Bool) -> String? {
+    if answer != .synced { return "commerce.restore.failed" }
     return !hadPro && hasPro ? "commerce.purchase.restored" : nil
   }
 

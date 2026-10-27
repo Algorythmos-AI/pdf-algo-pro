@@ -106,6 +106,11 @@ Store notes (see the changelog strategy).
   until the App Store's renewal reached the device.
 - Pro: a subscriber whose payment is being retried in the App Store's grace period keeps Pro when
   the subscription's state can't be read, for example offline. Before, Pro could switch off.
+- Restore purchases now says how it went: that Pro is back, that this Apple Account has nothing to
+  restore, or that the App Store couldn't be reached. Before, it said nothing when there was
+  nothing to restore, and asked you to check your Apple Account when you were offline or had
+  cancelled the sign-in. Cancelling now says nothing, and a second tap while a restore runs is
+  ignored.
 - Editing text (internal builds): a name pasted from a web page with a hidden soft hyphen or
   zero-width space is now changed in the page. Before, the hidden character made the change fail,
   the line was covered instead, and every other line on that page could then only be covered.
