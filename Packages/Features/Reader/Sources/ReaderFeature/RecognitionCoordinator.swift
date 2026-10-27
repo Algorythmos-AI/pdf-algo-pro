@@ -156,14 +156,32 @@ public final class RecognitionCoordinator {
       // Stopped during the last page: the builder has finished, but the file is left as it was.
       try Task.checkCancellation()
       // No suspension between these checks and the write, so no save can slip in between.
+      var replaced = false
       if watchers[id]?.canReplace() ?? true, try FileVersion(url) == version {
-        // Like a save, replacing the file keeps the version from before it (FR-EDIT-008, first step).
-        if let previous {
-          let fileManager = FileManager.default
-          if fileManager.fileExists(atPath: previous.path) { try fileManager.removeItem(at: previous) }
-          try fileManager.copyItem(at: url, to: previous)
+        // Like a save, replacing the file keeps the version from before it (FR-EDIT-008, first step), and
+        // is coordinated, so other apps and the library's restores never meet it half written (#270).
+        var coordinationError: NSError?
+        var writeError: (any Error)?
+        NSFileCoordinator(filePresenter: nil).coordinate(
+          writingItemAt: url, options: .forReplacing, error: &coordinationError
+        ) { target in
+          // Another app may have written the file while this write waited its turn; theirs is kept.
+          guard (try? FileVersion(target)) == version else { return }
+          do {
+            if let previous {
+              let fileManager = FileManager.default
+              if fileManager.fileExists(atPath: previous.path) { try fileManager.removeItem(at: previous) }
+              try fileManager.copyItem(at: target, to: previous)
+            }
+            try result.data.write(to: target, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+            replaced = true
+          } catch {
+            writeError = error
+          }
         }
-        try result.data.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+        if let error = writeError ?? coordinationError { throw error }
+      }
+      if replaced {
         // The file is replaced, so the reader must not save the document it shows over it, and stopping
         // now is too late: the library is brought up to date even if recognition is cancelled meanwhile,
         // and the reader hears the outcome (#219).
