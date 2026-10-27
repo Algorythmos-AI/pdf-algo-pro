@@ -37,7 +37,7 @@ public struct DocumentIntake: Sendable {
   ///     and Spotlight whatever else fails.
   /// - Returns: the change's number, to pass to `saveFinished(_:change:)`.
   @discardableResult
-  public func willChange(_ id: DocumentID, protecting: Bool = false) async -> Int? {
+  public func willChange(_ id: DocumentID, protecting: Bool? = nil) async -> Int? {
     // If the list can't be written, the change still goes ahead; only its retry is lost.
     try? await pending?.add(id, protecting: protecting, saved: false)
   }
@@ -85,13 +85,22 @@ public struct DocumentIntake: Sendable {
         continue
       } catch {
         failed += 1
-        let removedWords = owed.protects ? (try? await index.remove(id)) != nil : true
-        let failures = await pending.owed(id)?.failures ?? Self.attempts
-        if failures >= Self.attempts, removedWords {
+        // As the refresh left it: protection is cleared once the file was read and isn't locked.
+        let now = await pending.owed(id) ?? owed
+        var mayGiveUp = true
+        if now.protects {
+          // The words must be out of search before anything is given up; tried every time.
+          mayGiveUp = (try? await index.remove(id)) != nil
+          if mayGiveUp { try? await pending.wordsRemoved(id) }
+        } else if now.wordsRemoved == true {
+          // Taken out while it seemed protected, and it isn't: kept until a refresh puts them back.
+          mayGiveUp = false
+        }
+        if now.failures >= Self.attempts, mayGiveUp {
           try? await pending.remove(id)
           // Given up: the file's change counts as seen, so the next launch doesn't find it again
           // and start over (#242).
-          if !owed.protects { try? await library.recordModified(id) }
+          if !now.protects { try? await library.recordModified(id) }
         }
       }
     }
@@ -197,7 +206,13 @@ public struct DocumentIntake: Sendable {
     }
     // A protected document's words leave search and Spotlight first. Removing needs no space, so
     // this works on a full disk, where everything after it may fail (#236).
-    if inspection.isLocked { try await index.remove(document.id) }
+    if inspection.isLocked {
+      try await index.remove(document.id)
+    } else {
+      // The file as it is isn't locked, so no change protects it any more (unless one is still being
+      // saved): a failure from here on doesn't take its words out of search.
+      try? await pending?.readUnlocked(document.id)
+    }
     try await library.updateInspection(inspection, for: document.id)
     guard var updated = try await library.document(withID: document.id) else { throw LibraryError.notFound }
     if let changedAt { updated.modifiedAt = changedAt }
