@@ -291,6 +291,9 @@ public final class LibraryModel {
       searched = try await library.documents(in: scope, sortedBy: sort)
       results = try await index.search(trimmed, in: searched)
       isSearchUnavailable = false
+    } catch is CancellationError {
+      // More typing replaced this search; the next one shows its results (#240).
+      return
     } catch {
       // Not "no results": the search itself failed, and saying so is honest.
       results = []
