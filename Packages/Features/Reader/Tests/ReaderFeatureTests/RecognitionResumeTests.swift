@@ -97,7 +97,8 @@ struct RecognitionResumeTests {
     let recognizedAgain = await counting.count
     #expect(
       recognizedAgain == 3 - kept.count, "Kept pages \(kept); pages recognised on resuming: \(recognizedAgain)")
-    #expect((PDFDocument(url: url)?.string ?? "").contains("Recognised text"))
+    let resumedText = PDFDocument(url: url)?.string ?? ""
+    #expect(resumedText.contains("Recognised text"), "The resumed file's text: \(resumedText)")
     #expect(try await library.document(withID: document.id)?.hasTextLayer == true)
     #expect(!reader.canResumeRecognition && !next.isStopped(document.id))
     #expect(await checkpoints.pending().isEmpty, "The folder holds: \(checkpointFiles())")
