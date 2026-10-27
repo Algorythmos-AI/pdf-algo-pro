@@ -449,9 +449,17 @@ public final class LibraryModel {
   }
 
   /// Waits out the chance to undo the last deletion, then forgets it (FR-LIB-009).
+  ///
+  /// A wait that is cancelled, because a newer deletion replaced it, forgets nothing, and a wait only
+  /// forgets the deletion it began with (#240).
   public func expireUndo(after delay: Duration) async {
-    try? await Task.sleep(for: delay)
-    forgetLastDeleted()
+    let deleted = lastDeleted
+    do {
+      try await Task.sleep(for: delay)
+    } catch {
+      return
+    }
+    if lastDeleted == deleted { forgetLastDeleted() }
   }
 
   /// Marks or unmarks several documents as favourites.
