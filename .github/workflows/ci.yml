@@ -347,14 +347,16 @@ jobs:
         # purchase are compiled only where INTERNAL_TOOLS is defined (PAP-060, #267). This builds the
         # Release configuration and looks in the binary for each name below; the Staging binary built
         # above is the control, and must show every one of them, so that no name can go blind.
+        # Two names are left out because neither can be used (run 40508503526): the Staging binary
+        # does not show the replay's type name, InternalFirstRunReplay (its defaults key stands for
+        # it), and the override's defaults key, internal.entitlement.pro, is also an accessibility
+        # identifier in AccessibilityIDs, which Release compiles (its type name stands for it).
         run: |
           names=(
             'internal\.firstRun\.build'    # the replay's defaults key
-            'InternalFirstRunReplay'        # the replay's type
             'Internal testing'              # the internal section's header in Settings
             'EvaluationSection'             # the internal section's type
             'InternalEntitlementOverride'   # the switch for Pro without a purchase
-            'internal\.entitlement\.pro'   # its defaults key
           )
           executable() { echo "$1/$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$1/Info.plist")"; }
           xcodebuild build -scheme "$SCHEME" -configuration Release -destination 'generic/platform=iOS' \
