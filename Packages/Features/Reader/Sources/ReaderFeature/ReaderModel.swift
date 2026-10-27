@@ -113,6 +113,8 @@ public final class ReaderModel {
   ///
   /// The alert's binding can't clear it: only showing the file as it is on disk does (#257).
   @ObservationIgnored private var conflictWaits = false
+  /// The title of the copy this reader's changes were last kept in while a conflict waited.
+  private var changesKeptIn: String?
   /// How many saves are waiting for the one before them to finish (#233).
   private(set) var savesWaiting = 0
   /// The save being made, which the next save waits for (#233).
@@ -195,6 +197,7 @@ public final class ReaderModel {
       // next conflict gets a copy of its own (#257).
       conflictWaits = false
       conflictCopy = nil
+      changesKeptIn = nil
       watch(url)
       let stored = settings.load()
       controller.displayMode = stored.readerDisplayMode
@@ -1132,13 +1135,15 @@ public final class ReaderModel {
       }
       guard !raisesConflictIfChanged(at: url) else { return false }
       let expected = knownVersion
-      try controller.save(to: url, keepingPreviousAt: previous) { target in
-        expected == nil || FileVersion.current(at: target) == expected
-      }
+      var written: FileVersion?
+      try controller.save(
+        to: url, keepingPreviousAt: previous,
+        onlyIf: { target in expected == nil || FileVersion.current(at: target) == expected },
+        // Read with write access still coordinated, straight after the replace: another app's write
+        // after it is then another app's change, never taken for this reader's own (#257).
+        written: { target in written = FileVersion.current(at: target) })
       reportTextEditsPutBack(by: controller)
-      // Straight after the write, before the file presenter hears of it, so it isn't taken for
-      // another app's change.
-      knownVersion = FileVersion.current(at: url)
+      knownVersion = written
       try await library.recordModified(documentID)
       canRestorePreviousVersion = await library.hasPreviousVersion(of: documentID)
       await telemetry.record("task.core.completed")
@@ -1147,6 +1152,7 @@ public final class ReaderModel {
       // Another app wrote the file while this save was being made (#257).
       knownVersion = fileURL.flatMap { FileVersion.current(at: $0) }
       raiseConflict()
+      reportTextEditsPutBack(by: controller)
       return false
     } catch PDFEngineError.restricted {
       errorMessage = Self.restrictedMessage
@@ -1320,9 +1326,27 @@ public final class ReaderModel {
   /// they make it (#257).
   ///
   /// One copy per conflict: the choice can still be made, and keeping mine then makes no second copy.
+  ///
+  /// The notice says where the changes went, or that they couldn't be kept, for when the person comes back.
   private func keepUnsavedVersionAside() async {
     guard conflictWaits, let controller, controller.needsSaving else { return }
-    _ = await keepAside(controller, titled: String(localized: "\(document?.title ?? "") (conflict)", bundle: .module))
+    let title = String(localized: "\(document?.title ?? "") (conflict)", bundle: .module)
+    if let copy = await keepAside(controller, titled: title), !controller.needsSaving {
+      changesKeptIn = copy.title
+      notice = String(localized: "Your changes are kept in “\(copy.title)”, beside the original.", bundle: .module)
+    } else {
+      notice = String(
+        localized: "Your changes couldn't be kept in a copy. They are still open here; choose which version to keep.",
+        bundle: .module)
+    }
+  }
+
+  /// The copy that already has every change of this reader while another app's change waits, if any.
+  ///
+  /// The conflict alert then says the changes are kept there rather than unsaved (#257).
+  public var conflictChangesKeptIn: String? {
+    guard conflictWaits, controller?.needsSaving == false else { return nil }
+    return changesKeptIn
   }
 
   /// Writes this reader's version to the conflict's copy, made the first time and brought up to date
@@ -1333,10 +1357,15 @@ public final class ReaderModel {
   private func keepAside(_ controller: PDFDocumentController, titled title: String) async -> Document? {
     let earlier = conflictCopy
     let keeping = Task { () -> Document? in
-      guard let kept = await earlier?.value else { return try? await addCopy(of: controller, titled: title) }
-      guard controller.needsSaving, let url = try? await library.fileURL(for: kept.id) else { return kept }
-      if (try? controller.save(to: url)) != nil { _ = try? await intake.refresh(kept.id) }
-      return kept
+      // A copy the person has deleted meanwhile is made again (#257).
+      guard let kept = await earlier?.value, let current = try? await library.document(withID: kept.id),
+        !current.isDeleted
+      else { return try? await addCopy(of: controller, titled: title) }
+      guard controller.needsSaving, let url = try? await library.fileURL(for: kept.id) else { return current }
+      let saved = (try? controller.save(to: url)) != nil
+      reportTextEditsPutBack(by: controller)
+      if saved { _ = try? await intake.refresh(kept.id) }
+      return current
     }
     conflictCopy = keeping
     return await keeping.value
@@ -1349,6 +1378,7 @@ public final class ReaderModel {
     defer { try? FileManager.default.removeItem(at: staged) }
     let unsaved = controller.unsavedChanges
     do {
+      defer { reportTextEditsPutBack(by: controller) }
       try controller.save(to: staged)
       let data = try Data(contentsOf: staged, options: .mappedIfSafe)
       return try await intake.add(data: data, title: title)
@@ -1452,6 +1482,7 @@ public final class ReaderModel {
     defer { try? FileManager.default.removeItem(at: staged) }
     let unsaved = controller.unsavedChanges
     defer { controller.countAsUnsaved(unsaved) }
+    defer { reportTextEditsPutBack(by: controller) }
     try controller.save(to: staged)
     return try Self.shareableFile(Data(contentsOf: staged), named: document?.title ?? "", extension: "pdf")
   }

@@ -513,6 +513,12 @@ struct ReaderModelTests {
       kept?.pageCount == 1 && notes.contains("Unsaved mine"),
       "The copy has \(kept?.pageCount ?? 0) pages and notes \(notes)")
     #expect(reader.hasConflictingChange, "The choice must still be open")
+    // On coming back, the person is told where the changes went, and the alert says so too.
+    #expect(
+      reader.notice?.contains("Shared (conflict)") == true, "Notice: \(String(describing: reader.notice))")
+    #expect(
+      reader.conflictChangesKeptIn == "Shared (conflict)",
+      "Kept in: \(String(describing: reader.conflictChangesKeptIn))")
 
     // Going to the background again under the same conflict, then keeping mine, makes no second copy.
     await reader.saveBeforeSuspending(keepAlive: { {} })
@@ -600,6 +606,70 @@ struct ReaderModelTests {
     #expect(!titles.contains { $0.hasPrefix("Signed (edited)") }, "A copy was made from the old version: \(titles)")
     #expect(try Data(contentsOf: url) == theirs, "The other app's version was written over")
     #expect(reader.controller?.needsSaving == true, "My version must still count as unsaved")
+    reader.stopWatching()
+  }
+
+  @Test("Another app's write just after a save's replace is caught by the next save, not written over (#257)")
+  func writeJustAfterTheReplaceIsCaughtNextTime() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.make(pages: ["Mine"]), title: "Shared")
+    let reader = harness.reader(for: document)
+    await reader.load()
+    let url = try await harness.library.fileURL(for: document.id)
+    reader.controller?.addNote("First", onPage: 0)
+    let theirs = try SyntheticPDF.make(pages: ["Theirs", "Two"])
+    // Another app writes straight after this save has replaced the file, before the save returns.
+    PDFDocumentController.saveFault = { step, target in
+      guard step == .replaced, target == url else { return }
+      try theirs.write(to: target)
+    }
+    defer { PDFDocumentController.saveFault = nil }
+    #expect(await reader.save(), "The first save wrote the file")
+    PDFDocumentController.saveFault = nil
+
+    reader.controller?.addNote("Second", onPage: 0)
+    let saved = await reader.save()
+    let pagesOnDisk = (try? PDFDocumentController(url: url))?.pageCount ?? 0
+    #expect(!saved, "The next save reported success over another app's write")
+    #expect(
+      try Data(contentsOf: url) == theirs, "The other app's 2 pages were written over; the file has \(pagesOnDisk)")
+    #expect(reader.hasConflictingChange, "The person must be asked which version to keep")
+    reader.stopWatching()
+  }
+
+  @Test("When my version can't be kept in a copy on leaving, the reader says so on coming back (#257)")
+  func failedConflictCopyIsSaid() async throws {
+    let harness = Harness()
+    let (reader, url, theirs) = try await conflicted(harness)
+    // Adding the copy to the library is the first library call on this path.
+    await harness.library.failNext(with: .fileAccessFailed)
+    await reader.saveBeforeSuspending(keepAlive: { {} })
+    let titles = try await harness.library.documents(in: .all, sortedBy: .title).map(\.title)
+    #expect(titles == ["Shared"], "Titles: \(titles)")
+    #expect(try Data(contentsOf: url) == theirs)
+    let notice = reader.notice ?? ""
+    #expect(!notice.isEmpty && !notice.contains("(conflict)"), "Notice: \(notice.debugDescription)")
+    #expect(
+      reader.hasConflictingChange && reader.controller?.needsSaving == true && reader.conflictChangesKeptIn == nil,
+      "My version must still be unsaved here, with the choice open")
+    reader.stopWatching()
+  }
+
+  @Test("Keep mine after the conflict's copy was deleted makes a new copy instead of the one gone (#257)")
+  func keepMineAfterTheConflictCopyWasDeleted() async throws {
+    let harness = Harness()
+    let (reader, url, theirs) = try await conflicted(harness)
+    await reader.saveBeforeSuspending(keepAlive: { {} })
+    let documents = try await harness.library.documents(in: .all, sortedBy: .title)
+    let first = try #require(documents.first { $0.title == "Shared (conflict)" }, "Titles: \(documents.map(\.title))")
+    try await harness.library.deletePermanently(first.id)
+
+    await reader.keepMineAsCopy()
+    let kept = try await copiesAndNotes(in: harness, titled: "Shared (")
+    #expect(
+      kept.values.contains { $0.contains("Unsaved mine") }, "My version must be in a copy; copies and notes: \(kept)")
+    #expect(try Data(contentsOf: url) == theirs)
+    #expect(reader.errorMessage == nil && reader.controller?.pageCount == 2)
     reader.stopWatching()
   }
 

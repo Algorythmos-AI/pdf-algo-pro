@@ -16,12 +16,15 @@ extension PDFDocumentController {
   ///     space until the files differ.
   ///   - isUnchanged: Whether the file is still the version the caller expects, asked with write
   ///     access coordinated, straight before the file is replaced; `nil` asks nothing.
+  ///   - written: Told the file's URL with write access still coordinated, straight after it was
+  ///     replaced, so the caller can note the version it wrote before anyone else can write.
   /// - Throws: `PDFEngineError.restricted` when the document's author does not allow the change;
   ///   `PDFEngineError.insufficientSpace` when the device is too full to save safely;
   ///   `PDFEngineError.changedOnDisk` when `isUnchanged` says the file changed, which is left as it is;
   ///   `PDFEngineError.saveFailed` when writing fails, or when the earlier version can't be kept.
   public func save(
-    to url: URL, keepingPreviousAt previous: URL? = nil, onlyIf isUnchanged: ((URL) -> Bool)? = nil
+    to url: URL, keepingPreviousAt previous: URL? = nil, onlyIf isUnchanged: ((URL) -> Bool)? = nil,
+    written: ((URL) -> Void)? = nil
   ) throws {
     textEditsPutBack = []
     let interval = Signposts.begin("Document.Save")
@@ -84,6 +87,7 @@ extension PDFDocumentController {
         } else {
           try fileManager.moveItem(at: staging, to: target)
         }
+        written?(target)
         try fault(.replaced)
       } catch {
         writeError = error
