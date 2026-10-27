@@ -414,18 +414,33 @@ final class AppContainer {
   }
 
   /// Writes every document to Spotlight again, after the text setting changed (defect D11).
-  func reindexSpotlight() async {
-    await index.reindexSpotlight((try? await library.documents(in: .all, sortedBy: .title)) ?? [])
+  ///
+  /// Returns whether the library could be listed.
+  @discardableResult
+  func reindexSpotlight() async -> Bool {
+    let documents = try? await library.documents(in: .all, sortedBy: .title)
+    await index.reindexSpotlight(documents ?? [])
+    return documents != nil
   }
 
   /// Moves Spotlight to the protected index once (defect D11).
   ///
   /// Empties the index earlier builds wrote to, then reindexes. Later launches do nothing.
   func migrateSpotlightIfNeeded(defaults: UserDefaults = .standard) async {
+    guard !environment.isUITesting else { return }
+    await Self.migrateSpotlight(
+      defaults: defaults, retire: { await SpotlightIndexer.retireLegacyIndex() },
+      reindex: { await self.reindexSpotlight() })
+  }
+
+  /// The Spotlight migration's steps, with what empties and what refills the index passed in.
+  static func migrateSpotlight(
+    defaults: UserDefaults, retire: () async -> Void, reindex: () async -> Bool
+  ) async {
     let key = "spotlight.indexVersion"
-    guard !environment.isUITesting, defaults.integer(forKey: key) < 2 else { return }
-    await SpotlightIndexer.retireLegacyIndex()
-    await reindexSpotlight()
+    guard defaults.integer(forKey: key) < 2 else { return }
+    await retire()
+    _ = await reindex()
     defaults.set(2, forKey: key)
   }
 

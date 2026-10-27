@@ -331,7 +331,11 @@ public final class LibraryModel {
   /// Each photo is decoded with its orientation applied and its longest side at most 3,000 pixels,
   /// so a batch of large photos can't exhaust memory. Photos that can't be read are left out and
   /// counted.
-  public func addPhotos(_ photos: [Data]) async {
+  ///
+  /// - Parameters:
+  ///   - photos: The chosen photos that loaded.
+  ///   - unreadable: How many chosen photos didn't load at all.
+  public func addPhotos(_ photos: [Data], unreadable: Int = 0) async {
     guard !photos.isEmpty else { return }
     isImporting = true
     defer { isImporting = false }
@@ -415,6 +419,12 @@ public final class LibraryModel {
   /// Forgets the last group deleted, once the chance to undo has passed.
   public func forgetLastDeleted() {
     lastDeleted = []
+  }
+
+  /// Waits out the chance to undo the last deletion, then forgets it (FR-LIB-009).
+  public func expireUndo(after delay: Duration) async {
+    try? await Task.sleep(for: delay)
+    forgetLastDeleted()
   }
 
   /// Marks or unmarks several documents as favourites.

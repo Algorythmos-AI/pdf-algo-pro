@@ -10,12 +10,41 @@ public struct DocumentIntake: Sendable {
   private let library: any DocumentLibrary
   private let inspector: any PDFInspecting
   private let index: any DocumentIndexing
+  private let pending: PendingRefreshes?
 
   /// Creates an intake over the library, an inspector and the search index.
-  public init(library: any DocumentLibrary, inspector: any PDFInspecting, index: any DocumentIndexing) {
+  ///
+  /// `pending` keeps the documents whose refresh hasn't worked yet, so they are refreshed at the next
+  /// library load; without it, a failed refresh waits for the next change to the document.
+  public init(
+    library: any DocumentLibrary, inspector: any PDFInspecting, index: any DocumentIndexing,
+    pending: PendingRefreshes? = nil
+  ) {
     self.library = library
     self.inspector = inspector
     self.index = index
+    self.pending = pending
+  }
+
+  /// Refreshes every document a refresh is still owed to (#236); a document no longer in the
+  /// library is crossed off.
+  ///
+  /// - Returns: how many failed again; they stay on the list.
+  @discardableResult
+  public func refreshPending() async -> Int {
+    guard let pending else { return 0 }
+    var failed = 0
+    for id in await pending.all {
+      do {
+        _ = try await refresh(id)
+        try await pending.remove(id)
+      } catch LibraryError.notFound {
+        try? await pending.remove(id)
+      } catch {
+        failed += 1
+      }
+    }
+    return failed
   }
 
   /// Imports a file from outside the library.
