@@ -127,6 +127,12 @@ struct TextEditingUndoTrimTests {
     #expect(undone == 4, "The history holds its newest four edits")
     let expected = states[edits.count - undone]
     try await expectWhole(controller, as: expected, "after undoing back to the oldest edit held")
+    // Redo brings back a page an edit made; then undo again, so what is saved is the state above.
+    #expect(controller.undoManager.canRedo)
+    controller.undoManager.redo()
+    try await expectWhole(controller, as: states[edits.count - undone + 1], "after redoing one edit")
+    controller.undoManager.undo()
+    try await expectWhole(controller, as: expected, "after undoing the redone edit again")
 
     func expectSaved(as expected: [PageLook], password: String?, _ moment: String) throws {
       let reopened = try #require(PDFDocument(url: url))
