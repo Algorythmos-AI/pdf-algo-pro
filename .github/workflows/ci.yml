@@ -859,11 +859,13 @@ jobs:
     # three gated recognisers; the pinned iOS 26.5 runs the line and document ones for comparison.
     # The tests are built through the app's project and plan, as a focused run builds them: built on its
     # own, the OCR package makes Core a dependency, which Xcode builds with -suppress-warnings, and that
-    # clashes with Core's warnings as errors (run 40463578729). The report is kept as an artifact.
+    # clashes with Core's warnings as errors (run 40463578729). The plan gives a test 300 s, and the
+    # full corpus took longer than that for every recogniser (run 40467500755), so this job allows
+    # 100 minutes, inside its own timeout. The report is kept as an artifact.
     name: ocr-full-suite (iOS ${{ matrix.ios }}, ${{ matrix.recognizer }})
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.ocr_full_suite }}
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 120
+    timeout-minutes: 150
     strategy:
       fail-fast: false
       matrix:
@@ -915,6 +917,7 @@ jobs:
             TEST_RUNNER_REPORTS_DIR="$RUNNER_TEMP/reports" \
             xcodebuild test -scheme PDFAlgoPro -testPlan PDFAlgoPro -destination "id=$device" \
             -derivedDataPath "$RUNNER_TEMP/DD" -only-testing:OCRTests/OCRAccuracyTests -parallel-testing-enabled NO \
+            -default-test-execution-time-allowance 6000 -maximum-test-execution-time-allowance 6000 \
             CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: ${{ always() }}
