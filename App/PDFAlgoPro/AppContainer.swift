@@ -319,7 +319,10 @@ final class AppContainer {
     let index = LocalSearchIndex(
       folder: folders.searchIndex, spotlight: spotlight, usesBaseForms: Self.matchesBaseForms)
     self.index = index
-    intake = DocumentIntake(library: library, inspector: PDFKitInspector(), index: index)
+    // Refreshes still owed are kept beside the index, so the next launch does them (#236).
+    let pending = PendingRefreshes(
+      url: folders.indexStore.deletingLastPathComponent().appendingPathComponent("PendingRefreshes.json"))
+    intake = DocumentIntake(library: library, inspector: PDFKitInspector(), index: index, pending: pending)
     let isHidden: @Sendable () -> Bool = { settings.load().isIntelligenceHidden }
     let activity = AIActivityLog(url: folders.diagnostics.appendingPathComponent("ai-activity.json"))
     self.activity = activity

@@ -37,7 +37,6 @@ public struct DocumentIntake: Sendable {
     for id in await pending.all {
       do {
         _ = try await refresh(id)
-        try await pending.remove(id)
       } catch LibraryError.notFound {
         try? await pending.remove(id)
       } catch {
@@ -67,14 +66,24 @@ public struct DocumentIntake: Sendable {
 
   /// Re-reads a document after its file changed (for example after recognition added text).
   ///
+  /// The refresh is written down as owed before it starts and crossed off once search and Spotlight
+  /// are up to date, so one that fails, or that the app is stopped in the middle of, is done at the
+  /// next library load (#236). The change is recorded last, for the same reason.
+  ///
   /// - Throws: the inspection error when the file cannot be read; the document is kept.
   public func refresh(_ id: DocumentID) async throws -> Document {
     guard let document = try await library.document(withID: id) else { throw LibraryError.notFound }
+    // If the list can't be written, the refresh still runs; only a retry of a failure is lost.
+    try? await pending?.add(id)
+    let refreshed = try await finish(document, isNew: false, changedAt: Date())
     try await library.recordModified(id)
-    return try await finish(document, isNew: false)
+    try? await pending?.remove(id)
+    return try await library.document(withID: id) ?? refreshed
   }
 
-  private func finish(_ document: Document, isNew: Bool) async throws -> Document {
+  /// Inspects, records and indexes a document; `changedAt` is the change search and Spotlight are
+  /// told about, when it isn't recorded yet.
+  private func finish(_ document: Document, isNew: Bool, changedAt: Date? = nil) async throws -> Document {
     let inspection: PDFInspection
     do {
       inspection = try await inspector.inspect(library.fileURL(for: document.id))
@@ -85,7 +94,8 @@ public struct DocumentIntake: Sendable {
       throw LibraryError.notAPDF
     }
     try await library.updateInspection(inspection, for: document.id)
-    guard let updated = try await library.document(withID: document.id) else { throw LibraryError.notFound }
+    guard var updated = try await library.document(withID: document.id) else { throw LibraryError.notFound }
+    if let changedAt { updated.modifiedAt = changedAt }
     try await index.index(updated, pages: inspection.pages)
     return updated
   }
