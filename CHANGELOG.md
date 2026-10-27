@@ -10,6 +10,8 @@ Store notes (see the changelog strategy).
 ## [Unreleased]
 
 ### Added
+- Settings › About: Rate PDF Algo Pro opens the app's page in the App Store, where you can rate
+  and review it.
 - Answers, summaries and extracted fields you copy or share now end with a line saying that PDF
   Algo Pro generated them from the document and that they may contain errors. In a CSV it is the
   last row, so the file still opens as a table.

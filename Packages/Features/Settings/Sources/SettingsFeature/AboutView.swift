@@ -2,7 +2,7 @@ import AccessibilityIDs
 import DesignSystem
 import SwiftUI
 
-/// About: the app's mark and version, its public pages, a way to share it, and who makes it.
+/// About: the app's mark and version, its public pages, ways to rate and share it, and who makes it.
 ///
 /// App Review expects the privacy policy to be reachable in the app; it is here, one row from
 /// Settings. Every link hands an address to the system, which opens it in the browser; the app itself
@@ -53,6 +53,10 @@ public struct AboutView: View {
         Text("These open in your browser.", bundle: .module).foregroundStyle(Color.ds.labelSecondary)
       }
       Section {
+        Link(destination: AppLinks.writeReview) {
+          TileLabel(Text("Rate PDF Algo Pro", bundle: .module), systemImage: "star")
+        }
+        .accessibilityIdentifier(AccessibilityID.Settings.rate)
         ShareLink(item: AppLinks.product(languageCode: languageCode)) {
           TileLabel(Text("Share PDF Algo Pro", bundle: .module), systemImage: "square.and.arrow.up")
         }
