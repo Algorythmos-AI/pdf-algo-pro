@@ -556,37 +556,6 @@ struct ReaderModelTests {
     return found
   }
 
-  @Test("Another app's write while a save is being made is not replaced; the person is asked instead (#257)")
-  func writeDuringTheSaveIsNotReplaced() async throws {
-    let harness = Harness()
-    let document = await harness.seed(try SyntheticPDF.make(pages: ["Mine"]), title: "Shared")
-    let reader = harness.reader(for: document)
-    await reader.load()
-    let url = try await harness.library.fileURL(for: document.id)
-    reader.controller?.addNote("Mine", onPage: 0)
-    let theirs = try SyntheticPDF.make(pages: ["Theirs", "Two"])
-    // Another app writes once the save has staged and checked its file, before the replace.
-    PDFDocumentController.saveFault = { step, target in
-      guard step == .validated, target == url else { return }
-      try theirs.write(to: target)
-    }
-    defer { PDFDocumentController.saveFault = nil }
-
-    let saved = await reader.save()
-    PDFDocumentController.saveFault = nil
-    let pagesOnDisk = (try? PDFDocumentController(url: url))?.pageCount ?? 0
-    #expect(!saved, "The save reported success over another app's write")
-    #expect(
-      try Data(contentsOf: url) == theirs, "The other app's 2 pages were replaced; the file has \(pagesOnDisk)")
-    #expect(
-      reader.hasConflictingChange && reader.errorMessage == nil,
-      "Conflict: \(reader.hasConflictingChange); error: \(String(describing: reader.errorMessage))")
-    #expect(reader.controller?.needsSaving == true, "My version must still count as unsaved")
-    await reader.useOtherVersion()
-    #expect(reader.controller?.pageCount == 2)
-    reader.stopWatching()
-  }
-
   @Test("A signed document another app changed, not yet heard of, is not copied from the old version (#257)")
   func signedDocumentChangedElsewhereIsNotCopied() async throws {
     let harness = Harness()
@@ -606,34 +575,6 @@ struct ReaderModelTests {
     #expect(!titles.contains { $0.hasPrefix("Signed (edited)") }, "A copy was made from the old version: \(titles)")
     #expect(try Data(contentsOf: url) == theirs, "The other app's version was written over")
     #expect(reader.controller?.needsSaving == true, "My version must still count as unsaved")
-    reader.stopWatching()
-  }
-
-  @Test("Another app's write just after a save's replace is caught by the next save, not written over (#257)")
-  func writeJustAfterTheReplaceIsCaughtNextTime() async throws {
-    let harness = Harness()
-    let document = await harness.seed(try SyntheticPDF.make(pages: ["Mine"]), title: "Shared")
-    let reader = harness.reader(for: document)
-    await reader.load()
-    let url = try await harness.library.fileURL(for: document.id)
-    reader.controller?.addNote("First", onPage: 0)
-    let theirs = try SyntheticPDF.make(pages: ["Theirs", "Two"])
-    // Another app writes straight after this save has replaced the file, before the save returns.
-    PDFDocumentController.saveFault = { step, target in
-      guard step == .replaced, target == url else { return }
-      try theirs.write(to: target)
-    }
-    defer { PDFDocumentController.saveFault = nil }
-    #expect(await reader.save(), "The first save wrote the file")
-    PDFDocumentController.saveFault = nil
-
-    reader.controller?.addNote("Second", onPage: 0)
-    let saved = await reader.save()
-    let pagesOnDisk = (try? PDFDocumentController(url: url))?.pageCount ?? 0
-    #expect(!saved, "The next save reported success over another app's write")
-    #expect(
-      try Data(contentsOf: url) == theirs, "The other app's 2 pages were written over; the file has \(pagesOnDisk)")
-    #expect(reader.hasConflictingChange, "The person must be asked which version to keep")
     reader.stopWatching()
   }
 
@@ -1503,6 +1444,74 @@ struct ReaderModelTests {
   @Test("Every markup kind has a label", arguments: TextMarkup.allCases)
   func markupLabels(markup: TextMarkup) {
     _ = ReaderToolbar.label(for: markup)
+  }
+}
+
+/// Tests that set `PDFDocumentController.saveFault`, which is one for the whole process: run in
+/// parallel, one test's hook replaced the other's, so its save never met the other app's write.
+@MainActor
+@Suite("Reader model: another app's write during a save (#257)", .serialized)
+struct ReaderSaveFaultTests {
+  @Test("Another app's write while a save is being made is not replaced; the person is asked instead (#257)")
+  func writeDuringTheSaveIsNotReplaced() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.make(pages: ["Mine"]), title: "Shared")
+    let reader = harness.reader(for: document)
+    await reader.load()
+    let url = try await harness.library.fileURL(for: document.id)
+    reader.controller?.addNote("Mine", onPage: 0)
+    let theirs = try SyntheticPDF.make(pages: ["Theirs", "Two"])
+    // Another app writes once the save has staged and checked its file, before the replace.
+    PDFDocumentController.saveFault = { step, target in
+      guard step == .validated, target == url else { return }
+      try theirs.write(to: target)
+    }
+    defer { PDFDocumentController.saveFault = nil }
+
+    let saved = await reader.save()
+    PDFDocumentController.saveFault = nil
+    let pagesOnDisk = (try? PDFDocumentController(url: url))?.pageCount ?? 0
+    #expect(!saved, "The save reported success over another app's write")
+    #expect(
+      try Data(contentsOf: url) == theirs, "The other app's 2 pages were replaced; the file has \(pagesOnDisk)")
+    #expect(
+      reader.hasConflictingChange && reader.errorMessage == nil,
+      "Conflict: \(reader.hasConflictingChange); error: \(String(describing: reader.errorMessage))")
+    #expect(reader.controller?.needsSaving == true, "My version must still count as unsaved")
+    await reader.useOtherVersion()
+    #expect(reader.controller?.pageCount == 2)
+    reader.stopWatching()
+  }
+
+  @Test("Another app's write just after a save's replace is caught by the next save, not written over (#257)")
+  func writeJustAfterTheReplaceIsCaughtNextTime() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.make(pages: ["Mine"]), title: "Shared")
+    let reader = harness.reader(for: document)
+    await reader.load()
+    // Not hearing of the other app's write, as when it comes just before the next save: hearing
+    // it with nothing unsaved shows that version instead, and there is no save to catch it.
+    reader.stopWatching()
+    let url = try await harness.library.fileURL(for: document.id)
+    reader.controller?.addNote("First", onPage: 0)
+    let theirs = try SyntheticPDF.make(pages: ["Theirs", "Two"])
+    // Another app writes straight after this save has replaced the file, before the save returns.
+    PDFDocumentController.saveFault = { step, target in
+      guard step == .replaced, target == url else { return }
+      try theirs.write(to: target)
+    }
+    defer { PDFDocumentController.saveFault = nil }
+    #expect(await reader.save(), "The first save wrote the file")
+    PDFDocumentController.saveFault = nil
+
+    reader.controller?.addNote("Second", onPage: 0)
+    let saved = await reader.save()
+    let pagesOnDisk = (try? PDFDocumentController(url: url))?.pageCount ?? 0
+    #expect(!saved, "The next save reported success over another app's write")
+    #expect(
+      try Data(contentsOf: url) == theirs, "The other app's 2 pages were written over; the file has \(pagesOnDisk)")
+    #expect(reader.hasConflictingChange, "The person must be asked which version to keep")
+    reader.stopWatching()
   }
 }
 

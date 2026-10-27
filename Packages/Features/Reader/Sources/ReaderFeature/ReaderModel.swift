@@ -194,8 +194,10 @@ public final class ReaderModel {
       let controller = try PDFDocumentController(url: url, textEditor: textEditor)
       knownVersion = FileVersion.current(at: url)
       // The reader shows the file as it is on disk, so no other version waits to be chosen, and the
-      // next conflict gets a copy of its own (#257).
+      // next conflict gets a copy of its own (#257). The question is cleared too: hearing of the other
+      // app's write again while the choice was being carried out asks it again.
       conflictWaits = false
+      hasConflictingChange = false
       conflictCopy = nil
       changesKeptIn = nil
       watch(url)
