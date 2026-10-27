@@ -135,6 +135,24 @@ def test_the_entitlement_override_is_an_internal_tool():
     assert invariants.outside_internal_tools(guarded) == []
 
 
+def test_the_internal_testing_section_is_an_internal_tool():
+    assert invariants.outside_internal_tools("EvaluationSection(intelligence: intelligence)\n") == [1]
+
+
+def test_a_condition_that_also_holds_without_internal_tools_guards_nothing():
+    """`DEBUG || INTERNAL_TOOLS` is true in a Debug build without the internal tools (#267 review)."""
+    either = "#if DEBUG || INTERNAL_TOOLS\n  let replay = InternalFirstRunReplay()\n#endif\n"
+    assert invariants.outside_internal_tools(either) == [2], "`DEBUG || INTERNAL_TOOLS` counted as guarded"
+    grouped = "#if (INTERNAL_TOOLS || targetEnvironment(simulator))\n  provider = InternalEntitlementOverride(base: s)\n#endif\n"
+    assert invariants.outside_internal_tools(grouped) == [2]
+    both = "#if DEBUG && INTERNAL_TOOLS\n  let replay = InternalFirstRunReplay()\n#endif\n"
+    assert invariants.outside_internal_tools(both) == []
+    elseif = "#if os(macOS)\n#elseif INTERNAL_TOOLS\n  EvaluationSection()\n#elseif DEBUG\n  EvaluationSection()\n#endif\n"
+    assert invariants.outside_internal_tools(elseif) == [5]
+    trailing = "#if INTERNAL_TOOLS // || DEBUG in a comment\n  EvaluationSection()\n#endif\n"
+    assert invariants.outside_internal_tools(trailing) == []
+
+
 def test_internal_tools_may_be_defined_for_debug_and_staging_only():
     ok = "configs:\n  Debug:\n    SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) INTERNAL_TOOLS\n  Staging:\n    SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) INTERNAL_TOOLS\n"
     assert invariants.internal_tools_config_problems(ok) == []

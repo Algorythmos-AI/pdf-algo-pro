@@ -197,9 +197,23 @@ def annotation_copies(text: str) -> list[int]:
 
 INTERNAL_ONLY = (
     "InternalFirstRunReplay", "isReplayingFirstRun", "resetFirstRunReplay", "firstRunReplay(",
-    "InternalEntitlementOverride",
+    "InternalEntitlementOverride", "EvaluationSection",
 )
 INTERNAL_CONFIGS = {"Debug", "Staging"}
+
+
+def guards_internal_tools(condition: str) -> bool:
+    """Whether a `#if` or `#elseif` condition holds only where INTERNAL_TOOLS is defined.
+
+    INTERNAL_TOOLS must be one of the terms joined by `&&`. A condition with `||`, such as
+    `DEBUG || INTERNAL_TOOLS`, can hold in a build without the internal tools, so it guards nothing;
+    nor does `!INTERNAL_TOOLS`.
+    """
+    expression = condition.split("//", 1)[0]
+    expression = re.sub(r"^#(?:else)?if\b", "", expression.strip()).replace("(", " ").replace(")", " ")
+    if "||" in expression:
+        return False
+    return any(term.strip() == "INTERNAL_TOOLS" for term in expression.split("&&"))
 
 
 def outside_internal_tools(text: str, names: tuple[str, ...] = INTERNAL_ONLY) -> list[int]:
@@ -209,8 +223,10 @@ def outside_internal_tools(text: str, names: tuple[str, ...] = INTERNAL_ONLY) ->
     for no, line in enumerate(text.splitlines(), 1):
         stripped = line.strip()
         if stripped.startswith("#if"):
-            stack.append("INTERNAL_TOOLS" in stripped and "!INTERNAL_TOOLS" not in stripped)
-        elif stripped.startswith(("#else", "#elseif")) and stack:
+            stack.append(guards_internal_tools(stripped))
+        elif stripped.startswith("#elseif") and stack:
+            stack[-1] = guards_internal_tools(stripped)
+        elif stripped.startswith("#else") and stack:
             stack[-1] = False
         elif stripped.startswith("#endif") and stack:
             stack.pop()
@@ -281,8 +297,9 @@ def main() -> int:
                         "to the file; use PDFDocumentController.copy(of:) (#307)")
                 for no in outside_internal_tools(text):
                     errors.append(
-                        f"{rel}:{no}: an internal tool (the first-run replay or the entitlement override) is "
-                        "named outside `#if INTERNAL_TOOLS`; an App Store build must not compile it (PAP-060, #267)")
+                        f"{rel}:{no}: an internal tool (the first-run replay, the entitlement override or the "
+                        "internal testing section) is named outside `#if INTERNAL_TOOLS`, or under a condition "
+                        "that also holds without it; an App Store build must not compile it (PAP-060, #267)")
                 for category, pattern in REQUIRED_REASON.items():
                     if pattern.search(text):
                         used_categories.add(category)

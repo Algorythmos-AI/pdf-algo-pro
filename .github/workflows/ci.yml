@@ -345,11 +345,17 @@ jobs:
       - name: The App Store build contains no internal tools (Release binary)
         # The Staging first-run replay, the internal testing section and the switch for Pro without a
         # purchase are compiled only where INTERNAL_TOOLS is defined (PAP-060, #267). This builds the
-        # Release configuration and looks in the binary; the Staging binary built above is the
-        # control that the search can find them.
+        # Release configuration and looks in the binary for each name below; the Staging binary built
+        # above is the control, and must show every one of them, so that no name can go blind.
         run: |
-          marker='internal\.firstRun\.build'
-          override='internal\.entitlement\.pro'
+          names=(
+            'internal\.firstRun\.build'    # the replay's defaults key
+            'InternalFirstRunReplay'        # the replay's type
+            'Internal testing'              # the internal section's header in Settings
+            'EvaluationSection'             # the internal section's type
+            'InternalEntitlementOverride'   # the switch for Pro without a purchase
+            'internal\.entitlement\.pro'   # its defaults key
+          )
           executable() { echo "$1/$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$1/Info.plist")"; }
           xcodebuild build -scheme "$SCHEME" -configuration Release -destination 'generic/platform=iOS' \
             CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
@@ -358,16 +364,20 @@ jobs:
           release="$(find "$products" -maxdepth 1 -name '*.app' | head -1)"
           staging="$(find "${products%/*}/Staging-iphoneos" -maxdepth 1 -name '*.app' | head -1)"
           [ -n "$release" ] && [ -n "$staging" ] || { echo "::error::Release or Staging app not found"; exit 1; }
-          for control in "$marker" "$override"; do
-            if ! strings -a "$(executable "$staging")" | grep -Eq "$control"; then
-              echo "::error::The Staging binary no longer shows $control; this check has gone blind"; exit 1
+          staging_strings="$(strings -a "$(executable "$staging")")"
+          release_strings="$(strings -a "$(executable "$release")")"
+          blind=0
+          found=0
+          for name in "${names[@]}"; do
+            if ! grep -Eq -- "$name" <<<"$staging_strings"; then
+              echo "::error::The Staging binary does not show '$name'; this check is blind to it"; blind=1
+            fi
+            if grep -E -- "$name" <<<"$release_strings"; then
+              echo "::error::The Release binary contains '$name', an internal tool that must not ship (PAP-060)"; found=1
             fi
           done
-          internal="$marker|InternalFirstRunReplay|Internal testing|$override|InternalEntitlementOverride"
-          if strings -a "$(executable "$release")" | grep -E "$internal"; then
-            echo "::error::The Release binary contains internal tools; they must not ship (PAP-060)"; exit 1
-          fi
-          echo "Release binary is free of the internal tools; the Staging binary has them."
+          [ "$blind" -eq 0 ] && [ "$found" -eq 0 ] || exit 1
+          echo "Release binary is free of the internal tools; the Staging binary shows each of them."
 
   ios-tests:
     name: ios-tests (${{ matrix.shard }})
