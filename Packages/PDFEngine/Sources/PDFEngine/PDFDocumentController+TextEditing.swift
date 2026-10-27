@@ -949,6 +949,10 @@ extension PDFDocumentController {
     context.fill(CGRect(x: 0, y: 0, width: width, height: height))
     context.scaleBy(x: CGFloat(width) / area.width, y: CGFloat(height) / area.height)
     context.translateBy(x: -area.minX, y: -area.minY)
+    // `area` is in page space. Drawing turns the page by its rotation and moves its box to the
+    // origin, so that is undone first, or a turned page or one whose box is offset was sampled
+    // somewhere else (#251).
+    context.concatenate(page.transform(for: .mediaBox).inverted())
     page.draw(with: .mediaBox, to: context)
     guard let image = context.makeImage(), let data = image.dataProvider?.data as Data? else { return .white }
     let pixels = [UInt8](data)
