@@ -135,6 +135,17 @@
         }
       }
     },
+    "A document" : {
+      "comment" : "Live Activity subtitle while text is recognised with App Lock on, in place of the title",
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un document"
+          }
+        }
+      }
+    },
     "A document needs at least one page." : {
       "localizations" : {
         "fr" : {
