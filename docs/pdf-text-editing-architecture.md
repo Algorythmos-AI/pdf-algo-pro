@@ -501,9 +501,10 @@ From TestFlight feedback on 2026-10-06 (a letter laid out in frames, on an iPhon
   closest standard font unless the page already holds every letter typed.
 - **Lines, not paragraphs.** A long replacement on a full line is declined.
 - **Paint order.** New text is painted last. Text that had something drawn over it is not edited.
-- **Undo history.** Each text edit keeps the page it replaced. Past 64 MB of kept pages
-  (`Assumption:` checked on the oldest supported iPhone in the device test plan) the history is
-  shortened to its newest half.
+- **Undo history.** Each text edit keeps the page it replaced, undone edits waiting to be redone
+  included. Past 64 MB of kept pages (`Assumption:` checked on the oldest supported iPhone in the
+  device test plan) the history is shortened to its newest half, which drops older annotation steps
+  too (tracked separately).
 - **Accessibility tags.** PDFKit does not carry a tagged PDF's structure through any save, with or
   without an edit.
 - **Found by code review, not yet fixed or reproduced (2026-10-08).** The field wraps to the

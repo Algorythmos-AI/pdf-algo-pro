@@ -127,58 +127,75 @@ struct TextEditingEdgeCaseTests {
     #expect(page.regions.isEmpty, "Invisible text is not a line to edit")
   }
 
-  @Test("Undoing a text edit gives back the memory it was counted for (#269)")
+  /// The bytes of the text edits the history holds, as the steps say; each step is counted once.
+  private func heldStepBytes(_ controller: PDFDocumentController) -> [Int] {
+    controller.textUndoSteps.compactMap { $0.step?.bytes }
+  }
+
+  /// An undone edit waits in the redo history with its pages, so it is still counted; a new edit
+  /// ends the redo history, and only then does the undone edit leave the count.
+  @Test("An undone text edit is counted while redo holds it, and leaves the count with the redo history (#269)")
   func undoGivesBackMemory() async throws {
     let controller = try controller(TextEditFixtures.invoice())
     for round in 0..<3 {
-      let regions = await controller.pageText(onPage: 0).regions
-      let region = try #require(regions.first { $0.text.contains("John Smith") })
-      let outcomes = await controller.applyTextEdits(
-        [TextEdit(region: region, replacement: "Customer: Jane Smith \(round)")], onPage: 0)
-      #expect(outcomes.allSatisfy { $0.isEdited }, "\(outcomes)")
-      #expect(controller.textUndoBytes > 0)
-      controller.undoManager.undo()
-      #expect(controller.textUndoBytes == 0, "Round \(round): the undone edit is still counted")
-    }
-    // Redo counts it again.
-    controller.undoManager.redo()
-    #expect(controller.textUndoBytes > 0)
-  }
-
-  /// Past the limit, the count is the bytes of the text steps the history still holds: each undo
-  /// of one gives back exactly what it holds, and redo takes it again, cycle after cycle.
-  @Test("Past the memory limit, undoing and redoing everything keeps the count exact (#269)")
-  func undoMemoryCountStaysExact() async throws {
-    let controller = try controller(TextEditFixtures.invoice())
-    for round in 0..<6 {
       let regions = await controller.pageText(onPage: 0).regions
       let region = try #require(regions.first { $0.text.contains("Customer:") })
       let outcomes = await controller.applyTextEdits(
         [TextEdit(region: region, replacement: "Customer: Jane Smith \(round)")], onPage: 0)
       #expect(outcomes.allSatisfy { $0.isEdited }, "\(outcomes)")
+      // The edit before was undone, so this one ended the redo history that held it.
+      #expect(heldStepBytes(controller).count == 1, "Round \(round): an edit only redo held is still counted")
+      let counted = controller.textUndoBytes
+      #expect(counted > 0 && heldStepBytes(controller) == [counted])
+      controller.undoManager.undo()
+      #expect(controller.textUndoBytes == counted, "Round \(round): the redo history still holds the edit")
+    }
+    controller.undoManager.redo()
+    #expect(controller.textUndoBytes == heldStepBytes(controller).reduce(0, +))
+  }
+
+  /// Past the limit, the count is the bytes of every text step the history still holds, on the
+  /// undo side or the redo side: undoing and redoing never change it, cycle after cycle, and a new
+  /// edit after undoing everything leaves exactly the new edit's bytes.
+  @Test("Past the memory limit, undoing and redoing everything keeps the count exact (#269)")
+  func undoMemoryCountStaysExact() async throws {
+    let controller = try controller(TextEditFixtures.invoice())
+    func edit(_ name: String) async throws {
+      let regions = await controller.pageText(onPage: 0).regions
+      let region = try #require(regions.first { $0.text.contains("Customer:") })
+      let outcomes = await controller.applyTextEdits(
+        [TextEdit(region: region, replacement: "Customer: \(name)")], onPage: 0)
+      #expect(outcomes.allSatisfy { $0.isEdited }, "\(outcomes)")
+    }
+    for round in 0..<6 {
+      try await edit("Jane Smith \(round)")
       // Room for about two edits, so the limit trims the history.
       if round == 0 { controller.textUndoMemoryLimit = controller.textUndoBytes * 5 / 2 }
     }
     let held = controller.textUndoBytes
-    #expect(held > 0)
+    #expect(held > 0 && held == heldStepBytes(controller).reduce(0, +))
     for cycle in 0..<4 {
-      var givenBack = 0
+      var textUndos = 0
       for _ in 0..<40 where controller.undoManager.canUndo {
         let page = controller.document.page(at: 0)
-        let before = controller.textUndoBytes
         controller.undoManager.undo()
-        let after = controller.textUndoBytes
-        if controller.document.page(at: 0) !== page {
-          #expect(after < before, "Cycle \(cycle): a text edit was undone and gave back nothing")
-          givenBack += before - after
-        } else {
-          #expect(after == before, "Cycle \(cycle): the count changed though no text edit was undone")
-        }
+        if controller.document.page(at: 0) !== page { textUndos += 1 }
+        #expect(controller.textUndoBytes == held, "Cycle \(cycle): undo changed the count")
       }
-      #expect(controller.textUndoBytes == 0 && givenBack == held, "Cycle \(cycle): \(givenBack) given back of \(held)")
-      for _ in 0..<40 where controller.undoManager.canRedo { controller.undoManager.redo() }
-      #expect(controller.textUndoBytes == held, "Cycle \(cycle): \(controller.textUndoBytes) counted, not \(held)")
+      #expect(textUndos == heldStepBytes(controller).count, "Cycle \(cycle): \(textUndos) text edits undone")
+      for _ in 0..<40 where controller.undoManager.canRedo {
+        controller.undoManager.redo()
+        #expect(controller.textUndoBytes == held, "Cycle \(cycle): redo changed the count")
+      }
     }
+    // A new edit after an undo ends the redo history: exactly the undone edit leaves the count.
+    let before = heldStepBytes(controller)
+    controller.undoManager.undo()
+    #expect(controller.textUndoBytes == held)
+    try await edit("Someone New")
+    let after = heldStepBytes(controller)
+    #expect(Array(after.dropLast()) == Array(before.dropLast()) && after.count == before.count, "\(before) → \(after)")
+    #expect(controller.textUndoBytes == after.reduce(0, +))
   }
 
   // MARK: - #305

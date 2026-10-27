@@ -147,7 +147,8 @@ public final class PDFDocumentController {
   /// Which links point at which page, found once so that swapping a page does not walk the document.
   @ObservationIgnored var incomingLinks: [ObjectIdentifier: [PDFAnnotation]]?
   /// The text edits put in the undo history, oldest first, each held weakly: an edit the history
-  /// has dropped is gone from here too, so the count of what it holds never drifts (#269).
+  /// has let go, from the undo or the redo side, is gone from here too, so the count of what it
+  /// holds never drifts (#269).
   @ObservationIgnored var textUndoSteps: [WeakTextUndoStep] = []
   /// The most bytes of replaced pages the undo history may hold; see `undoMemoryLimit`.
   @ObservationIgnored var textUndoMemoryLimit = PDFDocumentController.undoMemoryLimit
