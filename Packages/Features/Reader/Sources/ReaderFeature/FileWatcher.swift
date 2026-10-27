@@ -10,6 +10,9 @@ import Foundation
 /// It is nonisolated: file coordination reads `presentedItemURL` and `presentedItemOperationQueue`
 /// from its own threads, and in this main-actor module they would otherwise be main-actor state that
 /// the runtime refuses to read off the main thread.
+///
+/// It must not implement `relinquishPresentedItem(toWriter:)` or `savePresentedItemChanges`: the
+/// reader's own coordinated write on the main thread would wait on its main-queue presenter, a deadlock.
 nonisolated final class FileWatcher: NSObject, NSFilePresenter, @unchecked Sendable {
   let presentedItemOperationQueue = OperationQueue.main
   private let onChange: @MainActor () -> Void

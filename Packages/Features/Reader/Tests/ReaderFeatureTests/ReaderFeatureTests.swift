@@ -370,6 +370,35 @@ struct ReaderModelTests {
     reader.stopWatching()
   }
 
+  @Test("After a rename while the app was away, the reader watches the file at its new name (#224)")
+  func watchesTheRenamedFile() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.make(pages: ["Mine"]), title: "Shared")
+    let reader = harness.reader(for: document)
+    await reader.load()
+    let data = try Data(contentsOf: try await harness.library.fileURL(for: document.id))
+    await reader.setWatching(false)
+    // Renamed in Files while the app is in the background; the library follows it.
+    var renamed = document
+    renamed.fileName = "Shared renamed.pdf"
+    try FileManager.default.removeItem(at: try await harness.library.fileURL(for: document.id))
+    await harness.library.seed(renamed, data: data)
+    let url = try await harness.library.fileURL(for: document.id)
+    await reader.setWatching(true)
+    #expect(reader.fileURL?.lastPathComponent == "Shared renamed.pdf")
+
+    let theirs = try SyntheticPDF.make(pages: ["Theirs", "Two"])
+    await Task.detached {
+      var error: NSError?
+      NSFileCoordinator(filePresenter: nil).coordinate(writingItemAt: url, options: .forReplacing, error: &error) {
+        try? theirs.write(to: $0)
+      }
+    }.value
+    for _ in 0..<150 where reader.controller?.pageCount != 2 { try await Task.sleep(for: .milliseconds(20)) }
+    #expect(reader.controller?.pageCount == 2, "Another app's change at the new name is heard")
+    reader.stopWatching()
+  }
+
   @Test("With unsaved changes, the person keeps theirs as a copy or takes the other version (H5)")
   func conflictingChange() async throws {
     let harness = Harness()

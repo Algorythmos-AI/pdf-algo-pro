@@ -382,7 +382,8 @@ public actor FileDocumentLibrary: DocumentLibrary {
           seekers.append(document)
         }
       }
-      let pool = files.compactMapValues { FileIdentity(of: $0) }
+      // Reading every file's identity is only needed when some entry is looking for its file.
+      let pool: [String: FileIdentity] = seekers.isEmpty ? [:] : files.compactMapValues { FileIdentity(of: $0) }
       let candidates = seekers.map { document in
         guard let identity = recordedIdentity(of: document.id) else { return [String]() }
         return pool.filter { identity.isSameFile(as: $0.value) }.map(\.key)

@@ -601,9 +601,13 @@ struct RenamedInFilesTests {
     let url = try await harness.library.fileURL(for: document.id)
     let renamed = harness.documentsFolder.appendingPathComponent("Report 2026.pdf")
     try FileManager.default.moveItem(at: url, to: renamed)
-    // A new save, or "Keep Both" in Files, puts another document at the old name.
+    // A new save, or "Keep Both" in Files, puts another document at the old name. It is written
+    // atomically, as apps save. A plain write on the same thread straight after the rename is left
+    // out: APFS takes that for a safe save of the renamed file and moves its document identifier to
+    // the new one, which no app saving a different document does (an atomic write, a clone, a write
+    // from another thread, or a file made before the rename, all keep it where it was).
     let other = Data("%PDF-1.7\n% another document\n%%EOF\n".utf8)
-    try other.write(to: url)
+    try other.write(to: url, options: .atomic)
 
     let resolved = try await harness.library.fileURL(for: document.id)
 
