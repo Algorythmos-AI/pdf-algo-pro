@@ -192,7 +192,11 @@ public final class ScanModel {
   }
 
   /// Reviews photos chosen from the photo library, skipping anything that isn't an image.
-  public func process(photos: [Data]) async {
+  ///
+  /// - Parameters:
+  ///   - photos: The chosen photos that loaded.
+  ///   - unreadable: How many chosen photos didn't load at all.
+  public func process(photos: [Data], unreadable: Int = 0) async {
     let images = ImageLoader.images(from: photos)
     let skipped = photos.count - images.count
     notice =

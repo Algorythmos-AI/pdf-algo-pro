@@ -601,8 +601,7 @@ public struct LibraryView<Detail: View>: View {
     }
     .task(id: model.lastDeleted) {
       guard !model.lastDeleted.isEmpty else { return }
-      try? await Task.sleep(for: .seconds(8))
-      model.forgetLastDeleted()
+      await model.expireUndo(after: .seconds(8))
     }
     .task(id: chosen) {
       shareURLs = await model.fileURLs(for: Array(chosen))
