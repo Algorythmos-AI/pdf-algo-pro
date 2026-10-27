@@ -216,6 +216,20 @@ struct SaveFaultInjectionTests {
     #expect(PDFDocument(url: space.url)?.pageCount == 3)
     #expect(controller.hasUnsavedChanges && controller.pageCount == 2, "and the open document still has its edit")
   }
+
+  @Test("A document whose file was moved away meanwhile is not saved as a new file at the old name (#224)")
+  func movedAwayIsNotWrittenAnew() throws {
+    let space = try Workspace()
+    let controller = try PDFDocumentController(url: space.url)
+    controller.addNote("Mine", onPage: 0)
+    let moved = space.folder.appendingPathComponent("renamed.pdf")
+    try FileManager.default.moveItem(at: space.url, to: moved)
+
+    #expect(throws: PDFEngineError.saveFailed) { try controller.save(to: space.url, keepingPreviousAt: space.previous) }
+    #expect(space.files == ["renamed.pdf"], "Nothing is written at the old name, and no version kept")
+    #expect(try Data(contentsOf: moved) == space.original, "The moved file is untouched")
+    #expect(controller.hasUnsavedChanges, "and the edit is still there to save")
+  }
 }
 
 /// The malformed corpus at every entry point (plan revision 3, R2): opening, inspecting, rendering,

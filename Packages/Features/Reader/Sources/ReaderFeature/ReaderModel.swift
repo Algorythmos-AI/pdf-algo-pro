@@ -1176,6 +1176,8 @@ public final class ReaderModel {
   /// Handles a change to the file made by another app: with no unsaved changes, the reader shows the
   /// new version; with unsaved changes, it asks which version to keep.
   func fileChangedOnDisk() async {
+    // The file may have been renamed or moved in the Files app; the library follows it (#224).
+    if phase == .ready, let moved = try? await library.fileURL(for: documentID) { fileURL = moved }
     guard phase == .ready, let fileURL, let current = try? FileVersion(fileURL), current != knownVersion else {
       return
     }

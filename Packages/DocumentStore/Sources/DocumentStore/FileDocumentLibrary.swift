@@ -63,8 +63,18 @@ public actor FileDocumentLibrary: DocumentLibrary {
   }
 
   /// The file URL of a document, for reading and coordinated writing.
+  ///
+  /// A file renamed or moved in the Files app while the app runs is found by its identity, and the
+  /// entry follows it (#224). When it can't be found, this throws `LibraryError.notFound` rather than
+  /// give the old name, so a save never writes a new file there beside the moved one.
   public func fileURL(for id: DocumentID) async throws -> URL {
-    location(of: try await existing(id))
+    try await exclusively {
+      let document = try await existing(id)
+      let url = location(of: document)
+      guard !document.isDeleted, !fileManager.fileExists(atPath: url.path) else { return url }
+      guard let found = try await followMovedFile(of: document) else { throw LibraryError.notFound }
+      return location(of: found)
+    }
   }
 
   // MARK: - Adding
@@ -219,6 +229,7 @@ public actor FileDocumentLibrary: DocumentLibrary {
       document.fileName = target.prefix + newName
       document.deletedAt = now()
       try await upsert(document, undoing: moved)
+      await recordIdentity(of: document)
     }
   }
 
@@ -236,6 +247,7 @@ public actor FileDocumentLibrary: DocumentLibrary {
       document.fileName = target.prefix + newName
       document.deletedAt = nil
       try await upsert(document, undoing: moved)
+      await recordIdentity(of: document)
     }
   }
 
@@ -274,23 +286,33 @@ public actor FileDocumentLibrary: DocumentLibrary {
 
   // MARK: - Reconciling
 
+  /// How long an entry whose file is gone is kept, out of the library, in case the file comes back:
+  /// as long as Recently Deleted keeps a deleted document (`retention`), which is also how long its
+  /// earlier versions stay (`versionRetention`).
+  public static let goneRetention = retention
+
   /// Brings the index in line with the files: PDFs added outside the app (for example in the Files app) are added,
   /// entries whose file is gone are removed.
   ///
   /// A file renamed or moved in the Files app keeps its entry, with its identifier, tags, favourite,
-  /// reading position and earlier versions (#224): an entry whose file is gone from its name takes
-  /// the one new file with the identity recorded for it (`FileIdentity`), and only that file's name
-  /// changes. That file may be in a folder inside the library's folder. When no file, or more than
-  /// one, has that identity, or another entry's identity points at the same file, nothing is
-  /// guessed: the entry is removed and the file, at the top level, added, as before. An entry
-  /// recorded before identities were (schema V1) gets one here, while its file is at its name.
+  /// reading position and earlier versions (#224). Each entry's file is checked against the identity
+  /// recorded for it (`FileIdentity`):
+  /// - At its name with that identity, or with no identity recorded on this volume, it stays, and its
+  ///   identity is recorded (for entries from schema V1, the first time).
+  /// - Otherwise, the one file in the library's folder, or a folder inside it, with that identity is
+  ///   the entry's, and only the entry's file name changes; so two files that swap names keep their
+  ///   own details. Nothing is guessed: with no such file, more than one, or another entry's identity
+  ///   pointing at the same file, an entry whose name still has a file keeps it, as before.
+  /// - An entry left without a file is reported removed, and kept out of the library for
+  ///   `goneRetention` with its identity: if its file comes back in that time, the entry comes back
+  ///   with it, reported added so it is indexed again. After that it is deleted.
   ///
   /// Only PDFs at the top level are added. One in a folder inside it that the library doesn't track
-  /// is left alone, neither added nor removed: folders are not part of the library yet (PAP-030
-  /// item 7, PAP-065), only followed when a tracked file is moved into one.
+  /// is left alone, neither added, marked nor removed: folders are not part of the library yet
+  /// (PAP-030 item 7, PAP-065), only followed when a tracked file is moved into one.
   ///
   /// An entry's earlier versions stay when its file is gone, until their 30 days or the quota ends
-  /// them: the file may have been moved where the library can't follow it, such as iCloud Drive.
+  /// them.
   ///
   /// Returns the documents added, which still need inspecting and indexing, and the entries removed,
   /// whose derived data must be removed too.
@@ -298,54 +320,95 @@ public actor FileDocumentLibrary: DocumentLibrary {
     try await exclusively {
       let entries = try await index.all()
       let identities = try await index.fileIdentities()
+      func recordedIdentity(of id: DocumentID) -> FileIdentity? {
+        identities[id].flatMap(FileIdentity.init(stored:))
+      }
       var removed: [DocumentID] = []
-      var gone: [Document] = []
+      var added: [Document] = []
       var files = pdfFiles(in: documentsFolder)
+      // Entries whose file isn't at its name, or whose name has another file.
+      var unsettled: [Document] = []
       for document in entries {
         let file = location(of: document)
-        guard fileManager.fileExists(atPath: file.path) else {
-          if document.isDeleted {
+        let exists = fileManager.fileExists(atPath: file.path)
+        if document.isDeleted {
+          if !exists {
             try await index.delete(document.id)
             removed.append(document.id)
-          } else {
-            gone.append(document)
           }
           continue
         }
-        guard !document.isDeleted else { continue }
+        guard exists else {
+          unsettled.append(document)
+          continue
+        }
+        let current = FileIdentity.tracking(file)
+        if let current, let recorded = recordedIdentity(of: document.id), recorded.isOnSameVolume(as: current),
+          !recorded.isSameFile(as: current)
+        {
+          unsettled.append(document)
+          continue
+        }
         files[document.fileName] = nil
-        // At its name: its identity is recorded, or recorded again after another app saved it.
-        if let identity = FileIdentity(of: file), identities[document.id] != identity.stored {
-          try await index.setFileIdentity(identity.stored, for: document.id)
+        if let current, identities[document.id] != current.stored {
+          try await index.setFileIdentity(current.stored, for: document.id)
         }
       }
       pruneVersions()
 
-      let newIdentities = files.compactMapValues { FileIdentity(of: $0) }
-      let candidates = gone.map { document in
-        let recorded = identities[document.id].flatMap(FileIdentity.init(stored:))
-        return newIdentities.filter { recorded?.isSameFile(as: $0.value) == true }.map(\.key)
-      }
-      for (document, names) in zip(gone, candidates) {
-        // Only one file has its identity, and no other entry's identity is that file's.
-        if names.count == 1, let name = names.first, candidates.filter({ $0.contains(name) }).count == 1 {
-          var found = document
-          found.fileName = name
-          try await index.upsert(found)
-          files[name] = nil
-        } else {
+      // Entries gone at an earlier reconciliation look for their file too, until their time is up.
+      var wasGone: Set<DocumentID> = []
+      var seekers = unsettled
+      for (document, goneAt) in try await index.goneEntries() {
+        if now().timeIntervalSince(goneAt) >= Self.goneRetention {
           try await index.delete(document.id)
+        } else {
+          wasGone.insert(document.id)
+          seekers.append(document)
+        }
+      }
+      let pool = files.compactMapValues { FileIdentity(of: $0) }
+      let candidates = seekers.map { document in
+        guard let identity = recordedIdentity(of: document.id) else { return [String]() }
+        return pool.filter { identity.isSameFile(as: $0.value) }.map(\.key)
+      }
+      var taken: Set<String> = []
+      var unfound: [Document] = []
+      for (document, names) in zip(seekers, candidates) {
+        // Only one file has its identity, and no other entry's identity is that file's.
+        guard names.count == 1, let name = names.first, candidates.filter({ $0.contains(name) }).count == 1 else {
+          if !wasGone.contains(document.id) { unfound.append(document) }
+          continue
+        }
+        var found = document
+        found.fileName = name
+        try await index.upsert(found)
+        if wasGone.contains(document.id) {
+          try await index.setGone(nil, for: document.id)
+          added.append(found)
+        }
+        await recordIdentity(of: found)
+        taken.insert(name)
+      }
+      files = files.filter { !taken.contains($0.key) }
+      for document in unfound {
+        if files.removeValue(forKey: document.fileName) != nil {
+          // Its name still has a file, and no other file is its own: it keeps that one.
+          await recordIdentity(of: document)
+        } else {
+          try await index.setGone(now(), for: document.id)
           removed.append(document.id)
         }
       }
 
-      var added: [Document] = []
       for (name, file) in files.sorted(by: { $0.key < $1.key }) where !name.contains("/") {
         let createdAt = (try? file.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? now()
         let title = file.deletingPathExtension().lastPathComponent
         let document = Document(title: title, fileName: name, addedAt: createdAt)
         try await index.upsert(document)
-        if let identity = newIdentities[name] { try await index.setFileIdentity(identity.stored, for: document.id) }
+        if let identity = FileIdentity.tracking(file) {
+          try await index.setFileIdentity(identity.stored, for: document.id)
+        }
         added.append(document)
       }
       // Files in Recently Deleted without an entry (after the index was rebuilt) come back as deleted
@@ -355,13 +418,33 @@ public actor FileDocumentLibrary: DocumentLibrary {
       let deletedFiles = pdfFiles(in: deletedFolder).sorted { $0.key < $1.key }
       for (name, file) in deletedFiles where !knownDeleted.contains(name) {
         let createdAt = (try? file.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? now()
-        try await index.upsert(
-          Document(
-            title: file.deletingPathExtension().lastPathComponent, fileName: name, addedAt: createdAt,
-            deletedAt: now()))
+        let document = Document(
+          title: file.deletingPathExtension().lastPathComponent, fileName: name, addedAt: createdAt,
+          deletedAt: now())
+        try await index.upsert(document)
+        await recordIdentity(of: document)
       }
       return Reconciliation(added: added, removed: removed)
     }
+  }
+
+  /// Finds the file of an entry whose file is gone from its name, by its identity, and moves the
+  /// entry to it; `nil` when there is no single such file that no entry has.
+  private func followMovedFile(of document: Document) async throws -> Document? {
+    guard let recorded = try await index.fileIdentities()[document.id].flatMap(FileIdentity.init(stored:)) else {
+      return nil
+    }
+    let claimed = Set(try await index.all().filter { !$0.isDeleted }.map(\.fileName))
+    let matches = pdfFiles(in: documentsFolder).filter { name, file in
+      guard !claimed.contains(name), let identity = FileIdentity(of: file) else { return false }
+      return recorded.isSameFile(as: identity)
+    }
+    guard matches.count == 1, let name = matches.first?.key else { return nil }
+    var found = document
+    found.fileName = name
+    try await index.upsert(found)
+    await recordIdentity(of: found)
+    return found
   }
 
   // MARK: - Earlier versions (FR-EDIT-008)
@@ -600,11 +683,18 @@ public actor FileDocumentLibrary: DocumentLibrary {
   private func move(_ source: URL, to destination: URL) throws -> Move {
     var coordinationError: NSError?
     var moveError: (any Error)?
-    NSFileCoordinator(filePresenter: nil).coordinate(
+    let coordinator = NSFileCoordinator(filePresenter: nil)
+    coordinator.coordinate(
       writingItemAt: source, options: .forMoving, writingItemAt: destination, options: .forReplacing,
       error: &coordinationError
     ) { from, to in
-      do { try FileManager.default.moveItem(at: from, to: to) } catch { moveError = error }
+      do {
+        try FileManager.default.moveItem(at: from, to: to)
+        // An open reader's file presenter follows the file (#224).
+        coordinator.item(at: from, didMoveTo: to)
+      } catch {
+        moveError = error
+      }
     }
     guard coordinationError == nil, moveError == nil else { throw LibraryError.fileAccessFailed }
     return Move(source: source, destination: destination)
@@ -622,11 +712,11 @@ public actor FileDocumentLibrary: DocumentLibrary {
   }
 
   /// Records the identity of a document's file, so the file is found again if the Files app renames
-  /// or moves it.
+  /// or moves it; the file is marked for tracking, so it has a document identifier.
   ///
   /// A failure only costs that, until the next reconciliation records it.
   private func recordIdentity(of document: Document) async {
-    guard !document.isDeleted, let identity = FileIdentity(of: location(of: document)) else { return }
+    guard let identity = FileIdentity.tracking(location(of: document)) else { return }
     try? await index.setFileIdentity(identity.stored, for: document.id)
   }
 

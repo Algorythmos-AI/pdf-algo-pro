@@ -325,6 +325,34 @@ struct ReaderModelTests {
     #expect(heard.count > 0)
   }
 
+  @Test("The file watcher follows a file renamed with coordination, as the Files app does (#224)")
+  func watcherFollowsAMove() async throws {
+    let folder = FileManager.default.temporaryDirectory.appendingPathComponent("watch-move-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let url = folder.appendingPathComponent("Before.pdf")
+    let renamed = folder.appendingPathComponent("After.pdf")
+    try SyntheticPDF.make(pages: ["One"]).write(to: url)
+    let heard = Heard()
+    let watcher = FileWatcher(url: url) { heard.count += 1 }
+    watcher.start()
+    defer { watcher.stop() }
+    await Task.detached {
+      var error: NSError?
+      let coordinator = NSFileCoordinator(filePresenter: nil)
+      coordinator.coordinate(
+        writingItemAt: url, options: .forMoving, writingItemAt: renamed, options: .forReplacing, error: &error
+      ) { from, to in
+        try? FileManager.default.moveItem(at: from, to: to)
+        coordinator.item(at: from, didMoveTo: to)
+      }
+    }.value
+    for _ in 0..<100 where heard.count == 0 { try await Task.sleep(for: .milliseconds(20)) }
+    #expect(heard.count > 0, "The reader is told, so it finds the file at its new name")
+    let followed = watcher.presentedItemURL
+    #expect(followed?.lastPathComponent == "After.pdf", "\(String(describing: followed))")
+  }
+
   @Test("Another app's change is shown when nothing is unsaved; its own saves aren't mistaken for one (H5)")
   func otherAppChange() async throws {
     let harness = Harness()

@@ -91,6 +91,8 @@ struct RootView: View {
           await app.container.entitlements.refresh()
           await app.checkTrialNotice()
         }
+        // Files can rename or move a document while the app is away (#224).
+        Task { await app.library.filesMayHaveChanged() }
       }
     }
     // A calm moment to ask for a rating: a document or a sheet has just closed (plan §6).

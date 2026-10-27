@@ -13,7 +13,9 @@ extension PDFDocumentController {
   ///   - url: The document's file.
   ///   - previous: Where to keep the file as it was before this save (FR-EDIT-008, first step), replacing
   ///     any version kept there before; `nil` keeps none. On APFS the copy is a clone, so it takes no
-  ///     space until the files differ.
+  ///     space until the files differ. A save that keeps one is a save of a document already on disk:
+  ///     if its file is gone, renamed or moved meanwhile, nothing is written, rather than a new file
+  ///     at the old name beside the moved one (#224).
   /// - Throws: `PDFEngineError.restricted` when the document's author does not allow the change;
   ///   `PDFEngineError.insufficientSpace` when the device is too full to save safely;
   ///   `PDFEngineError.saveFailed` when writing fails, or when the earlier version can't be kept.
@@ -67,6 +69,7 @@ extension PDFDocumentController {
       do {
         try fault(.coordinated)
         let exists = fileManager.fileExists(atPath: target.path)
+        if previous != nil, !exists { throw CocoaError(.fileNoSuchFile) }
         if let previous, exists {
           if fileManager.fileExists(atPath: previous.path) { try fileManager.removeItem(at: previous) }
           try fileManager.copyItem(at: target, to: previous)
