@@ -205,6 +205,17 @@ struct PaywallModelTests {
     #expect(model.phase == .offer && !model.grantsPro)
   }
 
+  @Test("A restore while Pro is paused in billing retry says it is paused, not that there is nothing to restore (#248)")
+  func restoreWhilePaused() async {
+    let (model, _, _, _, _) = makeModel(.inBillingRetry, trigger: .settings)
+    await model.appeared()
+    await model.restore(using: FixedStoreAccess(isAvailable: true))
+    #expect(
+      model.restoreOutcome != .nothingFound,
+      "The subscription is the person's; the offer and Settings say it is paused over a payment")
+    #expect(model.restoreOutcome?.message != nil && model.alertsAbout(model.restoreOutcome ?? .cancelled))
+  }
+
   @Test("Restoring on the offer with Pro already on says so; one that leads to the confirmation leaves it to it (#247)")
   func restoreWithProAlready() async {
     let (model, _, _, _, _) = makeModel(.subscribed, trigger: .settings)
