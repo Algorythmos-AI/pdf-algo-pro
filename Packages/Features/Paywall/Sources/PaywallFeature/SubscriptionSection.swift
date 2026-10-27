@@ -106,13 +106,16 @@ public struct SubscriptionSection: View {
 
   /// The plan in words.
   ///
-  /// Unknown, as at launch before the App Store has answered, reads as Free.
+  /// Unknown, as at launch before the App Store has answered, reads as Free. In the grace period Pro
+  /// stays and the payment is the problem; in billing retry Pro is paused until the payment goes through
+  /// (#248).
   static func status(of entitlement: Entitlement?, now: Date) -> Text {
     switch entitlement {
     case .trial(let endsAt) where endsAt > now:
       Text("Pro, trial until \(endsAt, format: .dateTime.day().month().year())", bundle: .module)
     case .subscribed: Text("Pro", bundle: .module)
-    case .inGracePeriod, .inBillingRetry: Text("Pro, payment problem", bundle: .module)
+    case .inGracePeriod: Text("Pro, payment problem", bundle: .module)
+    case .inBillingRetry: Text("Pro paused, payment problem", bundle: .module)
     case .trial, .expired, .revoked, .none?, nil: Text("Free", bundle: .module)
     }
   }

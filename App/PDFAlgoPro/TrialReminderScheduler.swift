@@ -49,7 +49,8 @@ struct SilentNotifications: NotificationScheduling {
 /// There is at most one, a day before the trial ends. It is asked for on the purchase confirmation,
 /// the only place the app asks to send notifications, and it is removed as soon as the entitlement
 /// is no longer a trial: after a cancellation that has run out, a refund or the first paid period.
-/// Its words are true whether or not the person has already cancelled.
+/// The app learns of those only while it runs, so a reminder can still arrive for someone who has
+/// paid, changed plans or been refunded since without opening it; its words stay true then too (#264).
 @MainActor
 final class TrialReminderScheduler {
   static let identifier = "commerce.trial.reminder"
@@ -88,14 +89,24 @@ final class TrialReminderScheduler {
       return .tooLate
     }
     guard await notifications.requestAuthorization() else { return .notificationsDeclined }
-    let day = trialEndsAt.formatted(.dateTime.day().month(.wide))
+    let words = Self.words(trialEndsAt: trialEndsAt)
     let scheduled = await notifications.schedule(
-      identifier: Self.identifier, title: String(localized: "Your trial ends tomorrow"),
-      body: String(localized: "Your PDF Algo Pro trial ends on \(day). Manage it in Settings, under Subscription."),
-      at: date)
+      identifier: Self.identifier, title: words.title, body: words.body, at: date)
     // The notification is the reminder for this trial; the in-app notice then stays away.
     if scheduled { remindedTrialEnd = trialEndsAt }
     return scheduled ? .scheduled : .failed
+  }
+
+  /// The reminder's title and body for a trial that ends at a date.
+  ///
+  /// They say what is true when the reminder arrives whatever happened to the trial meanwhile: the
+  /// trial ends on that date if it is still running.
+  static func words(trialEndsAt: Date) -> (title: String, body: String) {
+    let day = trialEndsAt.formatted(.dateTime.day().month(.wide))
+    let body = String(
+      localized:
+        "If your PDF Algo Pro trial is still running, it ends on \(day). Manage it in Settings, under Subscription.")
+    return (String(localized: "Trial reminder"), body)
   }
 
   /// The in-app notice for someone with no notification: the trial's end, when it is a day away or less.

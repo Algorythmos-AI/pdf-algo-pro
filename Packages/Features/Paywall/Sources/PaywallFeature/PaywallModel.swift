@@ -118,6 +118,11 @@ public final class PaywallModel {
   /// Whether the person has Pro now; the view watches it to learn of a purchase.
   public var grantsPro: Bool { entitlements.entitlement?.grantsPro(at: now()) ?? false }
 
+  /// Whether Pro is paused while the App Store retries a renewal it could not charge: the offer then
+  /// sends the person to update their payment method and sells nothing, since the subscription is
+  /// still theirs (#248).
+  public var paymentPaused: Bool { entitlements.entitlement == .inBillingRetry }
+
   /// When the trial ends, during a trial; `nil` otherwise.
   public var trialEndsAt: Date? {
     guard case .trial(let endsAt) = entitlements.entitlement, endsAt > now() else { return nil }
@@ -176,7 +181,7 @@ public final class PaywallModel {
   /// The App Store confirms the purchase in its own sheet. A purchase that succeeds is read back
   /// as an entitlement, and it is the entitlement that leads to the confirmation.
   public func purchase() async {
-    guard phase == .offer, !alreadyHasPro, !isPurchasing, let planID = selectedPlanID else { return }
+    guard phase == .offer, !alreadyHasPro, !paymentPaused, !isPurchasing, let planID = selectedPlanID else { return }
     isPurchasing = true
     defer { isPurchasing = false }
     await telemetry.record("commerce.purchase.started")

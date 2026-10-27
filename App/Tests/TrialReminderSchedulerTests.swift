@@ -78,6 +78,21 @@ struct TrialReminderSchedulerTests {
     #expect(state.scheduled.first?.title.isEmpty == false && state.scheduled.first?.body.isEmpty == false)
   }
 
+  @Test("The reminder's words stay true for someone who paid, changed plans or was refunded before it arrived (#264)")
+  func wordsStayTrue() async throws {
+    let (scheduler, notifications) = make()
+    let end = now.addingTimeInterval(3 * day)
+    #expect(await scheduler.set(true, trialEndsAt: end) == .scheduled)
+    let scheduled = try #require(notifications.state.withLock { $0.scheduled.first })
+    let words = "\(scheduled.title) / \(scheduled.body)"
+    #expect(
+      !words.contains("trial ends") && scheduled.body.contains("still running"),
+      "The reminder states the trial's end as a fact, which is false once it was paid or refunded: \(words)")
+    #expect(scheduled.body.contains(end.formatted(.dateTime.day().month(.wide))), "It gives the date: \(words)")
+    let expected = TrialReminderScheduler.words(trialEndsAt: end)
+    #expect(scheduled.title == expected.title && scheduled.body == expected.body)
+  }
+
   @Test("Turned off, the reminder is removed and permission is not asked for")
   func off() async {
     let (scheduler, notifications) = make()

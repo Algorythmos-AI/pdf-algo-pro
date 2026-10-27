@@ -354,6 +354,22 @@ struct PaywallModelTests {
     #expect(flags.closed == 1)
   }
 
+  @Test("Someone whose Pro is paused in billing retry is sent to manage the subscription, and sold nothing (#248)")
+  func billingRetryBuysNothing() async {
+    let (model, _, _, telemetry, _) = makeModel(.inBillingRetry, trigger: .settings)
+    await model.appeared()
+    #expect(!model.alreadyHasPro, "Billing retry grants no Pro")
+    #expect(model.paymentPaused, "The offer must say Pro is paused over a payment and offer Manage subscription")
+    await model.purchase()
+    #expect(model.phase == .offer)
+    #expect(await telemetry.events == ["commerce.paywall.viewed"], "No purchase was started")
+    for entitlement in [Entitlement.none, .subscribed, .inGracePeriod, .expired, .revoked] {
+      let (other, _, _, _, _) = makeModel(entitlement)
+      await other.appeared()
+      #expect(!other.paymentPaused, "\(entitlement) is not paused over a payment")
+    }
+  }
+
   @Test("Every trigger has a headline and a line under it", arguments: PaywallTrigger.allCases)
   func triggerCopy(trigger: PaywallTrigger) {
     _ = trigger.headline
@@ -380,7 +396,7 @@ struct PaywallModelTests {
       onRedeem: {})
     #expect(ViewRendering.draws(links.frame(width: 390)))
     #expect(ViewRendering.draws(links.frame(width: 200)))
-    for view in [AnyView(AlreadyProNote()), AnyView(PlansUnavailable {})] {
+    for view in [AnyView(AlreadyProNote()), AnyView(PaymentPausedNote()), AnyView(PlansUnavailable {})] {
       #expect(ViewRendering.draws(view.frame(width: 390)))
     }
     let offers = FixedStoreOffering.fixturePlans()
@@ -413,7 +429,7 @@ struct PaywallModelTests {
 @MainActor
 @Suite("The subscription section in Settings")
 struct SubscriptionSectionTests {
-  @Test("The plan reads Free until Pro is known, and names a trial's end and a payment problem")
+  @Test("The plan reads Free until Pro is known, and names a trial's end, a payment problem and a pause")
   func status() {
     let running = Entitlement.trial(endsAt: now.addingTimeInterval(day))
     let ended = Entitlement.trial(endsAt: now.addingTimeInterval(-day))
@@ -422,9 +438,11 @@ struct SubscriptionSectionTests {
       #expect(SubscriptionSection.status(of: entitlement, now: now) == Text("Free", bundle: .module))
     }
     #expect(SubscriptionSection.status(of: .subscribed, now: now) == Text("Pro", bundle: .module))
-    for entitlement in [Entitlement.inGracePeriod, .inBillingRetry] {
-      #expect(SubscriptionSection.status(of: entitlement, now: now) == Text("Pro, payment problem", bundle: .module))
-    }
+    #expect(SubscriptionSection.status(of: .inGracePeriod, now: now) == Text("Pro, payment problem", bundle: .module))
+    // Billing retry grants no Pro, so the plan does not read as Pro with a payment problem (#248).
+    #expect(
+      SubscriptionSection.status(of: .inBillingRetry, now: now) == Text("Pro paused, payment problem", bundle: .module),
+      "In billing retry Pro is locked; the plan must say it is paused, not \"Pro, payment problem\"")
     #expect(SubscriptionSection.status(of: running, now: now) != Text("Free", bundle: .module))
   }
 

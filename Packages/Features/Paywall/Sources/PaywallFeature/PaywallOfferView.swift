@@ -44,6 +44,8 @@ struct PaywallOfferView: View {
     VStack(spacing: Spacing.s150) {
       if model.alreadyHasPro {
         AlreadyProNote()
+      } else if model.paymentPaused {
+        PaymentPausedNote()
       }
       switch model.plans {
       case .loading:
@@ -58,7 +60,7 @@ struct PaywallOfferView: View {
         PlanPicker(
           offers: offers, selectedID: model.selectedPlanID, saving: model.yearlySaving,
           select: { id in Task { await model.select(id) } })
-        if !model.alreadyHasPro, let plan = model.selectedPlan {
+        if !model.alreadyHasPro, !model.paymentPaused, let plan = model.selectedPlan {
           PurchaseTerms(plan: plan)
         }
       }
@@ -72,7 +74,8 @@ struct PaywallOfferView: View {
     .readableWidth()
   }
 
-  /// The one prominent button: buy the selected plan, or, for someone who has Pro, go on.
+  /// The one prominent button: buy the selected plan, or, for someone who has Pro, go on, or, for someone
+  /// whose Pro is paused over a payment, manage the subscription.
   @ViewBuilder private var action: some View {
     if model.alreadyHasPro {
       VStack(spacing: Spacing.s050) {
@@ -89,6 +92,12 @@ struct PaywallOfferView: View {
         .tint(Color.ds.brandTint)
         .accessibilityIdentifier(AccessibilityID.Paywall.manage)
       }
+    } else if model.paymentPaused {
+      Button(action: onManage) {
+        Text("Manage subscription", bundle: .module)
+      }
+      .buttonStyle(.primary)
+      .accessibilityIdentifier(AccessibilityID.Paywall.manage)
     } else if let plan = model.selectedPlan {
       Button {
         Task { await model.purchase() }
@@ -285,6 +294,28 @@ struct AlreadyProNote: View {
       in: RoundedRectangle(cornerRadius: 14, style: .continuous)
     )
     .accessibilityIdentifier(AccessibilityID.Paywall.alreadyPro)
+  }
+}
+
+/// Said to someone whose renewal the App Store could not charge and is retrying: Pro is paused, and
+/// what brings it back is their payment method, not a new purchase (#248).
+struct PaymentPausedNote: View {
+  var body: some View {
+    Label {
+      Text(
+        "Pro is paused because the App Store couldn’t take your last payment. Update your payment method in Manage subscription.",
+        bundle: .module)
+    } icon: {
+      Image(systemName: "exclamationmark.circle.fill").foregroundStyle(Color.ds.brandTint)
+    }
+    .font(.subheadline.weight(.semibold))
+    .frame(maxWidth: .infinity)
+    .padding(Spacing.s150)
+    // Opaque, as the note for someone who has Pro, so the accessibility audit reads its contrast right.
+    .background(
+      Color.ds.backgroundPrimary.mix(with: Color.ds.brandTint, by: Opacities.brandGlow, in: .device),
+      in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+    )
   }
 }
 
