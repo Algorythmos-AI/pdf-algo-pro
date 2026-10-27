@@ -734,7 +734,8 @@ struct ReaderModelTests {
     try #require(reader.recognitionProgress == nil, "Recognition finished")
     #expect(reader.document?.title == "Signed (edited)")
     let copyURL = try #require(reader.fileURL)
-    try #require((PDFDocument(url: copyURL)?.string ?? "").contains("Recognised text"), "Recognition replaced the copy")
+    let copyText = PDFDocument(url: copyURL)?.string ?? ""
+    try #require(copyText.contains("Recognised text"), "Recognition replaced the copy; its text: \(copyText)")
 
     #expect(
       reader.controller !== before && reader.phase == .ready,
