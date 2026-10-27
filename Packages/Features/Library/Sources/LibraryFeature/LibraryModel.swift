@@ -136,6 +136,9 @@ public final class LibraryModel {
       await telemetry.record("quality.operation.failed")
     }
     await reconcile()
+    // Refreshes that failed, or were cut short, since the last launch: after a password, an edit or
+    // a restore, search and Spotlight still hold the old text until this runs (#236).
+    for _ in 0..<(await intake.refreshPending()) { await telemetry.record("quality.operation.failed") }
     await pruneDerivedData()
     await reload()
     phase = .loaded

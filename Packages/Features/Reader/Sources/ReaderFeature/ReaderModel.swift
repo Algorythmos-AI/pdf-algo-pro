@@ -984,8 +984,10 @@ public final class ReaderModel {
   /// Brings the search text and Spotlight up to date with edited words, once, not after every edit.
   private func refreshSearchTextIfNeeded() async {
     guard textChangedSinceIndexing, await save() else { return }
+    // Done only once the refresh worked, so the next chance tries again (#236).
+    guard let refreshed = await refreshLibraryRecord() else { return }
     textChangedSinceIndexing = false
-    document = (try? await intake.refresh(documentID)) ?? document
+    document = refreshed
   }
 
   // MARK: - Signing
@@ -1478,7 +1480,7 @@ public final class ReaderModel {
       try await swap()
       // The two versions can differ in their text (a restore across text recognition), so the search
       // text and Spotlight follow the restored file.
-      _ = try? await intake.refresh(documentID)
+      _ = await refreshLibraryRecord()
     } catch {
       errorMessage = String(
         localized: "Couldn't restore the earlier version. The document hasn't changed.", bundle: .module)
@@ -1589,8 +1591,16 @@ public final class ReaderModel {
       return
     }
     if await save() {
-      // The library's record follows the file: its lock, its page count and its search text.
-      _ = try? await intake.refresh(documentID)
+      // The library's record follows the file: its lock, its page count and its search text. If that
+      // fails, the words still leave search and Spotlight now (#236).
+      if await refreshLibraryRecord() == nil, var locked = document {
+        locked.isEncrypted = true
+        do {
+          try await index.index(locked, pages: [])
+        } catch {
+          await telemetry.record("quality.operation.failed")
+        }
+      }
       notice = String(localized: "The document now needs its password to open.", bundle: .module)
     }
   }
@@ -1604,8 +1614,21 @@ public final class ReaderModel {
     }
     if await save() {
       // The library's record follows the file: its lock, its page count and its search text.
-      _ = try? await intake.refresh(documentID)
+      _ = await refreshLibraryRecord()
       notice = String(localized: "The document no longer needs a password.", bundle: .module)
+    }
+  }
+
+  /// Brings the library's record, search text and Spotlight up to date with the saved file.
+  ///
+  /// A failure is counted, not shown: the save worked. The entry is left older than its file, so the
+  /// next library load tries again (#236). Returns the refreshed document, or `nil` when it failed.
+  private func refreshLibraryRecord() async -> Document? {
+    do {
+      return try await intake.refresh(documentID)
+    } catch {
+      await telemetry.record("quality.operation.failed")
+      return nil
     }
   }
 
