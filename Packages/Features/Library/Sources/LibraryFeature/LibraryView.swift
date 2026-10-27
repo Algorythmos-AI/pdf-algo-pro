@@ -495,7 +495,12 @@ public struct LibraryView<Detail: View>: View {
     .navigationTitle(Self.title(for: model.section))
     .searchable(text: $model.query, prompt: Text("Titles, tags and text", bundle: .module))
     .task(id: model.query) {
-      try? await Task.sleep(for: .milliseconds(200))
+      // Typing on cancels this wait; only the last query is searched (#240).
+      do {
+        try await Task.sleep(for: .milliseconds(200))
+      } catch {
+        return
+      }
       await model.search()
     }
     .dropDestination(for: URL.self) { urls, _ in
