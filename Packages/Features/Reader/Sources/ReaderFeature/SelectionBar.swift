@@ -20,115 +20,48 @@ struct SelectionBar: View {
   private static let step: CGFloat = 12
 
   var body: some View {
-    HStack(spacing: Spacing.s150) {
-      // The title carries the Move actions, so it gets a full-size target like any control.
-      (selection.isSignature ? Text("Signature", bundle: .module) : Self.title(for: selection.kind))
-        .font(.subheadline.weight(.semibold)).minimumTarget()
-        // Dragging moves a selection; these do the same without a drag, for VoiceOver and Switch Control.
-        .accessibilityActions {
-          if selection.isMovable {
-            Button {
-              onMove(CGSize(width: 0, height: Self.step))
-            } label: {
-              Text("Move up", bundle: .module)
-            }
-            Button {
-              onMove(CGSize(width: 0, height: -Self.step))
-            } label: {
-              Text("Move down", bundle: .module)
-            }
-            Button {
-              onMove(CGSize(width: -Self.step, height: 0))
-            } label: {
-              Text("Move left", bundle: .module)
-            }
-            Button {
-              onMove(CGSize(width: Self.step, height: 0))
-            } label: {
-              Text("Move right", bundle: .module)
-            }
+    // The longest row that fits on one line. French titles are longer than English ones, and wrapped
+    // they broke "Supprimer" in two (#303); what does not fit goes into a More menu, Delete last.
+    ViewThatFits(in: .horizontal) {
+      HStack(spacing: Spacing.s150) {
+        title
+        Spacer(minLength: Spacing.s100)
+        if selection.isMovable || selection.isRecolorable {
+          Menu {
+            styleItems
+          } label: {
+            Text("Style", bundle: .module).minimumTarget()
           }
+          .accessibilityIdentifier(AccessibilityID.Reader.Selection.style)
         }
-      Spacer(minLength: Spacing.s100)
-      if selection.isMovable || selection.isRecolorable {
-        Menu {
-          if selection.isRecolorable {
-            Picker(selection: Binding<AnnotationColor?>(get: { nil }, set: { if let color = $0 { onColor(color) } })) {
-              ForEach(AnnotationColor.allCases, id: \.self) { color in
-                Self.name(of: color).tag(Optional(color))
-              }
-            } label: {
-              Text("Colour", bundle: .module)
-            }
-            .pickerStyle(.menu)
+        if selection.isMovable {
+          Menu {
+            copyItems
+          } label: {
+            Text("Copy", bundle: .module).minimumTarget()
           }
-          if selection.isMovable {
-            Button {
-              onResize(1.25)
-            } label: {
-              Label {
-                Text("Larger", bundle: .module)
-              } icon: {
-                Image(systemName: "plus.magnifyingglass")
-              }
-            }
-            Button {
-              onResize(0.8)
-            } label: {
-              Label {
-                Text("Smaller", bundle: .module)
-              } icon: {
-                Image(systemName: "minus.magnifyingglass")
-              }
-            }
-          }
-        } label: {
-          Text("Style", bundle: .module).minimumTarget()
+          .accessibilityIdentifier(AccessibilityID.Reader.Selection.copy)
         }
-        .accessibilityIdentifier(AccessibilityID.Reader.Selection.style)
-      }
-      if selection.isMovable {
-        Menu {
-          Button(action: onCopy) {
-            Label {
-              Text("Copy", bundle: .module)
-            } icon: {
-              Image(systemName: "doc.on.doc")
-            }
-          }
-          .accessibilityIdentifier(AccessibilityID.Reader.Selection.copyAction)
-          Button(action: onCut) {
-            Label {
-              Text("Cut", bundle: .module)
-            } icon: {
-              Image(systemName: "scissors")
-            }
-          }
-          .accessibilityIdentifier(AccessibilityID.Reader.Selection.cut)
-          Button(action: onDuplicate) {
-            Label {
-              Text("Duplicate", bundle: .module)
-            } icon: {
-              Image(systemName: "plus.square.on.square")
-            }
-          }
-          .accessibilityIdentifier(AccessibilityID.Reader.Selection.duplicate)
-        } label: {
-          Text("Copy", bundle: .module).minimumTarget()
+        if selection.isTextEditable {
+          Button(action: onEdit) { Text("Edit text", bundle: .module).minimumTarget() }
+            .accessibilityIdentifier(AccessibilityID.Reader.Selection.edit)
         }
-        .accessibilityIdentifier(AccessibilityID.Reader.Selection.copy)
+        deleteButton
+        doneButton
       }
-      if selection.isTextEditable {
-        Button(action: onEdit) { Text("Edit text", bundle: .module).minimumTarget() }
-          .accessibilityIdentifier(AccessibilityID.Reader.Selection.edit)
+      HStack(spacing: Spacing.s150) {
+        title
+        Spacer(minLength: Spacing.s100)
+        if hasMore { more(includingDelete: false) }
+        deleteButton
+        doneButton
       }
-      // systemRed is below 4.5:1 on the material; the token keeps the contrast in every appearance.
-      Button(role: .destructive, action: onDelete) {
-        Text("Delete", bundle: .module).foregroundStyle(Color.ds.destructiveText).minimumTarget()
+      HStack(spacing: Spacing.s150) {
+        title
+        Spacer(minLength: Spacing.s100)
+        more(includingDelete: true)
+        doneButton
       }
-      .accessibilityIdentifier(AccessibilityID.Reader.Selection.delete)
-      Button(action: onDone) { Text("Done", bundle: .module).minimumTarget() }
-        .accessibilityIdentifier(AccessibilityID.Reader.Selection.done)
     }
     // Plain labels, so that the only red on this bar is Delete (the app's accent is red too).
     .tint(Color.ds.labelPrimary)
@@ -138,6 +71,163 @@ struct SelectionBar: View {
     .background(Color.ds.backgroundSecondary, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     .accessibilityElement(children: .contain)
     .accessibilityIdentifier(AccessibilityID.Reader.Selection.actionBar)
+  }
+
+  /// What is selected.
+  ///
+  /// It carries the Move actions, so it gets a full-size target like any control.
+  private var title: some View {
+    (selection.isSignature ? Text("Signature", bundle: .module) : Self.title(for: selection.kind))
+      .font(.subheadline.weight(.semibold)).minimumTarget()
+      // Dragging moves a selection; these do the same without a drag, for VoiceOver and Switch Control.
+      .accessibilityActions {
+        if selection.isMovable {
+          Button {
+            onMove(CGSize(width: 0, height: Self.step))
+          } label: {
+            Text("Move up", bundle: .module)
+          }
+          Button {
+            onMove(CGSize(width: 0, height: -Self.step))
+          } label: {
+            Text("Move down", bundle: .module)
+          }
+          Button {
+            onMove(CGSize(width: -Self.step, height: 0))
+          } label: {
+            Text("Move left", bundle: .module)
+          }
+          Button {
+            onMove(CGSize(width: Self.step, height: 0))
+          } label: {
+            Text("Move right", bundle: .module)
+          }
+        }
+      }
+  }
+
+  /// Whether there is anything to offer besides Delete and Done.
+  private var hasMore: Bool { selection.isMovable || selection.isRecolorable || selection.isTextEditable }
+
+  /// The colour, and the size of what can be moved.
+  @ViewBuilder private var styleItems: some View {
+    if selection.isRecolorable {
+      Picker(selection: Binding<AnnotationColor?>(get: { nil }, set: { if let color = $0 { onColor(color) } })) {
+        ForEach(AnnotationColor.allCases, id: \.self) { color in
+          Self.name(of: color).tag(Optional(color))
+        }
+      } label: {
+        Text("Colour", bundle: .module)
+      }
+      .pickerStyle(.menu)
+    }
+    if selection.isMovable {
+      Button {
+        onResize(1.25)
+      } label: {
+        Label {
+          Text("Larger", bundle: .module)
+        } icon: {
+          Image(systemName: "plus.magnifyingglass")
+        }
+      }
+      Button {
+        onResize(0.8)
+      } label: {
+        Label {
+          Text("Smaller", bundle: .module)
+        } icon: {
+          Image(systemName: "minus.magnifyingglass")
+        }
+      }
+    }
+  }
+
+  @ViewBuilder private var copyItems: some View {
+    Button(action: onCopy) {
+      Label {
+        Text("Copy", bundle: .module)
+      } icon: {
+        Image(systemName: "doc.on.doc")
+      }
+    }
+    .accessibilityIdentifier(AccessibilityID.Reader.Selection.copyAction)
+    Button(action: onCut) {
+      Label {
+        Text("Cut", bundle: .module)
+      } icon: {
+        Image(systemName: "scissors")
+      }
+    }
+    .accessibilityIdentifier(AccessibilityID.Reader.Selection.cut)
+    Button(action: onDuplicate) {
+      Label {
+        Text("Duplicate", bundle: .module)
+      } icon: {
+        Image(systemName: "plus.square.on.square")
+      }
+    }
+    .accessibilityIdentifier(AccessibilityID.Reader.Selection.duplicate)
+  }
+
+  /// The actions a narrow row has no room for, in one menu.
+  private func more(includingDelete: Bool) -> some View {
+    Menu {
+      if selection.isMovable || selection.isRecolorable {
+        Menu {
+          styleItems
+        } label: {
+          Label {
+            Text("Style", bundle: .module)
+          } icon: {
+            Image(systemName: "paintpalette")
+          }
+        }
+        .accessibilityIdentifier(AccessibilityID.Reader.Selection.style)
+      }
+      if selection.isMovable { copyItems }
+      if selection.isTextEditable {
+        Button(action: onEdit) {
+          Label {
+            Text("Edit text", bundle: .module)
+          } icon: {
+            Image(systemName: "character.cursor.ibeam")
+          }
+        }
+        .accessibilityIdentifier(AccessibilityID.Reader.Selection.edit)
+      }
+      if includingDelete {
+        Button(role: .destructive, action: onDelete) {
+          Label {
+            Text("Delete", bundle: .module)
+          } icon: {
+            Image(systemName: "trash")
+          }
+        }
+        .accessibilityIdentifier(AccessibilityID.Reader.Selection.delete)
+      }
+    } label: {
+      Label {
+        Text("More", bundle: .module)
+      } icon: {
+        Image(systemName: "ellipsis.circle")
+      }
+      .labelStyle(.iconOnly).minimumTarget()
+    }
+    .accessibilityIdentifier(AccessibilityID.Reader.Selection.more)
+  }
+
+  // systemRed is below 4.5:1 on the material; the token keeps the contrast in every appearance.
+  private var deleteButton: some View {
+    Button(role: .destructive, action: onDelete) {
+      Text("Delete", bundle: .module).foregroundStyle(Color.ds.destructiveText).minimumTarget()
+    }
+    .accessibilityIdentifier(AccessibilityID.Reader.Selection.delete)
+  }
+
+  private var doneButton: some View {
+    Button(action: onDone) { Text("Done", bundle: .module).minimumTarget() }
+      .accessibilityIdentifier(AccessibilityID.Reader.Selection.done)
   }
 
   static func name(of color: AnnotationColor) -> Text {

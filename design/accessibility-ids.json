@@ -202,6 +202,7 @@
     "reader.selection.done",
     "reader.selection.duplicate",
     "reader.selection.edit",
+    "reader.selection.more",
     "reader.selection.style",
     "reader.textEdit.actionBar",
     "reader.textEdit.cancel",
