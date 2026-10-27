@@ -146,3 +146,4 @@ not hold: a changed tracked file, or an untracked file the build reads (under `A
 
 | Date | Commit | Xcode | Device | iOS | Plan and flags | Passed / failed / flaky | Result bundle | CI `ios` | Manual checklist | Issues |
 |---|---|---|---|---|---|---|---|---|---|---|
+| 2026-10-27 | aeba441 | 27.0 (27A266a) | iPhone 17 Pro Max | 27.0.1 | Device | 120 / 0 / 0 | `.build/device-tests/20261027-062152-aeba441/Device.xcresult` | success | 6, 8 and 9 done by ManualChecklistDeviceUITests; 1–5, 7 and 10 pending | none new; 24 tests quarantined: contrast on iOS 27 glass bar buttons (white text measured at 8.8:1 and 11.7:1 on screen) and 3 findings without an element (#76), 3 contrast checks measured on screen (#294) |
