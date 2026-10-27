@@ -149,6 +149,52 @@
         }
       }
     },
+    "%lld file(s) couldn't be imported. The others were added." : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld file couldn't be imported. The others were added."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld files couldn't be imported. The others were added."
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld fichier n’a pas pu être importé. Les autres ont été ajoutés."
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld fichiers n’ont pas pu être importés. Les autres ont été ajoutés."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld fichiers n’ont pas pu être importés. Les autres ont été ajoutés."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%lld moved to Recently deleted" : {
       "localizations" : {
         "en" : {

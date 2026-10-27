@@ -325,12 +325,18 @@ public final class LibraryModel {
       }
     }
     if failures > 0 {
-      errorMessage =
-        otherFailure.map(Self.message(for:))
-        ?? String(
-          localized:
-            "\(failures) file(s) couldn't be imported because they aren't readable PDFs. Nothing else changed.",
-          bundle: .module)
+      if otherFailure != nil, failures < urls.count {
+        // Some were added, so "nothing changed" would not be true.
+        errorMessage = String(
+          localized: "\(failures) file(s) couldn't be imported. The others were added.", bundle: .module)
+      } else {
+        errorMessage =
+          otherFailure.map(Self.message(for:))
+          ?? String(
+            localized:
+              "\(failures) file(s) couldn't be imported because they aren't readable PDFs. Nothing else changed.",
+            bundle: .module)
+      }
       await telemetry.record("quality.operation.failed")
     }
     await reload()
