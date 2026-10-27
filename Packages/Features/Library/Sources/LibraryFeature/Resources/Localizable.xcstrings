@@ -103,6 +103,52 @@
         }
       }
     },
+    "%lld file(s) couldn't be imported because they aren't readable PDFs." : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld file couldn't be imported because it isn't a readable PDF."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld files couldn't be imported because they aren't readable PDFs."
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld fichier n’a pas pu être importé, car ce n’est pas un PDF lisible."
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld fichiers n’ont pas pu être importés, car ce ne sont pas des PDF lisibles."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld fichiers n’ont pas pu être importés, car ce ne sont pas des PDF lisibles."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%lld file(s) couldn't be imported because they aren't readable PDFs. Nothing else changed." : {
       "localizations" : {
         "en" : {
@@ -149,7 +195,7 @@
         }
       }
     },
-    "%lld file(s) couldn't be imported. The others were added." : {
+    "%lld file(s) couldn't be imported." : {
       "localizations" : {
         "en" : {
           "variations" : {
@@ -157,13 +203,13 @@
               "one" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "%lld file couldn't be imported. The others were added."
+                  "value" : "%lld file couldn't be imported."
                 }
               },
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "%lld files couldn't be imported. The others were added."
+                  "value" : "%lld files couldn't be imported."
                 }
               }
             }
@@ -175,19 +221,65 @@
               "one" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "%lld fichier n’a pas pu être importé. Les autres ont été ajoutés."
+                  "value" : "%lld fichier n’a pas pu être importé."
                 }
               },
               "many" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "%lld fichiers n’ont pas pu être importés. Les autres ont été ajoutés."
+                  "value" : "%lld fichiers n’ont pas pu être importés."
                 }
               },
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "%lld fichiers n’ont pas pu être importés. Les autres ont été ajoutés."
+                  "value" : "%lld fichiers n’ont pas pu être importés."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld file(s) were added." : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld file was added."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld files were added."
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld fichier a été ajouté."
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld fichiers ont été ajoutés."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld fichiers ont été ajoutés."
                 }
               }
             }
