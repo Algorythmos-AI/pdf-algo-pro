@@ -1499,7 +1499,16 @@ public final class ReaderModel {
     guard phase == .ready else { return nil }
     if conflictWaits, let controller { return try? sharedCopy(of: controller) }
     guard await save() else { return nil }
-    return try? await library.fileURL(for: documentID)
+    // Saved, but the file may be gone, say because it was moved in the Files app while the document was
+    // open: the library still names the old place, so the file itself is looked for (#260).
+    guard let url = try? await library.fileURL(for: documentID), FileManager.default.fileExists(atPath: url.path)
+    else {
+      errorMessage = String(
+        localized: "Couldn't find this document's file. It may have been moved or deleted in the Files app.",
+        bundle: .module)
+      return nil
+    }
+    return url
   }
 
   /// The version this reader shows, written to a file of its own to share; it still counts as unsaved.
