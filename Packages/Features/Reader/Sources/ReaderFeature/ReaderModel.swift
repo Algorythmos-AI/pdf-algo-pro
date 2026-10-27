@@ -656,7 +656,12 @@ public final class ReaderModel {
   /// the change is saved: a stop between the save and the refresh is caught up at the next load (#236).
   private func wordsChanged() async {
     textChangedSinceIndexing = true
-    await intake.willChange(documentID)
+    await willSave(protecting: false)
+  }
+
+  /// Writes down that the next save makes a change search must catch up with (#236).
+  private func willSave(protecting: Bool) async {
+    if let change = await intake.willChange(documentID, protecting: protecting) { changesBeingSaved.append(change) }
   }
   /// Whether, in this reader, the person has been told a font will be matched, and that text
   /// will be covered, and has picked any text at all.
@@ -1062,6 +1067,19 @@ public final class ReaderModel {
   /// Returns whether the file on disk now has every change; a failure has already been explained.
   @discardableResult
   public func save() async -> Bool {
+    let saved = await saveNow()
+    // Whether it worked or not, the changes written down before it are no longer being saved: the
+    // next refresh reads the file as it is (#236).
+    let changes = changesBeingSaved
+    changesBeingSaved = []
+    for change in changes { await intake.saveFinished(documentID, change: change) }
+    return saved
+  }
+
+  /// Changes written down as owing a refresh whose save hasn't ended yet (#236).
+  private var changesBeingSaved: [Int] = []
+
+  private func saveNow() async -> Bool {
     guard let controller else { return false }
     controller.endEditing()
     guard controller.needsSaving else { return true }
@@ -1266,9 +1284,15 @@ public final class ReaderModel {
     controller = nil
     phase = .loading
     // Owed from before the swap, so a stop after it still brings search up to date (#236).
-    await intake.willChange(documentID)
+    let change = await intake.willChange(documentID)
     do {
-      try await swap()
+      do {
+        try await swap()
+      } catch {
+        await intake.saveFinished(documentID, change: change)
+        throw error
+      }
+      await intake.saveFinished(documentID, change: change)
       // The two versions can differ in their text (a restore across text recognition), so the search
       // text and Spotlight follow the restored file.
       _ = await refreshLibraryRecord()
@@ -1366,7 +1390,7 @@ public final class ReaderModel {
       return
     }
     // Owed from before the save: whatever stops after it, the words still leave search (#236).
-    await intake.willChange(documentID, protecting: true)
+    await willSave(protecting: true)
     if await save() {
       // The library's record follows the file: its lock, its page count and its search text. If that
       // fails, the words still leave search and Spotlight now: removing them needs no space, so it
@@ -1391,7 +1415,7 @@ public final class ReaderModel {
         localized: "Only the document's owner password can remove its protection.", bundle: .module)
       return
     }
-    await intake.willChange(documentID)
+    await willSave(protecting: false)
     if await save() {
       // The library's record follows the file: its lock, its page count and its search text.
       _ = await refreshLibraryRecord()

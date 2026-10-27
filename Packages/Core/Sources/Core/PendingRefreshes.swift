@@ -26,6 +26,9 @@ public actor PendingRefreshes {
   private let url: URL?
   private var changes = 0
   private var owed: [DocumentID: Owed] = [:]
+  /// Changes whose save hasn't ended yet, in this launch only: after a relaunch no save is under way,
+  /// and the file is as the last one left it.
+  private var saving: [DocumentID: Set<Int>] = [:]
 
   /// Opens the list kept at `url`, or one in memory when `url` is `nil`.
   ///
@@ -52,22 +55,40 @@ public actor PendingRefreshes {
     owed[id]
   }
 
-  /// Writes a change down: the document needs a refresh that begins after now.
+  /// Writes a change down: the document needs a refresh that reads the file after it is saved.
   ///
   /// - Parameters:
   ///   - id: The document that changes.
   ///   - protecting: Whether the change protects it; that stays until the refresh is crossed off.
+  ///   - saved: Whether the file is already written; if not, `saveFinished(_:change:)` says when.
+  /// - Returns: the change's number.
   /// - Throws: when the list can't be written, so the caller knows a failure would not be retried.
-  public func add(_ id: DocumentID, protecting: Bool = false) throws {
+  @discardableResult
+  public func add(_ id: DocumentID, protecting: Bool = false, saved: Bool = true) throws -> Int {
     changes += 1
     let protects = protecting || (owed[id]?.protects ?? false)
     owed[id] = Owed(change: changes, failures: 0, protects: protects)
+    if !saved { saving[id, default: []].insert(changes) }
     try save()
+    return changes
+  }
+
+  /// Notes that the save of a change has ended, whether it worked or not.
+  public func saveFinished(_ id: DocumentID, change: Int) {
+    saving[id]?.remove(change)
+    if saving[id]?.isEmpty == true { saving[id] = nil }
+  }
+
+  /// The latest change a refresh that reads the file now would cover, or `nil` when it would cover
+  /// none: nothing is owed, or a save is still under way.
+  public func coverage(_ id: DocumentID) -> Int? {
+    guard saving[id] == nil else { return nil }
+    return owed[id]?.change
   }
 
   /// Crosses a document off once a refresh covering every change up to `change` has worked.
   public func finished(_ id: DocumentID, upTo change: Int) throws {
-    guard let entry = owed[id], entry.change <= change else { return }
+    guard let entry = owed[id], entry.change <= change, saving[id] == nil else { return }
     owed[id] = nil
     try save()
   }
