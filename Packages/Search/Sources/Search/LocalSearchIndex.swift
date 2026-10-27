@@ -40,6 +40,16 @@ public actor LocalSearchIndex: DocumentIndexing {
     await spotlight?.index(document, text: pages.map(\.text).joined(separator: "\n"))
   }
 
+  /// Gives Spotlight a document's new title or tags, with the text already stored (#241).
+  ///
+  /// The stored text isn't written, so a refresh that lands meanwhile is never overwritten with what
+  /// was read before it.
+  public func updateDetails(of document: Document) async throws {
+    guard let spotlight else { return }
+    let text = try await pages(of: document.id).map(\.text).joined(separator: "\n")
+    await spotlight.index(document, text: text)
+  }
+
   /// Removes a document and its derived text (FR-LIB-006).
   ///
   /// The Spotlight entry goes first, so a file that cannot be removed never leaves the document
