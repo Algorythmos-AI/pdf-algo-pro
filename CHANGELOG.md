@@ -92,6 +92,8 @@ Store notes (see the changelog strategy).
 - App Lock: after the cover goes away, for example when you come back from Notification Center,
   typing goes on in the field you were typing in. Before, the keyboard could be given to another
   of the app's windows, and typing stopped until you tapped the field again.
+- Free plan: two summaries or answers started at the same moment can no longer both use the day's
+  last free request.
 - Editing text (internal builds): a name pasted from a web page with a hidden soft hyphen or
   zero-width space is now changed in the page. Before, the hidden character made the change fail,
   the line was covered instead, and every other line on that page could then only be covered.
