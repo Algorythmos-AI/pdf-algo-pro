@@ -85,6 +85,9 @@ public final class PaywallModel {
   @ObservationIgnored private let onClose: () -> Void
   /// Whether the person had Pro when the offer appeared; `nil` until it has appeared.
   @ObservationIgnored private var hadPro: Bool?
+  /// Whether the offer appeared while Pro was paused in billing retry: Pro coming back then is a
+  /// payment the App Store recovered, not a purchase.
+  @ObservationIgnored private var openedPaused = false
   /// Whether Pro arrived through Restore Purchases, so that it is not recorded as a purchase.
   @ObservationIgnored private var wasRestored = false
   /// Whether the offer's going away has been recorded.
@@ -140,9 +143,11 @@ public final class PaywallModel {
   /// The offer came on screen.
   public func appeared() async {
     guard hadPro == nil else { return }
-    let hasPro = await entitlements.resolved().grantsPro(at: now())
+    let entitlement = await entitlements.resolved()
+    let hasPro = entitlement.grantsPro(at: now())
     hadPro = hasPro
     alreadyHasPro = hasPro
+    openedPaused = entitlement == .inBillingRetry
     await telemetry.record("commerce.paywall.viewed")
     await loadPlans()
   }
@@ -170,7 +175,8 @@ public final class PaywallModel {
 
   /// The person chose a plan.
   public func select(_ planID: String) async {
-    guard case .loaded(let offers) = plans, offers.contains(where: { $0.id == planID }), planID != selectedPlanID
+    guard !paymentPaused, case .loaded(let offers) = plans, offers.contains(where: { $0.id == planID }),
+      planID != selectedPlanID
     else { return }
     selectedPlanID = planID
     await telemetry.record("commerce.plan.selected")
@@ -222,9 +228,15 @@ public final class PaywallModel {
   /// The entitlement changed while the presentation was up.
   ///
   /// Only a change from "no Pro" to "Pro" while the offer shows is a purchase. Someone who opened the
-  /// plans from Settings with Pro already is not welcomed again.
+  /// plans from Settings with Pro already is not welcomed again, and nor is someone whose paused Pro
+  /// came back because the App Store recovered the payment: the offer then says they have Pro.
   public func entitlementChanged() async {
     guard phase == .offer, hadPro == false, grantsPro else { return }
+    if openedPaused {
+      hadPro = true
+      alreadyHasPro = true
+      return
+    }
     phase = .welcome
     if wasRestored {
       await telemetry.record("commerce.purchase.restored")

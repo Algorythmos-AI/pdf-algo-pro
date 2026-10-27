@@ -360,6 +360,8 @@ struct PaywallModelTests {
     await model.appeared()
     #expect(!model.alreadyHasPro, "Billing retry grants no Pro")
     #expect(model.paymentPaused, "The offer must say Pro is paused over a payment and offer Manage subscription")
+    await model.select("weekly")
+    #expect(model.selectedPlan?.term == .year, "While paused the plans can't be chosen")
     await model.purchase()
     #expect(model.phase == .offer)
     #expect(await telemetry.events == ["commerce.paywall.viewed"], "No purchase was started")
@@ -368,6 +370,18 @@ struct PaywallModelTests {
       await other.appeared()
       #expect(!other.paymentPaused, "\(entitlement) is not paused over a payment")
     }
+  }
+
+  @Test("A payment recovered while the paused offer shows is not a purchase, and welcomes nobody (#248)")
+  func recoveredPaymentIsNotASale() async {
+    let (model, fake, store, telemetry, _) = makeModel(.inBillingRetry, trigger: .settings)
+    await model.appeared()
+    await purchase(.subscribed, fake, store)
+    await model.entitlementChanged()
+    let events = await telemetry.events
+    #expect(model.phase == .offer, "The welcome screen is for a purchase; it showed after a recovered payment")
+    #expect(events == ["commerce.paywall.viewed"], "A recovered payment was recorded: \(events)")
+    #expect(model.alreadyHasPro && !model.paymentPaused, "The offer now says the account has Pro")
   }
 
   @Test("Every trigger has a headline and a line under it", arguments: PaywallTrigger.allCases)
@@ -404,6 +418,8 @@ struct PaywallModelTests {
     for size in [DynamicTypeSize.large, .accessibility3] {
       let picker = PlanPicker(offers: offers, selectedID: offers[0].id, saving: saving) { _ in }
       #expect(ViewRendering.draws(picker.frame(width: 390).dynamicTypeSize(size)))
+      let paused = PlanPicker(offers: offers, selectedID: offers[0].id, saving: saving, isPaused: true) { _ in }
+      #expect(ViewRendering.draws(paused.frame(width: 390).dynamicTypeSize(size)))
     }
     for offer in offers {
       #expect(ViewRendering.draws(PurchaseTerms(plan: offer).frame(width: 390)))

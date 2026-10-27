@@ -283,12 +283,12 @@
         }
       }
     },
-    "If your PDF Algo Pro trial is still running, it ends on %@. Manage it in Settings, under Subscription." : {
+    "If your PDF Algo Pro trial is still running, it ends within a day. Manage it in Settings, under Subscription." : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Si votre essai de PDF Algo Pro est toujours en cours, il se termine le %@. Gérez-le dans Réglages, sous Abonnement."
+            "value" : "Si votre essai de PDF Algo Pro est toujours en cours, il se termine dans un jour au plus. Gérez-le dans Réglages, sous Abonnement."
           }
         }
       }

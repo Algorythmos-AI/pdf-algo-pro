@@ -2,6 +2,7 @@ import Commerce
 import Foundation
 import Synchronization
 import Testing
+import UserNotifications
 
 @testable import PDFAlgoPro
 
@@ -10,7 +11,7 @@ private final class RecordingNotifications: NotificationScheduling {
   struct State {
     var allows = true
     var asked = 0
-    var scheduled: [(identifier: String, title: String, body: String, date: Date)] = []
+    var scheduled: [(identifier: String, title: String, body: String, interval: TimeInterval)] = []
     var cancelled: [String] = []
   }
   let state = Mutex(State())
@@ -21,8 +22,8 @@ private final class RecordingNotifications: NotificationScheduling {
       return $0.allows
     }
   }
-  func schedule(identifier: String, title: String, body: String, at date: Date) async -> Bool {
-    state.withLock { $0.scheduled.append((identifier, title, body, date)) }
+  func schedule(identifier: String, title: String, body: String, after interval: TimeInterval) async -> Bool {
+    state.withLock { $0.scheduled.append((identifier, title, body, interval)) }
     return true
   }
   func cancel(identifier: String) async { state.withLock { $0.cancelled.append(identifier) } }
@@ -74,7 +75,7 @@ struct TrialReminderSchedulerTests {
     #expect(state.cancelled == [TrialReminderScheduler.identifier], "An earlier reminder goes first")
     #expect(state.asked == 1 && state.scheduled.count == 1)
     #expect(state.scheduled.first?.identifier == TrialReminderScheduler.identifier)
-    #expect(state.scheduled.first?.date == end.addingTimeInterval(-day))
+    #expect(state.scheduled.first?.interval == 2 * day, "Due a day before the end, which is three days away")
     #expect(state.scheduled.first?.title.isEmpty == false && state.scheduled.first?.body.isEmpty == false)
   }
 
@@ -88,9 +89,32 @@ struct TrialReminderSchedulerTests {
     #expect(
       !words.contains("trial ends") && scheduled.body.contains("still running"),
       "The reminder states the trial's end as a fact, which is false once it was paid or refunded: \(words)")
-    #expect(scheduled.body.contains(end.formatted(.dateTime.day().month(.wide))), "It gives the date: \(words)")
-    let expected = TrialReminderScheduler.words(trialEndsAt: end)
+    let expected = TrialReminderScheduler.words()
     #expect(scheduled.title == expected.title && scheduled.body == expected.body)
+  }
+
+  @Test("A change of time zone after scheduling moves neither when the reminder fires nor what it says (#246, #264)")
+  func timeZoneChange() async throws {
+    let (scheduler, notifications) = make()
+    // 00:30 UTC: 01:30 on 19 January in Paris and Auckland's afternoon, 19:30 on 18 January in New York.
+    let end = now.addingTimeInterval(3 * day + 16.5 * 60 * 60)
+    #expect(await scheduler.set(true, trialEndsAt: end) == .scheduled)
+    let scheduled = try #require(notifications.state.withLock { $0.scheduled.first })
+    let zones = ["Europe/Paris", "America/New_York", "Pacific/Auckland"].compactMap(TimeZone.init(identifier:))
+    #expect(zones.count == 3)
+    for zone in zones {
+      var style = Date.FormatStyle.dateTime.day().month(.wide)
+      style.timeZone = zone
+      let day = end.formatted(style)
+      #expect(
+        !scheduled.body.contains(day),
+        "The words name the end as \(day), which is the wrong day in another time zone: \(scheduled.body)")
+    }
+    let trigger = try #require(
+      SystemNotifications.trigger(after: scheduled.interval),
+      "The reminder must fire after an elapsed interval, not at calendar components that float with the zone")
+    #expect(trigger.timeInterval == end.addingTimeInterval(-day).timeIntervalSince(now) && !trigger.repeats)
+    #expect(SystemNotifications.trigger(after: 0) == nil && SystemNotifications.trigger(after: -day) == nil)
   }
 
   @Test("Turned off, the reminder is removed and permission is not asked for")
@@ -135,7 +159,7 @@ struct TrialReminderSchedulerTests {
   func silent() async {
     let silent = SilentNotifications()
     #expect(await silent.requestAuthorization())
-    #expect(await silent.schedule(identifier: "x", title: "t", body: "b", at: now))
+    #expect(await silent.schedule(identifier: "x", title: "t", body: "b", after: day))
     await silent.cancel(identifier: "x")
   }
 }

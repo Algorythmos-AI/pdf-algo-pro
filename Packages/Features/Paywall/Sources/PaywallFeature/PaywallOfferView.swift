@@ -58,7 +58,7 @@ struct PaywallOfferView: View {
         PlansUnavailable { Task { await model.retry() } }
       case .loaded(let offers):
         PlanPicker(
-          offers: offers, selectedID: model.selectedPlanID, saving: model.yearlySaving,
+          offers: offers, selectedID: model.selectedPlanID, saving: model.yearlySaving, isPaused: model.paymentPaused,
           select: { id in Task { await model.select(id) } })
         if !model.alreadyHasPro, !model.paymentPaused, let plan = model.selectedPlan {
           PurchaseTerms(plan: plan)
@@ -119,6 +119,8 @@ struct PlanPicker: View {
   let offers: [PlanOffer]
   let selectedID: String?
   let saving: YearlySaving?
+  /// While Pro is paused over a payment the plans are named only: no prices, and nothing to choose.
+  var isPaused = false
   let select: (String) -> Void
   @Environment(\.dynamicTypeSize) private var typeSize
 
@@ -129,7 +131,8 @@ struct PlanPicker: View {
     layout {
       ForEach(offers) { offer in
         PlanCard(
-          offer: offer, isSelected: offer.id == selectedID, saving: offer.term == .year ? saving : nil
+          offer: offer, isSelected: !isPaused && offer.id == selectedID,
+          saving: !isPaused && offer.term == .year ? saving : nil, isPaused: isPaused
         ) { select(offer.id) }
       }
     }
@@ -147,6 +150,8 @@ struct PlanCard: View {
   let offer: PlanOffer
   let isSelected: Bool
   let saving: YearlySaving?
+  /// Named only, without its price or note, and not selectable (#248).
+  var isPaused = false
   let select: () -> Void
 
   var body: some View {
@@ -157,17 +162,21 @@ struct PlanCard: View {
           Text(verbatim: offer.name).font(.subheadline.weight(.semibold))
           Spacer(minLength: 0)
           // Selection is a mark as well as a colour.
-          Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-            .foregroundStyle(isSelected ? Color.ds.brandFill : Color.ds.labelSecondary)
-            .accessibilityHidden(true)
+          if !isPaused {
+            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+              .foregroundStyle(isSelected ? Color.ds.brandFill : Color.ds.labelSecondary)
+              .accessibilityHidden(true)
+          }
         }
-        Self.price(of: offer)
-          .font(.title3.weight(.bold))
-          .frame(maxWidth: .infinity, alignment: .leading)
-        note
-          .font(.footnote)
-          .foregroundStyle(Color.ds.labelSecondary)
-          .frame(maxWidth: .infinity, alignment: .leading)
+        if !isPaused {
+          Self.price(of: offer)
+            .font(.title3.weight(.bold))
+            .frame(maxWidth: .infinity, alignment: .leading)
+          note
+            .font(.footnote)
+            .foregroundStyle(Color.ds.labelSecondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
       }
       .multilineTextAlignment(.leading)
       .foregroundStyle(Color.ds.labelPrimary)
@@ -189,6 +198,7 @@ struct PlanCard: View {
       .contentShape(shape)
     }
     .buttonStyle(.plain)
+    .disabled(isPaused)
     .accessibilityElement(children: .combine)
     .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     .accessibilityIdentifier(
