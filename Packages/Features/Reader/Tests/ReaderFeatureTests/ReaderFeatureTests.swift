@@ -414,6 +414,92 @@ struct ReaderModelTests {
     reader.stopWatching()
   }
 
+  @Test("Two quick saves of a signed document make one copy, with both changes in it (#233)")
+  func quickSavesOfASignedDocumentMakeOneCopy() async throws {
+    let inspector = GatedInspector()
+    let harness = Harness(inspector: inspector)
+    let signed = await harness.seed(TestPDFs.makeSigned(.signed), title: "Signed")
+    let existing = try PDFDocumentController(data: TestPDFs.makeSigned(.signed)).annotationCount(onPage: 0)
+    let reader = harness.reader(for: signed)
+    await reader.load()
+    reader.controller?.addNote("One", onPage: 0)
+    let first = Task { await reader.save() }
+    // The first save is adding the copy to the library, and is held there.
+    for _ in 0..<500 where await !inspector.isWaiting { try await Task.sleep(for: .milliseconds(10)) }
+    try #require(await inspector.isWaiting, "The first save reached the library")
+    reader.controller?.addNote("Two", onPage: 0)
+    let second = Task { await reader.save() }
+    // Time for a second save that does not wait for the first to start a copy of its own.
+    try await Task.sleep(for: .milliseconds(200))
+    await inspector.open()
+    let firstSaved = await first.value
+    let secondSaved = await second.value
+
+    #expect(
+      firstSaved && secondSaved, "Saved: \(firstSaved), \(secondSaved); \(String(describing: reader.errorMessage))")
+    let titles = try await harness.library.documents(in: .all, sortedBy: .title).map(\.title)
+    #expect(titles.filter { $0.hasPrefix("Signed (edited)") }.count == 1, "Titles: \(titles)")
+    let copyURL = try #require(reader.fileURL)
+    let annotations = try PDFDocumentController(url: copyURL).annotationCount(onPage: 0)
+    #expect(annotations == existing + 2, "The copy the reader shows has \(annotations - existing) of the 2 notes")
+  }
+
+  @Test("A save never writes over another app's change it hasn't heard of yet; the person is asked instead (#257)")
+  func saveDoesNotOverwriteAnUnheardChange() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.make(pages: ["Mine"]), title: "Shared")
+    let reader = harness.reader(for: document)
+    await reader.load()
+    let url = try await harness.library.fileURL(for: document.id)
+    reader.controller?.addNote("Mine", onPage: 0)
+    // Another app writes the file just as the reader saves, before the reader hears of it.
+    let theirs = try SyntheticPDF.make(pages: ["Theirs", "Two"])
+    try theirs.write(to: url)
+
+    let saved = await reader.save()
+    let pagesOnDisk = (try? PDFDocumentController(url: url))?.pageCount ?? 0
+    #expect(!saved, "The save reported success over another app's change")
+    #expect(
+      try Data(contentsOf: url) == theirs, "The other app's 2 pages were written over; the file has \(pagesOnDisk)")
+    #expect(reader.hasConflictingChange, "The person must be asked which version to keep")
+    // While the person hasn't chosen, a save doesn't write either, and hearing of the change late
+    // changes nothing.
+    #expect(await !reader.save())
+    await reader.fileChangedOnDisk()
+    #expect(try Data(contentsOf: url) == theirs)
+    #expect(reader.hasConflictingChange && reader.controller?.needsSaving == true)
+
+    await reader.useOtherVersion()
+    #expect(reader.controller?.pageCount == 2, "Use the other version shows the other app's version")
+    reader.stopWatching()
+  }
+
+  @Test("Recognition on a signed document's copy is heard by the reader, so a later save keeps the text (#255)")
+  func recognitionOnTheEditedCopyIsWatched() async throws {
+    let harness = Harness()
+    let signed = await harness.seed(TestPDFs.makeSigned(.signed), title: "Signed", textLayer: false)
+    let reader = harness.reader(for: signed)
+    await reader.load()
+    let before = try #require(reader.controller)
+    // An unsaved change: the save before recognition moves the reader to the copy.
+    before.addNote("Unsaved", onPage: 0)
+    reader.recognizeText()
+    for _ in 0..<500 where reader.recognitionProgress != nil { try await Task.sleep(for: .milliseconds(20)) }
+    try #require(reader.recognitionProgress == nil, "Recognition finished")
+    #expect(reader.document?.title == "Signed (edited)")
+    let copyURL = try #require(reader.fileURL)
+    try #require((PDFDocument(url: copyURL)?.string ?? "").contains("Recognised text"), "Recognition replaced the copy")
+
+    #expect(
+      reader.controller !== before && reader.phase == .ready,
+      "The reader must show the recognised copy; it still holds the document from before recognition")
+    await reader.addNote("After recognition")
+    let text = PDFDocument(url: copyURL)?.string ?? ""
+    #expect(text.contains("Recognised text"), "A save after recognition lost the text; the copy reads: \(text)")
+    #expect(!reader.hasConflictingChange && reader.errorMessage == nil)
+    reader.stopWatching()
+  }
+
   @Test("A chosen stamp is placed where the page is tapped, and saved (FR-ANN-006)")
   func stamps() async throws {
     let harness = Harness()
@@ -1917,6 +2003,43 @@ struct ReaderTextEditingTests {
     // Back below the bar: whole again.
     field.hiddenTop = 0
     #expect(field.point(inside: top, with: nil) && field.accessibilityFrame == whole)
+  }
+
+  @Test("Another app's change heard while an edit is worked out keeps the edit, and the person chooses (#249)")
+  func fileChangeDuringACommitKeepsTheEdit() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try TextEditFixtures.invoice(), title: "Invoice")
+    let gate = Gate()
+    let reader = harness.reader(for: document, editor: StubEditor(edit: gate))
+    await reader.load()
+    let controller = try #require(reader.controller)
+    controller.textFindLimit = .seconds(600)
+    controller.textEditLimit = .seconds(600)
+    await reader.beginTextEditing()
+    try await pick("John Smith", in: reader)
+    let committing = Task { await reader.commitTextEdit("Customer: David Smith") }
+    for _ in 0..<500 where !reader.isCommittingTextEdit { try await Task.sleep(for: .milliseconds(10)) }
+    try #require(reader.isCommittingTextEdit, "The edit is being worked out")
+    let url = try await harness.library.fileURL(for: document.id)
+    let theirs = try SyntheticPDF.make(pages: ["Theirs", "Two"])
+    try theirs.write(to: url)
+    await reader.fileChangedOnDisk()
+    #expect(reader.controller === controller, "The document was reloaded while the edit was worked out")
+
+    await gate.open()
+    let committed = await committing.value
+    #expect(committed, "The edit was thrown away; message: \(String(describing: reader.textEditMessage))")
+    for _ in 0..<200 where !reader.hasConflictingChange { try await Task.sleep(for: .milliseconds(10)) }
+    #expect(reader.hasConflictingChange, "The person must be asked which version to keep")
+    #expect(try Data(contentsOf: url) == theirs, "The other app's version was written over")
+
+    await reader.keepMineAsCopy()
+    let documents = try await harness.library.documents(in: .all, sortedBy: .title)
+    let mine = try #require(
+      documents.first { $0.title == "Invoice (my version)" }, "Titles: \(documents.map(\.title))")
+    #expect(try await savedText(mine, in: harness).contains("DavidSmith"), "My version keeps the edit")
+    #expect(reader.controller?.pageCount == 2, "The original now shows the other app's version")
+    reader.stopWatching()
   }
 
   @Test("Return finishes the edit, and a pasted line break becomes a space")
