@@ -80,9 +80,13 @@ struct TextEditingUndoTrimTests {
       })
     let url = FileManager.default.temporaryDirectory
       .appendingPathComponent("w1-343-\(UUID().uuidString).pdf")
-    try data.write(to: url)
     defer { try? FileManager.default.removeItem(at: url) }
+    // Password-protected, so the last save, without the password, writes copies of the pages.
+    let unprotected = try PDFDocumentController(data: data)
+    #expect(unprotected.setPassword("w1-343"))
+    try unprotected.save(to: url)
     let controller = try PDFDocumentController(url: url)
+    #expect(controller.unlock(password: "w1-343"))
     controller.textFindLimit = .seconds(600)
     controller.textEditLimit = .seconds(600)
     // Every edit passes a limit of nothing, so each halves the history: 32, 16, 8, then 4 steps.
@@ -124,14 +128,22 @@ struct TextEditingUndoTrimTests {
     let expected = states[edits.count - undone]
     try await expectWhole(controller, as: expected, "after undoing back to the oldest edit held")
 
-    try controller.save(to: url)
-    let reopened = try #require(PDFDocument(url: url))
-    #expect(reopened.pageCount == expected.count)
-    #expect(CGPDFDocument(url as CFURL)?.numberOfPages == expected.count, "Core Graphics reads the file")
-    for (page, wanted) in expected.enumerated() {
-      let look = PageLook(reopened.page(at: page))
-      #expect(look.text == wanted.text, "Page \(page + 1) reads as it did, saved and reopened")
-      #expect(look.isInked && look.drawsLike(wanted), "Page \(page + 1) draws as it did, saved and reopened")
+    func expectSaved(as expected: [PageLook], password: String?, _ moment: String) throws {
+      let reopened = try #require(PDFDocument(url: url))
+      if let password { #expect(reopened.unlock(withPassword: password)) }
+      #expect(reopened.isEncrypted == (password != nil))
+      #expect(reopened.pageCount == expected.count)
+      #expect(CGPDFDocument(url as CFURL)?.numberOfPages == expected.count, "Core Graphics reads the file")
+      for (page, wanted) in expected.enumerated() {
+        let look = PageLook(reopened.page(at: page))
+        #expect(look.text == wanted.text, "Page \(page + 1) reads as it did, \(moment)")
+        #expect(look.isInked && look.drawsLike(wanted), "Page \(page + 1) draws as it did, \(moment)")
+      }
     }
+    try controller.save(to: url)
+    try expectSaved(as: expected, password: "w1-343", "saved and reopened")
+    #expect(controller.removePassword())
+    try controller.save(to: url)
+    try expectSaved(as: expected, password: nil, "saved without the password and reopened")
   }
 }
