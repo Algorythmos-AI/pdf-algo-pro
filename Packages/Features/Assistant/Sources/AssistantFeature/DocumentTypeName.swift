@@ -1,3 +1,4 @@
+import Core
 import Foundation
 
 /// The document type Extract finds, in the reader's language (#304).
@@ -5,8 +6,14 @@ import Foundation
 /// The on-device model names the type in English whatever language the document is in: the
 /// extraction prompt gives English examples. A French invoice came back as "invoice". The types the
 /// model names are a short list, so each is given its name in the app's language here; any other
-/// value, such as one the model took from the document itself, is shown as it came.
+/// value is shown as it came.
+///
+/// Only what is shown, copied and shared changes. The model's value stays as found, so a value
+/// found in the document keeps its citation to the words that are there.
 enum DocumentTypeName {
+  /// The extracted field that holds the document type.
+  static let key = "documentType"
+
   private static let bundle = LocalizedStringResource.BundleDescription.atURL(Bundle.module.bundleURL)
 
   /// The kinds of document Extract is for, by the English name the model gives, in lower case.
@@ -39,10 +46,35 @@ enum DocumentTypeName {
   ///   not on the list, or when the name differs from it only in capitals, so English keeps the
   ///   model's own words.
   static func presented(_ value: String, locale: Locale = .current) -> String {
-    let key = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-    guard var resource = names[key] else { return value }
+    presentedName(value, locale: locale)
+  }
+
+  /// An extraction as the reader sees it, copies and shares it.
+  ///
+  /// The document type is put in the reader's language only while it is the model's own words: a
+  /// value found in the document is the document's word, with its citation, and a value the person
+  /// changed is theirs.
+  ///
+  /// - Parameters:
+  ///   - extraction: The fields as the model found them, with the person's changes.
+  ///   - edited: The keys of the fields the person changed.
+  ///   - locale: The language to show the type in.
+  /// - Returns: The extraction to show, copy and share; every other field as it came.
+  static func presented(_ extraction: Extraction, edited: Set<String>, locale: Locale = .current) -> Extraction {
+    var result = extraction
+    for index in result.fields.indices {
+      let field = result.fields[index]
+      guard field.key == key, !edited.contains(key), !field.isVerified else { continue }
+      result.fields[index].value = presentedName(field.value, locale: locale)
+    }
+    return result
+  }
+
+  private static func presentedName(_ value: String, locale: Locale) -> String {
+    let english = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    guard var resource = names[english] else { return value }
     resource.locale = locale
     let name = String(localized: resource)
-    return name.lowercased() == key ? value : name
+    return name.lowercased() == english ? value : name
   }
 }

@@ -8,6 +8,8 @@ import UIKit
 public struct AssistantView: View {
   @State private var model: AssistantModel
   @State private var detent: PresentationDetent = .large
+  /// The extracted fields the person has changed, which are shown as they typed them.
+  @State private var editedFields: Set<String> = []
   @FocusState private var isEditingQuestion: Bool
   @Environment(\.dismiss) private var dismiss
 
@@ -55,7 +57,7 @@ public struct AssistantView: View {
           }
           .accessibilityIdentifier(AccessibilityID.Assistant.done)
         }
-        if let text = model.shareableText {
+        if let text = shareableText {
           ToolbarItem(placement: .primaryAction) {
             ShareLink(item: text) {
               Label {
@@ -71,6 +73,11 @@ public struct AssistantView: View {
       }
       .task { await model.start() }
       .onDisappear { model.cancel() }
+      // A new extraction starts with nothing changed by the person.
+      .onChange(of: model.phase) { old, _ in
+        if case .extracted = old { return }
+        editedFields = []
+      }
     }
     // Opens at full height, where answers have room at every text size; the medium detent keeps the
     // page in view for anyone who drags the sheet down.
@@ -274,8 +281,16 @@ public struct AssistantView: View {
     .cardStyle()
   }
 
-  private func extractionCard(_ extraction: Extraction) -> some View {
-    VStack(alignment: .leading, spacing: Spacing.s150) {
+  /// What is copied and shared: an extraction as it is shown (#304), anything else as the model has it.
+  private var shareableText: String? {
+    guard case .extracted(let extraction) = model.phase else { return model.shareableText }
+    return DocumentTypeName.presented(extraction, edited: editedFields).csv(notice: AssistantModel.generatedFooter)
+  }
+
+  private func extractionCard(_ found: Extraction) -> some View {
+    // The fields as the reader sees them; the model keeps them as found (#304).
+    let extraction = DocumentTypeName.presented(found, edited: editedFields)
+    return VStack(alignment: .leading, spacing: Spacing.s150) {
       TierBadge(tier: extraction.tier)
       if extraction.fields.isEmpty {
         Text("No fields were found in this document.", bundle: .module).foregroundStyle(Color.ds.labelSecondary)
@@ -302,7 +317,10 @@ public struct AssistantView: View {
           TextField(
             text: Binding(
               get: { field.value },
-              set: { model.setValue($0.split(whereSeparator: \.isNewline).joined(separator: " "), forField: field.key) }
+              set: {
+                editedFields.insert(field.key)
+                model.setValue($0.split(whereSeparator: \.isNewline).joined(separator: " "), forField: field.key)
+              }
             ),
             axis: .vertical
           ) {
@@ -314,7 +332,7 @@ public struct AssistantView: View {
         }
       }
       Button {
-        UIPasteboard.general.string = model.shareableText
+        UIPasteboard.general.string = extraction.csv(notice: AssistantModel.generatedFooter)
         Task { await model.recordKept() }
       } label: {
         Label {
@@ -341,15 +359,6 @@ public struct AssistantView: View {
       GeneratedFootnote()
     }
     .cardStyle()
-    .onAppear { presentDocumentType(of: extraction) }
-  }
-
-  /// Puts the document type into the reader's language, as an edit to the value, so what is copied
-  /// and shared says what the screen says (#304).
-  private func presentDocumentType(of extraction: Extraction) {
-    guard let field = extraction.fields.first(where: { $0.key == "documentType" }) else { return }
-    let name = DocumentTypeName.presented(field.value)
-    if name != field.value { model.setValue(name, forField: field.key) }
   }
 
   // MARK: - Copy

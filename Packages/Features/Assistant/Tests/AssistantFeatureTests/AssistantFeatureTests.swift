@@ -283,6 +283,34 @@ struct AssistantModelTests {
     #expect(DocumentTypeName.presented("invoice", locale: Locale(identifier: "en")) == "invoice")
   }
 
+  /// What is shown, copied and shared changes; the model's value and its citation stay as found (#304).
+  @Test("Extract shows, copies and shares the type in French, keeping what was found and what was typed")
+  func extractionInFrench() async throws {
+    let french = Locale(identifier: "fr")
+    let found = Extraction(
+      fields: [
+        ExtractedField(key: "documentType", value: "invoice", pageIndex: nil),
+        ExtractedField(key: "reference", value: "FAC-2026-0042", pageIndex: 0),
+      ], tier: .onDevice)
+    let shown = DocumentTypeName.presented(found, edited: [], locale: french)
+    #expect(shown.fields.first?.value == "Facture" && shown.fields.first?.pageIndex == nil)
+    #expect(shown.csv(notice: footer).contains("Facture") && !shown.csv(notice: footer).contains("invoice"))
+    #expect(shown.fields.last == found.fields.last, "Other fields are as found")
+    // A type found in the document is the document's word, and keeps its citation to it.
+    let verified = Extraction(
+      fields: [ExtractedField(key: "documentType", value: "Invoice", pageIndex: 1)], tier: .onDevice)
+    #expect(DocumentTypeName.presented(verified, edited: [], locale: french) == verified)
+    // A value the person typed is never rewritten, even one that names a type in English.
+    #expect(DocumentTypeName.presented(found, edited: ["documentType"], locale: french) == found)
+
+    // The model keeps the value as found; only the card presents it.
+    let (model, _) = makeModel(task: .extract, intelligence: FakeIntelligence(extraction: found))
+    await model.start()
+    try await waitUntil { if case .extracted = model.phase { true } else { false } }
+    guard case .extracted(let kept) = model.phase else { throw Failure.unexpected }
+    #expect(kept.fields.first?.value == "invoice")
+  }
+
   @Test("Changing the task starts it")
   func switchingTasks() async throws {
     let intelligence = FakeIntelligence()
