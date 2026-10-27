@@ -763,7 +763,8 @@ extension PDFDocumentController {
   /// - Parameters:
   ///   - old: The page to take out; it must be in the document.
   ///   - new: The page to put in its place.
-  ///   - source: The document `new` came from, kept alive for as long as the page can come back.
+  ///   - source: The document `new` came from. Not needed to keep `new` readable: a page an edit
+  ///     made holds its own file (`EditedPage`, #343).
   ///   - links: Which links point at which page.
   ///   - step: The text edit this swap makes, undoes or redoes, counted in `textUndoBytes`; the undo
   ///     or redo handler holds it, so it lives exactly as long as the history keeps the edit.
