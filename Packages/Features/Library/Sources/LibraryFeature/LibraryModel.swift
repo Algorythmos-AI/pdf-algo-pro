@@ -177,7 +177,8 @@ public final class LibraryModel {
       await telemetry.record("quality.operation.failed")
       return false
     }
-    for (id, date) in changed {
+    // A document already owed a refresh had its try in the pass before this; it isn't tried twice.
+    for (id, date) in changed where !(await intake.owes(id)) {
       do {
         _ = try await intake.refresh(id, changedAt: date)
       } catch LibraryError.notAPDF {

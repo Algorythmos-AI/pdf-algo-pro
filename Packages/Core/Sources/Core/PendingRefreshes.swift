@@ -67,7 +67,8 @@ public actor PendingRefreshes {
   public func add(_ id: DocumentID, protecting: Bool = false, saved: Bool = true) throws -> Int {
     changes += 1
     let protects = protecting || (owed[id]?.protects ?? false)
-    owed[id] = Owed(change: changes, failures: 0, protects: protects)
+    // Failures carry on: a file found changed again at every launch must not reset its tries.
+    owed[id] = Owed(change: changes, failures: owed[id]?.failures ?? 0, protects: protects)
     if !saved { saving[id, default: []].insert(changes) }
     try save()
     return changes
