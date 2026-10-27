@@ -249,6 +249,9 @@ public actor FakeIndex: DocumentIndexing {
   public private(set) var removed: [DocumentID] = []
   /// When `true`, searches throw, as a damaged index would.
   public private(set) var failsSearches = false
+  /// Every document indexed, in order, as Spotlight was given it.
+  public private(set) var indexed: [Document] = []
+  private var failsNextIndex = false
 
   /// Creates an empty index.
   public init() {}
@@ -258,6 +261,11 @@ public actor FakeIndex: DocumentIndexing {
     failsSearches = fails
   }
 
+  /// Makes the next `index(_:pages:)` throw, as a full disk would.
+  public func failNextIndex() {
+    failsNextIndex = true
+  }
+
   /// Stores page texts directly.
   public func seed(_ id: DocumentID, pages: [PageText]) {
     stored[id] = pages
@@ -265,7 +273,12 @@ public actor FakeIndex: DocumentIndexing {
 
   /// Adds or replaces a document in the index (and in Spotlight, FR-LIB-005).
   public func index(_ document: Document, pages: [PageText]) async throws {
+    if failsNextIndex {
+      failsNextIndex = false
+      throw LibraryError.fileAccessFailed
+    }
     stored[document.id] = pages
+    indexed.append(document)
   }
 
   /// Removes a document and its derived text (FR-LIB-006).

@@ -389,11 +389,86 @@ struct DocumentIntakeTests {
     }
     #expect(try await library.documents(in: .all, sortedBy: .title).isEmpty)
   }
+
+  @Test("A refresh that fails is written down and done at the next library load (#236)")
+  func failedRefreshIsRetried() async throws {
+    let library = FakeDocumentLibrary()
+    let index = FakeIndex()
+    let pending = PendingRefreshes(url: nil)
+    let seeded = await library.seed(Document(title: "Lease", fileName: "lease.pdf", addedAt: .distantPast))
+    let intake = DocumentIntake(library: library, inspector: FakeInspector(), index: index, pending: pending)
+    await index.failNextIndex()
+    await #expect(throws: (any Error).self) { try await intake.refresh(seeded.id) }
+    #expect(await pending.all == [seeded.id], "Still owed a refresh")
+    #expect(try await library.document(withID: seeded.id)?.modifiedAt == seeded.modifiedAt, "Not recorded as done")
+
+    #expect(await intake.refreshPending() == 0)
+
+    #expect(await pending.all.isEmpty)
+    #expect(await index.stored[seeded.id] != nil, "Search and Spotlight caught up")
+    _ = try await intake.refresh(seeded.id)
+    #expect(await pending.all.isEmpty, "A refresh that works leaves nothing owed")
+  }
+
+  @Test("A document no longer in the library is crossed off the refreshes still owed (#236)")
+  func goneDocumentIsCrossedOff() async throws {
+    let pending = PendingRefreshes(url: nil)
+    let gone = DocumentID()
+    try await pending.add(gone)
+    let intake = DocumentIntake(
+      library: FakeDocumentLibrary(), inspector: FakeInspector(), index: FakeIndex(), pending: pending)
+    #expect(await intake.refreshPending() == 0)
+    #expect(await pending.all.isEmpty)
+  }
+
+  @Test("The refreshes still owed survive a relaunch (#236)")
+  func pendingRefreshesPersist() async throws {
+    let url = FileManager.default.temporaryDirectory.appendingPathComponent("pending-\(UUID().uuidString).json")
+    let id = DocumentID()
+    try await PendingRefreshes(url: url).add(id)
+    let relaunched = PendingRefreshes(url: url)
+    #expect(await relaunched.all == [id])
+    try await relaunched.remove(id)
+    #expect(await PendingRefreshes(url: url).all.isEmpty)
+  }
+
+  @Test("A document deleted while its refresh runs doesn't come back in search or Spotlight")
+  func deletedDuringRefreshIsNotIndexed() async throws {
+    let library = FakeDocumentLibrary()
+    let seeded = await library.seed(Document(title: "Lease", fileName: "lease.pdf", addedAt: .distantPast))
+    let index = DeletingIndex(library: library, deleting: seeded.id)
+    let intake = DocumentIntake(library: library, inspector: FakeInspector(), index: index)
+    await #expect(throws: LibraryError.notFound) { try await intake.refresh(seeded.id) }
+    #expect(await index.fake.stored[seeded.id] == nil)
+  }
 }
 
 /// An inspector whose task was cancelled.
 private struct CancelledInspector: PDFInspecting {
   func inspect(_ url: URL) async throws -> PDFInspection { throw CancellationError() }
+}
+
+/// A search index during whose write the document is deleted for good, as when the person deletes
+/// it while its refresh runs.
+private struct DeletingIndex: DocumentIndexing {
+  let library: FakeDocumentLibrary
+  let deleting: DocumentID
+  let fake = FakeIndex()
+
+  func index(_ document: Document, pages: [PageText]) async throws {
+    try await library.deletePermanently(deleting)
+    try await fake.index(document, pages: pages)
+  }
+
+  func remove(_ id: DocumentID) async throws { try await fake.remove(id) }
+
+  func prune(keeping ids: Set<DocumentID>) async -> [DocumentID] { await fake.prune(keeping: ids) }
+
+  func pages(of id: DocumentID) async throws -> [PageText] { try await fake.pages(of: id) }
+
+  func search(_ query: String, in documents: [Document]) async throws -> [SearchHit] {
+    try await fake.search(query, in: documents)
+  }
 }
 
 @Suite("Signatures")

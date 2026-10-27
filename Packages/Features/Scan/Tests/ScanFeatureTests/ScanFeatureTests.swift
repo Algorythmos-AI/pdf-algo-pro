@@ -80,6 +80,22 @@ struct ScanModelTests {
     #expect(model.notice?.contains("1") == true)
   }
 
+  @Test("Photos that didn't load are counted, and when none loaded the notice says so (#238)")
+  func unloadablePhotosAreCounted() async throws {
+    let (model, _, _, _) = makeModel()
+    let encoded = NSMutableData()
+    let destination = try #require(CGImageDestinationCreateWithData(encoded, UTType.png.identifier as CFString, 1, nil))
+    CGImageDestinationAddImage(destination, try #require(SyntheticPDF.makeTextImage("Receipt")), nil)
+    #expect(CGImageDestinationFinalize(destination))
+    await model.process(photos: [encoded as Data], unreadable: 2)
+    #expect(model.phase == .reviewing && model.pages.count == 1)
+    #expect(model.notice?.contains("2") == true, "\(model.notice ?? "no notice")")
+    model.discardReview()
+    await model.process(photos: [], unreadable: 3)
+    #expect(model.phase == .ready)
+    #expect(model.notice?.contains("3") == true, "Nothing loaded: the notice says so")
+  }
+
   @Test("Review rotates, reorders and deletes pages, and saves under the suggested or typed name (FR-SCAN-006)")
   func review() async throws {
     let headline = RecognizedLine(

@@ -22,8 +22,12 @@ private struct Harness {
   let checkpoints = FileManager.default.temporaryDirectory.appendingPathComponent("checkpoints-\(UUID())")
   /// What reads a file after it changed; a test can hold it up to reach what happens meanwhile.
   var inspector: any PDFInspecting = PDFKitInspector()
+  /// The refreshes still owed, as the app keeps them between launches (#236).
+  let pending = PendingRefreshes(url: nil)
 
-  var intake: DocumentIntake { DocumentIntake(library: library, inspector: inspector, index: index) }
+  var intake: DocumentIntake {
+    DocumentIntake(library: library, inspector: inspector, index: index, pending: pending)
+  }
 
   func coordinator(
     recognizer: any TextRecognizing = FakeRecognizer(), keepAlive: BackgroundLog = BackgroundLog(),
@@ -236,6 +240,47 @@ struct ReaderModelTests {
     await reader.removePassword()
     #expect(!reader.isPasswordProtected)
     #expect(try !PDFDocumentController(url: url).isLocked)
+  }
+
+  // MARK: - A refresh that fails (#236)
+
+  @Test("A protected document's words leave search at once when the refresh fails, and the refresh is done later")
+  func passwordAfterAFailedRefresh() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.makeSample())
+    await harness.index.seed(document.id, pages: [PageText(pageIndex: 0, text: "private words")])
+    let reader = harness.reader(for: document)
+    await reader.load()
+    await harness.index.failNextIndex()
+
+    await reader.setPassword("secret")
+
+    #expect(reader.isPasswordProtected)
+    #expect(try await harness.index.pages(of: document.id).isEmpty, "The words are no longer searchable")
+    #expect(await harness.index.indexed.last?.isEncrypted == true, "Spotlight is told it is locked")
+    #expect(await harness.telemetry.events.contains("quality.operation.failed"), "The failed refresh is counted")
+    #expect(await harness.pending.all == [document.id], "The full refresh is still owed")
+    #expect(await harness.intake.refreshPending() == 0, "The next library load does it")
+    #expect(await harness.pending.all.isEmpty)
+    #expect(try await harness.library.document(withID: document.id)?.isEncrypted == true)
+  }
+
+  @Test("A restore whose refresh fails is refreshed at the next library load")
+  func restoreAfterAFailedRefresh() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.makeSample())
+    let reader = harness.reader(for: document)
+    await reader.load()
+    await reader.addNote("Check this")
+    await harness.index.failNextIndex()
+
+    await reader.restorePreviousVersion()
+
+    #expect(reader.phase == .ready)
+    #expect(await harness.pending.all == [document.id])
+    #expect(await harness.intake.refreshPending() == 0)
+    #expect(await harness.pending.all.isEmpty)
+    #expect(await harness.index.stored[document.id] != nil)
   }
 
   @Test("A document whose author forbids changing its pages says so")
@@ -1212,6 +1257,22 @@ struct ReaderTextEditingTests {
     #expect(saved.contains("Customer:DavidSmith") && !saved.contains("John"))
     #expect(await harness.library.hasPreviousVersion(of: document.id), "The version before the edit is kept")
     #expect(await harness.telemetry.events.contains("task.core.completed"))
+  }
+
+  @Test("Edited words reach search at the next chance when the first refresh fails (#236)")
+  func textEditAfterAFailedRefresh() async throws {
+    let harness = Harness()
+    let (reader, document) = try await editing(try TextEditFixtures.invoice(), in: harness, picking: "John Smith")
+    #expect(await reader.commitTextEdit("Customer: David Smith"))
+    await harness.index.failNextIndex()
+
+    await reader.endTextEditing()
+
+    #expect(await harness.pending.all == [document.id], "Still owed a refresh")
+    await reader.saveBeforeClosing()
+    let pages = try await harness.index.pages(of: document.id)
+    #expect(pages.contains { $0.text.contains("David") }, "Tried again as the reader closed")
+    #expect(await harness.pending.all.isEmpty)
   }
 
   @Test("Cancelling, or pressing Done without changing anything, leaves the file as it was")
