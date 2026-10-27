@@ -365,6 +365,9 @@ struct PaywallModelTests {
     #expect(
       await telemetry.events == ["commerce.paywall.viewed", "commerce.purchase.started"],
       "One request went to the App Store")
+    #expect(model.selectedPlanIsWaiting && model.plansWaitingForApproval == ["yearly"])
+    await model.select("weekly")
+    #expect(!model.selectedPlanIsWaiting, "Another plan is a request of its own")
   }
 
   @Test("A failed purchase is explained and recorded, and can be tried again")
