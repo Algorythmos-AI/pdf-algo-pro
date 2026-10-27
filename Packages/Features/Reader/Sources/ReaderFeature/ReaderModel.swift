@@ -190,7 +190,7 @@ public final class ReaderModel {
       let url = try await library.fileURL(for: documentID)
       fileURL = url
       let controller = try PDFDocumentController(url: url, textEditor: textEditor)
-      knownVersion = try? FileVersion(url)
+      knownVersion = FileVersion.current(at: url)
       // The reader shows the file as it is on disk, so no other version waits to be chosen, and the
       // next conflict gets a copy of its own (#257).
       conflictWaits = false
@@ -1129,25 +1129,25 @@ public final class ReaderModel {
         return false
       }
       let expected = knownVersion
-      if let expected, let onDisk = try? FileVersion(url), onDisk != expected {
+      if let expected, let onDisk = FileVersion.current(at: url), onDisk != expected {
         knownVersion = onDisk
         raiseConflict()
         return false
       }
       try controller.save(to: url, keepingPreviousAt: previous) { target in
-        expected == nil || (try? FileVersion(target)) == expected
+        expected == nil || FileVersion.current(at: target) == expected
       }
       reportTextEditsPutBack(by: controller)
       // Straight after the write, before the file presenter hears of it, so it isn't taken for
       // another app's change.
-      knownVersion = try? FileVersion(url)
+      knownVersion = FileVersion.current(at: url)
       try await library.recordModified(documentID)
       canRestorePreviousVersion = await library.hasPreviousVersion(of: documentID)
       await telemetry.record("task.core.completed")
       return true
     } catch PDFEngineError.changedOnDisk {
       // Another app wrote the file while this save was being made (#257).
-      knownVersion = fileURL.flatMap { try? FileVersion($0) }
+      knownVersion = fileURL.flatMap { FileVersion.current(at: $0) }
       raiseConflict()
       return false
     } catch PDFEngineError.restricted {
@@ -1207,7 +1207,7 @@ public final class ReaderModel {
     let copyURL = try await library.fileURL(for: copy.id)
     fileURL = copyURL
     // From now on this reader writes the copy, so that is the file to watch for other apps' changes.
-    knownVersion = try? FileVersion(copyURL)
+    knownVersion = FileVersion.current(at: copyURL)
     watch(copyURL)
     isEditingCopy = true
     // Recognition of the copy must hear this reader too, so it never replaces the file behind it (#255).
@@ -1271,7 +1271,7 @@ public final class ReaderModel {
       hasConflictingChange = true
       return
     }
-    guard phase == .ready, let fileURL, let current = try? FileVersion(fileURL), current != knownVersion else {
+    guard phase == .ready, let fileURL, let current = FileVersion.current(at: fileURL), current != knownVersion else {
       return
     }
     knownVersion = current
