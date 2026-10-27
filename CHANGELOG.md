@@ -28,6 +28,8 @@ Store notes (see the changelog strategy).
   only ever means a red annotation or Delete.
 
 ### Fixed
+- Editing text no longer crashes on a PDF whose font tables give character codes far out of range;
+  that font's text is left as it is instead.
 - Dark mode: the App Lock's "Unlock with Face ID" button and the selection bar's Delete are easy to
   read again. Both fell below the 4.5:1 contrast text needs on an iPhone in dark mode.
 - Welcome to Pro: the "Remind me the day before" switch no longer turns itself back off without a
