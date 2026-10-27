@@ -1340,7 +1340,10 @@ public final class ReaderModel {
   public func reduceSize(_ preset: PDFDocumentController.CompressionPreset) async {
     guard let controller, await save(), let fileURL else { return }
     do {
-      let original = (try? fileURL.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? .max
+      // Without the file's size there is nothing to compare with, so no copy is made (#262).
+      guard let original = try fileURL.resourceValues(forKeys: [.fileSizeKey]).fileSize else {
+        throw CocoaError(.fileReadUnknown)
+      }
       guard let data = try controller.compressed(preset, comparedTo: original) else {
         notice = String(localized: "This document is already about as small as it gets.", bundle: .module)
         return
