@@ -147,8 +147,10 @@ public actor FileDocumentLibrary: DocumentLibrary {
       let cleanTitle = Self.cleanTitle(trimmed)
       var moved: Move?
       if !document.isDeleted, cleanTitle != document.title {
-        let newName = uniqueFileName(for: cleanTitle, in: documentsFolder)
-        moved = try move(location(of: document), to: documentsFolder.appendingPathComponent(newName))
+        let newName = uniqueFileName(for: cleanTitle, in: documentsFolder, besides: location(of: document))
+        if newName != document.fileName {
+          moved = try move(location(of: document), to: documentsFolder.appendingPathComponent(newName))
+        }
         document.fileName = newName
       }
       document.title = cleanTitle
@@ -560,15 +562,27 @@ public actor FileDocumentLibrary: DocumentLibrary {
     }
   }
 
-  private func uniqueFileName(for title: String, in folder: URL) -> String {
+  /// A file name for a title that no other file in the folder has.
+  ///
+  /// `own` is the file being renamed: on a volume that ignores capitals, "Report.pdf" is the same file
+  /// as "report.pdf", and not a clash (#263).
+  private func uniqueFileName(for title: String, in folder: URL, besides own: URL? = nil) -> String {
     let base = Self.safeFileName(title)
+    let ownID = own.flatMap(Self.fileIdentifier)
     var candidate = "\(base).pdf"
     var counter = 2
-    while fileManager.fileExists(atPath: folder.appendingPathComponent(candidate).path) {
+    while true {
+      let url = folder.appendingPathComponent(candidate)
+      guard fileManager.fileExists(atPath: url.path) else { break }
+      if let ownID, Self.fileIdentifier(of: url) == ownID { break }
       candidate = "\(base) \(counter).pdf"
       counter += 1
     }
     return candidate
+  }
+
+  private static func fileIdentifier(of url: URL) -> UInt64? {
+    try? url.resourceValues(forKeys: [.fileIdentifierKey]).fileIdentifier
   }
 
   /// A title with surrounding whitespace removed; an empty title becomes "Untitled".
