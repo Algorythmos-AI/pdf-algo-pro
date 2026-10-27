@@ -28,6 +28,8 @@ Store notes (see the changelog strategy).
   only ever means a red annotation or Delete.
 
 ### Fixed
+- With App Lock on, recognising text no longer shows the document's title on the Lock Screen or in
+  the Dynamic Island while it goes on in the background; it says "A document" instead.
 - A PDF renamed in the Files app, or moved into a folder inside PDF Algo Pro's folder, keeps its
   tags, favourite, reading position and earlier versions, and stays in the library. It used to come
   back as a new document, or disappear from the library once it was in a folder. This holds when
