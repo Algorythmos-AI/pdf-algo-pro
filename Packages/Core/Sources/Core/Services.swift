@@ -161,6 +161,13 @@ public struct PDFInspection: Hashable, Sendable {
     self.pages = pages
   }
 
+  /// Whether the document needs a password to read: encrypted, with no page text read.
+  ///
+  /// One with only an owner password is encrypted too, but opens, and its text is read.
+  public var isLocked: Bool {
+    isEncrypted && pages.isEmpty
+  }
+
   /// Whether any page has selectable text.
   public var hasTextLayer: Bool {
     pages.contains { !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
