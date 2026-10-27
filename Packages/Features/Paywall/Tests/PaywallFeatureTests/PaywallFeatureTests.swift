@@ -211,9 +211,10 @@ struct PaywallModelTests {
     await model.appeared()
     await model.restore(using: FixedStoreAccess(isAvailable: true))
     #expect(
-      model.restoreOutcome != .nothingFound,
+      model.restoreOutcome == .paused,
       "The subscription is the person's; the offer and Settings say it is paused over a payment")
-    #expect(model.restoreOutcome?.message != nil && model.alertsAbout(model.restoreOutcome ?? .cancelled))
+    #expect(model.restoreOutcome?.message != nil && model.alertsAbout(.paused))
+    #expect(RestoreOutcome.after(.synced, hasPro: false, paused: true) == .paused, "Settings asks the same way")
   }
 
   @Test("Restoring on the offer with Pro already on says so; one that leads to the confirmation leaves it to it (#247)")
@@ -252,7 +253,7 @@ struct PaywallModelTests {
     await model.restore(using: FixedStoreAccess(isAvailable: true, restore: .cancelled))
     #expect(model.restoreOutcome == .cancelled && model.restoreOutcome?.message == nil)
     #expect(await telemetry.events == ["commerce.paywall.viewed", "commerce.restore.failed"])
-    for outcome in [RestoreOutcome.restored, .nothingFound, .failed] {
+    for outcome in [RestoreOutcome.restored, .nothingFound, .paused, .failed] {
       #expect(outcome.message != nil)
     }
     #expect(!model.isRestoring)

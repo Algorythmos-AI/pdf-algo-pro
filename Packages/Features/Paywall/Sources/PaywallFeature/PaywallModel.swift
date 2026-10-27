@@ -285,8 +285,8 @@ public final class PaywallModel {
 
   /// Brings back purchases made elsewhere (Restore Purchases on the offer).
   ///
-  /// `restoreOutcome` then says whether Pro came back, there was nothing to bring back, or the App
-  /// Store could not be asked (#247). A second tap while one runs is ignored.
+  /// `restoreOutcome` then says whether Pro came back, is paused over a payment (#248), there was
+  /// nothing to bring back, or the App Store could not be asked (#247). A second tap while one runs is ignored.
   public func restore(using store: any StoreAccessing) async {
     guard !isRestoring else { return }
     isRestoring = true
@@ -294,7 +294,7 @@ public final class PaywallModel {
     restoreOutcome = nil
     let answer = await store.restorePurchases()
     await entitlements.refresh()
-    restoreOutcome = RestoreOutcome.after(answer, hasPro: grantsPro)
+    restoreOutcome = RestoreOutcome.after(answer, hasPro: grantsPro, paused: paymentPaused)
     if answer != .synced {
       await telemetry.record("commerce.restore.failed")
     } else if hadPro == false, grantsPro {
