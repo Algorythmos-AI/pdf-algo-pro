@@ -411,6 +411,16 @@
         }
       }
     },
+    "Rate PDF Algo Pro" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Noter PDF Algo Pro"
+          }
+        }
+      }
+    },
     "Read or view" : {
       "localizations" : {
         "fr" : {
