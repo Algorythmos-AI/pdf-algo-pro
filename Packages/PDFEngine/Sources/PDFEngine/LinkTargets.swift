@@ -11,14 +11,16 @@ struct LinkTargets {
   private let document: PDFDocument
   private var pointers: [(page: Int, destination: PDFDestination, point: (PDFDestination) -> Void)] = []
 
-  /// Reads targets in `document`, the document whose pages the destinations name. Its pages must still
-  /// be in it when each link or entry is noted.
+  /// Reads targets in `document`, the document whose pages the destinations name.
+  ///
+  /// Its pages must still be in it when each link or entry is noted.
   init(in document: PDFDocument) {
     self.document = document
   }
 
-  /// Notes where a link goes: its destination, or its go-to action's. A link that goes anywhere else,
-  /// a web address say, is left as it is.
+  /// Notes where a link goes: its destination, or its go-to action's.
+  ///
+  /// A link that goes anywhere else, a web address say, is left as it is.
   mutating func note(_ annotation: PDFAnnotation) {
     if !note(annotation.destination, { annotation.destination = $0 }) {
       _ = note((annotation.action as? PDFActionGoTo)?.destination) {
