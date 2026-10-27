@@ -151,6 +151,7 @@ blocks implementation today?
 | [Quality gates](process/quality-gates.md) | Quality | each milestone, and with any change to a workflow, ruleset or threshold |
 | [VoiceOver script](process/voiceover-script.md) | Quality and Design | each milestone, and whenever a screen or journey is added |
 | [Device smoke test](process/device-smoke-test.md) | Quality | whenever a build adds a feature only a device can show |
+| [Device test run](process/device-test-run.md) | Quality | whenever Device.xctestplan or the device scripts change, and each milestone |
 | [Text editing device test](process/text-editing-device-test.md) | Quality and PDF engine | whenever the editor's supported cases change, and before the release flag is removed |
 | [Localisation](process/localization.md) | Product and Design | each milestone, and whenever a language is added |
 | [Release flags](process/release-flags.md) | Release | in every release pull request, and whenever a flag is added or removed |

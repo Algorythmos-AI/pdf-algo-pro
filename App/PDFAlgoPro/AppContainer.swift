@@ -73,10 +73,10 @@ struct LaunchEnvironment {
   /// The build number first run's replay sees in a UI test (`-first-run-build 24`); without it a UI
   /// test has no replay, and starts where its other arguments say.
   let firstRunBuild: String?
-  /// A name under which a UI test's settings survive a relaunch (`-keep-state <name>`).
+  /// A name under which a UI test's settings and library survive a relaunch (`-keep-state <name>`).
   ///
-  /// With it one test can open the app as two builds of the same install; without it every launch
-  /// starts afresh.
+  /// With it one test can open the app as two builds of the same install, or open a document again after
+  /// the app was killed; without it every launch starts afresh.
   let keptState: String?
   /// Whether the reader's newer controls are on (`-reading-controls off` shows the reader without
   /// them, as a Release build has it until the flag is on there); `nil` leaves it to the build.
@@ -286,7 +286,7 @@ final class AppContainer {
 
   init(environment: LaunchEnvironment = LaunchEnvironment()) {
     self.environment = environment
-    let folders = Folders(isUITesting: environment.isUITesting)
+    let folders = Folders(isUITesting: environment.isUITesting, keptState: environment.keptState)
     let settings: any SettingsStoring
     let suite = environment.keptState.map { "ui-testing-kept-\($0)" } ?? "ui-testing-\(UUID().uuidString)"
     if environment.isUITesting, let defaults = UserDefaults(suiteName: suite) {
@@ -456,12 +456,17 @@ struct Folders {
   /// Pages recognised so far for unfinished text recognition: work in progress, so not backed up.
   let recognition: URL
 
-  init(isUITesting: Bool) {
+  /// - Parameters:
+  ///   - isUITesting: Whether a UI test launched the app: its files go to a folder of its own.
+  ///   - keptState: The UI test's `-keep-state` name: that folder is the same at every launch with it,
+  ///     so the library survives a relaunch; without it each launch gets a new one.
+  init(isUITesting: Bool, keptState: String? = nil) {
     let fileManager = FileManager.default
     let root: URL
     let support: URL
     if isUITesting {
-      root = fileManager.temporaryDirectory.appendingPathComponent("ui-testing-\(UUID().uuidString)", isDirectory: true)
+      let name = keptState.map { "ui-testing-kept-\($0)" } ?? "ui-testing-\(UUID().uuidString)"
+      root = fileManager.temporaryDirectory.appendingPathComponent(name, isDirectory: true)
       support = root.appendingPathComponent("Support", isDirectory: true)
       documents = root.appendingPathComponent("Documents", isDirectory: true)
     } else {

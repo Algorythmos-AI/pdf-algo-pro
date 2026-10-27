@@ -17,6 +17,8 @@ private final class Flags {
   var closed = 0
   var reminders: [(Bool, Date)] = []
   var reminderAnswer = true
+  /// Why the reminder isn't set when `reminderAnswer` is false.
+  var refusal = TrialReminderOutcome.notificationsDeclined
 }
 
 @MainActor
@@ -40,7 +42,7 @@ struct PaywallModelTests {
       offering: offering, entitlements: store, telemetry: telemetry, now: { now },
       setReminder: { isOn, date in
         flags.reminders.append((isOn, date))
-        return isOn && flags.reminderAnswer
+        return isOn ? (flags.reminderAnswer ? .scheduled : flags.refusal) : .off
       }, onClose: { flags.closed += 1 })
     return (model, fake, store, telemetry, flags)
   }
@@ -134,6 +136,25 @@ struct PaywallModelTests {
     model.wantsReminder = true
     await model.reminderChanged()
     #expect(!model.wantsReminder, "Permission was declined")
+    #expect(model.reminderProblem == .notificationsDeclined, "and the confirmation says why")
+    // The switch going back off calls this again (onChange): the reason stays on screen.
+    await model.reminderChanged()
+    #expect(model.reminderProblem == .notificationsDeclined)
+    flags.reminderAnswer = true
+    model.wantsReminder = true
+    await model.reminderChanged()
+    #expect(model.wantsReminder && model.reminderProblem == nil, "Once it is on, there is nothing to explain")
+  }
+
+  @Test("With less than a day of the trial left, no reminder is offered: its day before has passed")
+  func noReminderTooLate() async {
+    let (model, fake, store, _, _) = makeModel()
+    await model.appeared()
+    await purchase(.trial(endsAt: now.addingTimeInterval(3 * day)), fake, store)
+    #expect(model.canRemind)
+    // A TestFlight trial, shortened, that ends the next day (a tester's report, 2026-10-26).
+    await purchase(.trial(endsAt: now.addingTimeInterval(day / 2)), fake, store)
+    #expect(model.trialEndsAt != nil && !model.canRemind)
   }
 
   @Test("Without a trial there is nothing to remind of")
@@ -351,29 +372,29 @@ struct PaywallModelTests {
   func renders() async {
     for trigger in PaywallTrigger.allCases {
       let header = PaywallHeader(trigger: trigger, benefits: PaywallBenefit.allCases).frame(width: 390)
-      #expect(ImageRenderer(content: header).uiImage != nil)
-      #expect(ImageRenderer(content: header.dynamicTypeSize(.accessibility3)).uiImage != nil)
+      #expect(ViewRendering.draws(header))
+      #expect(ViewRendering.draws(header.dynamicTypeSize(.accessibility3)))
     }
     let links = PaywallLinks(
       termsOfUse: URL(fileURLWithPath: "/terms"), privacyPolicy: URL(fileURLWithPath: "/privacy"), onRestore: {},
       onRedeem: {})
-    #expect(ImageRenderer(content: links.frame(width: 390)).uiImage != nil)
-    #expect(ImageRenderer(content: links.frame(width: 200)).uiImage != nil)
+    #expect(ViewRendering.draws(links.frame(width: 390)))
+    #expect(ViewRendering.draws(links.frame(width: 200)))
     for view in [AnyView(AlreadyProNote()), AnyView(PlansUnavailable {})] {
-      #expect(ImageRenderer(content: view.frame(width: 390)).uiImage != nil)
+      #expect(ViewRendering.draws(view.frame(width: 390)))
     }
     let offers = FixedStoreOffering.fixturePlans()
     let saving = YearlySaving(weeklyPrice: offers[1].price, yearlyPrice: offers[0].price)
     for size in [DynamicTypeSize.large, .accessibility3] {
       let picker = PlanPicker(offers: offers, selectedID: offers[0].id, saving: saving) { _ in }
-      #expect(ImageRenderer(content: picker.frame(width: 390).dynamicTypeSize(size)).uiImage != nil)
+      #expect(ViewRendering.draws(picker.frame(width: 390).dynamicTypeSize(size)))
     }
     for offer in offers {
-      #expect(ImageRenderer(content: PurchaseTerms(plan: offer).frame(width: 390)).uiImage != nil)
+      #expect(ViewRendering.draws(PurchaseTerms(plan: offer).frame(width: 390)))
     }
     for count in 1...PaywallBenefit.allCases.count {
       let tiles = BenefitTiles(benefits: Array(PaywallBenefit.allCases.prefix(count))).frame(width: 390)
-      #expect(ImageRenderer(content: tiles).uiImage != nil)
+      #expect(ViewRendering.draws(tiles))
     }
     for entitlement in [Entitlement.subscribed, .trial(endsAt: now.addingTimeInterval(3 * day))] {
       let (model, fake, store, _, _) = makeModel()
@@ -381,10 +402,10 @@ struct PaywallModelTests {
       await purchase(entitlement, fake, store)
       await model.entitlementChanged()
       let welcome = WelcomeProView(model: model).frame(width: 390, height: 844)
-      #expect(ImageRenderer(content: welcome).uiImage != nil)
-      #expect(ImageRenderer(content: welcome.dynamicTypeSize(.accessibility3)).uiImage != nil)
+      #expect(ViewRendering.draws(welcome))
+      #expect(ViewRendering.draws(welcome.dynamicTypeSize(.accessibility3)))
       let flow = PaywallFlowView(model: model, store: FixedStoreAccess(isAvailable: true))
-      #expect(ImageRenderer(content: flow.frame(width: 390, height: 844)).uiImage != nil)
+      #expect(ViewRendering.draws(flow.frame(width: 390, height: 844)))
     }
   }
 }
@@ -413,7 +434,7 @@ struct SubscriptionSectionTests {
     let form = Form {
       SubscriptionSection(entitlements: store, store: FixedStoreAccess(isAvailable: true)) {}
     }
-    #expect(ImageRenderer(content: form.frame(width: 390, height: 600)).uiImage != nil)
+    #expect(ViewRendering.draws(form.frame(width: 390, height: 600)))
   }
 }
 

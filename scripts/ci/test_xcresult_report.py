@@ -155,6 +155,18 @@ def test_a_failed_test_run_again_on_its_own_is_judged_by_that_run(tmp_path, caps
     assert xcresult_report.main([first, "--retries", healed]) == 0
 
 
+def test_a_retry_whose_only_findings_were_quarantined_passed(tmp_path, capsys):
+    # On an iPhone (2026-10-26), an audit measured while the screen moved failed the first run and was
+    # quarantined in the second: the test passed then, so it is flaky, not failed.
+    first = results(tmp_path, case("testShape()", "Failed", message("3 accessibility finding(s)")), name="tests.json")
+    again = results(tmp_path, case("testShape()", "Expected Failure",
+                                   message("Measured while the screen was moving: 3 findings")), name="retry.json")
+    assert xcresult_report.main([first, "--retries", again]) == 0
+    out = capsys.readouterr().out
+    assert "::warning title=Flaky%3A PDFAlgoProUITests/PaywallUITests/testShape()::" in out
+    assert "::error" not in out
+
+
 def test_a_failed_tests_quarantine_notes_are_not_named_as_its_failure(tmp_path, capsys):
     # As on run 37930118069: a paywall audit failed on the explanation, and the same test also recorded
     # the Close button's finding as an expected failure, which was annotated as a second error.

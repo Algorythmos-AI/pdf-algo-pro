@@ -31,7 +31,18 @@ final class LargeTextUITests: UITestCase {
     XCTAssertTrue(app.buttons[ID.Scan.images].waitForExistence(timeout: Self.settleTimeout))
     try audit(app, onSheet: true)
     app.buttons["Cancel"].firstMatch.tap()
-    tap(app.buttons[ID.Library.settings], until: app.descendants(matching: .any)[ID.Settings.hideAI].firstMatch)
+    // The list is under the scan sheet while it slides away, so Settings exists before it can be tapped,
+    // and a tap then can be lost (issue #76: on a device, two taps and Settings never opened). Settings
+    // is open once its bar's Done shows; Hide AI is checked apart from that, since it stays on the first
+    // screen at every text size (PAP-048), and a failure then says which of the two went wrong.
+    let settings = app.buttons[ID.Library.settings]
+    waitUntilHittable(settings, in: app, "The scan sheet closes and uncovers Settings")
+    tap(settings, until: app.buttons[ID.Settings.done])
+    let hideAI = app.descendants(matching: .any)[ID.Settings.hideAI].firstMatch
+    if !hideAI.waitForExistence(timeout: Self.settleTimeout) {
+      keepEvidence(app, named: "hide AI", notes: "Settings is open, without Hide AI on its first screen")
+      XCTFail("Hide AI is on the first screen of Settings at a large text size (PAP-048)")
+    }
     try audit(app, onSheet: true)
   }
 
@@ -55,9 +66,11 @@ final class LargeTextUITests: UITestCase {
   func testTheSignatureSheetAtALargeTextSize() throws {
     let app = launchLarge(["-skip-onboarding", "-seed-library", "sample"])
     XCTAssertTrue(app.staticTexts[ID.Reader.pageIndicator].waitForExistence(timeout: 15))
+    // The sheet's own Cancel, which its bar always shows: the typed name is a row of the form, below
+    // the signature pad, and at a large text size on a smaller screen it can be off the screen.
     tapMenuItem(
       app.buttons[ID.Reader.Markup.signature], in: app.buttons[ID.Reader.markup],
-      until: app.textFields[ID.Signature.typedName])
+      until: app.buttons[ID.Signature.cancel])
     try audit(app, onSheet: true)
   }
 

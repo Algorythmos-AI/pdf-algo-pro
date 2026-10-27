@@ -209,7 +209,7 @@ public enum TextEditFixtures {
     document.documentAttributes = [
       PDFDocumentAttribute.titleAttribute: "Supply agreement", PDFDocumentAttribute.authorAttribute: "Test author",
     ]
-    guard let result = document.dataRepresentation() else { throw Failure() }
+    guard let result = PDFDocumentController.dataRepresentation(of: document) else { throw Failure() }
     return result
   }
 

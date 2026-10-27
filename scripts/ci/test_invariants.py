@@ -135,3 +135,17 @@ def test_internal_tools_may_be_defined_for_debug_and_staging_only():
     base = "settings:\n  base:\n    SWIFT_ACTIVE_COMPILATION_CONDITIONS: INTERNAL_TOOLS\n"
     assert "under 'base'" in invariants.internal_tools_config_problems(base)[0]
     assert invariants.internal_tools_config_problems("# INTERNAL_TOOLS in a comment\n") == []
+
+
+def test_annotations_copied_with_copy_are_reported():
+    assert invariants.annotation_copies("guard let copy = annotation.copy() as? PDFAnnotation else { return nil }\n") == [1]
+    assert invariants.annotation_copies("let pasted = original.copy() as! PDFAnnotation\n") == [1]
+    assert invariants.annotation_copies("let twin = selected.annotation.copy()\n") == [1]
+    assert invariants.annotation_copies("let twin = clipboard.annotation?.copy()\n") == [1]
+
+
+def test_page_copies_and_the_annotation_helper_pass():
+    pages = "guard let duplicate = page.copy() as? PDFPage else { continue }\n"
+    helper = "guard let copy = Self.copy(of: selected.annotation) else { return false }\n"
+    comment = "// It is never made with `annotation.copy()`.\n"
+    assert invariants.annotation_copies(pages + helper + comment) == []

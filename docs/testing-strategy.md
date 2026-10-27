@@ -156,6 +156,11 @@ and never shipped ([ADR-0018](adr/0018-snapshot-testing-test-only-dependency.md)
   (`Assumption:` 0.98, validated by running the suite twice on the pinned runtime and on a second
   machine); a larger tolerance needs a reason in review.
 - References live in `__Snapshots__` folders next to the tests that own them.
+- **Render checks without a reference.** The feature packages' tests check that a screen draws at
+  all, at a large text size or in each state, with `ViewRendering.draws` (`CoreTestSupport`), not
+  `ImageRenderer` directly. It keeps each renderer until the tests end: on iOS 27.0, releasing an
+  `ImageRenderer` whose view has a `NavigationStack` or a `Form` with `.task` or `.onAppear` inside
+  stops the test process in SwiftUI's teardown, which the app never runs (#308).
 
 ## Accessibility tests
 
@@ -590,6 +595,9 @@ simulator ([quality gates](process/quality-gates.md#the-ios-job-graph)). The sel
   own. The script's tests check that every listed class exists in `App/UITests` and that none is listed twice.
 - **On a Mac:** `scripts/dev/ci_tests.sh --shard unit|ui-1|ui-2|ui-3` makes the same build and runs the same
   shard on the pinned simulator; `--only PDFAlgoProUITests/ReaderUITests` runs a focused set.
+- **On an iPhone:** `scripts/dev/device_tests.sh --device <Identifier>` runs `Device.xctestplan` (the
+  app's unit and UI tests, snapshots aside) on a connected phone, with the same one retry, and records
+  the run ([device test run](process/device-test-run.md)).
 - **One test in CI:** a manual run of `ci.yml` with `only_testing` (for example
   `PDFAlgoProUITests/ReaderUITests/testGoToPageJumpsToTheNumberTyped`) runs only those tests, reported as `ios-focused`.
 
@@ -617,6 +625,7 @@ is the release checklist on reference devices.
 | AI evaluation | `AIEvaluation-OnDevice` | When `Intelligence` changes | Full on-device suite | Cloud tiers on the evaluation device | Full |
 | Pseudolanguage and right-to-left runs | `Nightly` | — | — | Yes | — |
 | Manual VoiceOver script, exploratory testing | Release checklist | — | — | — | Yes |
+| Unit and UI on a real iPhone, then the manual checklist | `Device` | — | — | — | On the owner's iPhone ([device test run](process/device-test-run.md)) |
 
 Today the `ios` gate in [ci.yml](../.github/workflows/ci.yml) runs one test plan, `PDFAlgoPro`
 ("unit, UI, accessibility audit, snapshots"), in four shards, for every pull request. Running the `Release` and

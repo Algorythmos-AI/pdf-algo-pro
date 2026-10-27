@@ -373,8 +373,14 @@ public enum AccessibilityID {
     public enum Welcome {
       /// The identifier `paywall.welcome.actionBar`.
       public static let actionBar = "paywall.welcome.actionBar"
+      /// The identifier `paywall.welcome.notificationSettings`.
+      public static let notificationSettings = "paywall.welcome.notificationSettings"
       /// The identifier `paywall.welcome.reminder`.
       public static let reminder = "paywall.welcome.reminder"
+      /// The identifier `paywall.welcome.reminderProblem`.
+      public static let reminderProblem = "paywall.welcome.reminderProblem"
+      /// The identifier `paywall.welcome.reminderUnavailable`.
+      public static let reminderUnavailable = "paywall.welcome.reminderUnavailable"
       /// The identifier `paywall.welcome.trialEnd`.
       public static let trialEnd = "paywall.welcome.trialEnd"
     }

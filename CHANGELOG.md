@@ -9,6 +9,11 @@ Store notes (see the changelog strategy).
 
 ## [Unreleased]
 
+### Added
+- Answers, summaries and extracted fields you copy or share now end with a line saying that PDF
+  Algo Pro generated them from the document and that they may contain errors. In a CSV it is the
+  last row, so the file still opens as a table.
+
 ### Changed
 - The App Store version now has what TestFlight builds have had: the page strip and keyboard
   commands in the reader, recognition in more languages and in reading order, search that finds a
@@ -23,9 +28,23 @@ Store notes (see the changelog strategy).
   only ever means a red annotation or Delete.
 
 ### Fixed
+- Dark mode: the App Lock's "Unlock with Face ID" button and the selection bar's Delete are easy to
+  read again. Both fell below the 4.5:1 contrast text needs on an iPhone in dark mode.
+- Welcome to Pro: the "Remind me the day before" switch no longer turns itself back off without a
+  word. With less than a day of the trial left there's no switch, since its day has passed; when
+  notifications are off for the app, it says so and offers to open Settings.
 - Saving on iOS 27 kept bookmarks, the document's outline and links to other pages. iOS 27 left them
   out of the saved file: bookmarks added or removed were lost, and links inside the document went
   nowhere. The app now checks what it saved and puts them back, in password-protected documents too.
+- On iOS 27, making a scan searchable keeps the document's notes, links and bookmarks, and a
+  compressed copy keeps its bookmarks and links. iOS 27 left them out of the new file.
+- On iOS 27, stamps chosen from the Stamp menu, and notes, drawings, shapes, text boxes and
+  signatures that were pasted or duplicated, were lost when the document was saved. They are now
+  saved like everything else.
+- Reduce file size makes scans and photos smaller again on iOS 27. iOS 27 stopped re-encoding a
+  document's pictures, so a scan was "already about as small as it gets". The app now re-encodes
+  the pictures itself, as JPEG, and for email at most 1,600 pixels on their longest side; text and
+  notes stay as they were. Password-protected documents are made smaller only where iOS does it.
 - Editing text could close the app when the system failed to load one of a page's fonts while the
   app read the page's lines. The line is now read without that font's details, as for text with none.
 - App Lock: removing the device passcode no longer locks you out of the app for good. Without a

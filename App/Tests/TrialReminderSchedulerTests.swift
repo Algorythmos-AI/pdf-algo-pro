@@ -58,9 +58,9 @@ struct TrialReminderSchedulerTests {
   func noticeOrNotification() async {
     let (scheduler, _) = make()
     let end = now.addingTimeInterval(day + 60)
-    #expect(await scheduler.set(true, trialEndsAt: end))
+    #expect(await scheduler.set(true, trialEndsAt: end) == .scheduled)
     #expect(scheduler.noticeDue(for: .trial(endsAt: end)) == nil)
-    #expect(await !scheduler.set(false, trialEndsAt: end))
+    #expect(await scheduler.set(false, trialEndsAt: end) == .off)
     // Still more than a day away, so not due yet; the trial is no longer marked as reminded.
     #expect(scheduler.noticeDue(for: .trial(endsAt: end)) == nil)
   }
@@ -69,7 +69,7 @@ struct TrialReminderSchedulerTests {
   func on() async {
     let (scheduler, notifications) = make()
     let end = now.addingTimeInterval(3 * day)
-    #expect(await scheduler.set(true, trialEndsAt: end))
+    #expect(await scheduler.set(true, trialEndsAt: end) == .scheduled)
     let state = notifications.state.withLock { $0 }
     #expect(state.cancelled == [TrialReminderScheduler.identifier], "An earlier reminder goes first")
     #expect(state.asked == 1 && state.scheduled.count == 1)
@@ -81,23 +81,23 @@ struct TrialReminderSchedulerTests {
   @Test("Turned off, the reminder is removed and permission is not asked for")
   func off() async {
     let (scheduler, notifications) = make()
-    #expect(await !scheduler.set(false, trialEndsAt: now.addingTimeInterval(3 * day)))
+    #expect(await scheduler.set(false, trialEndsAt: now.addingTimeInterval(3 * day)) == .off)
     let state = notifications.state.withLock { $0 }
     #expect(state.cancelled.count == 1 && state.asked == 0 && state.scheduled.isEmpty)
   }
 
-  @Test("When notifications are declined, nothing is scheduled and the answer is no")
+  @Test("When notifications are declined, nothing is scheduled and the answer says so")
   func declined() async {
     let (scheduler, notifications) = make()
     notifications.state.withLock { $0.allows = false }
-    #expect(await !scheduler.set(true, trialEndsAt: now.addingTimeInterval(3 * day)))
+    #expect(await scheduler.set(true, trialEndsAt: now.addingTimeInterval(3 * day)) == .notificationsDeclined)
     #expect(notifications.state.withLock { $0.scheduled.isEmpty })
   }
 
-  @Test("With less than a day of the trial left there is nothing to schedule, and nobody is asked")
+  @Test("With less than a day of the trial left there is nothing to schedule, nobody is asked, and the answer says so")
   func tooLate() async {
     let (scheduler, notifications) = make()
-    #expect(await !scheduler.set(true, trialEndsAt: now.addingTimeInterval(day / 2)))
+    #expect(await scheduler.set(true, trialEndsAt: now.addingTimeInterval(day / 2)) == .tooLate)
     let state = notifications.state.withLock { $0 }
     #expect(state.asked == 0 && state.scheduled.isEmpty)
   }
