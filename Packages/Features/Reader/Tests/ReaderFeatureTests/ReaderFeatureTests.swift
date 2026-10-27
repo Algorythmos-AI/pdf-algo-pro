@@ -809,6 +809,24 @@ struct ReaderModelTests {
     #expect(ViewRendering.draws(view))
   }
 
+  /// French titles are longer; the bar must not wrap them or break "Supprimer" in two (#303).
+  @Test(
+    "In French the selection bar for a text box keeps to one row, as in English",
+    arguments: [DynamicTypeSize.large, .accessibility3])
+  func selectionBarFitsInFrench(size: DynamicTypeSize) throws {
+    func height(in language: String) -> CGFloat? {
+      let bar = SelectionBar(
+        selection: AnnotationSelection(kind: .textBox, pageIndex: 0, text: "Text"), onEdit: {}, onDelete: {},
+        onDone: {}, onMove: { _ in }, onResize: { _ in }, onColor: { _ in }
+      )
+      .frame(width: 390).environment(\.locale, Locale(identifier: language)).environment(\.dynamicTypeSize, size)
+      return ViewRendering.image(of: bar)?.size.height
+    }
+    let english = try #require(height(in: "en"))
+    let french = try #require(height(in: "fr"))
+    #expect(french <= english + 1, "The French bar is \(french) points tall, the English \(english)")
+  }
+
   @Test("Layout choices are remembered")
   func displayMode() async throws {
     let harness = Harness()

@@ -269,6 +269,20 @@ struct AssistantModelTests {
       "The French footer is \(french.debugDescription)")
   }
 
+  /// The on-device model names the type in English whatever the document's language (#304).
+  @Test("Extract gives the document type in the reader's language")
+  func documentTypeInFrench() {
+    let french = Locale(identifier: "fr")
+    #expect(DocumentTypeName.presented("invoice", locale: french) == "Facture")
+    #expect(DocumentTypeName.presented(" Receipt ", locale: french) == "Reçu")
+    #expect(DocumentTypeName.presented("purchase order", locale: french) == "Bon de commande")
+    // A name the model took from the document, or one it has no French for, is kept as it is.
+    #expect(DocumentTypeName.presented("Facture", locale: french) == "Facture")
+    #expect(DocumentTypeName.presented("Mietvertrag", locale: french) == "Mietvertrag")
+    // In English the model's own words stay.
+    #expect(DocumentTypeName.presented("invoice", locale: Locale(identifier: "en")) == "invoice")
+  }
+
   @Test("Changing the task starts it")
   func switchingTasks() async throws {
     let intelligence = FakeIntelligence()
