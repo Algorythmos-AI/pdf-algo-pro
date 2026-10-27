@@ -116,18 +116,52 @@ struct UsageAllowanceTests {
     #expect(await allowance.isAllowed(.scan, entitlement: .subscribed), "Pro has no limit")
   }
 
-  @Test("A new calendar day starts the counts again; setting the clock back does not")
+  @Test("A new calendar day starts the counts again; setting the clock back a day does not")
   func days() async {
     let clock = Clock(now)
     let allowance = allowance(clock: clock)
     await allowance.recordSuccess(.scan)
     await allowance.recordSuccess(.scan)
-    clock.advance(by: -2 * day)
+    clock.advance(by: -day)
     #expect(await allowance.usedToday(.scan) == 2)
     #expect(await !allowance.isAllowed(.scan, entitlement: .none))
-    clock.advance(by: 3 * day)
+    clock.advance(by: 2 * day)
     #expect(await allowance.usedToday(.scan) == 0)
     #expect(await allowance.isAllowed(.scan, entitlement: .none))
+  }
+
+  @Test("Counts from a clock set years ahead do not lock the allowance once it is set right (#245)")
+  func clockSetAhead() async {
+    let clock = Clock(now.addingTimeInterval(3 * 365 * day))
+    let allowance = allowance(clock: clock)
+    await allowance.recordSuccess(.scan)
+    await allowance.recordSuccess(.scan)
+    clock.advance(by: -3 * 365 * day)
+    let used = await allowance.usedToday(.scan)
+    let allowed = await allowance.isAllowed(.scan, entitlement: .none)
+    #expect(
+      used == 0 && allowed,
+      "Counts stored for a day more than one ahead of today must be dropped; \(used) were still counted")
+  }
+
+  @Test("Switching calendars does not move the day, so the allowance starts again the next day (#245)")
+  func calendarSwitch() async {
+    var buddhist = Calendar(identifier: .buddhist)
+    buddhist.timeZone = .gmt
+    let store = MemoryAllowanceStore()
+    let before = UsageAllowance(limits: limits, store: store, calendar: buddhist) { now }
+    await before.recordSuccess(.scan)
+    await before.recordSuccess(.scan)
+    #expect(await !before.isAllowed(.scan, entitlement: .none), "The same day, in either calendar, is used up")
+    let after = UsageAllowance(limits: limits, store: store, calendar: utc) { now.addingTimeInterval(day) }
+    let stored = store.load().map { String(decoding: $0, as: UTF8.self) } ?? "nothing"
+    #expect(
+      await after.isAllowed(.scan, entitlement: .none),
+      "The next Gregorian day must start the counts again; the stored counts are \(stored)")
+    let legacy = MemoryAllowanceStore(Data(#"{"day":[2570,1,15],"used":{"scan":9}}"#.utf8))
+    #expect(
+      await allowance(store: legacy).usedToday(.scan) == 0,
+      "Counts an earlier version stored for a Buddhist-calendar day are dropped")
   }
 
   @Test("Counts outlive the object, and unreadable counts start from nothing")

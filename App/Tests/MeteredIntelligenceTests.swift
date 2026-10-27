@@ -11,17 +11,25 @@ import Testing
 private final class StubIntelligence: DocumentIntelligence {
   private let failure: Mutex<IntelligenceError?>
   private let unavailable: IntelligenceUnavailableReason?
+  private let cancelsItsRequest: Bool
   private let requests = Mutex(0)
 
-  init(failure: IntelligenceError? = nil, unavailable: IntelligenceUnavailableReason? = nil) {
+  /// With `cancelsItsRequest`, each request is cancelled while it runs and answers anyway, as a model
+  /// that does not stop when the person moves on.
+  init(
+    failure: IntelligenceError? = nil, unavailable: IntelligenceUnavailableReason? = nil,
+    cancelsItsRequest: Bool = false
+  ) {
     self.failure = Mutex(failure)
     self.unavailable = unavailable
+    self.cancelsItsRequest = cancelsItsRequest
   }
 
   var requestCount: Int { requests.withLock { $0 } }
 
   private func respond<Result>(_ result: Result) throws -> Result {
     requests.withLock { $0 += 1 }
+    if cancelsItsRequest { _ = withUnsafeCurrentTask { $0?.cancel() } }
     if let failure = failure.withLock({ $0 }) { throw failure }
     return result
   }
@@ -99,6 +107,18 @@ extension AppTests {
       await #expect(throws: IntelligenceError.generationFailed) { _ = try await metered.summarize([]) }
       await #expect(throws: IntelligenceError.generationFailed) { _ = try await metered.extractFields(from: []) }
       #expect(await allowance.usedToday(.intelligenceRequest) == 0)
+    }
+
+    @Test("A request cancelled or replaced while it runs costs nothing, even when the model answers (#259)")
+    func cancelledIsFree() async {
+      let base = StubIntelligence(cancelsItsRequest: true)
+      let (metered, allowance) = make(base)
+      let outcome = await Task { try await metered.summarize([]) }.result
+      let used = await allowance.usedToday(.intelligenceRequest)
+      #expect(base.requestCount == 1, "The model was asked once")
+      #expect(
+        used == 0,
+        "A request whose task was cancelled must not be counted; \(used) counted, the request gave \(outcome)")
     }
 
     @Test("With Pro there is no limit, and nothing is refused")

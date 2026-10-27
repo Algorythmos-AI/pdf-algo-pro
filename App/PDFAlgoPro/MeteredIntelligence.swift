@@ -48,6 +48,9 @@ struct MeteredIntelligence: DocumentIntelligence {
   private func metered<Result: Sendable>(_ request: () async throws -> Result) async throws -> Result {
     guard await isAllowed() else { throw IntelligenceError.unavailable(.dailyAllowanceUsed) }
     let result = try await request()
+    // A model may finish after its request was cancelled or replaced; nobody sees that result, so it
+    // costs nothing (#259).
+    try Task.checkCancellation()
     await allowance.recordSuccess(.intelligenceRequest)
     return result
   }
