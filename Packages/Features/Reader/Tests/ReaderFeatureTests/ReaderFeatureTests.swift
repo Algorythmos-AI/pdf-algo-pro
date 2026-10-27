@@ -283,6 +283,58 @@ struct ReaderModelTests {
     #expect(await harness.index.stored[document.id] != nil)
   }
 
+  @Test("On a disk that stays full, a protected document's words still leave search and Spotlight (#236)")
+  func passwordOnAFullDisk() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.makeSample())
+    await harness.index.seed(document.id, pages: [PageText(pageIndex: 0, text: "private words")])
+    let reader = harness.reader(for: document)
+    await reader.load()
+    await harness.index.failIndexing(true)
+
+    await reader.setPassword("secret")
+
+    #expect(reader.isPasswordProtected)
+    #expect(await harness.index.stored[document.id] == nil, "At once")
+    #expect(await harness.index.removed.contains(document.id), "Spotlight's entry is gone")
+    _ = await harness.intake.refreshPending()
+    #expect(await harness.index.stored[document.id] == nil, "And after a relaunch, with the disk still full")
+  }
+
+  @Test("A password saved whose change never reached the library is still caught up at the next load (#236)")
+  func passwordSavedButNotRecorded() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.makeSample())
+    await harness.index.seed(document.id, pages: [PageText(pageIndex: 0, text: "private words")])
+    let reader = harness.reader(for: document)
+    await reader.load()
+    // The file is written, then recording it fails, as when the app is stopped straight after.
+    await harness.library.failNextRecordModified()
+
+    await reader.setPassword("secret")
+
+    #expect(await harness.pending.all == [document.id], "Written down before the save")
+    _ = await harness.intake.refreshPending()
+    #expect(try await harness.index.pages(of: document.id).isEmpty)
+    #expect(await harness.pending.all.isEmpty)
+  }
+
+  @Test("A restore is written down as owing a refresh before the files are swapped (#236)")
+  func restoreIsOwedBeforeTheSwap() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.makeSample())
+    let reader = harness.reader(for: document)
+    await reader.load()
+    await reader.addNote("Check this")
+    // Whatever happens from the swap on, the refresh is owed first; here the swap itself reports a
+    // failure, which no later step hears of.
+    await harness.library.failNext(with: .fileAccessFailed)
+
+    await reader.restorePreviousVersion()
+
+    #expect(await harness.pending.all == [document.id])
+  }
+
   @Test("A document whose author forbids changing its pages says so")
   func organiseRestricted() async throws {
     let harness = Harness()
@@ -1804,6 +1856,15 @@ struct ReaderTextEditingTests {
     let pages = try await harness.index.pages(of: document.id)
     #expect(pages.contains { $0.text.contains("David") }, "Tried again as the reader closed")
     #expect(await harness.pending.all.isEmpty)
+  }
+
+  @Test("An edit saved whose change never reached the library is written down as owing a refresh (#236)")
+  func editSavedButNotRecorded() async throws {
+    let harness = Harness()
+    let (reader, document) = try await editing(try TextEditFixtures.invoice(), in: harness, picking: "John Smith")
+    await harness.library.failNextRecordModified()
+    _ = await reader.commitTextEdit("Customer: David Smith")
+    #expect(await harness.pending.all == [document.id], "Written down before the save")
   }
 
   @Test("Cancelling, or pressing Done without changing anything, leaves the file as it was")

@@ -137,7 +137,25 @@ public actor FakeDocumentLibrary: DocumentLibrary {
   /// Records that the file's contents changed (after a save).
   public func recordModified(_ id: DocumentID) async throws {
     try check()
+    if failsNextRecordModified {
+      failsNextRecordModified = false
+      throw LibraryError.fileAccessFailed
+    }
     documents[id]?.modifiedAt = now()
+  }
+
+  /// Records that the file's contents changed at `date`.
+  public func recordModified(_ id: DocumentID, at date: Date) async throws {
+    try check()
+    documents[id]?.modifiedAt = date
+  }
+
+  private var failsNextRecordModified = false
+
+  /// Makes the next `recordModified(_:)` throw: the file was written, but the library never heard,
+  /// as when the app is stopped straight after a save.
+  public func failNextRecordModified() {
+    failsNextRecordModified = true
   }
 
   /// Moves a document to Recently Deleted, where it stays for 30 days.
@@ -251,7 +269,12 @@ public actor FakeIndex: DocumentIndexing {
   public private(set) var failsSearches = false
   /// Every document indexed, in order, as Spotlight was given it.
   public private(set) var indexed: [Document] = []
+  /// How many times page text was written.
+  public private(set) var pageWrites = 0
   private var failsNextIndex = false
+  private var failsIndexing = false
+  private var failsRemoving = false
+  private var cancelsSearches = false
 
   /// Creates an empty index.
   public init() {}
@@ -261,9 +284,26 @@ public actor FakeIndex: DocumentIndexing {
     failsSearches = fails
   }
 
+  /// Makes searches throw `CancellationError`, as a search whose task was cancelled does.
+  public func cancelSearches(_ cancels: Bool) {
+    cancelsSearches = cancels
+  }
+
   /// Makes the next `index(_:pages:)` throw, as a full disk would.
   public func failNextIndex() {
     failsNextIndex = true
+  }
+
+  /// Makes every `index(_:pages:)` throw while `fails` is set: a disk that stays full.
+  ///
+  /// Removing still works, as it needs no space.
+  public func failIndexing(_ fails: Bool) {
+    failsIndexing = fails
+  }
+
+  /// Makes every `remove(_:)` throw while `fails` is set.
+  public func failRemoving(_ fails: Bool) {
+    failsRemoving = fails
   }
 
   /// Stores page texts directly.
@@ -273,16 +313,24 @@ public actor FakeIndex: DocumentIndexing {
 
   /// Adds or replaces a document in the index (and in Spotlight, FR-LIB-005).
   public func index(_ document: Document, pages: [PageText]) async throws {
-    if failsNextIndex {
+    if failsNextIndex || failsIndexing {
       failsNextIndex = false
       throw LibraryError.fileAccessFailed
     }
     stored[document.id] = pages
+    pageWrites += 1
+    indexed.append(document)
+  }
+
+  /// Gives Spotlight a document's new title or tags; the stored text is not written.
+  public func updateDetails(of document: Document) async throws {
+    if failsIndexing { throw LibraryError.fileAccessFailed }
     indexed.append(document)
   }
 
   /// Removes a document and its derived text (FR-LIB-006).
   public func remove(_ id: DocumentID) async throws {
+    if failsRemoving { throw LibraryError.fileAccessFailed }
     stored[id] = nil
     removed.append(id)
   }
@@ -304,6 +352,7 @@ public actor FakeIndex: DocumentIndexing {
 
   /// Documents matching a query, best first.
   public func search(_ query: String, in documents: [Document]) async throws -> [SearchHit] {
+    if cancelsSearches { throw CancellationError() }
     if failsSearches { throw LibraryError.fileAccessFailed }
     return documents.compactMap { document in
       if document.title.localizedCaseInsensitiveContains(query) {
