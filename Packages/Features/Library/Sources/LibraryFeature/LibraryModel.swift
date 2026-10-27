@@ -392,7 +392,10 @@ public final class LibraryModel {
 
   /// Renames a document.
   public func rename(_ id: DocumentID, to title: String) async {
-    await perform { _ = try await self.library.rename(id, to: title) }
+    await perform {
+      let renamed = try await self.library.rename(id, to: title)
+      await self.reindex(renamed)
+    }
   }
 
   /// Marks or unmarks a favourite.
@@ -402,7 +405,22 @@ public final class LibraryModel {
 
   /// Replaces a document's tags.
   public func setTags(_ tags: [String], for id: DocumentID) async {
-    await perform { try await self.library.setTags(tags, for: id) }
+    await perform {
+      try await self.library.setTags(tags, for: id)
+      if let tagged = try await self.library.document(withID: id) { await self.reindex(tagged) }
+    }
+  }
+
+  /// Gives search and Spotlight a document's new title or tags, with its stored text (#241).
+  ///
+  /// A failure is counted, not shown: the change itself worked, and the next refresh of the document
+  /// writes them again.
+  private func reindex(_ document: Core.Document) async {
+    do {
+      try await index.index(document, pages: try await index.pages(of: document.id))
+    } catch {
+      await telemetry.record("quality.operation.failed")
+    }
   }
 
   /// Moves a document to Recently Deleted and out of Spotlight.
