@@ -692,8 +692,9 @@ extension PDFDocumentController {
       return all(.notVerified)
     }
     view?.endEditing()
-    swap(page, for: replacement, keeping: source, links: links)
-    limitUndoMemory(adding: found.snapshot.count + data.count)
+    let bytes = found.snapshot.count + data.count
+    swap(page, for: replacement, keeping: source, links: links, undoBytes: bytes)
+    limitUndoMemory(adding: bytes)
     return result.outcomes
   }
 
@@ -707,7 +708,9 @@ extension PDFDocumentController {
   /// Keeps the undo history's memory bounded: each text edit keeps the page it replaced.
   ///
   /// The undo manager cannot drop one entry, so when the estimate passes the limit the history is
-  /// shortened to its newest half, oldest steps first, and stays at that length.
+  /// shortened to its newest half, oldest steps first, and stays at that length. Undoing an edit
+  /// takes it off the estimate and redoing it puts it back (`swap`), so editing and undoing again
+  /// and again never shortens the history (#269).
   func limitUndoMemory(adding bytes: Int) {
     textUndoBytes += bytes
     guard textUndoBytes > Self.undoMemoryLimit else { return }
@@ -729,8 +732,12 @@ extension PDFDocumentController {
   ///   - new: The page to put in its place.
   ///   - source: The document `new` came from, kept alive for as long as the page can come back.
   ///   - links: Which links point at which page.
-  func swap(_ old: PDFPage, for new: PDFPage, keeping source: PDFDocument?, links: [ObjectIdentifier: [PDFAnnotation]])
-  {
+  ///   - undoBytes: What the step holds, counted in `textUndoBytes`: taken off when it is undone,
+  ///     put back when it is redone.
+  func swap(
+    _ old: PDFPage, for new: PDFPage, keeping source: PDFDocument?, links: [ObjectIdentifier: [PDFAnnotation]],
+    undoBytes: Int = 0
+  ) {
     let index = document.index(for: old)
     guard index != NSNotFound else { return }
     clearSelection()
@@ -780,10 +787,15 @@ extension PDFDocumentController {
     #if canImport(UIKit)
       view?.pageSwapped(to: new, keeping: place)
     #endif
+    if undoManager.isUndoing {
+      textUndoBytes = max(0, textUndoBytes - undoBytes)
+    } else if undoManager.isRedoing {
+      limitUndoMemory(adding: undoBytes)
+    }
     undoManager.registerUndo(withTarget: self) { controller in
       MainActor.assumeIsolated {
         // `source` is captured so the page that may come back keeps its document.
-        controller.swap(new, for: old, keeping: source, links: controller.incomingLinks ?? [:])
+        controller.swap(new, for: old, keeping: source, links: controller.incomingLinks ?? [:], undoBytes: undoBytes)
       }
     }
   }

@@ -271,7 +271,9 @@ struct TextInterpreter {
     case "Ts":
       state.rise = numbers.first ?? 0
     case "Tr":
-      state.renderingMode = operands.first?.integer ?? 0
+      // A number, as `3.0` may be written. One that names no mode (0 to 7) is taken as a mode the
+      // editor does not draw, so its text is not offered for editing in place (#269).
+      state.renderingMode = numbers.first.map { $0 == $0.rounded() && (0...7).contains($0) ? Int($0) : -1 } ?? 0
     case "Td":
       if numbers.count == 2 { moveLine(numbers[0], numbers[1]) }
     case "TD":

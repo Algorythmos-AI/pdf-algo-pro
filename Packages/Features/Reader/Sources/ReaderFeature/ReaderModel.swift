@@ -928,7 +928,10 @@ public final class ReaderModel {
 
   /// Takes back the cover the reader placed, and its notice.
   public func undoCoverInstead() async {
-    guard textEditNotice == .coveredInstead else { return }
+    // Undo waits while text is being edited; the notice stays until it can undo (#269).
+    guard textEditNotice == .coveredInstead, controller?.undoManager.canUndo == true, !isBusyEditingText else {
+      return
+    }
     textEditNotice = nil
     await undo()
   }
