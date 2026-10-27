@@ -32,10 +32,16 @@ public struct DocumentIntake: Sendable {
   ///   - id: The document about to change.
   ///   - protecting: Whether the change protects the document, whose words must then leave search
   ///     and Spotlight whatever else fails.
-  public func willChange(_ id: DocumentID, protecting: Bool = false) async {
+  /// - Returns: the change's number, to pass to `saveFinished(_:change:)`.
+  @discardableResult
+  public func willChange(_ id: DocumentID, protecting: Bool = false) async -> Int? {
     // If the list can't be written, the change still goes ahead; only its retry is lost.
     try? await pending?.add(id, protecting: protecting)
+    return nil
   }
+
+  /// Tells the intake the save of a change has ended, whether it worked or not.
+  public func saveFinished(_ id: DocumentID, change: Int?) async {}
 
   /// How many refreshes of one change are tried before it is given up.
   public static let attempts = 3
