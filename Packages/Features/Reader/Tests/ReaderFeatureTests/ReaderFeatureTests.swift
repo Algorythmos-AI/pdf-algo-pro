@@ -810,21 +810,35 @@ struct ReaderModelTests {
   }
 
   /// French titles are longer; the bar must not wrap them or break "Supprimer" in two (#303).
+  ///
+  /// The bar takes the roomiest arrangement whose row fits on one line, as its unseen ViewThatFits
+  /// does; this lays each row out at its ideal width the same way, in English and in French.
   @Test(
-    "In French the selection bar for a text box keeps to one row, as in English",
+    "In French the selection bar for a text box follows the same rule as in English, and never wraps where a row fits",
     arguments: [DynamicTypeSize.large, .accessibility3])
   func selectionBarFitsInFrench(size: DynamicTypeSize) throws {
-    func height(in language: String) -> CGFloat? {
+    let room: CGFloat = 390 - 2 * SelectionBar.padding
+    func width(of arrangement: SelectionBar.Arrangement, in language: String) -> CGFloat {
       let bar = SelectionBar(
         selection: AnnotationSelection(kind: .textBox, pageIndex: 0, text: "Text"), onEdit: {}, onDelete: {},
-        onDone: {}, onMove: { _ in }, onResize: { _ in }, onColor: { _ in }
-      )
-      .frame(width: 390).environment(\.locale, Locale(identifier: language)).environment(\.dynamicTypeSize, size)
-      return ViewRendering.image(of: bar)?.size.height
+        onDone: {}, onMove: { _ in }, onResize: { _ in }, onColor: { _ in })
+      let row = bar.row(arrangement).fixedSize(horizontal: true, vertical: false)
+        .environment(\.locale, Locale(identifier: language)).environment(\.dynamicTypeSize, size)
+      return ViewRendering.image(of: row)?.size.width ?? .infinity
     }
-    let english = try #require(height(in: "en"))
-    let french = try #require(height(in: "fr"))
-    #expect(french <= english + 1, "The French bar is \(french) points tall, the English \(english)")
+    func arrangement(in language: String) -> SelectionBar.Arrangement {
+      SelectionBar.Arrangement.allCases.first { width(of: $0, in: language) <= room } ?? .allInMore
+    }
+    let english = arrangement(in: "en")
+    let french = arrangement(in: "fr")
+    // French is longer, so it never gets a roomier arrangement than English.
+    #expect(french.rawValue >= english.rawValue, "French: \(french), English: \(english)")
+    // Each language's row fits on one line, unless even the last doesn't; then both share it.
+    let frenchFits = width(of: french, in: "fr") <= room
+    #expect(frenchFits || english == .allInMore, "French wraps in \(french) while English has \(english)")
+    if size == .large {
+      #expect(english != .allInMore, "In English, Edit text is a button on the bar at the default size")
+    }
   }
 
   @Test("Layout choices are remembered")
