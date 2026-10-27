@@ -617,8 +617,12 @@ public enum AccessibilityID {
       public static let duplicate = "reader.selection.duplicate"
       /// The identifier `reader.selection.edit`.
       public static let edit = "reader.selection.edit"
+      /// The identifier `reader.selection.larger`.
+      public static let larger = "reader.selection.larger"
       /// The identifier `reader.selection.more`.
       public static let more = "reader.selection.more"
+      /// The identifier `reader.selection.smaller`.
+      public static let smaller = "reader.selection.smaller"
       /// The identifier `reader.selection.style`.
       public static let style = "reader.selection.style"
     }

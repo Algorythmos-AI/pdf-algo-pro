@@ -69,10 +69,19 @@ struct SelectionBar: View {
     }
   }
 
-  /// Whether the bar itself carries the Move actions: when the title, which carries them otherwise,
-  /// is hidden, so VoiceOver and Switch Control can still move the selection.
-  nonisolated static func barCarriesMoveActions(titleShown: Bool, isMovable: Bool) -> Bool {
-    isMovable && !titleShown
+  /// A control that can carry the Move actions.
+  nonisolated enum MoveActionsCarrier: Equatable, Sendable {
+    case title, editText, done
+  }
+
+  /// Which control carries the Move actions, for VoiceOver and Switch Control.
+  ///
+  /// The title when it is shown; otherwise Edit text, which is on the bar in every arrangement, or
+  /// Done, which always is, where there is no Edit text (a drawing, shape, stamp or signature). Each
+  /// is a stop of its own; the bar, a container, is not (#303).
+  nonisolated static func moveActionsCarrier(titleShown: Bool, isTextEditable: Bool) -> MoveActionsCarrier {
+    if titleShown { return .title }
+    return isTextEditable ? .editText : .done
   }
 
   /// The arrangement the unseen measure chose; see `measure`.
@@ -97,13 +106,6 @@ struct SelectionBar: View {
       .accessibilityElement(children: .contain)
       // What is selected, also when the title is hidden.
       .accessibilityLabel(kindName)
-      .accessibilityActions {
-        if Self.barCarriesMoveActions(
-          titleShown: Self.showsTitle(in: arrangement, stackedTitleFits: titleShown), isMovable: selection.isMovable)
-        {
-          moveActions
-        }
-      }
       .accessibilityIdentifier(AccessibilityID.Reader.Selection.actionBar)
   }
 
@@ -134,6 +136,9 @@ struct SelectionBar: View {
   /// when the arrangement changes.
   @ViewBuilder func row(_ arrangement: Arrangement) -> some View {
     let underMore = Self.underMore(in: arrangement)
+    let carrier = Self.moveActionsCarrier(
+      titleShown: Self.showsTitle(in: arrangement, stackedTitleFits: titleShown),
+      isTextEditable: selection.isTextEditable)
     if arrangement == .stacked {
       VStack(alignment: .leading, spacing: Spacing.s050) {
         // The title, on one line; hidden, rather than cut short, when it doesn't fit.
@@ -142,12 +147,12 @@ struct SelectionBar: View {
           Color.clear.frame(width: 0, height: 0).preference(key: TitleShownKey.self, value: false)
         }
         if selection.isTextEditable {
-          wrappingEditButton
+          wrappingEditButton.carryingMoveActions(carrier == .editText, moveActions)
         }
         HStack(spacing: Self.spacing) {
           more(underMore)
           Spacer(minLength: Spacing.s100)
-          doneButton
+          doneButton.carryingMoveActions(carrier == .done, moveActions)
         }
       }
     } else {
@@ -157,9 +162,9 @@ struct SelectionBar: View {
         if !underMore.contains(.style), hasStyleOrCopy { styleMenu(inMore: false) }
         if !underMore.contains(.copy), selection.isMovable { copyMenu(inMore: false) }
         if !underMore.isEmpty { more(underMore) }
-        editButton
+        editButton.carryingMoveActions(carrier == .editText, moveActions)
         if !underMore.contains(.delete) { deleteButton }
-        doneButton
+        doneButton.carryingMoveActions(carrier == .done, moveActions)
       }
     }
   }
@@ -176,13 +181,15 @@ struct SelectionBar: View {
     kindName
       .font(.subheadline.weight(.semibold)).minimumTarget()
       // Dragging moves a selection; these do the same without a drag, for VoiceOver and Switch Control.
-      .accessibilityActions {
-        if selection.isMovable { moveActions }
-      }
+      .carryingMoveActions(true, moveActions)
   }
 
-  /// Move up, down, left and right, for VoiceOver and Switch Control.
+  /// Move up, down, left and right, for VoiceOver and Switch Control; nothing when nothing moves.
   @ViewBuilder private var moveActions: some View {
+    if selection.isMovable { moveButtons }
+  }
+
+  @ViewBuilder private var moveButtons: some View {
     Button {
       onMove(CGSize(width: 0, height: Self.step))
     } label: {
@@ -266,6 +273,7 @@ struct SelectionBar: View {
           Image(systemName: "plus.magnifyingglass")
         }
       }
+      .accessibilityIdentifier(AccessibilityID.Reader.Selection.larger)
       Button {
         onResize(0.8)
       } label: {
@@ -275,6 +283,7 @@ struct SelectionBar: View {
           Image(systemName: "minus.magnifyingglass")
         }
       }
+      .accessibilityIdentifier(AccessibilityID.Reader.Selection.smaller)
     }
   }
 
@@ -484,6 +493,17 @@ struct WordFlow: Layout {
         x += sizes[index].width + spacing
       }
       y += height
+    }
+  }
+}
+
+extension View {
+  /// Gives this control the Move actions when it is the one that carries them.
+  @ViewBuilder fileprivate func carryingMoveActions(_ carries: Bool, _ actions: some View) -> some View {
+    if carries {
+      accessibilityActions { actions }
+    } else {
+      self
     }
   }
 }

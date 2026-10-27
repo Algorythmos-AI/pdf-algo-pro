@@ -876,25 +876,32 @@ struct ReaderModelTests {
     }
   }
 
-  /// With the title hidden, the bar itself carries Move up, down, left and right (#303).
-  @Test("When the bar hides its title, in one row or stacked, the bar carries the Move actions")
+  /// The Move actions sit on the title while it is shown, and on Edit text when it is hidden, since a
+  /// container like the bar is not a stop for VoiceOver or Switch Control (#303).
+  @Test("When the bar hides its title, in one row or stacked, Edit text carries the Move actions")
   func moveActionsWhenTheTitleIsHidden() {
-    #expect(SelectionBar.barCarriesMoveActions(titleShown: false, isMovable: true))
-    #expect(!SelectionBar.barCarriesMoveActions(titleShown: true, isMovable: true), "The title carries them")
-    #expect(!SelectionBar.barCarriesMoveActions(titleShown: false, isMovable: false), "Nothing to move")
+    #expect(SelectionBar.moveActionsCarrier(titleShown: true, isTextEditable: true) == .title)
+    #expect(SelectionBar.moveActionsCarrier(titleShown: false, isTextEditable: true) == .editText)
+    #expect(
+      SelectionBar.moveActionsCarrier(titleShown: false, isTextEditable: false) == .done,
+      "Without Edit text, Done carries them")
     // The title is hidden in the one row that gives it up, and in the stacked bar when it doesn't fit.
     for arrangement in SelectionBar.Arrangement.allCases {
       for fits in [true, false] {
         let hidden = arrangement == .deleteInMoreNoTitle || (arrangement == .stacked && !fits)
-        #expect(SelectionBar.showsTitle(in: arrangement, stackedTitleFits: fits) == !hidden, "\(arrangement)")
+        let shown = SelectionBar.showsTitle(in: arrangement, stackedTitleFits: fits)
+        #expect(shown == !hidden, "\(arrangement)")
+        #expect(
+          SelectionBar.moveActionsCarrier(titleShown: shown, isTextEditable: true) == (hidden ? .editText : .title),
+          "\(arrangement), the title fitting: \(fits)")
+        // A drawing, shape, stamp or signature moves too but has no Edit text: Done carries them.
+        #expect(
+          SelectionBar.moveActionsCarrier(titleShown: shown, isTextEditable: false) == (hidden ? .done : .title),
+          "\(arrangement) without Edit text, the title fitting: \(fits)")
       }
     }
-    #expect(
-      SelectionBar.barCarriesMoveActions(
-        titleShown: SelectionBar.showsTitle(in: .deleteInMoreNoTitle, stackedTitleFits: true), isMovable: true))
-    #expect(
-      SelectionBar.barCarriesMoveActions(
-        titleShown: SelectionBar.showsTitle(in: .stacked, stackedTitleFits: false), isMovable: true))
+    #expect(AnnotationSelection(kind: .ink, pageIndex: 0, text: nil).isMovable)
+    #expect(!AnnotationSelection(kind: .ink, pageIndex: 0, text: nil).isTextEditable)
   }
 
   @Test("Layout choices are remembered")
