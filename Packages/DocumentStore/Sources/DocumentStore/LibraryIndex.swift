@@ -124,8 +124,9 @@ public enum LibrarySchemaV2: VersionedSchema {
     /// The identity of the file, so it is found again when the Files app renames or moves it
     /// (`FileIdentity`); `nil` until the library has recorded it.
     public var fileIdentity: String?
-    /// When the library found the file gone, so far that it couldn't follow it; `nil` while it is
-    /// there. Such an entry is kept, out of the library, for a while in case the file comes back.
+    /// When the library found the file gone and couldn't follow it, or `nil` while it is there.
+    ///
+    /// Such an entry is kept, out of the library, for a while in case the file comes back.
     public var goneAt: Date?
 
     init(_ document: Document) {
