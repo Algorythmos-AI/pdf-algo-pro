@@ -857,7 +857,9 @@ jobs:
     # (docs/testing-strategy.md, "OCR accuracy testing"), only on a manual run that asks for it. One
     # recogniser per job, because the corpus takes too long for one job on a simulator. iOS 27 runs the
     # three gated recognisers; the pinned iOS 26.5 runs the line and document ones for comparison.
-    # Only the OCR package is built, so nothing of the app is needed. The report is kept as an artifact.
+    # The tests are built through the app's project and plan, as a focused run builds them: built on its
+    # own, the OCR package makes Core a dependency, which Xcode builds with -suppress-warnings, and that
+    # clashes with Core's warnings as errors (run 40463578729). The report is kept as an artifact.
     name: ocr-full-suite (iOS ${{ matrix.ios }}, ${{ matrix.recognizer }})
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.ocr_full_suite }}
     runs-on: ${{ matrix.runner }}
@@ -894,16 +896,26 @@ jobs:
             echo "::error::$app is not build $build; update the pin"
             exit 1
           fi
+      - name: Install pinned XcodeGen (checksum verified)
+        run: |
+          curl -sSL -o xcodegen.zip "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
+          echo "${XCODEGEN_SHA256}  xcodegen.zip" | shasum -a 256 -c -
+          unzip -q xcodegen.zip -d "$RUNNER_TEMP/xcodegen"
+          echo "$RUNNER_TEMP/xcodegen/xcodegen/bin" >> "$GITHUB_PATH"
+      - name: Generate project and test plan
+        run: |
+          xcodegen generate
+          python3 scripts/ci/write_testplan.py
       - name: The accuracy suite on the full corpus
         run: |
           device="$(SIMULATOR_RUNTIME="${!RUNTIME_VAR}" scripts/ci/pinned_simulator.sh)"
           xcrun simctl boot "$device" || true
           mkdir -p "$RUNNER_TEMP/reports"
-          cd Packages/OCR
           TEST_RUNNER_FULL_SUITE=1 TEST_RUNNER_OCR_RECOGNIZERS="$RECOGNIZER" \
             TEST_RUNNER_REPORTS_DIR="$RUNNER_TEMP/reports" \
-            xcodebuild test -scheme OCR -destination "id=$device" -derivedDataPath "$RUNNER_TEMP/DD" \
-            -only-testing:OCRTests/OCRAccuracyTests -parallel-testing-enabled NO
+            xcodebuild test -scheme PDFAlgoPro -testPlan PDFAlgoPro -destination "id=$device" \
+            -derivedDataPath "$RUNNER_TEMP/DD" -only-testing:OCRTests/OCRAccuracyTests -parallel-testing-enabled NO \
+            CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: ${{ always() }}
         with:
