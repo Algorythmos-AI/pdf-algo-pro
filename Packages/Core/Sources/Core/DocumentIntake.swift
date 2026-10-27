@@ -54,6 +54,11 @@ public struct DocumentIntake: Sendable {
   /// How many refreshes of one change are tried before it is given up.
   public static let attempts = 3
 
+  /// Whether a refresh is still owed to the document.
+  public func owes(_ id: DocumentID) async -> Bool {
+    await pending?.owed(id) != nil
+  }
+
   /// Refreshes every document a refresh is still owed to (#236).
   ///
   /// A document no longer in the library is crossed off. One whose file isn't a readable PDF any
@@ -82,7 +87,12 @@ public struct DocumentIntake: Sendable {
         failed += 1
         let removedWords = owed.protects ? (try? await index.remove(id)) != nil : true
         let failures = await pending.owed(id)?.failures ?? Self.attempts
-        if failures >= Self.attempts, removedWords { try? await pending.remove(id) }
+        if failures >= Self.attempts, removedWords {
+          try? await pending.remove(id)
+          // Given up: the file's change counts as seen, so the next launch doesn't find it again
+          // and start over (#242).
+          if !owed.protects { try? await library.recordModified(id) }
+        }
       }
     }
     return failed
