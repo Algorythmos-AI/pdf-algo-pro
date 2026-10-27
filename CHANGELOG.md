@@ -28,6 +28,16 @@ Store notes (see the changelog strategy).
   only ever means a red annotation or Delete.
 
 ### Fixed
+- After a password, a text edit or a restore, search and Spotlight catch up even when the first
+  attempt to update them fails: it is done again the next time the library opens, and a protected
+  document's words leave search at once. Spotlight follows a document's new name and tags.
+- A PDF edited in another app, or replaced in Files with another of the same name, is read again
+  when the library opens: its pages, text and reading position follow the file.
+- Photos that fail to load are counted, and when none load the library and Scan say so. Merging
+  stops, and says so, when a document's file is missing. Deleting a second document keeps its
+  Undo. An import that fails for a reason other than a bad file says why, and a partly successful
+  one says the others were added.
+- Changing only the capitals of a document's name no longer adds " 2" to its file name.
 - Dark mode: the App Lock's "Unlock with Face ID" button and the selection bar's Delete are easy to
   read again. Both fell below the 4.5:1 contrast text needs on an iPhone in dark mode.
 - Welcome to Pro: the "Remind me the day before" switch no longer turns itself back off without a
