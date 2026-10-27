@@ -195,7 +195,10 @@ def annotation_copies(text: str) -> list[int]:
             if not line.strip().startswith("//") and ANNOTATION_COPY.search(line)]
 
 
-INTERNAL_ONLY = ("InternalFirstRunReplay", "isReplayingFirstRun", "resetFirstRunReplay", "firstRunReplay(")
+INTERNAL_ONLY = (
+    "InternalFirstRunReplay", "isReplayingFirstRun", "resetFirstRunReplay", "firstRunReplay(",
+    "InternalEntitlementOverride",
+)
 INTERNAL_CONFIGS = {"Debug", "Staging"}
 
 
@@ -278,8 +281,8 @@ def main() -> int:
                         "to the file; use PDFDocumentController.copy(of:) (#307)")
                 for no in outside_internal_tools(text):
                     errors.append(
-                        f"{rel}:{no}: the Staging first-run replay is named outside `#if INTERNAL_TOOLS`; "
-                        "an App Store build must not compile it (PAP-060)")
+                        f"{rel}:{no}: an internal tool (the first-run replay or the entitlement override) is "
+                        "named outside `#if INTERNAL_TOOLS`; an App Store build must not compile it (PAP-060, #267)")
                 for category, pattern in REQUIRED_REASON.items():
                     if pattern.search(text):
                         used_categories.add(category)

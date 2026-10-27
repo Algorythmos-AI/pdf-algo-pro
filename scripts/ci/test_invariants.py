@@ -127,6 +127,14 @@ def test_the_replay_named_outside_internal_tools_is_reported():
     assert invariants.outside_internal_tools(nested) == [6]
 
 
+def test_the_entitlement_override_is_an_internal_tool():
+    """#267: the switch for Pro without a purchase must not be reachable from an App Store build."""
+    unguarded = "provider = InternalEntitlementOverride(base: store)\n"
+    assert invariants.outside_internal_tools(unguarded) == [1], "the override outside INTERNAL_TOOLS is not reported"
+    guarded = "#if INTERNAL_TOOLS\n  provider = InternalEntitlementOverride(base: store)\n#else\n  provider = store\n#endif\n"
+    assert invariants.outside_internal_tools(guarded) == []
+
+
 def test_internal_tools_may_be_defined_for_debug_and_staging_only():
     ok = "configs:\n  Debug:\n    SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) INTERNAL_TOOLS\n  Staging:\n    SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) INTERNAL_TOOLS\n"
     assert invariants.internal_tools_config_problems(ok) == []
