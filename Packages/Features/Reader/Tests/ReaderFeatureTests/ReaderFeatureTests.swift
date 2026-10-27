@@ -38,12 +38,12 @@ private struct Harness {
     for document: Document, pageIndex: Int? = nil, task: AssistantTask? = nil,
     recognizer: any TextRecognizing = FakeRecognizer(), textEditing: TextEditingAccess = .available,
     diagnostics: TextEditingDiagnosticsLog? = nil, editor: any PDFTextEditing = ContentStreamTextEditor(),
-    readingControls: Bool = false
+    readingControls: Bool = false, continued: (any ContinuedWork)? = nil
   ) -> ReaderModel {
     ReaderModel(
       selection: document.id, pageIndex: pageIndex, task: task, library: library,
       intake: intake, index: index, settings: settings, telemetry: telemetry,
-      recognition: coordinator(recognizer: recognizer), signatures: signatures,
+      recognition: coordinator(recognizer: recognizer, continued: continued), signatures: signatures,
       speech: SpeechReader(engine: SilentSpeech()), textEditing: FixedTextEditingAccess(textEditing),
       textEditingDiagnostics: diagnostics, textEditor: editor, readingControls: readingControls)
   }
@@ -872,6 +872,38 @@ struct ReaderModelTests {
     #expect(reader.phase == .ready)
     #expect(reader.document?.hasTextLayer == false)
     #expect(reader.canRecognizeText)
+  }
+
+  @Test("With App Lock on, the recognition Live Activity doesn't name the document (#254)")
+  func liveActivityHidesTitleUnderAppLock() async throws {
+    let harness = Harness()
+    harness.settings.save(AppSettings(isAppLockEnabled: true))
+    let secret = await harness.seed(
+      try SyntheticPDF.makeImageOnly(pages: ["Scanned"]), title: "Secret contract", textLayer: false)
+    let continued = ContinuedLog()
+    let locked = harness.reader(for: secret, continued: continued)
+    await locked.load()
+    locked.recognizeText()
+    for _ in 0..<200 where continued.begun.isEmpty { try await Task.sleep(for: .milliseconds(10)) }
+    for _ in 0..<200 where locked.recognitionProgress != nil { try await Task.sleep(for: .milliseconds(20)) }
+    let subtitles = continued.begun.map(\.subtitle)
+    #expect(subtitles.count == 1, "One Live Activity was asked for; subtitles asked for: \(subtitles)")
+    #expect(
+      !subtitles.contains { $0.contains("Secret contract") },
+      "With App Lock on the Lock Screen must not show the title; subtitles asked for: \(subtitles)")
+    #expect(subtitles.allSatisfy { !$0.isEmpty }, "Still says something; subtitles asked for: \(subtitles)")
+
+    // With App Lock off, the title is what tells the person which document it is.
+    harness.settings.save(AppSettings(isAppLockEnabled: false))
+    let named = await harness.seed(
+      try SyntheticPDF.makeImageOnly(pages: ["Scanned"]), title: "Scanned lease", textLayer: false)
+    let shown = ContinuedLog()
+    let unlocked = harness.reader(for: named, continued: shown)
+    await unlocked.load()
+    unlocked.recognizeText()
+    for _ in 0..<200 where shown.begun.isEmpty { try await Task.sleep(for: .milliseconds(10)) }
+    for _ in 0..<200 where unlocked.recognitionProgress != nil { try await Task.sleep(for: .milliseconds(20)) }
+    #expect(shown.begun.map(\.subtitle) == ["Scanned lease"])
   }
 
   @Test("A note saved while text is being recognised is kept, not overwritten")
