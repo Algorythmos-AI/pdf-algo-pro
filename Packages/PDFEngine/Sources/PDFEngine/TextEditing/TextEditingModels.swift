@@ -63,6 +63,9 @@ public enum TextEditRefusal: String, Hashable, Sendable, CaseIterable {
   case overlapsOtherContent
   /// The page is too large or too unusual to edit safely.
   case pageNotEditable
+  /// The line is set in columns, with gaps far wider than a space between its words, which
+  /// redrawing it as one string would close up.
+  case spacedColumns
   /// The page has no text of its own: it is an image, for example a scan.
   case scanned
   /// The document's author does not allow its content to be changed.
@@ -85,7 +88,7 @@ extension TextEditRefusal {
   public var meansNotEditableInPlace: Bool {
     switch self {
     case .notVerified, .overlapsOtherContent, .unsupportedFont, .unsupportedDrawing, .unsupportedScript,
-      .pageNotEditable:
+      .pageNotEditable, .spacedColumns:
       true
     case .scanned, .restricted, .unsupportedCharacters, .stale, .timedOut: false
     }

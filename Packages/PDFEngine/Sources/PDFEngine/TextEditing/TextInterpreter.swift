@@ -22,6 +22,12 @@ struct TextRun {
   /// It is the character spacing in force, less what a number in a `TJ` array takes back before
   /// the next letter. Spaces are not letters: what surrounds them says how words are spaced.
   let letterGaps: [Double]
+  /// The widest space a `TJ` number opens between two of the run's glyphs, in thousandths of an
+  /// em; 0 when there is none.
+  ///
+  /// A table row may be one `TJ` whose columns are set apart this way. Redrawn as one string, its
+  /// columns would close up (#252).
+  let widestGap: Double
   let wordSpacing: Double
   /// Horizontal scaling as a fraction (1 is normal).
   let horizontalScale: Double
@@ -511,10 +517,14 @@ struct TextInterpreter {
     var letterGaps: [Double] = []
     // The extra space after the letter just shown; `nil` at the start and after a space.
     var gap: Double?
+    // The space the numbers since the last glyph opened, once a glyph has been shown.
+    var opened: Double?
+    var widestGap = 0.0
     for element in elements {
       if let adjustment = element.number {
         let shift = -adjustment / 1000 * size * scale
         advance = advance.map { $0 + shift }
+        opened = opened.map { $0 - adjustment }
         gap = gap.map { $0 - adjustment / 1000 * size }
         if trailingSpace > 0 { trailingSpace += shift }
         // A gap wider than a fifth of the font size reads as a space, as it does to PDFKit.
@@ -527,6 +537,8 @@ struct TextInterpreter {
         continue
       }
       for glyph in font.glyphs(for: string) {
+        if let opened { widestGap = max(widestGap, opened) }
+        opened = 0
         if let gap, glyph.text != " " { letterGaps.append(gap) }
         gap = glyph.text == " " ? nil : state.characterSpacing
         if let glyphText = glyph.text { text = text.map { $0 + glyphText } } else { text = nil }
@@ -551,7 +563,7 @@ struct TextInterpreter {
       TextRun(
         operation: index, font: font, fontSize: size, transform: textMatrix.concatenating(state.transform),
         text: text, advance: advance, trailingSpace: max(0, trailingSpace), letterGaps: letterGaps,
-        wordSpacing: state.wordSpacing,
+        widestGap: widestGap, wordSpacing: state.wordSpacing,
         horizontalScale: scale, rise: state.rise, renderingMode: state.renderingMode, fill: state.fill,
         hasTransparency: !state.alphaIsOpaque || !state.blendIsNormal || state.hasSoftMask, clip: state.clip,
         clipIsComplex: state.clipIsComplex, isInLayer: marked.contains(where: \.isLayer),

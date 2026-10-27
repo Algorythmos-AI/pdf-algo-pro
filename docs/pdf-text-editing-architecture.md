@@ -167,7 +167,7 @@ reflow across lines.
 |---|---|---|
 | Direct | The typeface is on the device, or the embedded font has every letter needed | Edited in the page's content, same typeface |
 | Limited | The typeface is not on the device and the embedded subset lacks a letter | Edited in the page's content, in the closest standard font |
-| Covered only | Transparency, patterns, outline or clipping text modes, layers, a clip the engine does not track, right-to-left or shaped scripts, text something else is drawn over, text the engine cannot read (Type 3 fonts, CJK fonts without their own character map, text inside reusable page objects) | Not edited. Can be covered and replaced when the person asks |
+| Covered only | Transparency, patterns, outline or clipping text modes, layers, a clip the engine does not track, right-to-left or shaped scripts, text something else is drawn over, text the engine cannot read (Type 3 fonts, CJK fonts without their own character map, text inside reusable page objects), a line whose columns are set apart by gaps wider than an em, as a table row can be (#252) | Not edited. Can be covered and replaced when the person asks |
 | Image | No text operators, or only invisible recognised text | "This PDF contains images rather than editable text." with the existing Recognise text action |
 | Protected | The author does not allow changes | Refused with an explanation |
 | Signed | A signature or a certification | Edited in a copy, after confirmation |
