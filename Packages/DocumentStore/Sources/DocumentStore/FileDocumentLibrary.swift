@@ -179,9 +179,13 @@ public actor FileDocumentLibrary: DocumentLibrary {
       var moved: Move?
       if !document.isDeleted, cleanTitle != document.title {
         let current = location(of: document)
-        let newName = uniqueFileName(for: cleanTitle, in: current.deletingLastPathComponent())
-        moved = try move(current, to: current.deletingLastPathComponent().appendingPathComponent(newName))
-        document.fileName = Self.replacingLastComponent(of: document.fileName, with: newName)
+        let folder = current.deletingLastPathComponent()
+        let newName = uniqueFileName(for: cleanTitle, in: folder, besides: current)
+        let newFileName = Self.replacingLastComponent(of: document.fileName, with: newName)
+        if newFileName != document.fileName {
+          moved = try move(current, to: folder.appendingPathComponent(newName))
+        }
+        document.fileName = newFileName
       }
       document.title = cleanTitle
       try await upsert(document, undoing: moved)
@@ -804,15 +808,27 @@ public actor FileDocumentLibrary: DocumentLibrary {
     return String(fileName[...slash]) + name
   }
 
-  private func uniqueFileName(for title: String, in folder: URL) -> String {
+  /// A file name for a title that no other file in the folder has.
+  ///
+  /// `own` is the file being renamed: on a volume that ignores capitals, "Report.pdf" is the same file
+  /// as "report.pdf", and not a clash (#263).
+  private func uniqueFileName(for title: String, in folder: URL, besides own: URL? = nil) -> String {
     let base = Self.safeFileName(title)
+    let ownID = own.flatMap(Self.fileIdentifier)
     var candidate = "\(base).pdf"
     var counter = 2
-    while fileManager.fileExists(atPath: folder.appendingPathComponent(candidate).path) {
+    while true {
+      let url = folder.appendingPathComponent(candidate)
+      guard fileManager.fileExists(atPath: url.path) else { break }
+      if let ownID, Self.fileIdentifier(of: url) == ownID { break }
       candidate = "\(base) \(counter).pdf"
       counter += 1
     }
     return candidate
+  }
+
+  private static func fileIdentifier(of url: URL) -> UInt64? {
+    try? url.resourceValues(forKeys: [.fileIdentifierKey]).fileIdentifier
   }
 
   /// A title with surrounding whitespace removed; an empty title becomes "Untitled".
