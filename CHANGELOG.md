@@ -115,6 +115,9 @@ Store notes (see the changelog strategy).
   of them used to say "Settings, under Subscription". In French they all say "résilier".
 - Explain contract: a copied or shared explanation now starts with "Explains the document. Not
   legal advice.", as the screen does. Before, only the screen said so.
+- Explain contract: Home, its assistant tiles and Settings › What you do most now call it "Explain
+  contract", as the reader menu does. Before, they said "Understand a contract", "Explain a
+  contract" or "Analyse contract".
 - Editing text (internal builds): a name pasted from a web page with a hidden soft hyphen or
   zero-width space is now changed in the page. Before, the hidden character made the change fail,
   the line was covered instead, and every other line on that page could then only be covered.
