@@ -238,7 +238,6 @@ extension PDFDocumentController {
   /// document's page, and was written as a link to the first page (#235).
   func unencryptedCopy() -> PDFDocument {
     let copy = PDFDocument()
-    var pages: [PDFPage: PDFPage] = [:]
     var duplicates: [Int: PDFPage] = [:]
     var targets = LinkTargets(in: document)
     for index in 0..<document.pageCount {
@@ -249,27 +248,35 @@ extension PDFDocumentController {
         targets.note(annotation)
       }
       copy.insert(duplicate, at: copy.pageCount)
-      pages[page] = duplicate
       duplicates[index] = duplicate
     }
-    targets.point { duplicates[$0] }
     copy.documentAttributes = document.documentAttributes
     if let outline = document.outlineRoot {
-      copy.outlineRoot = Self.copyOutline(outline, pages: pages)
+      copy.outlineRoot = Self.copyOutline(outline, noting: &targets)
     }
+    targets.point { duplicates[$0] }
     return copy
   }
 
-  private static func copyOutline(_ item: PDFOutline, pages: [PDFPage: PDFPage]) -> PDFOutline {
+  /// A copy of an outline entry and its children, each going where the original goes.
+  ///
+  /// A destination or go-to action is noted in `targets`, to be pointed at the copied page with its
+  /// zoom; any other action, a web address say, is copied as it is (#341).
+  private static func copyOutline(_ item: PDFOutline, noting targets: inout LinkTargets) -> PDFOutline {
     let copy = PDFOutline()
     copy.label = item.label
     copy.isOpen = item.isOpen
-    if let destination = item.destination, let page = destination.page, let target = pages[page] {
-      copy.destination = PDFDestination(page: target, at: destination.point)
+    // An entry read from a file can carry its destination both as such and as a go-to action; setting
+    // the action afterwards would clear the destination.
+    if let destination = item.destination ?? (item.action as? PDFActionGoTo)?.destination {
+      copy.destination = destination
+      targets.note(copy)
+    } else {
+      copy.action = item.action?.copy() as? PDFAction
     }
     for index in 0..<item.numberOfChildren {
       guard let child = item.child(at: index) else { continue }
-      copy.insertChild(copyOutline(child, pages: pages), at: copy.numberOfChildren)
+      copy.insertChild(copyOutline(child, noting: &targets), at: copy.numberOfChildren)
     }
     return copy
   }
