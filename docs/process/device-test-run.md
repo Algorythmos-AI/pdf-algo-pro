@@ -83,6 +83,11 @@ The script ([device_tests.sh](../../scripts/dev/device_tests.sh)):
 Results go to `.build/device-tests/<date>-<time>-<commit>/` (git-ignored; `DEVICE_TESTS_RESULTS`
 overrides it): the result bundle, the logs, `summary.md` and the attachments.
 
+After the run, record it in the private test-history repository: its `tools/ingest_device.py` takes this
+folder and keeps the run's tests, retries, failure messages and failed screenshots (never the result
+bundle, the phone's name or its UDID), so the run outlives the Mac. Commit and push it there, then check
+its `query.py flaky` and `query.py first-failure` before deciding a failure is new.
+
 `Device.xctestplan` skips, beside the performance classes and the store screenshots: the snapshot suite
 (its references are recorded on CI's simulator and always differ on a device) and the StoreKit test
 session suite (it needs a run started from Xcode). It sets `UI_DEVICE=1` and `UI_EVIDENCE=all` for
