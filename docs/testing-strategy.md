@@ -547,6 +547,11 @@ never retried away: a retry lets a run finish, it never clears the test.
    step 1. Otherwise, Xcode's repetition modes are for reproducing a flake locally, not for hiding it.
 4. The usual causes are timing, shared state, order dependence and real clocks; the fix removes the
    cause.
+5. **Every run is recorded.** Each CI run and each [device test run](process/device-test-run.md) is
+   ingested into the private test-history repository: one record per test with its status, duration,
+   retries and failure message, and the failed tests' screenshots. CI's results are kept there after
+   GitHub's artifacts expire (7 days for the shards). Before chasing a failure, ask it whether the test
+   has failed or flaked before and from which commit (`query.py flaky`, `query.py first-failure`).
 
 ## Test data governance
 
