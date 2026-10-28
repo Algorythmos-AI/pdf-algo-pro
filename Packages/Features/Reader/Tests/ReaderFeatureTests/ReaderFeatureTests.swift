@@ -2541,7 +2541,11 @@ struct ReaderTextEditingTests {
     #expect(reader.controller === controller && reader.selectedTextRegion != nil, "The editor must stay open")
 
     reader.cancelTextEdit()
-    for _ in 0..<200 where reader.controller?.pageCount != 2 { try await Task.sleep(for: .milliseconds(10)) }
+    // The notice is set once the reload has finished, after the new pages are shown: load() can still
+    // be waiting on telemetry when they are (run 40650815302).
+    for _ in 0..<200 where reader.controller?.pageCount != 2 || reader.notice == nil {
+      try await Task.sleep(for: .milliseconds(10))
+    }
     #expect(
       reader.controller?.pageCount == 2 && reader.notice != nil,
       "Pages shown: \(reader.controller?.pageCount ?? 0); notice: \(String(describing: reader.notice))")
