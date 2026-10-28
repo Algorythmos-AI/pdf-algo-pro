@@ -176,6 +176,8 @@ extension AppTests {
       #expect(app.sheet == .paywall && app.paywallTrigger == .lockedFeature)
     }
 
+    // Not under `#if INTERNAL_TOOLS`: that condition is the app target's, and the test target never defines
+    // it, so a guard here would drop the test. The scheme tests the Debug app, which has the override.
     @Test("The internal switch gives Pro whatever the store says, and passes the store through when off")
     func internalOverride() async {
       let base = FixedEntitlements(.expired)

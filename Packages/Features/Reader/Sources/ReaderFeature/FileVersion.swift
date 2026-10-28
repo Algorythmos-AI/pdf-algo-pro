@@ -15,4 +15,12 @@ nonisolated struct FileVersion: Equatable, Codable, Sendable {
     modified = attributes[.modificationDate] as? Date
     size = (attributes[.size] as? NSNumber)?.intValue
   }
+
+  /// The version of the file at `url` now; `nil` when it can't be read.
+  ///
+  /// Every comparison of the file on disk with the version a reader expects reads it here, so what
+  /// counts as an unknown version is decided in one place.
+  static func current(at url: URL) -> FileVersion? {
+    try? FileVersion(url)
+  }
 }

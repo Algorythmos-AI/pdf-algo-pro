@@ -367,7 +367,7 @@ manager and keyboard shortcuts.
 - *FR-STORE-004.* Given a lapsed subscription or a used allowance, when the user opens any document,
   then it opens, reads, annotates, saves, shares and exports; only Pro actions and new metered
   actions are unavailable.
-- *FR-STORE-006.* Given a trial that ends tomorrow, when that day comes, then the user is reminded by notification (if allowed) or on next launch, with the date and a link to Manage Subscription. Given the trial was cancelled, refunded or became paid before then, then no reminder is pending.
+- *FR-STORE-006.* Given a trial that ends tomorrow, when that day comes, then the user is reminded by notification (if allowed) or on next launch, with a way to Manage Subscription. The notice at launch gives the end date. The notification gives no date and says the trial ends within a day if it is still running, so it stays true when it arrives after the trial was cancelled, refunded or became paid; it fires after an elapsed interval, so a change of time zone moves neither its day nor its words (owner, 2026-10-27, #264). Given the app has seen the trial cancelled, refunded or become paid, then no reminder is pending.
 - *FR-STORE-007.* Given a purchase that completes, when the entitlement grants Pro, then the confirmation shows in the same presentation as the paywall, with the trial end date only during a trial. Given a purchase that is pending approval or was cancelled, then the paywall stays and no confirmation or error shows. Given the confirmation is closed, then no rating request follows.
 
 **Apple-first:** StoreKit 2, with the app's own offer screen over it (ADR-0027); Family Sharing on for the annual plan only ([PAP-050](decision-register.md));

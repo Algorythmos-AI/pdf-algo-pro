@@ -48,6 +48,8 @@ public struct PaywallFlowView: View {
     }
     .task { await model.appeared() }
     .onChange(of: model.grantsPro) { Task { await model.entitlementChanged() } }
+    // Billing retry grants no Pro, so it changes nothing above; the model still has to know of it.
+    .onChange(of: model.paymentPaused) { Task { await model.entitlementChanged() } }
     .onDisappear { Task { await model.dismissed() } }
   }
 

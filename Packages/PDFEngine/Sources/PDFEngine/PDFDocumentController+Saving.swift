@@ -16,10 +16,18 @@ extension PDFDocumentController {
   ///     space until the files differ. A save that keeps one is a save of a document already on disk:
   ///     if its file is gone, renamed or moved meanwhile, nothing is written, rather than a new file
   ///     at the old name beside the moved one (#224).
+  ///   - isUnchanged: Whether the file is still the version the caller expects, asked with write
+  ///     access coordinated, straight before the file is replaced; `nil` asks nothing.
+  ///   - written: Told the file's URL with write access still coordinated, straight after it was
+  ///     replaced, so the caller can note the version it wrote before anyone else can write.
   /// - Throws: `PDFEngineError.restricted` when the document's author does not allow the change;
   ///   `PDFEngineError.insufficientSpace` when the device is too full to save safely;
+  ///   `PDFEngineError.changedOnDisk` when `isUnchanged` says the file changed, which is left as it is;
   ///   `PDFEngineError.saveFailed` when writing fails, or when the earlier version can't be kept.
-  public func save(to url: URL, keepingPreviousAt previous: URL? = nil) throws {
+  public func save(
+    to url: URL, keepingPreviousAt previous: URL? = nil, onlyIf isUnchanged: ((URL) -> Bool)? = nil,
+    written: ((URL) -> Void)? = nil
+  ) throws {
     textEditsPutBack = []
     let interval = Signposts.begin("Document.Save")
     defer { interval.end() }
@@ -70,6 +78,8 @@ extension PDFDocumentController {
         try fault(.coordinated)
         let exists = fileManager.fileExists(atPath: target.path)
         if previous != nil, !exists { throw CocoaError(.fileNoSuchFile) }
+        // Another app's write while this save was staged is not replaced (#257).
+        if let isUnchanged, exists, !isUnchanged(target) { throw PDFEngineError.changedOnDisk }
         if let previous, exists {
           if fileManager.fileExists(atPath: previous.path) { try fileManager.removeItem(at: previous) }
           try fileManager.copyItem(at: target, to: previous)
@@ -80,12 +90,16 @@ extension PDFDocumentController {
         } else {
           try fileManager.moveItem(at: staging, to: target)
         }
+        written?(target)
         try fault(.replaced)
       } catch {
         writeError = error
       }
     }
-    if let writeError { throw Self.saveError(for: writeError) }
+    if let writeError {
+      if writeError as? PDFEngineError == .changedOnDisk { throw PDFEngineError.changedOnDisk }
+      throw Self.saveError(for: writeError)
+    }
     guard coordinationError == nil else { throw PDFEngineError.saveFailed }
     switch pendingProtection {
     case .set(let newPassword):
@@ -219,14 +233,26 @@ extension PDFDocumentController {
 
   /// A document with copies of this one's pages (and their annotations), its metadata and its outline,
   /// but no encryption.
+  ///
+  /// Links between pages are pointed at the copies, as the outline is: a copied link still names this
+  /// document's page, and was written as a link to the first page (#235).
   func unencryptedCopy() -> PDFDocument {
     let copy = PDFDocument()
     var pages: [PDFPage: PDFPage] = [:]
+    var duplicates: [Int: PDFPage] = [:]
+    var targets = LinkTargets(in: document)
     for index in 0..<document.pageCount {
       guard let page = document.page(at: index), let duplicate = page.copy() as? PDFPage else { continue }
+      // Only the copy's own annotations: pointing one this document shares would break its link here.
+      let shared = Set(page.annotations.map { ObjectIdentifier($0) })
+      for annotation in duplicate.annotations where !shared.contains(ObjectIdentifier(annotation)) {
+        targets.note(annotation)
+      }
       copy.insert(duplicate, at: copy.pageCount)
       pages[page] = duplicate
+      duplicates[index] = duplicate
     }
+    targets.point { duplicates[$0] }
     copy.documentAttributes = document.documentAttributes
     if let outline = document.outlineRoot {
       copy.outlineRoot = Self.copyOutline(outline, pages: pages)

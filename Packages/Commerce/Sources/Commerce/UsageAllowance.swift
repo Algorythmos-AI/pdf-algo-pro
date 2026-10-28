@@ -79,31 +79,35 @@ public final class UserDefaultsAllowanceStore: AllowanceStoring, @unchecked Send
 ///
 /// A call site asks `isAllowed` before the action starts and calls `recordSuccess` only once it has
 /// succeeded, so a failed scan or request costs nothing and work already done is never refused. The
-/// counts start again on a new calendar day. They are about this device: reinstalling the app
-/// clears them, which is accepted, since anything stronger needs an account or a server.
+/// counts start again on a new calendar day: a Gregorian day in the device's time zone as it is when
+/// the counts are read, whatever calendar the person uses (#245). They are about this device:
+/// reinstalling the app clears them, which is accepted, since anything stronger needs an account or a
+/// server.
 public actor UsageAllowance {
   private struct Counts: Codable, Equatable {
-    /// The day the counts are for, as year, month and day in the device's calendar.
+    /// The day the counts are for, as year, month and day in the Gregorian calendar.
     var day: [Int]
     var used: [String: Int]
   }
 
   private let limits: AllowanceLimits
   private let store: any AllowanceStoring
-  private let calendar: Calendar
+  private let timeZone: TimeZone?
   private let now: @Sendable () -> Date
   private let isUnlimited: Bool
 
   /// Creates the allowance.
   ///
   /// With `isUnlimited` it never refuses and never counts: UI tests that are not about the allowance use it.
+  /// Only the time zone of `calendar` is used, and without one the device's current time zone is read
+  /// each time; the day is always a Gregorian day, so changing calendars never moves it.
   public init(
-    limits: AllowanceLimits = .free, store: any AllowanceStoring, calendar: Calendar = .current,
+    limits: AllowanceLimits = .free, store: any AllowanceStoring, calendar: Calendar? = nil,
     isUnlimited: Bool = false, now: @escaping @Sendable () -> Date = { Date() }
   ) {
     self.limits = limits
     self.store = store
-    self.calendar = calendar
+    self.timeZone = calendar?.timeZone
     self.isUnlimited = isUnlimited
     self.now = now
   }
@@ -135,19 +139,40 @@ public actor UsageAllowance {
 
   /// Today's counts.
   ///
-  /// Counts stored for an earlier day are dropped. Counts stored for a later day are kept as today's:
-  /// setting the clock back does not refill the allowance.
+  /// Counts stored for an earlier day are dropped. Counts stored for the next day are kept as today's,
+  /// so setting the clock back a day, or crossing the date line westwards, does not refill the
+  /// allowance. Counts stored for a day further ahead are dropped too: they come from a clock that was
+  /// wrong, or from an earlier version that counted days in the person's own calendar, and keeping
+  /// them would refuse every action until that day came (#245).
   private func counts() -> Counts {
-    let today = day(of: now())
+    let calendar = dayCalendar()
+    let today = day(of: now(), in: calendar)
     guard let data = store.load(), let stored = try? JSONDecoder().decode(Counts.self, from: data),
       stored.day.count == 3
     else { return Counts(day: today, used: [:]) }
-    if stored.day.lexicographicallyPrecedes(today) { return Counts(day: today, used: [:]) }
+    if stored.day.lexicographicallyPrecedes(today) || days(from: today, to: stored.day, in: calendar) > 1 {
+      return Counts(day: today, used: [:])
+    }
     return Counts(day: stored.day, used: stored.used)
   }
 
-  private func day(of date: Date) -> [Int] {
+  /// The calendar days are counted in: Gregorian, in the given time zone or the device's current one.
+  private func dayCalendar() -> Calendar {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = timeZone ?? .autoupdatingCurrent
+    return calendar
+  }
+
+  private func day(of date: Date, in calendar: Calendar) -> [Int] {
     let parts = calendar.dateComponents([.year, .month, .day], from: date)
     return [parts.year ?? 0, parts.month ?? 0, parts.day ?? 0]
+  }
+
+  /// How many days one stored day is after another; `Int.max` when either is not a date.
+  private func days(from start: [Int], to end: [Int], in calendar: Calendar) -> Int {
+    guard let from = calendar.date(from: DateComponents(year: start[0], month: start[1], day: start[2])),
+      let to = calendar.date(from: DateComponents(year: end[0], month: end[1], day: end[2]))
+    else { return .max }
+    return calendar.dateComponents([.day], from: from, to: to).day ?? .max
   }
 }

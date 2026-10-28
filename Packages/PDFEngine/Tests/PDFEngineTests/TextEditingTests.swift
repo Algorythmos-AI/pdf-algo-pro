@@ -572,7 +572,8 @@ struct TextEditorTests {
     // The same region twice in one batch.
     let twice = await editor.applying(
       [TextEdit(region: other, replacement: "Sum"), TextEdit(region: other, replacement: "All")], toPage: page)
-    #expect(twice.outcomes == [.edited(.contentStream), .refused(.stale)] && twice.page == nil)
+    // Neither was made, so neither says it was (#268).
+    #expect(twice.outcomes == [.refused(.otherEditFailed), .refused(.stale)] && twice.page == nil)
     #expect(await editor.applying([], toPage: page).outcomes.isEmpty)
   }
 
@@ -588,7 +589,8 @@ struct TextEditorTests {
     #expect(squeezedText(edited).contains("DavidSmith") && squeezedText(edited).contains("Timber"))
     let partial = await editor.applying(
       [edits[0], TextEdit(region: try region(regions, containing: "Materials"), replacement: "")], toPage: page)
-    #expect(partial.page == nil && partial.outcomes == [.edited(.contentStream), .refused(.unsupportedCharacters)])
+    #expect(
+      partial.page == nil && partial.outcomes == [.refused(.otherEditFailed), .refused(.unsupportedCharacters)])
   }
 
   @Test("Scenario 5: an image-only page has no text to edit, with or without a recognised text layer")
@@ -953,6 +955,45 @@ struct TextEditingHostileInputTests {
       let result = await editor.applying([TextEdit(region: region, replacement: "Fuzzed")], toPage: damaged)
       if let page = result.page { #expect(PDFDocument(data: page)?.pageCount == 1) }
     }
+  }
+
+  @Test(
+    "Font tables with codes far out of range are refused without a crash (#250)",
+    arguments: [
+      "[9223372036854775807 [500 500]]", "[-5 9223372036854775807 500]", "[-9223372036854775807 100 500]",
+      "[65536 [500]]", "[1 [700 250] 9223372036854775807 9223372036854775807 500]",
+    ])
+  func hostileCompositeWidths(widths: String) async {
+    let map = "2 beginbfchar <0001> <0048> <0002> <0069> endbfchar"
+    let content = "BT /C1 12 Tf 72 700 Td <00010002> Tj ET"
+    let page = TextEditFixtures.assemble([
+      "<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+      "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /C1 << "
+        + "/Type /Font /Subtype /Type0 /BaseFont /AAAAAB+Roboto-Regular /Encoding /Identity-H "
+        + "/DescendantFonts [5 0 R] /ToUnicode 6 0 R >> >> >> >>",
+      "<< /Length \(content.utf8.count) >>\nstream\n\(content)\nendstream",
+      "<< /Type /Font /Subtype /CIDFontType2 /BaseFont /AAAAAB+Roboto-Regular /DW 500 /W \(widths) >>",
+      "<< /Length \(map.utf8.count) >>\nstream\n\(map)\nendstream",
+    ])
+    let text = await ContentStreamTextEditor().text(ofPage: page)
+    // The font can't be read, so its text offers nothing to edit.
+    #expect(text.regions.isEmpty, "Regions read through a font with /W \(widths): \(text.regions.map(\.text))")
+  }
+
+  @Test("An encoding that starts its codes far out of range is read without a crash (#250)")
+  func hostileDifferences() async {
+    let widths = Array(repeating: "500", count: 91).joined(separator: " ")
+    let content = "BT /F9 10 Tf 72 700 Td (A) Tj ET"
+    let page = TextEditFixtures.assemble([
+      "<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+      "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F9 << "
+        + "/Type /Font /Subtype /Type1 /BaseFont /CMR10 /FirstChar 32 /LastChar 122 /Widths [\(widths)] "
+        + "/Encoding << /Type /Encoding /Differences [9223372036854775807 /x /y 65 /A] >> >> >> >> >>",
+      "<< /Length \(content.utf8.count) >>\nstream\n\(content)\nendstream",
+    ])
+    let text = await ContentStreamTextEditor().text(ofPage: page)
+    // The codes out of range map nothing; the one in range still reads.
+    #expect(text.regions.map(\.text) == ["A"], "Regions read: \(text.regions.map(\.text)), kind \(text.kind)")
   }
 
   @Test("Page content built to exhaust the reader is stopped by its limits")

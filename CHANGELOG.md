@@ -28,6 +28,13 @@ Store notes (see the changelog strategy).
   only ever means a red annotation or Delete.
 
 ### Fixed
+- When another app changes a document just as PDF Algo Pro saves it, the app no longer saves over the
+  other app's version. It asks which version to keep. A change to a document's text that is still
+  being made when another app changes the file is kept too, so you can keep it as a copy. If you
+  leave the app or close the document before choosing, your version is kept as a new document,
+  "(conflict)", beside the original.
+- Two quick changes to a digitally signed document now go into one "(edited)" copy instead of two.
+  Recognising text in a signed document's copy no longer loses the recognised text at the next save.
 - With App Lock on, recognising text no longer shows the document's title on the Lock Screen or in
   the Dynamic Island while it goes on in the background; it says "A document" instead.
 - A PDF renamed in the Files app, or moved into a folder inside PDF Algo Pro's folder, keeps its
@@ -135,6 +142,24 @@ Store notes (see the changelog strategy).
   over, and a long line squeezed into a narrow space could be found only in pieces.
 - The plans screen now says how much the yearly plan saves; with the App Store's own plans the
   line was missing.
+- Editing text (internal builds): covering text on a page turned sideways, or on one whose page box
+  doesn't start at the corner, now takes the colour from behind the text. Before, the cover could be
+  a patch of another part of the page's colour.
+- Editing text (internal builds): a table row whose columns are spaced apart in one line, such as
+  "Qty" and "Amount", is offered for covering rather than changed in place. Before, changing it
+  closed the columns up.
+- Editing text (internal builds): invisible text in a page is no longer offered for editing when
+  the page sets it with a decimal number. Editing and undoing many times no longer shortens the
+  undo history. Past its memory limit the history still drops its oldest steps, notes and other
+  annotations included; that is being looked at separately. Undo on the "Your text covers the old
+  text" notice, tapped while another line was picked, no longer puts the notice away without
+  undoing, and with nothing left to undo it puts the notice away.
+- Signatures: a typed signature is now selected and listed as a signature, as a drawn one is, and
+  no longer offers Edit text. Before, it was called a text box and could be retyped.
+- French: the bar shown with an annotation selected keeps to one line. Before, its titles wrapped
+  and "Supprimer" broke over two lines; what doesn't fit now goes into a More menu.
+- French: Extract gives the document type in French, such as "Facture" for an invoice. Before, it
+  was in English.
 
 ### Added
 - Annotations: a shape, stamp, signature or text box you drag to the top or bottom of the screen

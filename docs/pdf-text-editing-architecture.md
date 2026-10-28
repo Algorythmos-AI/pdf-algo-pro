@@ -167,7 +167,7 @@ reflow across lines.
 |---|---|---|
 | Direct | The typeface is on the device, or the embedded font has every letter needed | Edited in the page's content, same typeface |
 | Limited | The typeface is not on the device and the embedded subset lacks a letter | Edited in the page's content, in the closest standard font |
-| Covered only | Transparency, patterns, outline or clipping text modes, layers, a clip the engine does not track, right-to-left or shaped scripts, text something else is drawn over, text the engine cannot read (Type 3 fonts, CJK fonts without their own character map, text inside reusable page objects) | Not edited. Can be covered and replaced when the person asks |
+| Covered only | Transparency, patterns, outline or clipping text modes, layers, a clip the engine does not track, right-to-left or shaped scripts, text something else is drawn over, text the engine cannot read (Type 3 fonts, CJK fonts without their own character map, text inside reusable page objects), a line whose columns are set apart by gaps wider than an em, as a table row can be (#252) | Not edited. Can be covered and replaced when the person asks |
 | Image | No text operators, or only invisible recognised text | "This PDF contains images rather than editable text." with the existing Recognise text action |
 | Protected | The author does not allow changes | Refused with an explanation |
 | Signed | A signature or a certification | Edited in a copy, after confirmation |
@@ -501,9 +501,10 @@ From TestFlight feedback on 2026-10-06 (a letter laid out in frames, on an iPhon
   closest standard font unless the page already holds every letter typed.
 - **Lines, not paragraphs.** A long replacement on a full line is declined.
 - **Paint order.** New text is painted last. Text that had something drawn over it is not edited.
-- **Undo history.** Each text edit keeps the page it replaced. Past 64 MB of kept pages
-  (`Assumption:` checked on the oldest supported iPhone in the device test plan) the history is
-  shortened to its newest half.
+- **Undo history.** Each text edit keeps the page it replaced, undone edits waiting to be redone
+  included. Past 64 MB of kept pages (`Assumption:` checked on the oldest supported iPhone in the
+  device test plan) the history is shortened to its newest half, which drops older annotation steps
+  too (tracked separately).
 - **Accessibility tags.** PDFKit does not carry a tagged PDF's structure through any save, with or
   without an edit.
 - **Found by code review, not yet fixed or reproduced (2026-10-08).** The field wraps to the

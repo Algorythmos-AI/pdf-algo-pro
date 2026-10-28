@@ -44,6 +44,8 @@ struct PaywallOfferView: View {
     VStack(spacing: Spacing.s150) {
       if model.alreadyHasPro {
         AlreadyProNote()
+      } else if model.paymentPaused {
+        PaymentPausedNote()
       }
       switch model.plans {
       case .loading:
@@ -56,9 +58,9 @@ struct PaywallOfferView: View {
         PlansUnavailable { Task { await model.retry() } }
       case .loaded(let offers):
         PlanPicker(
-          offers: offers, selectedID: model.selectedPlanID, saving: model.yearlySaving,
+          offers: offers, selectedID: model.selectedPlanID, saving: model.yearlySaving, isPaused: model.paymentPaused,
           select: { id in Task { await model.select(id) } })
-        if !model.alreadyHasPro, let plan = model.selectedPlan {
+        if !model.alreadyHasPro, !model.paymentPaused, let plan = model.selectedPlan {
           PurchaseTerms(plan: plan)
         }
       }
@@ -72,7 +74,10 @@ struct PaywallOfferView: View {
     .readableWidth()
   }
 
-  /// The one prominent button: buy the selected plan, or, for someone who has Pro, go on.
+  /// The one prominent button.
+  ///
+  /// It buys the selected plan; for someone who has Pro it goes on, and for someone whose Pro is paused
+  /// over a payment it manages the subscription.
   @ViewBuilder private var action: some View {
     if model.alreadyHasPro {
       VStack(spacing: Spacing.s050) {
@@ -89,6 +94,12 @@ struct PaywallOfferView: View {
         .tint(Color.ds.brandTint)
         .accessibilityIdentifier(AccessibilityID.Paywall.manage)
       }
+    } else if model.paymentPaused {
+      Button(action: onManage) {
+        Text("Manage subscription", bundle: .module)
+      }
+      .buttonStyle(.primary)
+      .accessibilityIdentifier(AccessibilityID.Paywall.manage)
     } else if let plan = model.selectedPlan {
       Button {
         Task { await model.purchase() }
@@ -110,6 +121,8 @@ struct PlanPicker: View {
   let offers: [PlanOffer]
   let selectedID: String?
   let saving: YearlySaving?
+  /// While Pro is paused over a payment the plans are named only: no prices, and nothing to choose.
+  var isPaused = false
   let select: (String) -> Void
   @Environment(\.dynamicTypeSize) private var typeSize
 
@@ -120,7 +133,8 @@ struct PlanPicker: View {
     layout {
       ForEach(offers) { offer in
         PlanCard(
-          offer: offer, isSelected: offer.id == selectedID, saving: offer.term == .year ? saving : nil
+          offer: offer, isSelected: !isPaused && offer.id == selectedID,
+          saving: !isPaused && offer.term == .year ? saving : nil, isPaused: isPaused
         ) { select(offer.id) }
       }
     }
@@ -138,6 +152,8 @@ struct PlanCard: View {
   let offer: PlanOffer
   let isSelected: Bool
   let saving: YearlySaving?
+  /// Named only, without its price or note, and not selectable (#248).
+  var isPaused = false
   let select: () -> Void
 
   var body: some View {
@@ -148,17 +164,21 @@ struct PlanCard: View {
           Text(verbatim: offer.name).font(.subheadline.weight(.semibold))
           Spacer(minLength: 0)
           // Selection is a mark as well as a colour.
-          Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-            .foregroundStyle(isSelected ? Color.ds.brandFill : Color.ds.labelSecondary)
-            .accessibilityHidden(true)
+          if !isPaused {
+            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+              .foregroundStyle(isSelected ? Color.ds.brandFill : Color.ds.labelSecondary)
+              .accessibilityHidden(true)
+          }
         }
-        Self.price(of: offer)
-          .font(.title3.weight(.bold))
-          .frame(maxWidth: .infinity, alignment: .leading)
-        note
-          .font(.footnote)
-          .foregroundStyle(Color.ds.labelSecondary)
-          .frame(maxWidth: .infinity, alignment: .leading)
+        if !isPaused {
+          Self.price(of: offer)
+            .font(.title3.weight(.bold))
+            .frame(maxWidth: .infinity, alignment: .leading)
+          note
+            .font(.footnote)
+            .foregroundStyle(Color.ds.labelSecondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
       }
       .multilineTextAlignment(.leading)
       .foregroundStyle(Color.ds.labelPrimary)
@@ -180,6 +200,7 @@ struct PlanCard: View {
       .contentShape(shape)
     }
     .buttonStyle(.plain)
+    .disabled(isPaused)
     .accessibilityElement(children: .combine)
     .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     .accessibilityIdentifier(
@@ -285,6 +306,29 @@ struct AlreadyProNote: View {
       in: RoundedRectangle(cornerRadius: 14, style: .continuous)
     )
     .accessibilityIdentifier(AccessibilityID.Paywall.alreadyPro)
+  }
+}
+
+/// Said to someone whose renewal the App Store could not charge and is retrying.
+///
+/// Pro is paused, and what brings it back is their payment method, not a new purchase (#248).
+struct PaymentPausedNote: View {
+  var body: some View {
+    Label {
+      Text(
+        "Pro is paused because the App Store couldn’t take your last payment. Update your payment method in Manage subscription.",
+        bundle: .module)
+    } icon: {
+      Image(systemName: "exclamationmark.circle.fill").foregroundStyle(Color.ds.brandTint)
+    }
+    .font(.subheadline.weight(.semibold))
+    .frame(maxWidth: .infinity)
+    .padding(Spacing.s150)
+    // Opaque, as the note for someone who has Pro, so the accessibility audit reads its contrast right.
+    .background(
+      Color.ds.backgroundPrimary.mix(with: Color.ds.brandTint, by: Opacities.brandGlow, in: .device),
+      in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+    )
   }
 }
 

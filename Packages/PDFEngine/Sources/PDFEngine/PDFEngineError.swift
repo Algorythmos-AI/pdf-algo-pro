@@ -15,4 +15,6 @@ public enum PDFEngineError: Error, Equatable, Sendable {
   /// The document's protection does not allow the change: its author restricted it, or writing it
   /// would remove the document's encryption.
   case restricted
+  /// The file on disk changed since the caller last read or wrote it, so the save left it as it was.
+  case changedOnDisk
 }

@@ -122,20 +122,9 @@ public actor SearchablePDFBuilder {
     }
     // Where each link and outline entry goes, read while the original pages are in place: a
     // destination whose page has left the document no longer says which page it was.
-    var pointers: [(page: Int, destination: PDFDestination, point: (PDFDestination) -> Void)] = []
-    func note(_ destination: PDFDestination?, _ point: @escaping (PDFDestination) -> Void) -> Bool {
-      guard let destination, let page = destination.page else { return false }
-      let index = original.index(for: page)
-      guard index != NSNotFound else { return false }
-      pointers.append((index, destination, point))
-      return true
-    }
+    var targets = LinkTargets(in: original)
     for page in replaced {
-      for annotation in page.annotations where !note(annotation.destination, { annotation.destination = $0 }) {
-        _ = note((annotation.action as? PDFActionGoTo)?.destination) {
-          annotation.action = PDFActionGoTo(destination: $0)
-        }
-      }
+      for annotation in page.annotations { targets.note(annotation) }
     }
     // Every outline entry, however deep: each original page is replaced, so an entry left out would
     // keep a destination on a page that is gone. A stack, not recursion, so a deep outline can't
@@ -144,9 +133,7 @@ public actor SearchablePDFBuilder {
     var visited: [ObjectIdentifier: PDFOutline] = [:]
     while let item = stack.popLast() {
       guard visited.updateValue(item, forKey: ObjectIdentifier(item)) == nil else { continue }
-      if !note(item.destination, { item.destination = $0 }) {
-        _ = note((item.action as? PDFActionGoTo)?.destination) { item.action = PDFActionGoTo(destination: $0) }
-      }
+      targets.note(item)
       for index in (0..<item.numberOfChildren).reversed() {
         if let child = item.child(at: index) { stack.append(child) }
       }
@@ -161,11 +148,7 @@ public actor SearchablePDFBuilder {
       old.moveAnnotations(to: new)
       for field in fields where field.widget.fieldName != field.name { field.widget.fieldName = field.name }
     }
-    for pointer in pointers {
-      let destination = PDFDestination(page: replacements[pointer.page], at: pointer.destination.point)
-      destination.zoom = pointer.destination.zoom
-      pointer.point(destination)
-    }
+    targets.point { replacements.indices.contains($0) ? replacements[$0] : nil }
     // A damaged metadata key would end the app as PDFKit writes it; its readable entries are kept.
     original.repairAttributesIfNeeded()
     // `rebuilt` holds the new pages' content, so it lives until the document is written.

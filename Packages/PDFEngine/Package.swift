@@ -23,6 +23,7 @@ let package = Package(
       dependencies: [
         "PDFKitGuard", .product(name: "AccessibilityIDs", package: "Core"), .product(name: "Core", package: "Core"),
       ],
+      resources: [.process("Resources")],
       swiftSettings: settings
     ),
     // The one PDFKit call that raises an Objective-C exception Swift can't catch (#311).

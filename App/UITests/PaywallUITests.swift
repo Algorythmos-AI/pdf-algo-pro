@@ -128,6 +128,15 @@ final class PaywallUITests: UITestCase {
     leave(by: app.buttons[ID.Paywall.continue], for: app.buttons[ID.Library.Home.sample])
   }
 
+  func testInBillingRetryTheOfferSendsToManageSubscriptionAndSellsNothing() throws {
+    let app = launch(["-skip-onboarding", "-entitlement", "billingRetry"])
+    tap(app.buttons[ID.Library.Sidebar.settings], until: element("settings.subscription.plans", in: app))
+    tap(element("settings.subscription.plans", in: app), until: app.buttons[ID.Paywall.manage])
+    XCTAssertFalse(app.buttons[ID.Paywall.purchase].exists, "Nothing is sold while Pro is paused over a payment (#248)")
+    XCTAssertFalse(element("paywall.alreadyPro", in: app).exists, "Billing retry is not Pro")
+    try audit(app, onSheet: true)
+  }
+
   func testWithoutTheStoreFirstRunEndsOnHome() throws {
     let app = launch(["-store", "unavailable"])
     skipFirstRun(app)

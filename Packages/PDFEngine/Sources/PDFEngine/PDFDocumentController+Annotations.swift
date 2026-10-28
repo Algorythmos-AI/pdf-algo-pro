@@ -352,7 +352,8 @@ extension PDFDocumentController {
   /// Places a typed name as a signature (F1c).
   ///
   /// It is a standard free-text annotation in a script font, for anyone who cannot or prefers not to
-  /// draw. Returns whether it was placed.
+  /// draw, with "Signature" as its subject, so it is selected and listed as a signature and not
+  /// offered as text to edit (#305). Returns whether it was placed.
   @discardableResult
   public func placeTypedSignature(_ name: String, onPage pageIndex: Int) -> Bool {
     let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -363,6 +364,7 @@ extension PDFDocumentController {
     let bounds = CGRect(x: box.midX - width / 2, y: box.minY + box.height / 3 - 22, width: width, height: 44)
     let annotation = PDFAnnotation(bounds: bounds, forType: .freeText, withProperties: nil)
     annotation.contents = name
+    annotation.setValue(Self.signatureContents, forAnnotationKey: Self.subjectKey)
     annotation.font = font
     annotation.fontColor = AnnotationPalette.ink
     annotation.color = .clear
@@ -374,7 +376,8 @@ extension PDFDocumentController {
     return true
   }
 
-  /// The contents of a placed signature's ink, so it can be told apart from drawing.
+  /// The contents of a placed signature's ink, so it can be told apart from drawing, and the subject
+  /// of a typed one, so it can be told apart from a text box.
   public static let signatureContents = "Signature"
 
   private func markUp(_ selection: PDFSelection, as markup: TextMarkup) -> Bool {

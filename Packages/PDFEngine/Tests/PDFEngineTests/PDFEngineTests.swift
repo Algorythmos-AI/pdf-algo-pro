@@ -917,6 +917,71 @@ struct ToolkitTests {
     #expect(try !PDFDocumentController(url: url).document.isEncrypted, "Later saves stay unencrypted")
   }
 
+  @Test("Removing a password keeps links between pages, and web links stay web links (#235)")
+  func passwordRemovalKeepsLinks() throws {
+    let source = try #require(PDFDocument(data: SyntheticPDF.make(pages: ["One", "Two", "Three"])))
+    let first = try #require(source.page(at: 0))
+    let third = try #require(source.page(at: 2))
+    let link = PDFAnnotation(bounds: CGRect(x: 100, y: 200, width: 60, height: 20), forType: .link, withProperties: nil)
+    link.destination = PDFDestination(page: third, at: CGPoint(x: 0, y: 792))
+    first.addAnnotation(link)
+    let web = PDFAnnotation(bounds: CGRect(x: 100, y: 300, width: 60, height: 20), forType: .link, withProperties: nil)
+    web.url = URL(string: "https://example.com/terms")
+    first.addAnnotation(web)
+    let outline = PDFOutline()
+    let entry = PDFOutline()
+    entry.label = "Three"
+    entry.destination = PDFDestination(page: third, at: .zero)
+    outline.insertChild(entry, at: 0)
+    source.outlineRoot = outline
+    let protected = try PDFDocumentController(data: try #require(PDFDocumentController.dataRepresentation(of: source)))
+    #expect(protected.setPassword("secret"))
+    let url = temporaryURL()
+    try protected.save(to: url)
+
+    // Where the first page's links to pages go, as page indexes (-1: a page outside the document).
+    func pageLinks(_ document: PDFDocument?) -> [Int?] {
+      guard let document, let page = document.page(at: 0) else { return [] }
+      let links = page.annotations.filter { $0.type == "Link" && $0.url == nil && !($0.action is PDFActionURL) }
+      return links.map { link -> Int? in
+        let destination = link.destination ?? (link.action as? PDFActionGoTo)?.destination
+        guard let target = destination?.page else { return nil }
+        let index = document.index(for: target)
+        return index == NSNotFound ? -1 : index
+      }
+    }
+    func webLinks(_ document: PDFDocument?) -> [URL] {
+      document?.page(at: 0)?.annotations.compactMap { ($0.action as? PDFActionURL)?.url ?? $0.url } ?? []
+    }
+    func outlineTarget(_ document: PDFDocument?) -> Int? {
+      guard let document, let item = document.outlineRoot?.child(at: 0) else { return nil }
+      let destination = item.destination ?? (item.action as? PDFActionGoTo)?.destination
+      return destination?.page.map { document.index(for: $0) }
+    }
+
+    let locked = try PDFDocumentController(url: url)
+    #expect(locked.unlock(password: "secret") && locked.removePassword())
+    try #require(pageLinks(locked.document) == [2], "the protected fixture's link: \(pageLinks(locked.document))")
+    // The copy written without the password points its link at its own third page.
+    let copy = locked.unencryptedCopy()
+    #expect(pageLinks(copy) == [2], "the unencrypted copy's link goes to page index \(pageLinks(copy)), not 2")
+    #expect(outlineTarget(copy) == 2, "the copy's outline entry goes to \(String(describing: outlineTarget(copy)))")
+
+    try locked.save(to: url)
+    let saved = PDFDocument(url: url)
+    #expect(saved?.isEncrypted == false)
+    #expect(pageLinks(saved) == [2], "after removing the password the link goes to page index \(pageLinks(saved))")
+    #expect(webLinks(saved) == [URL(string: "https://example.com/terms")], "web links: \(webLinks(saved))")
+    #expect(outlineTarget(saved) == 2, "the outline entry goes to \(String(describing: outlineTarget(saved)))")
+    // The document in memory keeps its own links, so later saves, also copies, keep them too.
+    #expect(pageLinks(locked.document) == [2], "the document's own link: \(pageLinks(locked.document))")
+    locked.addNote("After", onPage: 1)
+    try locked.save(to: url)
+    let later = PDFDocument(url: url)
+    #expect(pageLinks(later) == [2], "after a later save the link goes to page index \(pageLinks(later))")
+    #expect(webLinks(later) == [URL(string: "https://example.com/terms")], "web links: \(webLinks(later))")
+  }
+
   @Test("A password that only opens the document can't remove the author's protection")
   func userPasswordCannotRemove() throws {
     let controller = try PDFDocumentController(

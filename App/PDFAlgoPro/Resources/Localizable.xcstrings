@@ -31,18 +31,6 @@
         }
       }
     },
-    "Drawing area" : {
-      "comment" : "VoiceOver label for the layer that draws ink",
-      "extractionState" : "stale",
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Zone de dessin"
-          }
-        }
-      }
-    },
     "Generated on this device. Check important details in the document." : {
       "localizations" : {
         "fr" : {
@@ -99,16 +87,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ouvre le scanner pour créer un PDF avec recherche, sur cet appareil."
-          }
-        }
-      }
-    },
-    "Page %lld" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Page %lld"
           }
         }
       }
@@ -283,12 +261,12 @@
         }
       }
     },
-    "Your PDF Algo Pro trial ends on %@. Manage it in Settings, under Subscription." : {
+    "If your PDF Algo Pro trial is still running, it ends within a day. Manage it in Settings, under Subscription." : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Votre essai de PDF Algo Pro se termine le %@. Gérez-le dans Réglages, sous Abonnement."
+            "value" : "Si votre essai de PDF Algo Pro est toujours en cours, il se termine dans un jour au plus. Gérez-le dans Réglages, sous Abonnement."
           }
         }
       }
@@ -313,12 +291,12 @@
         }
       }
     },
-    "Your trial ends tomorrow" : {
+    "Trial reminder" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Votre essai se termine demain"
+            "value" : "Rappel d’essai"
           }
         }
       }

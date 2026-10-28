@@ -1,0 +1,28 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Drawing area" : {
+      "comment" : "VoiceOver label for the layer that draws ink",
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zone de dessin"
+          }
+        }
+      }
+    },
+    "Page %lld" : {
+      "comment" : "A bookmark's name in the document's outline",
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Page %lld"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

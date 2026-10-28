@@ -113,6 +113,8 @@ jobs:
         run: python3 scripts/ci/check_docs.py
       - name: Tester notes (a file for every locale, alike in shape, within the limit)
         run: python3 scripts/ci/check_tester_notes.py
+      - name: Every string in every String Catalog has its French translation
+        run: python3 scripts/ci/untranslated.py
 
   invariants:
     name: invariants
@@ -343,11 +345,21 @@ jobs:
           xcodebuild build -scheme "$SCHEME" -configuration Staging -destination 'generic/platform=iOS' \
             CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
       - name: The App Store build contains no internal tools (Release binary)
-        # The Staging first-run replay and the internal testing section are compiled only where
-        # INTERNAL_TOOLS is defined (PAP-060). This builds the Release configuration and looks in
-        # the binary; the Staging binary built above is the control that the search can find them.
+        # The Staging first-run replay, the internal testing section and the switch for Pro without a
+        # purchase are compiled only where INTERNAL_TOOLS is defined (PAP-060, #267). This builds the
+        # Release configuration and looks in the binary for each name below; the Staging binary built
+        # above is the control, and must show every one of them, so that no name can go blind.
+        # Two names are left out because neither can be used (run 40508503526): the Staging binary
+        # does not show the replay's type name, InternalFirstRunReplay (its defaults key stands for
+        # it), and the override's defaults key, internal.entitlement.pro, is also an accessibility
+        # identifier in AccessibilityIDs, which Release compiles (its type name stands for it).
         run: |
-          marker='internal\.firstRun\.build'
+          names=(
+            'internal\.firstRun\.build'    # the replay's defaults key
+            'Internal testing'              # the internal section's header in Settings
+            'EvaluationSection'             # the internal section's type
+            'InternalEntitlementOverride'   # the switch for Pro without a purchase
+          )
           executable() { echo "$1/$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$1/Info.plist")"; }
           xcodebuild build -scheme "$SCHEME" -configuration Release -destination 'generic/platform=iOS' \
             CODE_SIGNING_ALLOWED=NO SWIFT_TREAT_WARNINGS_AS_ERRORS=YES
@@ -356,13 +368,20 @@ jobs:
           release="$(find "$products" -maxdepth 1 -name '*.app' | head -1)"
           staging="$(find "${products%/*}/Staging-iphoneos" -maxdepth 1 -name '*.app' | head -1)"
           [ -n "$release" ] && [ -n "$staging" ] || { echo "::error::Release or Staging app not found"; exit 1; }
-          if ! strings -a "$(executable "$staging")" | grep -Eq "$marker"; then
-            echo "::error::The Staging binary no longer shows the replay's marker; this check has gone blind"; exit 1
-          fi
-          if strings -a "$(executable "$release")" | grep -E "$marker|InternalFirstRunReplay|Internal testing"; then
-            echo "::error::The Release binary contains internal tools; they must not ship (PAP-060)"; exit 1
-          fi
-          echo "Release binary is free of the internal tools; the Staging binary has them."
+          staging_strings="$(strings -a "$(executable "$staging")")"
+          release_strings="$(strings -a "$(executable "$release")")"
+          blind=0
+          found=0
+          for name in "${names[@]}"; do
+            if ! grep -Eq -- "$name" <<<"$staging_strings"; then
+              echo "::error::The Staging binary does not show '$name'; this check is blind to it"; blind=1
+            fi
+            if grep -E -- "$name" <<<"$release_strings"; then
+              echo "::error::The Release binary contains '$name', an internal tool that must not ship (PAP-060)"; found=1
+            fi
+          done
+          [ "$blind" -eq 0 ] && [ "$found" -eq 0 ] || exit 1
+          echo "Release binary is free of the internal tools; the Staging binary shows each of them."
 
   ios-tests:
     name: ios-tests (${{ matrix.shard }})
