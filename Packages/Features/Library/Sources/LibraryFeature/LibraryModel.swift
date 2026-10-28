@@ -177,8 +177,8 @@ public final class LibraryModel {
   /// its page count, reading position, search text and Spotlight entry follow the file.
   ///
   /// The app records every change it makes after writing the file, so only changes made elsewhere are
-  /// found. Its tags and favourite stay: without a file identity (#224), an edit made in another app
-  /// can't be told from a replacement.
+  /// found. Its tags and favourite stay, whether the file was edited in another app or replaced under
+  /// the same name.
   ///
   /// The library lists its folder once, off the main actor. Each change is recorded at the time the
   /// other app made it. A file that isn't a readable PDF any more is recorded as seen, so it isn't
