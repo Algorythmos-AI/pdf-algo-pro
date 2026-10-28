@@ -14,8 +14,9 @@ what is built (PAP-065), on iPhone only (PAP-067), with the release flags of PAP
 blockers, C1 is closed for 1.0 because no vendor SDK is in the binary and ADR-0025 is accepted; it
 reopens as a Major blocker for the release that returns redaction or conversion. C3 is closed: the
 owner confirmed the remaining prerequisites on 2026-10-08 (details held privately). C2 closes when
-CI and Xcode Cloud build with Xcode 27 (ADR-0023); C5 closes on the design pass and the owner's
-walk-through of a Release-configuration build. The Major blockers needed before submission are M1,
+CI and Xcode Cloud build with Xcode 27 (ADR-0023); C5 closes on the lighter design pass of PAP-070
+(previews of every screen state, the snapshot gallery and the checklist) and the owner's walk-through
+of a Release-configuration build; the visual refresh moved to 1.1. The Major blockers needed before submission are M1,
 M5, M8, M10 and M11; the owner's device sign-offs and the release checklist in
 [release management](release-management.md) complete the evidence.
 
@@ -69,7 +70,7 @@ billing; those details are held privately.
 | C1 | PDF SDK vendor spike, licence and telemetry audit | Architecture | Vendor chosen on the ADR-0007 criteria with a prototype; licence terms acceptable; SDK network and JavaScript behaviour audited; ADR-0007 accepted | Closed for 1.0 (PAP-065): no vendor SDK is in the binary and text editing is native ([ADR-0025](adr/0025-native-text-editing-for-the-safe-subset.md), PAP-036). Reopens as a Major blocker for the release that returns redaction or conversion (V1.1 at the earliest) |
 | C2 | Xcode 27 toolchain in CI and Xcode Cloud | Architecture | The toolchain pull request is green in CI (iOS 26 and iOS 27 simulators) and Xcode Cloud archives with Xcode 27 ([ADR-0023](adr/0023-ios-26-floor-built-with-xcode-27.md)); local Xcode 27 when the development Mac has space | Open; the required gate and Xcode Cloud still build with Xcode 26.6 (PAP-029). Since 2026-10-25 `ios-27` builds with Xcode 27.0 and runs the unit and UI tests on iOS 27 beside the gate, on GitHub's preview image; the gate moves once that image is generally available (owner's decision). The full UI suite passed on the owner's iPhone with iOS 27 on 2026-10-25 (#295, #300). The development Mac has Xcode 27 and no simulator runtime |
 | C3 | Apple Developer Program prerequisites (account, agreements and capabilities; details held privately) | Maintainer | All prerequisites confirmed complete | Closed (PAP-065): the owner confirmed the remaining prerequisites complete on 2026-10-08 |
-| C5 | Information architecture and key flows | Design | Reviewed SwiftUI prototypes of every new V1 flow, and a design pass before external TestFlight (PAP-031): previews of every screen state, a snapshot gallery and a checklist, each screen reviewed by the owner on a Release-configuration build | Open; waived for internal TestFlight (PAP-030). The visual refresh and the design pass are the U track of the 1.0 plan ([working memory](working-memory.md)) |
+| C5 | Information architecture and key flows | Design | Reviewed SwiftUI prototypes of every new V1 flow, and a design pass before external TestFlight (PAP-031): previews of every screen state, a snapshot gallery and a checklist, each screen reviewed by the owner on a Release-configuration build | Open; waived for internal TestFlight (PAP-030). For 1.0 it closes on the lighter design pass of PAP-070: a `#Preview` per screen state, the gallery from `scripts/design/gallery.py`, `docs/design/design-pass-checklist.md`, and the owner's walk-through of a Release-configuration build. The visual refresh moved to 1.1 (PAP-070) |
 
 ### Major (must close before the milestone named)
 
@@ -107,10 +108,9 @@ The order of the 1.0 plan ([working memory](working-memory.md)):
 
 1. Move CI and Xcode Cloud to Xcode 27 (C2) and cut one Staging build with it; the text-editing
    device test runs on that build (PAP-066).
-2. Fix the open defects first and prove the save path under sanitizers and fault injection; no
-   visual refresh merges while a p0 or p1 bug is open.
-3. Run the design pass (C5) as previews, a snapshot gallery and a checklist, and have the owner walk
-   a Release-configuration build against it.
+2. Fix the open defects first and prove the save path under sanitizers and fault injection.
+3. Run the lighter design pass (C5, PAP-070) as previews, a snapshot gallery and a checklist, and have
+   the owner walk a Release-configuration build against it. The visual refresh is 1.1 work.
 4. Send the legal brief (M8) now; LR-15, LR-17 and LR-19 have the longest lead time.
 5. Create the production app record, its products and the listing in that order (M1, M10, M11), so
    the Rate link, the review screenshot and the screenshots come from the build being submitted.
@@ -126,3 +126,4 @@ The order of the 1.0 plan ([working memory](working-memory.md)):
 | 2026-09-30 | Status column added. M7 and M9 closed; C3 closed for TestFlight; internal TestFlight approved (PAP-030) with C1 not applicable and C5 waived. Verdict for the App Store unchanged. |
 | 2026-09-30 | Plan after build 1 (PAP-031 to PAP-033): C2 closes on CI and Xcode Cloud with the iOS 26 floor (ADR-0023); C5 becomes reviewed SwiftUI prototypes; C1 applies to V1. Verdict unchanged. |
 | 2026-10-24 | 1.0 scope (PAP-065 to PAP-067): C1 closed for 1.0 and reopening as Major for the release that returns redaction or conversion; C3 closed; M2 closed; M10 and M11 added; scores revised (Repository 5, Testing 4, Monetisation 3, App Store 3). Verdict: READY for 1.0 submission once C2 and C5 close. |
+| 2026-10-28 | Visual refresh moved to 1.1 (PAP-070): C5 closes for 1.0 on the lighter design pass (previews, snapshot gallery, checklist) and the owner's walk-through of a Release-configuration build. Verdict unchanged: READY for 1.0 submission once C2 and C5 close. |

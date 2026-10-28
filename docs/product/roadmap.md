@@ -68,6 +68,7 @@ of PAP-066.
 | Moved from V1 by PAP-065: the opt-in Private Cloud Compute tier and the privacy centre | PIL-4, PIL-5 |
 | Moved from V1 by PAP-065: widgets, the Control Center scan control, the Action extension, creating PDFs through the Share sheet | PIL-2, PIL-7 |
 | Moved from V1 by PAP-065: the library in iCloud Drive, after the document-identity spike (M4) | PIL-1, PIL-6 |
+| Moved from 1.0 by PAP-070: the visual refresh (design-system foundations for radii, elevation, haptics and motion; Home, the document list, reader chrome, first run, the offer, assistant, scan and settings), with touch targets and rotors | PIL-7 |
 | Performance and accessibility improvements from MetricKit and support | PIL-1, PIL-7 |
 | Translation of documents on device | PIL-4, PIL-6 |
 | Compare two versions of a document | PIL-1, PIL-4 |

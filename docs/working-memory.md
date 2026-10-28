@@ -7,7 +7,7 @@ lives in the linked documents.
 
 Owner: Maintainer · Reviewed: every pull request that changes state; at least monthly
 
-Last updated: 2026-10-25
+Last updated: 2026-10-28
 
 ## Current phase
 
@@ -15,8 +15,8 @@ Last updated: 2026-10-25
 (Staging build 27, 2026-10-11). On 2026-10-24 the owner approved the 1.0 plan: 1.0 ships what is
 built (PAP-065), with the release flags of PAP-066, on iPhone only, in every storefront, with English
 (U.S.) as the primary language (PAP-067). The readiness verdict is **READY for 1.0 submission once C2
-and C5 close** ([readiness review](readiness-review.md)). Defects come first: while any p0 or p1 bug
-is open, no visual-refresh pull request merges (owner, 2026-10-10).
+and C5 close** ([readiness review](readiness-review.md)). Defects come first (owner, 2026-10-10). The visual refresh
+moved to 1.1; C5 closes on a lighter design pass (PAP-070, 2026-10-28).
 
 ## The 1.0 plan
 
@@ -26,7 +26,7 @@ Four tracks; each pull request keeps `ios` green and is squash-merged into `inte
 |---|---|---|
 | **R, robustness** | An adversarial review of every path that can lose a document; sanitizers and fault injection in CI; the open defects fixed, each with a regression test; a device bug bash and a 30-minute device soak; the release gate (zero open p0 and p1 bugs, five green nightlies with no flaky retries, device run clean, budgets met) | R1 review done (#272): fourteen p1 defects filed (#219 to #232), each confirmed by a test that failed first. R2 merged (#280). R3: #278, #279, #281, #282 and #288 fixed and closed thirteen; the fix for #224 (local files) is in review |
 | **T, tests** | The flaky UI journeys fixed; one package of accessibility identifiers on every control; screen objects; scripted test worlds; a controls suite per screen; a French UI run nightly; a `Device` test plan and `scripts/dev/device_tests.sh` recording a row per run on the owner's iPhone | T0 (flaky journeys, #217) and T1a (identifier package, #277; tests on its constants, #284) merged; T2 started with scripted worlds and App Lock's first UI tests (#285) |
-| **U, visual refresh** | Design-system foundations (radii, elevation, haptics, motion); Home, reader, first run, assistant, scan and settings refreshed inside PAP-037, PAP-040, PAP-045, PAP-047, PAP-052 and ADR-0026/0027; targets, rotors and the PDFEngine catalog; the design pass that closes C5 | Not started; waits until no p1 bug is open |
+| **U, design pass** | For 1.0 (PAP-070): the lighter design pass that closes C5, a `#Preview` per screen state, the snapshot gallery (`scripts/design/gallery.py`), `docs/design/design-pass-checklist.md` and the owner's walk-through of a Release-configuration build. Moved to 1.1: the visual refresh (design-system foundations, the refreshed screens, touch targets and rotors) | Not started; follows the wave-2 test suites |
 | **L, launch** | This scope record (PAP-065 to PAP-067); Xcode 27 in CI and Xcode Cloud (C2); the release flags (PAP-066) and the AI-text footer; the quality-bar evidence on the phone; App Review notes; the production app record, products, listing and screenshots; the Release workflow, release pull request, external TestFlight and submission; the legal review | L1 scope recorded (#218); L3 release flags merged (#283); L5 App Review notes drafted (#287) |
 
 Owner actions on the critical path: free at least 8 GiB on the development Mac so the device run can
