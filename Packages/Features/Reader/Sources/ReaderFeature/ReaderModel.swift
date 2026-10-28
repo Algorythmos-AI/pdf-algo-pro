@@ -106,6 +106,19 @@ public final class ReaderModel {
   private var documentID: DocumentID
   /// Whether this reader has moved from a signed document to the copy its changes are saved in.
   private var isEditingCopy = false
+  /// The document this reader's version was kept in while another app's change waited for the
+  /// person's choice, so it is kept once per conflict (#257).
+  @ObservationIgnored private var conflictCopy: Task<Document?, Never>?
+  /// Whether another app's change waits for the person's choice, so nothing is written over it.
+  ///
+  /// The alert's binding can't clear it: only showing the file as it is on disk does (#257).
+  @ObservationIgnored private var conflictWaits = false
+  /// The title of the copy this reader's changes were last kept in while a conflict waited.
+  private var changesKeptIn: String?
+  /// How many saves are waiting for the one before them to finish (#233).
+  private(set) var savesWaiting = 0
+  /// The save being made, which the next save waits for (#233).
+  @ObservationIgnored private var saving: Task<Bool, Never>?
   private let startPage: Int?
   private let library: any DocumentLibrary
   private let intake: DocumentIntake
@@ -179,7 +192,14 @@ public final class ReaderModel {
       let url = try await library.fileURL(for: documentID)
       fileURL = url
       let controller = try PDFDocumentController(url: url, textEditor: textEditor)
-      knownVersion = try? FileVersion(url)
+      knownVersion = FileVersion.current(at: url)
+      // The reader shows the file as it is on disk, so no other version waits to be chosen, and the
+      // next conflict gets a copy of its own (#257). The question is cleared too: hearing of the other
+      // app's write again while the choice was being carried out asks it again.
+      conflictWaits = false
+      hasConflictingChange = false
+      conflictCopy = nil
+      changesKeptIn = nil
       watch(url)
       let stored = settings.load()
       controller.displayMode = stored.readerDisplayMode
@@ -637,6 +657,8 @@ public final class ReaderModel {
   public private(set) var textEditNotice: TextEditNotice?
   /// Whether an edit is being worked out and proven; the editor waits.
   public private(set) var isCommittingTextEdit = false
+  /// Whether another app's change was heard while an edit was being worked out, to look at once it ends.
+  @ObservationIgnored private var heardFileChangeWhileEditing = false
   /// Whether the person is being asked to confirm editing a digitally signed document.
   public var confirmsEditingSigned = false
   /// Whether the explanation that editing text needs a purchase is showing.
@@ -734,6 +756,7 @@ public final class ReaderModel {
     controller.setEditingText(false)
     textEditMessage = nil
     textEditNotice = nil
+    lookAtFileChangeHeardWhileEditing()
     await refreshSearchTextIfNeeded()
   }
 
@@ -806,7 +829,7 @@ public final class ReaderModel {
       return false
     }
     isCommittingTextEdit = true
-    defer { isCommittingTextEdit = false }
+    defer { endCommittingTextEdit() }
     let outcome: TextEditOutcome
     if selection.region.capability.editsContent {
       outcome = await controller.replaceSelectedText(with: typed)
@@ -844,6 +867,14 @@ public final class ReaderModel {
       textEditMessage = .cannotEditOrCover
     }
     return false
+  }
+
+  /// Ends working out an edit, and then looks at another app's change heard meanwhile (#249).
+  private func endCommittingTextEdit() {
+    isCommittingTextEdit = false
+    guard heardFileChangeWhileEditing else { return }
+    heardFileChangeWhileEditing = false
+    Task { await fileChangedOnDisk() }
   }
 
   /// The text with every character no one sees taken out (issue #231).
@@ -890,7 +921,7 @@ public final class ReaderModel {
     guard let controller, controller.isEditingText, controller.selectedTextRegion == nil, !isCommittingTextEdit
     else { return false }
     isCommittingTextEdit = true
-    defer { isCommittingTextEdit = false }
+    defer { endCommittingTextEdit() }
     textEditNotice = nil
     hasPickedText = true
     let kept = controller.offset(offset, keeping: selection.region, onPage: selection.pageIndex)
@@ -946,6 +977,7 @@ public final class ReaderModel {
   public func cancelTextEdit() {
     controller?.clearTextRegionSelection()
     textEditMessage = nil
+    lookAtFileChangeHeardWhileEditing()
     Task { await textEditingPageChanged() }
   }
 
@@ -1043,9 +1075,12 @@ public final class ReaderModel {
   ///
   /// `keepAlive` asks the system for time to finish (on iOS, a background task) and returns the call
   /// that ends it; the reader ends it once the save and the reading position are written (defect D2).
+  ///
+  /// While another app's change waits for the person's choice, nothing is written over either version:
+  /// this reader's version goes into a new document beside the original instead (#257).
   public func saveBeforeSuspending(keepAlive: () -> (@MainActor () -> Void)) async {
     let finished = keepAlive()
-    await save()
+    if await !save() { await keepUnsavedVersionAside() }
     await recordPosition()
     finished()
   }
@@ -1055,27 +1090,76 @@ public final class ReaderModel {
   /// Form entries count as changes, including text still being typed into a field (defect D1).
   ///
   /// Returns whether the file on disk now has every change; a failure has already been explained.
+  ///
+  /// Saves run one at a time, each after the one before has finished, so two quick changes to a
+  /// signed document make one copy, not two (#233). The file is not written while another app's
+  /// change waits for the person's choice, or over a change this reader has not heard of yet: the
+  /// person is asked which version to keep instead (#257).
   @discardableResult
   public func save() async -> Bool {
+    let earlier = saving
+    let current = Task {
+      if let earlier {
+        savesWaiting += 1
+        _ = await earlier.value
+        savesWaiting -= 1
+      }
+      return await saveNow()
+    }
+    saving = current
+    let saved = await current.value
+    if saving == current { saving = nil }
+    return saved
+  }
+
+  private func saveNow() async -> Bool {
     guard let controller else { return false }
     controller.endEditing()
+    // While another app's change waits for the person's choice, nothing is written; the choice is
+    // offered again (#257).
+    guard !conflictWaits else {
+      hasConflictingChange = true
+      return false
+    }
     guard controller.needsSaving else { return true }
     do {
       if controller.digitalSignature.isSigned, !isEditingCopy {
+        // A copy made from a version another app has since replaced would skip their change (#257).
+        if let fileURL, raisesConflictIfChanged(at: fileURL) { return false }
         try await saveSignedAsCopy(controller)
         reportTextEditsPutBack(by: controller)
         return true
       }
       let url = try await library.fileURL(for: documentID)
-      try controller.save(to: url, keepingPreviousAt: try await library.previousVersionURL(for: documentID))
+      let previous = try await library.previousVersionURL(for: documentID)
+      // A change another app made since this reader last read or wrote the file is not written over,
+      // whether or not the reader has heard of it yet: looked at now, and again with write access
+      // coordinated, just before the replace (#257).
+      guard !conflictWaits else {
+        hasConflictingChange = true
+        return false
+      }
+      guard !raisesConflictIfChanged(at: url) else { return false }
+      let expected = knownVersion
+      var written: FileVersion?
+      try controller.save(
+        to: url, keepingPreviousAt: previous,
+        onlyIf: { target in expected == nil || FileVersion.current(at: target) == expected },
+        // Read with write access still coordinated, straight after the replace: another app's write
+        // after it is then another app's change, never taken for this reader's own (#257).
+        written: { target in written = FileVersion.current(at: target) })
       reportTextEditsPutBack(by: controller)
-      // Straight after the write, before the file presenter hears of it, so it isn't taken for
-      // another app's change.
-      knownVersion = try? FileVersion(url)
+      knownVersion = written
       try await library.recordModified(documentID)
       canRestorePreviousVersion = await library.hasPreviousVersion(of: documentID)
       await telemetry.record("task.core.completed")
       return true
+    } catch PDFEngineError.changedOnDisk {
+      // Another app wrote the file while this save was being made (#257).
+      knownVersion = fileURL.flatMap { FileVersion.current(at: $0) }
+      raiseConflict()
+      reportTextEditsPutBack(by: controller)
+      return false
     } catch PDFEngineError.restricted {
       errorMessage = Self.restrictedMessage
     } catch PDFEngineError.insufficientSpace {
@@ -1133,9 +1217,11 @@ public final class ReaderModel {
     let copyURL = try await library.fileURL(for: copy.id)
     fileURL = copyURL
     // From now on this reader writes the copy, so that is the file to watch for other apps' changes.
-    knownVersion = try? FileVersion(copyURL)
+    knownVersion = FileVersion.current(at: copyURL)
     watch(copyURL)
     isEditingCopy = true
+    // Recognition of the copy must hear this reader too, so it never replaces the file behind it (#255).
+    watchRecognition()
     canRestorePreviousVersion = false
     notice = String(
       localized:
@@ -1172,20 +1258,35 @@ public final class ReaderModel {
   }
 
   /// Saves and brings the search text up to date as the reader closes.
+  ///
+  /// While another app's change waits for the person's choice, this reader's version goes into a new
+  /// document beside the original, as on going to the background (#257).
   public func saveBeforeClosing() async {
-    await save()
+    if await !save() { await keepUnsavedVersionAside() }
     await refreshSearchTextIfNeeded()
   }
 
   /// Handles a change to the file made by another app: with no unsaved changes, the reader shows the
   /// new version; with unsaved changes, it asks which version to keep.
+  ///
+  /// A text edit being worked out, or text picked to edit with nothing else unsaved, is not
+  /// interrupted: the change is looked at once the editor lets go of it, so what is typed is never
+  /// thrown away (#249). While a choice waits, it is offered again.
   func fileChangedOnDisk() async {
-    guard phase == .ready, let fileURL, let current = try? FileVersion(fileURL), current != knownVersion else {
+    guard !isCommittingTextEdit, selectedTextRegion == nil || controller?.needsSaving == true else {
+      heardFileChangeWhileEditing = true
+      return
+    }
+    guard !conflictWaits else {
+      hasConflictingChange = true
+      return
+    }
+    guard phase == .ready, let fileURL, let current = FileVersion.current(at: fileURL), current != knownVersion else {
       return
     }
     knownVersion = current
     if controller?.needsSaving == true {
-      hasConflictingChange = true
+      raiseConflict()
     } else {
       await reload()
       notice = String(
@@ -1193,30 +1294,123 @@ public final class ReaderModel {
     }
   }
 
+  /// Asks the person which version to keep when the file isn't the version this reader last read or wrote.
+  ///
+  /// Returns whether it asked (#257).
+  private func raisesConflictIfChanged(at url: URL) -> Bool {
+    guard let expected = knownVersion, let onDisk = FileVersion.current(at: url), onDisk != expected else {
+      return false
+    }
+    knownVersion = onDisk
+    raiseConflict()
+    return true
+  }
+
+  /// Asks the person which version to keep, and writes nothing until they have chosen (#257).
+  private func raiseConflict() {
+    conflictWaits = true
+    hasConflictingChange = true
+  }
+
+  /// Looks at another app's change heard while text was picked, once the editor has let go of it (#249).
+  private func lookAtFileChangeHeardWhileEditing() {
+    guard heardFileChangeWhileEditing, selectedTextRegion == nil, !isCommittingTextEdit else { return }
+    heardFileChangeWhileEditing = false
+    Task { await fileChangedOnDisk() }
+  }
+
   /// Drops this reader's unsaved changes and shows the version another app saved.
   public func useOtherVersion() async {
     hasConflictingChange = false
+    // A version kept aside meanwhile stays in the library; the next conflict gets its own (#257).
+    conflictCopy = nil
     await reload()
   }
 
-  /// Keeps this reader's version as a new document in the library, then shows the version another
-  /// app saved in the original.
-  public func keepMineAsCopy() async {
-    hasConflictingChange = false
-    guard let controller else { return }
+  /// Keeps this reader's unsaved version in a new document beside the original, when a save was
+  /// refused because another app's change waits for the person's choice and the app may end before
+  /// they make it (#257).
+  ///
+  /// One copy per conflict: the choice can still be made, and keeping mine then makes no second copy.
+  ///
+  /// The notice says where the changes went, or that they couldn't be kept, for when the person comes back.
+  private func keepUnsavedVersionAside() async {
+    guard conflictWaits, let controller, controller.needsSaving else { return }
+    let title = String(localized: "\(document?.title ?? "") (conflict)", bundle: .module)
+    if let copy = await keepAside(controller, titled: title), !controller.needsSaving {
+      changesKeptIn = copy.title
+      notice = String(localized: "Your changes are kept in “\(copy.title)”, beside the original.", bundle: .module)
+    } else {
+      notice = String(
+        localized: "Your changes couldn't be kept in a copy. They are still open here; choose which version to keep.",
+        bundle: .module)
+    }
+  }
+
+  /// The copy that already has every change of this reader while another app's change waits, if any.
+  ///
+  /// The conflict alert then says the changes are kept there rather than unsaved (#257).
+  public var conflictChangesKeptIn: String? {
+    guard conflictWaits, controller?.needsSaving == false else { return nil }
+    return changesKeptIn
+  }
+
+  /// Writes this reader's version to the conflict's copy, made the first time and brought up to date
+  /// with any change since after that; `nil` when no copy could be added (#257).
+  ///
+  /// The copy has every change, so nothing counts as unsaved until the next one. Neither the original
+  /// nor the other app's version is written.
+  private func keepAside(_ controller: PDFDocumentController, titled title: String) async -> Document? {
+    let earlier = conflictCopy
+    let keeping = Task { () -> Document? in
+      // A copy the person has deleted meanwhile is made again (#257).
+      guard let kept = await earlier?.value, let current = try? await library.document(withID: kept.id),
+        !current.isDeleted
+      else { return try? await addCopy(of: controller, titled: title) }
+      guard controller.needsSaving, let url = try? await library.fileURL(for: kept.id) else { return current }
+      let saved = (try? controller.save(to: url)) != nil
+      reportTextEditsPutBack(by: controller)
+      if saved { _ = try? await intake.refresh(kept.id) }
+      return current
+    }
+    conflictCopy = keeping
+    return await keeping.value
+  }
+
+  /// Writes the version this reader shows to a new document in the library, beside the original; on
+  /// failure the changes still count as unsaved (#223).
+  private func addCopy(of controller: PDFDocumentController, titled title: String) async throws -> Document {
     let staged = FileManager.default.temporaryDirectory.appendingPathComponent("mine-\(UUID().uuidString).pdf")
     defer { try? FileManager.default.removeItem(at: staged) }
     let unsaved = controller.unsavedChanges
     do {
+      defer { reportTextEditsPutBack(by: controller) }
       try controller.save(to: staged)
       let data = try Data(contentsOf: staged, options: .mappedIfSafe)
-      let title = document?.title ?? ""
-      let copy = try await intake.add(data: data, title: String(localized: "\(title) (my version)", bundle: .module))
+      return try await intake.add(data: data, title: title)
+    } catch {
+      controller.countAsUnsaved(unsaved)
+      throw error
+    }
+  }
+
+  /// Keeps this reader's version as a new document in the library, then shows the version another
+  /// app saved in the original.
+  ///
+  /// A copy kept while the choice waited is used, brought up to date with any change since, rather
+  /// than a second one made (#257).
+  public func keepMineAsCopy() async {
+    hasConflictingChange = false
+    guard let controller else { return }
+    let title = String(localized: "\(document?.title ?? "") (my version)", bundle: .module)
+    if let copy = await keepAside(controller, titled: title), !controller.needsSaving {
+      conflictCopy = nil
       await reload()
       notice = String(localized: "Your version is saved as “\(copy.title)”.", bundle: .module)
-    } catch {
-      // The copy isn't in the library, so this version is still only here, unsaved (#223).
-      controller.countAsUnsaved(unsaved)
+    } else {
+      // This version is still only here, unsaved (#223), and the other app's version is still
+      // protected: the choice is offered again (#257).
+      hasConflictingChange = conflictWaits
       errorMessage = String(
         localized: "Couldn't keep your version. It is still open here; share it to keep it.", bundle: .module)
     }
@@ -1257,6 +1451,8 @@ public final class ReaderModel {
   }
 
   private func restoring(_ swap: @escaping () async throws -> Void) async {
+    // A save still being written would be taken for another app's change (#257).
+    _ = await saving?.value
     speech.stop()
     controller = nil
     phase = .loading
@@ -1276,9 +1472,25 @@ public final class ReaderModel {
 
   /// The saved file, ready to share or print: changes are saved first, so what leaves the app is what
   /// the person sees. `nil` when saving failed, which has been explained.
+  ///
+  /// While another app's change waits for the person's choice, this version is shared from a copy
+  /// made for it, and neither version is written (#257).
   public func fileForSharing() async -> URL? {
-    guard phase == .ready, await save() else { return nil }
+    guard phase == .ready else { return nil }
+    if conflictWaits, let controller { return try? sharedCopy(of: controller) }
+    guard await save() else { return nil }
     return try? await library.fileURL(for: documentID)
+  }
+
+  /// The version this reader shows, written to a file of its own to share; it still counts as unsaved.
+  private func sharedCopy(of controller: PDFDocumentController) throws -> URL {
+    let staged = FileManager.default.temporaryDirectory.appendingPathComponent("share-\(UUID().uuidString).pdf")
+    defer { try? FileManager.default.removeItem(at: staged) }
+    let unsaved = controller.unsavedChanges
+    defer { controller.countAsUnsaved(unsaved) }
+    defer { reportTextEditsPutBack(by: controller) }
+    try controller.save(to: staged)
+    return try Self.shareableFile(Data(contentsOf: staged), named: document?.title ?? "", extension: "pdf")
   }
 
   /// Whether the document's author allows printing; always true for unencrypted documents.
@@ -1418,6 +1630,8 @@ public final class ReaderModel {
       await save()
       // A failed save has already said so; replacing the file now would lose those changes.
       guard controller?.needsSaving != true else { return }
+      // The save may have moved this reader to a signed document's copy (#255).
+      watchRecognition()
       // With App Lock on, the Live Activity on the Lock Screen and in the Dynamic Island must not say
       // which document it is (#254).
       var subtitle = document?.title ?? ""

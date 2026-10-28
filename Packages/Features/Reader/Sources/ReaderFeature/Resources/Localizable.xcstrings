@@ -1,6 +1,16 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@ (conflict)" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ (conflit)"
+          }
+        }
+      }
+    },
     "%@ (edited)" : {
       "localizations" : {
         "fr" : {
@@ -2166,6 +2176,36 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Votre texte recouvrira celui-ci. Le texte d’origine reste dans le fichier, en dessous."
+          }
+        }
+      }
+    },
+    "Your changes are already kept in “%@”. Keep that copy, or show the other app's version here." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vos modifications sont déjà conservées dans « %@ ». Gardez cette copie, ou affichez ici la version de l’autre app."
+          }
+        }
+      }
+    },
+    "Your changes are kept in “%@”, beside the original." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vos modifications sont conservées dans « %@ », à côté de l’original."
+          }
+        }
+      }
+    },
+    "Your changes couldn't be kept in a copy. They are still open here; choose which version to keep." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vos modifications n’ont pas pu être conservées dans une copie. Elles sont toujours ouvertes ici ; choisissez la version à garder."
           }
         }
       }

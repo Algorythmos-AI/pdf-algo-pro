@@ -299,9 +299,15 @@ public struct ReaderView<Assistant: View>: View {
           Text("Use the other version", bundle: .module)
         }
       } message: {
-        Text(
-          "You have changes that aren't saved yet. Keep yours as a new document, or drop them and show the other app's version.",
-          bundle: .module)
+        if let kept = model.conflictChangesKeptIn {
+          Text(
+            "Your changes are already kept in “\(kept)”. Keep that copy, or show the other app's version here.",
+            bundle: .module)
+        } else {
+          Text(
+            "You have changes that aren't saved yet. Keep yours as a new document, or drop them and show the other app's version.",
+            bundle: .module)
+        }
       }
       .onDisappear {
         model.stopWatching()
