@@ -1270,9 +1270,12 @@ jobs:
           for test in $SKIPPED; do args+=("-skip-testing:$test"); done
           xcrun simctl bootstatus "$SIM" -b > /dev/null
           set +e
+          # One test at a time: run in parallel under the sanitizers, about 40 tests that started together
+          # all passed their 5-minute limits together, after 364 s each, on run 40581508610; on the green
+          # nightly 40224687945 the whole step took 11.5 min (issue #350).
           xcodebuild test-without-building -scheme "$SCHEME" -testPlan "$TEST_PLAN" -derivedDataPath DD \
             -destination "id=$SIM" -disableAutomaticPackageResolution -skipPackageUpdates \
-            -enableAddressSanitizer YES -enableUndefinedBehaviorSanitizer YES \
+            -enableAddressSanitizer YES -enableUndefinedBehaviorSanitizer YES -parallel-testing-enabled NO \
             -resultBundlePath Sanitizers.xcresult "${args[@]}" 2>&1 | tee "$RUNNER_TEMP/sanitizers.log"
           code=${PIPESTATUS[0]}
           set -e
