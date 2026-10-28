@@ -135,6 +135,23 @@ public final class LibraryModel {
     } catch {
       await telemetry.record("quality.operation.failed")
     }
+    await reconcile()
+    await pruneDerivedData()
+    await reload()
+    phase = .loaded
+  }
+
+  /// Picks up what changed in the Files app while the app was away, as the app comes back to the
+  /// foreground: a file renamed or moved there is followed, so a save never misses it (#224).
+  ///
+  /// Does nothing until the library has loaded, which does this itself.
+  public func filesMayHaveChanged() async {
+    guard phase == .loaded else { return }
+    await reconcile()
+    await reload()
+  }
+
+  private func reconcile() async {
     do {
       let reconciliation = try await library.reconcileWithFiles()
       for id in reconciliation.removed { await removeDerivedData(of: id) }
@@ -148,9 +165,6 @@ public final class LibraryModel {
     } catch {
       await telemetry.record("quality.operation.failed")
     }
-    await pruneDerivedData()
-    await reload()
-    phase = .loaded
   }
 
   private func removeDerivedData(of id: DocumentID) async {

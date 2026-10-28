@@ -325,6 +325,34 @@ struct ReaderModelTests {
     #expect(heard.count > 0)
   }
 
+  @Test("The file watcher follows a file renamed with coordination, as the Files app does (#224)")
+  func watcherFollowsAMove() async throws {
+    let folder = FileManager.default.temporaryDirectory.appendingPathComponent("watch-move-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let url = folder.appendingPathComponent("Before.pdf")
+    let renamed = folder.appendingPathComponent("After.pdf")
+    try SyntheticPDF.make(pages: ["One"]).write(to: url)
+    let heard = Heard()
+    let watcher = FileWatcher(url: url) { heard.count += 1 }
+    watcher.start()
+    defer { watcher.stop() }
+    await Task.detached {
+      var error: NSError?
+      let coordinator = NSFileCoordinator(filePresenter: nil)
+      coordinator.coordinate(
+        writingItemAt: url, options: .forMoving, writingItemAt: renamed, options: .forReplacing, error: &error
+      ) { from, to in
+        try? FileManager.default.moveItem(at: from, to: to)
+        coordinator.item(at: from, didMoveTo: to)
+      }
+    }.value
+    for _ in 0..<100 where heard.count == 0 { try await Task.sleep(for: .milliseconds(20)) }
+    #expect(heard.count > 0, "The reader is told, so it finds the file at its new name")
+    let followed = watcher.presentedItemURL
+    #expect(followed?.lastPathComponent == "After.pdf", "\(String(describing: followed))")
+  }
+
   @Test("Another app's change is shown when nothing is unsaved; its own saves aren't mistaken for one (H5)")
   func otherAppChange() async throws {
     let harness = Harness()
@@ -338,7 +366,41 @@ struct ReaderModelTests {
     let url = try await harness.library.fileURL(for: document.id)
     try SyntheticPDF.make(pages: ["Theirs", "Two"]).write(to: url)
     await reader.fileChangedOnDisk()
-    #expect(reader.notice != nil && reader.controller?.pageCount == 2)
+    #expect(
+      reader.notice != nil && reader.controller?.pageCount == 2,
+      """
+      notice \(reader.notice ?? "none"), pages \(String(describing: reader.controller?.pageCount)), \
+      reader's file \(String(describing: reader.fileURL)), library's \(url)
+      """)
+    reader.stopWatching()
+  }
+
+  @Test("After a rename while the app was away, the reader watches the file at its new name (#224)")
+  func watchesTheRenamedFile() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try SyntheticPDF.make(pages: ["Mine"]), title: "Shared")
+    let reader = harness.reader(for: document)
+    await reader.load()
+    let data = try Data(contentsOf: try await harness.library.fileURL(for: document.id))
+    await reader.setWatching(false)
+    // Renamed in Files while the app is in the background; the library follows it.
+    var renamed = document
+    renamed.fileName = "Shared renamed.pdf"
+    try FileManager.default.removeItem(at: try await harness.library.fileURL(for: document.id))
+    await harness.library.seed(renamed, data: data)
+    let url = try await harness.library.fileURL(for: document.id)
+    await reader.setWatching(true)
+    #expect(reader.fileURL?.lastPathComponent == "Shared renamed.pdf")
+
+    let theirs = try SyntheticPDF.make(pages: ["Theirs", "Two"])
+    await Task.detached {
+      var error: NSError?
+      NSFileCoordinator(filePresenter: nil).coordinate(writingItemAt: url, options: .forReplacing, error: &error) {
+        try? theirs.write(to: $0)
+      }
+    }.value
+    for _ in 0..<150 where reader.controller?.pageCount != 2 { try await Task.sleep(for: .milliseconds(20)) }
+    #expect(reader.controller?.pageCount == 2, "Another app's change at the new name is heard")
     reader.stopWatching()
   }
 
@@ -2479,7 +2541,11 @@ struct ReaderTextEditingTests {
     #expect(reader.controller === controller && reader.selectedTextRegion != nil, "The editor must stay open")
 
     reader.cancelTextEdit()
-    for _ in 0..<200 where reader.controller?.pageCount != 2 { try await Task.sleep(for: .milliseconds(10)) }
+    // The notice is set once the reload has finished, after the new pages are shown: load() can still
+    // be waiting on telemetry when they are (run 40650815302).
+    for _ in 0..<200 where reader.controller?.pageCount != 2 || reader.notice == nil {
+      try await Task.sleep(for: .milliseconds(10))
+    }
     #expect(
       reader.controller?.pageCount == 2 && reader.notice != nil,
       "Pages shown: \(reader.controller?.pageCount ?? 0); notice: \(String(describing: reader.notice))")

@@ -1034,14 +1034,15 @@ struct SaveFaultTests {
     #expect(try PDFDocumentController(url: url).annotationCount(onPage: 0) == 1, "Saving again works")
   }
 
-  @Test("Saving to a file that doesn't exist yet creates it")
+  /// A save that keeps an earlier version is of a document already on disk, so it refuses a missing file
+  /// instead (#224, `SaveFaultInjectionTests.movedAwayIsNotWrittenAnew`).
+  @Test("Saving to a file that doesn't exist yet creates it, when no earlier version is kept")
   func newFile() throws {
     let url = FileManager.default.temporaryDirectory.appendingPathComponent("new-\(UUID().uuidString).pdf")
     let controller = try PDFDocumentController(data: SyntheticPDF.makeSample())
     controller.addNote("New", onPage: 0)
-    try controller.save(to: url, keepingPreviousAt: url.appendingPathExtension("previous"))
+    try controller.save(to: url)
     #expect(try PDFDocumentController(url: url).annotationCount(onPage: 0) == 1)
-    #expect(!FileManager.default.fileExists(atPath: url.appendingPathExtension("previous").path))
   }
 
   @Test("A saved file keeps every page, and the check reads it without loading it whole")

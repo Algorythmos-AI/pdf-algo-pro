@@ -13,7 +13,9 @@ extension PDFDocumentController {
   ///   - url: The document's file.
   ///   - previous: Where to keep the file as it was before this save (FR-EDIT-008, first step), replacing
   ///     any version kept there before; `nil` keeps none. On APFS the copy is a clone, so it takes no
-  ///     space until the files differ.
+  ///     space until the files differ. A save that keeps one is a save of a document already on disk:
+  ///     if its file is gone, renamed or moved meanwhile, nothing is written, rather than a new file
+  ///     at the old name beside the moved one (#224).
   ///   - isUnchanged: Whether the file is still the version the caller expects, asked with write
   ///     access coordinated, straight before the file is replaced; `nil` asks nothing.
   ///   - written: Told the file's URL with write access still coordinated, straight after it was
@@ -75,6 +77,7 @@ extension PDFDocumentController {
       do {
         try fault(.coordinated)
         let exists = fileManager.fileExists(atPath: target.path)
+        if previous != nil, !exists { throw CocoaError(.fileNoSuchFile) }
         // Another app's write while this save was staged is not replaced (#257).
         if let isUnchanged, exists, !isUnchanged(target) { throw PDFEngineError.changedOnDisk }
         if let previous, exists {

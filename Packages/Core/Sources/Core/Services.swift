@@ -97,10 +97,11 @@ extension DocumentLibrary {
 
 /// What reconciling the library index with the files changed.
 public struct Reconciliation: Equatable, Sendable {
-  /// Documents found without an entry; they still need inspecting and indexing.
+  /// Documents found without an entry, or whose file came back after it was gone; they still need
+  /// inspecting and indexing.
   public var added: [Document]
-  /// Entries removed because their file is gone; their search text and Spotlight entry must go too
-  /// (FR-LIB-006).
+  /// Entries removed because their file is gone (the library may keep one a while in case its file
+  /// comes back); their search text and Spotlight entry must go too (FR-LIB-006).
   public var removed: [DocumentID]
 
   /// Creates a result.

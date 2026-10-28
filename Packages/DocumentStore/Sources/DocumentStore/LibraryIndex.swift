@@ -76,12 +76,101 @@ public enum LibrarySchemaV1: VersionedSchema {
   }
 }
 
+/// Version 2 of the library index schema: version 1, the identity of each entry's file, and when an
+/// entry's file was found gone (#224).
+///
+/// Like version 1, every attribute is optional or defaulted and nothing is unique. Version 1 shipped
+/// in Staging builds and is never changed; a store in it migrates to this one in a lightweight stage,
+/// since both new attributes are optional. Its entries have no identity until the library records
+/// one for each file still at its name.
+public enum LibrarySchemaV2: VersionedSchema {
+  /// The schema version.
+  public static let versionIdentifier = Schema.Version(2, 0, 0)
+
+  /// The models in this version.
+  public static var models: [any PersistentModel.Type] { [DocumentEntry.self] }
+
+  /// One document's index entry.
+  ///
+  /// The file is the source of truth; this is derived data.
+  @Model
+  public final class DocumentEntry {
+    /// The document identifier.
+    public var id = UUID()
+    /// The title shown in the library.
+    public var title = ""
+    /// The file's path inside the library folder, such as `Report.pdf` or `Work/Report.pdf`.
+    public var fileName = ""
+    /// When the document was added.
+    public var addedAt = Date.distantPast
+    /// When the contents last changed.
+    public var modifiedAt = Date.distantPast
+    /// When the document was last opened.
+    public var lastOpenedAt: Date?
+    /// The last page shown, zero-based.
+    public var lastPageIndex = 0
+    /// The page count, zero while unknown.
+    public var pageCount = 0
+    /// Whether the document is a favourite.
+    public var isFavorite = false
+    /// The user's tags.
+    public var tags: [String] = []
+    /// When the document was moved to Recently Deleted.
+    public var deletedAt: Date?
+    /// Whether the PDF has selectable text.
+    public var hasTextLayer = false
+    /// Whether the PDF needs a password.
+    public var isEncrypted = false
+    /// The identity of the file, so it is found again when the Files app renames or moves it
+    /// (`FileIdentity`); `nil` until the library has recorded it.
+    public var fileIdentity: String?
+    /// When the library found the file gone and couldn't follow it, or `nil` while it is there.
+    ///
+    /// Such an entry is kept, out of the library, for a while in case the file comes back.
+    public var goneAt: Date?
+
+    init(_ document: Document) {
+      id = document.id.rawValue
+      update(from: document)
+    }
+
+    /// Takes every value but the file identity and `goneAt`, which only `setFileIdentity` and
+    /// `setGone` change.
+    func update(from document: Document) {
+      title = document.title
+      fileName = document.fileName
+      addedAt = document.addedAt
+      modifiedAt = document.modifiedAt
+      lastOpenedAt = document.lastOpenedAt
+      lastPageIndex = document.lastPageIndex
+      pageCount = document.pageCount
+      isFavorite = document.isFavorite
+      tags = document.tags
+      deletedAt = document.deletedAt
+      hasTextLayer = document.hasTextLayer
+      isEncrypted = document.isEncrypted
+    }
+
+    var value: Document {
+      Document(
+        id: DocumentID(rawValue: id), title: title, fileName: fileName, addedAt: addedAt, modifiedAt: modifiedAt,
+        lastOpenedAt: lastOpenedAt, lastPageIndex: lastPageIndex, pageCount: pageCount, isFavorite: isFavorite,
+        tags: tags, deletedAt: deletedAt, hasTextLayer: hasTextLayer, isEncrypted: isEncrypted)
+    }
+  }
+}
+
+/// The schema the index is in now.
+typealias CurrentLibrarySchema = LibrarySchemaV2
+
 /// The migration plan for the index; later versions add stages here.
 public enum LibraryMigrationPlan: SchemaMigrationPlan {
   /// Every schema version, oldest first.
-  public static var schemas: [any VersionedSchema.Type] { [LibrarySchemaV1.self] }
-  /// No migrations yet.
-  public static var stages: [MigrationStage] { [] }
+  public static var schemas: [any VersionedSchema.Type] { [LibrarySchemaV1.self, LibrarySchemaV2.self] }
+  /// Version 2 only adds optional attributes, so a lightweight stage migrates to it.
+  public static var stages: [MigrationStage] {
+    [.lightweight(fromVersion: LibrarySchemaV1.self, toVersion: LibrarySchemaV2.self)]
+  }
 }
 
 /// Where the library keeps its index (ADR-0006).
@@ -89,32 +178,47 @@ public enum LibraryMigrationPlan: SchemaMigrationPlan {
 /// The app uses `LibraryIndex`. The library reads and writes the index only through these calls, so
 /// a test can stand in a store whose writes fail.
 public protocol LibraryStore: Sendable {
-  /// Every entry.
+  /// Every entry, but those whose file is gone (`setGone`).
   func all() async throws -> [Document]
-  /// One entry, or `nil`.
+  /// One entry, or `nil`; also `nil` for an entry whose file is gone.
   func document(_ id: DocumentID) async throws -> Document?
   /// Inserts or replaces an entry.
   func upsert(_ document: Document) async throws
   /// Deletes an entry if it exists.
   func delete(_ id: DocumentID) async throws
+  /// The file identity recorded for each entry that has one (#224).
+  func fileIdentities() async throws -> [DocumentID: String]
+  /// Records the identity of an entry's file, or clears it with `nil`; does nothing without the entry.
+  ///
+  /// `upsert` never changes it, so an entry keeps its identity through every other change.
+  func setFileIdentity(_ identity: String?, for id: DocumentID) async throws
+  /// The entries whose file is gone, with when it was found gone (#224).
+  func goneEntries() async throws -> [(document: Document, goneAt: Date)]
+  /// Marks an entry's file gone at a date, taking the entry out of `all()`, or back with `nil`.
+  ///
+  /// It does nothing without the entry, and `upsert` never changes it.
+  func setGone(_ date: Date?, for id: DocumentID) async throws
 }
 
 /// The SwiftData store, isolated to its own model actor.
 @ModelActor
 actor SwiftDataIndexStore {
+  typealias Entry = CurrentLibrarySchema.DocumentEntry
+
   func all() throws -> [Document] {
-    try modelContext.fetch(FetchDescriptor<LibrarySchemaV1.DocumentEntry>()).map(\.value)
+    try modelContext.fetch(FetchDescriptor<Entry>()).filter { $0.goneAt == nil }.map(\.value)
   }
 
   func document(_ id: DocumentID) throws -> Document? {
-    try entry(id)?.value
+    guard let entry = try entry(id), entry.goneAt == nil else { return nil }
+    return entry.value
   }
 
   func upsert(_ document: Document) throws {
     if let existing = try entry(document.id) {
       existing.update(from: document)
     } else {
-      modelContext.insert(LibrarySchemaV1.DocumentEntry(document))
+      modelContext.insert(Entry(document))
     }
     try save()
   }
@@ -122,6 +226,32 @@ actor SwiftDataIndexStore {
   func delete(_ id: DocumentID) throws {
     guard let existing = try entry(id) else { return }
     modelContext.delete(existing)
+    try save()
+  }
+
+  func fileIdentities() throws -> [DocumentID: String] {
+    var identities: [DocumentID: String] = [:]
+    for entry in try modelContext.fetch(FetchDescriptor<Entry>()) {
+      if let identity = entry.fileIdentity { identities[DocumentID(rawValue: entry.id)] = identity }
+    }
+    return identities
+  }
+
+  func setFileIdentity(_ identity: String?, for id: DocumentID) throws {
+    guard let existing = try entry(id), existing.fileIdentity != identity else { return }
+    existing.fileIdentity = identity
+    try save()
+  }
+
+  func goneEntries() throws -> [(document: Document, goneAt: Date)] {
+    try modelContext.fetch(FetchDescriptor<Entry>()).compactMap { entry in
+      entry.goneAt.map { (document: entry.value, goneAt: $0) }
+    }
+  }
+
+  func setGone(_ date: Date?, for id: DocumentID) throws {
+    guard let existing = try entry(id), existing.goneAt != date else { return }
+    existing.goneAt = date
     try save()
   }
 
@@ -136,9 +266,9 @@ actor SwiftDataIndexStore {
     }
   }
 
-  private func entry(_ id: DocumentID) throws -> LibrarySchemaV1.DocumentEntry? {
+  private func entry(_ id: DocumentID) throws -> Entry? {
     let raw = id.rawValue
-    var descriptor = FetchDescriptor<LibrarySchemaV1.DocumentEntry>(predicate: #Predicate { $0.id == raw })
+    var descriptor = FetchDescriptor<Entry>(predicate: #Predicate { $0.id == raw })
     descriptor.fetchLimit = 1
     return try modelContext.fetch(descriptor).first
   }
@@ -176,6 +306,8 @@ public actor LibraryIndex: LibraryStore {
   nonisolated public let level: StoreLevel
   private let store: SwiftDataIndexStore?
   private var memory: [DocumentID: Document] = [:]
+  private var memoryIdentities: [DocumentID: String] = [:]
+  private var memoryGone: [DocumentID: Date] = [:]
 
   /// Opens the index at a store URL, or in memory when the URL is `nil`.
   ///
@@ -190,7 +322,7 @@ public actor LibraryIndex: LibraryStore {
   static let opening = Mutex(())
 
   private static func open(_ storeURL: URL?) -> (SwiftDataIndexStore?, StoreLevel) {
-    let schema = Schema(versionedSchema: LibrarySchemaV1.self)
+    let schema = Schema(versionedSchema: CurrentLibrarySchema.self)
     var level = StoreLevel.inMemory
     if let storeURL {
       if let opened = openOnDisk(schema: schema, url: storeURL, level: &level) { return opened }
@@ -305,15 +437,15 @@ public actor LibraryIndex: LibraryStore {
     return try ModelContainer(for: schema, migrationPlan: LibraryMigrationPlan.self, configurations: configuration)
   }
 
-  /// Every entry.
+  /// Every entry, but those whose file is gone.
   public func all() async throws -> [Document] {
-    guard let store else { return Array(memory.values) }
+    guard let store else { return memory.values.filter { memoryGone[$0.id] == nil } }
     return try await store.all()
   }
 
-  /// One entry, or `nil`.
+  /// One entry, or `nil`; also `nil` for an entry whose file is gone.
   public func document(_ id: DocumentID) async throws -> Document? {
-    guard let store else { return memory[id] }
+    guard let store else { return memoryGone[id] == nil ? memory[id] : nil }
     return try await store.document(id)
   }
 
@@ -330,8 +462,42 @@ public actor LibraryIndex: LibraryStore {
   public func delete(_ id: DocumentID) async throws {
     guard let store else {
       memory[id] = nil
+      memoryIdentities[id] = nil
+      memoryGone[id] = nil
       return
     }
     try await store.delete(id)
+  }
+
+  /// The file identity recorded for each entry that has one.
+  public func fileIdentities() async throws -> [DocumentID: String] {
+    guard let store else { return memoryIdentities }
+    return try await store.fileIdentities()
+  }
+
+  /// Records the identity of an entry's file, or clears it with `nil`; does nothing without the entry.
+  public func setFileIdentity(_ identity: String?, for id: DocumentID) async throws {
+    guard let store else {
+      if memory[id] != nil { memoryIdentities[id] = identity }
+      return
+    }
+    try await store.setFileIdentity(identity, for: id)
+  }
+
+  /// The entries whose file is gone, with when it was found gone.
+  public func goneEntries() async throws -> [(document: Document, goneAt: Date)] {
+    guard let store else {
+      return memoryGone.compactMap { id, date in memory[id].map { (document: $0, goneAt: date) } }
+    }
+    return try await store.goneEntries()
+  }
+
+  /// Marks an entry's file gone at a date, or back with `nil`; does nothing without the entry.
+  public func setGone(_ date: Date?, for id: DocumentID) async throws {
+    guard let store else {
+      if memory[id] != nil { memoryGone[id] = date }
+      return
+    }
+    try await store.setGone(date, for: id)
   }
 }
