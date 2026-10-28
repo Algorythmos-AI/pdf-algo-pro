@@ -4,7 +4,8 @@ How PDF Algo Pro gets from merged code to users: the two release trains, how ver
 numbers are set, the release pull request and its checklist, TestFlight cohorts, phased release,
 hotfixes, what "rolling back" means on iOS, and what the `release` workflow does. The step-by-step
 procedure is the [App Store submission runbook](process/runbooks/app-store-submission.md); this page is
-the policy it follows.
+the policy it follows. For the first App Store release, the go/no-go list with each item's owner, status
+and evidence is the [1.0 submission checklist](release/1.0-submission-checklist.md).
 
 Owner: Release · Reviewed: each release, and each milestone
 
@@ -187,3 +188,4 @@ New in EN and FR, and the wiki release notes. Who writes what, and when, is in t
 | What shipped | The `vX.Y.Z` tag and the build number in App Store Connect |
 | Current production version and anything deferred | [`docs/working-memory.md`](working-memory.md) |
 | Exceptions to a gate | [`docs/decision-register.md`](decision-register.md) |
+| Go/no-go for 1.0, and the owner's App Store Connect steps | [1.0 submission checklist](release/1.0-submission-checklist.md) |
