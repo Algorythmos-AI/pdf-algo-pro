@@ -659,6 +659,20 @@ struct LibraryModelTests {
     #expect(await harness.index.indexed.last?.isEncrypted == true)
   }
 
+  @Test("Coming back to the foreground does the refreshes still owed, not only the next launch (#236)")
+  func foregroundDoesPendingRefreshes() async throws {
+    let locked = FakeInspector(result: PDFInspection(pageCount: 0, isEncrypted: true, pages: []))
+    let pending = PendingRefreshes(url: nil)
+    let harness = Harness(inspector: locked, pending: pending)
+    await harness.model.load()
+    let document = await harness.library.seed(Document(title: "Lease", fileName: "l.pdf", addedAt: .now))
+    await harness.index.seed(document.id, pages: [PageText(pageIndex: 0, text: "private words")])
+    try await pending.add(document.id)
+    await harness.model.filesMayHaveChanged()
+    #expect(await pending.all.isEmpty, "The app can stay in the background for days, so it mustn't wait for a launch")
+    #expect(await harness.index.stored[document.id] == [], "The words are no longer searchable")
+  }
+
   @Test("Opening the library reads again a file changed since its last recorded change (#242)")
   func changedFileIsReadAgainOnLoad() async throws {
     let harness = Harness()
