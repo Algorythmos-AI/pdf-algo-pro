@@ -29,20 +29,32 @@ private struct PageLook: Equatable {
     return differing * 100 < pixels.count
   }
 
+  /// The page drawn as the engine draws one into a picture, in sRGB.
+  ///
+  /// The iOS simulator draws that as the Mac does (#251's test reads colours that way). Drawn into a
+  /// grey bitmap there, every page came out blank, even one just read from its file.
   private static func draw(_ page: PDFPage?) -> [UInt8] {
     let (width, height) = (153, 198)
     guard let page,
       let context = CGContext(
-        data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width,
-        space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.none.rawValue)
+        data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+        space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
+        bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)
     else { return [] }
-    context.setFillColor(gray: 1, alpha: 1)
+    context.setFillColor(CGColor(gray: 1, alpha: 1))
     context.fill(CGRect(x: 0, y: 0, width: width, height: height))
     let box = page.bounds(for: .mediaBox)
     context.scaleBy(x: CGFloat(width) / box.width, y: CGFloat(height) / box.height)
     page.draw(with: .mediaBox, to: context)
-    guard let data = context.data else { return [] }
-    return Array(UnsafeBufferPointer(start: data.assumingMemoryBound(to: UInt8.self), count: width * height))
+    guard let image = context.makeImage(), let data = image.dataProvider?.data as Data? else { return [] }
+    let bytes = [UInt8](data)
+    return (0..<height).flatMap { row in
+      (0..<width).map { column in
+        let offset = row * image.bytesPerRow + column * 4
+        guard offset + 2 < bytes.count else { return 255 }
+        return UInt8((Int(bytes[offset]) + Int(bytes[offset + 1]) + Int(bytes[offset + 2])) / 3)
+      }
+    }
   }
 }
 
