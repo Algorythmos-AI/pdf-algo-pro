@@ -1,4 +1,5 @@
 import Core
+import DesignSystem
 import Foundation
 import Observation
 
@@ -177,14 +178,16 @@ public final class AssistantModel {
   /// The text to copy or share: the answer, or the extraction as CSV.
   ///
   /// Both end with `generatedFooter`, once: after an answer and its sources, following a blank line;
-  /// in the CSV, as its last row, so the table stays valid CSV.
+  /// in the CSV, as its last row, so the table stays valid CSV. A contract explanation starts with
+  /// the not-legal-advice notice, as it does on screen.
   public var shareableText: String? {
     switch phase {
     case .answered(let answer) where answer.isGrounded:
       let pages = answer.citations.map { String(localized: "p. \($0.pageNumber)", bundle: .module) }.joined(
         separator: ", ")
       let sources = String(localized: "Sources: \(pages)", bundle: .module)
-      return "\(answer.text)\n\n\(sources)\n\n\(Self.generatedFooter)"
+      let notice = task == .explainContract ? "\(ContractDisclosure.notice)\n\n" : ""
+      return "\(notice)\(answer.text)\n\n\(sources)\n\n\(Self.generatedFooter)"
     case .extracted(let extraction): return extraction.csv(notice: Self.generatedFooter)
     default: return nil
     }
