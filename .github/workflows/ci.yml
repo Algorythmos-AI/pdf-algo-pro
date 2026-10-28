@@ -1151,10 +1151,14 @@ jobs:
         run: swift test --package-path Packages/PDFEngine --filter GoldenCorpusTests
       - name: Thread Sanitizer on the save path (plan H4)
         # PDFDocument isn't thread-safe, so the controller, toolkit and both save fault-injection suites run
-        # under the sanitizer; a data race fails this step.
+        # under the sanitizer; a data race fails this step. TextEditingControllerTests/longDocument is left
+        # out: it compares the cost of an edit in a long and a short document, which the sanitizer
+        # distorts, and took 424 s against its 5-minute limit on run 40679448856 (issue #350). It still
+        # runs, with its limit, in `ios`.
         run: |
           swift test --package-path Packages/PDFEngine --sanitize=thread \
-            --filter "SaveFaultTests|SaveFaultInjectionTests|ControllerTests|ToolkitTests"
+            --filter "SaveFaultTests|SaveFaultInjectionTests|ControllerTests|ToolkitTests" \
+            --skip "TextEditingControllerTests/longDocument"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: saved-pdfs
