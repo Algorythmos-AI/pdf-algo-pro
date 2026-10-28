@@ -18,6 +18,24 @@ public struct TextRegionSelection: Hashable, Sendable {
   }
 }
 
+/// A page a text edit made, read from a one-page document of its own (#343).
+///
+/// A page's content stays readable only while the file it was read from is open, and once the
+/// page is in the document nothing else holds that file: an undo step did, until a shortened undo
+/// history let the step go. The page then still draws, but its text cannot be found and a copy of
+/// it, as extracting pages or saving without a password makes, is empty. So the page holds the
+/// file itself, for exactly as long as anything holds the page: the document, an undo or redo
+/// step, or the edits to put back.
+final class EditedPage: PDFPage {
+  /// The file the page was read from.
+  var source: CGPDFDocument?
+}
+
+/// A document whose pages are `EditedPage`s.
+final class EditedPageDocument: PDFDocument {
+  override var pageClass: AnyClass { EditedPage.self }
+}
+
 /// The text found on one page, kept while the page object stays in the document unchanged.
 struct TextPage {
   /// Tells one finding of a page's text from a later one of the same page.
@@ -690,9 +708,12 @@ extension PDFDocumentController {
     // Everything above awaited. If the document changed meanwhile, the edit is dropped untouched.
     guard generation == structureGeneration, document.index(for: page) != NSNotFound else { return all(.stale) }
     guard let data = result.page else { return result.outcomes }
-    guard let source = PDFDocument(data: data), source.pageCount == 1, let replacement = source.page(at: 0) else {
+    guard let source = EditedPageDocument(data: data), source.pageCount == 1,
+      let replacement = source.page(at: 0) as? EditedPage
+    else {
       return all(.notVerified)
     }
+    replacement.source = source.documentRef
     view?.endEditing()
     let step = TextUndoStep(bytes: found.snapshot.count + data.count)
     swap(page, for: replacement, keeping: source, links: links, step: step)
@@ -742,7 +763,8 @@ extension PDFDocumentController {
   /// - Parameters:
   ///   - old: The page to take out; it must be in the document.
   ///   - new: The page to put in its place.
-  ///   - source: The document `new` came from, kept alive for as long as the page can come back.
+  ///   - source: The document `new` came from. Not needed to keep `new` readable: a page an edit
+  ///     made holds its own file (`EditedPage`, #343).
   ///   - links: Which links point at which page.
   ///   - step: The text edit this swap makes, undoes or redoes, counted in `textUndoBytes`; the undo
   ///     or redo handler holds it, so it lives exactly as long as the history keeps the edit.
