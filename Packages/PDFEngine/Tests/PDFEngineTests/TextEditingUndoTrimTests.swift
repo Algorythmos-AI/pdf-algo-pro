@@ -29,10 +29,7 @@ private struct PageLook: Equatable {
     return differing * 100 < pixels.count
   }
 
-  /// The page drawn as the engine draws one into a picture, in sRGB.
-  ///
-  /// The iOS simulator draws that as the Mac does (#251's test reads colours that way). Drawn into a
-  /// grey bitmap there, every page came out blank, even one just read from its file.
+  /// The page drawn small, as the engine draws one into a picture, in sRGB.
   private static func draw(_ page: PDFPage?) -> [UInt8] {
     let (width, height) = (153, 198)
     guard let page,
@@ -89,6 +86,12 @@ struct TextEditingUndoTrimTests {
           Line("Heading of page \(number)", at: CGPoint(x: 72, y: 700)),
           Line("Body of page \(number)", at: CGPoint(x: 72, y: 680)),
         ]
+      },
+      // A filled box beside the text, so a page's ink shows whatever the system makes of small text
+      // drawn small: on the iOS simulator the lines alone drew too light to count as ink.
+      decorate: { context, _ in
+        context.setFillColor(gray: 0, alpha: 1)
+        context.fill(CGRect(x: 72, y: 600, width: 240, height: 48))
       })
     let url = FileManager.default.temporaryDirectory
       .appendingPathComponent("w1-343-\(UUID().uuidString).pdf")
