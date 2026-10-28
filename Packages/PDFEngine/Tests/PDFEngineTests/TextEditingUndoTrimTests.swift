@@ -9,14 +9,17 @@ import Testing
 private typealias Line = TextEditFixtures.Line
 
 /// A page as it reads and as it draws.
-private struct PageLook: Equatable {
+private struct PageLook {
   let text: String
   /// Grey levels of the page drawn small, top row first.
   let pixels: [UInt8]
+  /// How the drawing went, for a failure's message: the page's box and rotation, and the pixels, or
+  /// the step that stopped it.
+  let drawing: String
 
   init(_ page: PDFPage?) {
     text = EditProof.squeezed(page?.string ?? "")
-    pixels = Self.draw(page)
+    (pixels, drawing) = Self.draw(page)
   }
 
   /// Whether anything is drawn on the page at all.
@@ -30,28 +33,35 @@ private struct PageLook: Equatable {
   }
 
   /// The page drawn small, as the engine draws one into a picture, in sRGB.
-  private static func draw(_ page: PDFPage?) -> [UInt8] {
+  private static func draw(_ page: PDFPage?) -> ([UInt8], String) {
     let (width, height) = (153, 198)
-    guard let page,
+    guard let page else { return ([], "no page") }
+    let box = page.bounds(for: .mediaBox)
+    let about = "box \(box), rotation \(page.rotation)"
+    guard
       let context = CGContext(
         data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
         space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
         bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)
-    else { return [] }
+    else { return ([], "\(about): no bitmap context") }
     context.setFillColor(CGColor(gray: 1, alpha: 1))
     context.fill(CGRect(x: 0, y: 0, width: width, height: height))
-    let box = page.bounds(for: .mediaBox)
     context.scaleBy(x: CGFloat(width) / box.width, y: CGFloat(height) / box.height)
     page.draw(with: .mediaBox, to: context)
-    guard let image = context.makeImage(), let data = image.dataProvider?.data as Data? else { return [] }
+    guard let image = context.makeImage() else { return ([], "\(about): no image") }
+    guard let data = image.dataProvider?.data as Data? else { return ([], "\(about): no image data") }
     let bytes = [UInt8](data)
-    return (0..<height).flatMap { row in
+    let pixels: [UInt8] = (0..<height).flatMap { row in
       (0..<width).map { column in
         let offset = row * image.bytesPerRow + column * 4
         guard offset + 2 < bytes.count else { return 255 }
         return UInt8((Int(bytes[offset]) + Int(bytes[offset + 1]) + Int(bytes[offset + 2])) / 3)
       }
     }
+    let darkest = pixels.min().map(String.init) ?? "none"
+    let dark = pixels.count { $0 < 128 }
+    let summary = "\(about): \(pixels.count) pixels from \(bytes.count) bytes, darkest \(darkest), \(dark) below 128"
+    return (pixels, summary)
   }
 }
 
@@ -68,13 +78,17 @@ struct TextEditingUndoTrimTests {
       #expect(!regions.isEmpty, "Page \(page + 1) has text to edit \(moment)")
       let look = PageLook(controller.document.page(at: page))
       #expect(look.text == wanted.text, "Page \(page + 1) reads as it should \(moment)")
-      #expect(look.isInked && look.drawsLike(wanted), "Page \(page + 1) draws as it should \(moment)")
+      #expect(
+        look.isInked && look.drawsLike(wanted),
+        "Page \(page + 1) draws as it should \(moment); drawn: \(look.drawing); wanted: \(wanted.drawing)")
     }
     // A page copied out, as extracting pages or saving without a password does, keeps its content.
     let extracted = try #require(PDFDocument(data: controller.extractPages(IndexSet(0..<controller.pageCount))))
     for (page, wanted) in expected.enumerated() {
       let look = PageLook(extracted.page(at: page))
-      #expect(look.text == wanted.text && look.isInked, "Page \(page + 1) is copied out whole \(moment)")
+      #expect(
+        look.text == wanted.text && look.isInked,
+        "Page \(page + 1) is copied out whole \(moment); drawn: \(look.drawing)")
     }
   }
 
@@ -158,7 +172,9 @@ struct TextEditingUndoTrimTests {
       for (page, wanted) in expected.enumerated() {
         let look = PageLook(reopened.page(at: page))
         #expect(look.text == wanted.text, "Page \(page + 1) reads as it did, \(moment)")
-        #expect(look.isInked && look.drawsLike(wanted), "Page \(page + 1) draws as it did, \(moment)")
+        #expect(
+          look.isInked && look.drawsLike(wanted),
+          "Page \(page + 1) draws as it did, \(moment); drawn: \(look.drawing); wanted: \(wanted.drawing)")
       }
     }
     try controller.save(to: url)
