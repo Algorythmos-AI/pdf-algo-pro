@@ -229,7 +229,8 @@ final class ReaderUITests: UITestCase {
     at(CGPoint(x: aside, y: frame.minY + frame.height * 0.7)).press(
       forDuration: 0.05, thenDragTo: at(CGPoint(x: aside, y: frame.minY + frame.height * 0.4)), withVelocity: .slow,
       thenHoldForDuration: 1)
-    let lowered = placeOfThePages(in: app)
+    let document = pages.scrollViews.firstMatch.children(matching: .any).firstMatch
+    let lowered = waitUntilSteady(document)
     let shift = lowered.minY - rested.minY
     let places = "drawn \(drawn), pages \(pages.frame), place \(rested) -> \(lowered)"
     XCTAssertLessThan(shift, -100, "The first page's top did not go off the screen: \(places)")
@@ -237,9 +238,16 @@ final class ReaderUITests: UITestCase {
     at(start).tap()
     XCTAssertTrue(bar.waitForExistence(timeout: Self.settleTimeout), "A tap on the rectangle selects it: \(places)")
 
-    // Into the zone at the top where the pages scroll back, and held there.
+    // Into the zone at the top where the pages scroll back, and held there. The drag waits until the bar
+    // and the pages have kept still, and the finger rests before it moves: begun at once after the tap,
+    // it moved the pages instead of the rectangle, from -101 to -158 (issue #326), as a drag right after
+    // a tap is not taken like a later one (issue #202).
+    waitUntilSteady(bar)
+    let held = waitUntilSteady(document)
+    XCTAssertTrue(
+      isSame(held, lowered), "The pages moved after the tap that selected the rectangle: \(held); \(places)")
     let edge = CGPoint(x: drawn.midX, y: pages.frame.minY + 24)
-    at(start).press(forDuration: 0.05, thenDragTo: at(edge), withVelocity: .slow, thenHoldForDuration: 2)
+    at(start).press(forDuration: 0.3, thenDragTo: at(edge), withVelocity: .slow, thenHoldForDuration: 2)
     let scrolled = placeOfThePages(in: app)
     if scrolled.minY < lowered.minY + 40 || !bar.exists {
       keepEvidence(app, named: "carried to the edge", notes: "pages' place \(lowered) -> \(scrolled); \(places)")
