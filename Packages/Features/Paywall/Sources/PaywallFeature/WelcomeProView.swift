@@ -103,7 +103,7 @@ struct WelcomeProView: View {
           .foregroundStyle(Color.ds.labelSecondary)
           .accessibilityIdentifier(AccessibilityID.Paywall.Welcome.reminderUnavailable)
       }
-      Text("You can cancel at any time in Settings, under Subscription.", bundle: .module)
+      Text("You can cancel at any time: open the Settings app, tap your name (Apple Account), then Subscriptions. Or tap Manage subscription in PDF Algo Pro’s Settings.", bundle: .module)
         .font(.footnote)
         .foregroundStyle(Color.ds.labelSecondary)
     }

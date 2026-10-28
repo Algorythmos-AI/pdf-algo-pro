@@ -110,6 +110,9 @@ Store notes (see the changelog strategy).
   until the App Store's renewal reached the device.
 - Pro: a subscriber whose payment is being retried in the App Store's grace period keeps Pro when
   the subscription's state can't be read, for example offline. Before, Pro could switch off.
+- Pro: the plans screen, Welcome to Pro, the trial reminder and the trial notice now all give the
+  same way to cancel: open the Settings app, tap your name (Apple Account), then Subscriptions. Two
+  of them used to say "Settings, under Subscription". In French they all say "résilier".
 - Editing text (internal builds): a name pasted from a web page with a hidden soft hyphen or
   zero-width space is now changed in the page. Before, the hidden character made the change fail,
   the line was covered instead, and every other line on that page could then only be covered.

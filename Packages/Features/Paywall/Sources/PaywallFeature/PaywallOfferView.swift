@@ -244,7 +244,7 @@ struct PurchaseTerms: View {
         .font(.subheadline.weight(.semibold))
         .foregroundStyle(Color.ds.labelPrimary)
       Text(
-        "Renews automatically until cancelled. Cancel at any time in Settings, under your Apple Account, at least a day before it renews.",
+        "Renews automatically until cancelled. Cancel at any time, at least a day before it renews: open the Settings app, tap your name (Apple Account), then Subscriptions.",
         bundle: .module
       )
       .font(.caption)

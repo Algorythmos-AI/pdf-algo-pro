@@ -130,7 +130,7 @@ struct RootView: View {
       }
     } message: { endsAt in
       Text(
-        "Your PDF Algo Pro trial ends on \(endsAt, format: .dateTime.day().month(.wide)). You can manage or cancel it in Settings, under Subscription."
+        "Your PDF Algo Pro trial ends on \(endsAt, format: .dateTime.day().month(.wide)). To manage or cancel it, open the Settings app, tap your name (Apple Account), then Subscriptions. Or tap Manage subscription in PDF Algo Pro’s Settings."
       )
     }
     // App Lock turned itself off: the device has no passcode, so nothing could confirm its owner (#221).

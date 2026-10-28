@@ -116,7 +116,7 @@ final class TrialReminderScheduler {
   static func words() -> (title: String, body: String) {
     let body = String(
       localized:
-        "If your PDF Algo Pro trial is still running, it ends within a day. Manage it in Settings, under Subscription.")
+        "If your PDF Algo Pro trial is still running, it ends within a day. To manage or cancel it, open the Settings app, tap your name (Apple Account), then Subscriptions.")
     return (String(localized: "Trial reminder"), body)
   }
 
