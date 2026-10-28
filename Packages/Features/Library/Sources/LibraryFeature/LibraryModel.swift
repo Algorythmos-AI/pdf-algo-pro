@@ -150,10 +150,15 @@ public final class LibraryModel {
   /// foreground: a file renamed or moved there is followed, so a save never misses it (#224).
   ///
   /// Does nothing until the library has loaded, which does this itself.
+  ///
+  /// The refreshes still owed run too: the app can stay in the background for days, and a protected
+  /// document's words must not wait for the next launch to leave search (#236). Files changed in other
+  /// apps wait for that launch, so coming back stays quick.
   public func filesMayHaveChanged() async {
     guard phase == .loaded else { return }
     await reconcile()
     await reload()
+    for _ in 0..<(await intake.refreshPending()) { await telemetry.record("quality.operation.failed") }
   }
 
   private func reconcile() async {
