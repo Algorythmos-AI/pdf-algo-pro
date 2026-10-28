@@ -42,6 +42,19 @@ Store notes (see the changelog strategy).
   back as a new document, or disappear from the library once it was in a folder. This holds when
   another app saved it first, when it is renamed while open, and when it comes back within 30 days
   after being moved out. Restoring it from Recently Deleted puts it back in its folder.
+- Removing a document's password no longer sends its links between pages to the first page.
+- Recognising text that is stopped from its Live Activity, or ended by iOS in the background, now
+  keeps the pages already done, and the reader offers Resume recognising. A scan whose recognition
+  had just finished when the app stopped no longer gets its text twice.
+- Editing text no longer closes the app on a PDF whose font tables give character codes far out of
+  range; that font's text is left as it is instead.
+- The free daily allowance starts again each day after the calendar is changed, for example from
+  Buddhist to Gregorian, or the clock is set years ahead and back. A request cancelled before it
+  finished no longer counts against it.
+- While a renewal payment is being retried, Settings and the plans screen say Pro is paused and lead
+  to Manage Subscription, instead of offering to buy Pro again. The trial reminder no longer says the
+  trial ends tomorrow when it may already have changed, and it arrives a day before the trial ends
+  wherever you are.
 - Dark mode: the App Lock's "Unlock with Face ID" button and the selection bar's Delete are easy to
   read again. Both fell below the 4.5:1 contrast text needs on an iPhone in dark mode.
 - Welcome to Pro: the "Remind me the day before" switch no longer turns itself back off without a
@@ -66,9 +79,6 @@ Store notes (see the changelog strategy).
   why; set a passcode and turn it on again in Settings. With a passcode it always asks.
 - App Lock: while the app is locked, Siri and Shortcuts no longer read out document summaries or
   list your document titles. Siri asks you to open the app and unlock it first.
-- Library: renaming or moving a PDF in the Files app no longer deletes its earlier versions; they
-  are kept for 30 days, as after any save. Its tags, favourite and reading position still don't
-  follow it to the new name yet.
 - Library: when renaming, deleting or restoring a document can't be recorded, for example because
   the device is full, the file now goes back where it was, so "your documents haven't changed" is
   true. Before, the file moved anyway, and the document could lose its tags and earlier versions at
