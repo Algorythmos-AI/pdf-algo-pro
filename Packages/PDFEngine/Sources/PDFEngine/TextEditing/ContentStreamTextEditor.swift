@@ -119,7 +119,11 @@ public struct ContentStreamTextEditor: PDFTextEditing {
         outcomes.append(outcome)
       }
     }
-    guard plans.count == edits.count else { return TextEditResult(page: nil, outcomes: outcomes) }
+    guard plans.count == edits.count else {
+      // All or nothing: an edit that could have been made was not, and says so (#268), so no
+      // caller takes it for made, nor for the edit at fault.
+      return TextEditResult(page: nil, outcomes: outcomes.map { $0.isEdited ? .refused(.otherEditFailed) : $0 })
+    }
 
     func refused(_ refusal: TextEditRefusal) -> TextEditResult {
       TextEditResult(page: nil, outcomes: edits.map { _ in .refused(refusal) })

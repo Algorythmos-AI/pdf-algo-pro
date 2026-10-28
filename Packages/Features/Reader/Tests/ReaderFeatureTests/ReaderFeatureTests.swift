@@ -809,6 +809,101 @@ struct ReaderModelTests {
     #expect(ViewRendering.draws(view))
   }
 
+  /// French titles are longer; the bar must not wrap them or break "Supprimer" in two (#303).
+  ///
+  /// The bar takes the roomiest arrangement whose row fits on one line, as its unseen ViewThatFits
+  /// does, and stacks when none does; this lays each row out at its ideal width the same way, in
+  /// English and in French.
+  @Test(
+    "In French the selection bar for a text box follows the same rule as in English, and keeps Edit text on the bar",
+    arguments: [DynamicTypeSize.large, .accessibility3, .accessibility5])
+  func selectionBarFitsInFrench(size: DynamicTypeSize) throws {
+    let room: CGFloat = 390 - 2 * SelectionBar.padding
+    let rows: [SelectionBar.Arrangement] = [.everything, .styleAndCopyInMore, .deleteInMore, .deleteInMoreNoTitle]
+    func width(of arrangement: SelectionBar.Arrangement, in language: String) -> CGFloat {
+      let bar = SelectionBar(
+        selection: AnnotationSelection(kind: .textBox, pageIndex: 0, text: "Text"), onEdit: {}, onDelete: {},
+        onDone: {}, onMove: { _ in }, onResize: { _ in }, onColor: { _ in })
+      let row = bar.row(arrangement).fixedSize(horizontal: true, vertical: false)
+        .environment(\.locale, Locale(identifier: language)).environment(\.dynamicTypeSize, size)
+      return ViewRendering.image(of: row)?.size.width ?? .infinity
+    }
+    func arrangement(in language: String) -> SelectionBar.Arrangement {
+      rows.first { width(of: $0, in: language) <= room } ?? .stacked
+    }
+    let english = arrangement(in: "en")
+    let french = arrangement(in: "fr")
+    // French is longer, so it never gets a roomier arrangement than English.
+    #expect(french.rawValue >= english.rawValue, "French: \(french), English: \(english)")
+    // A row is used only where it fits on one line; otherwise the bar stacks.
+    #expect(french == .stacked || width(of: french, in: "fr") <= room, "French wraps in \(french)")
+    // Edit text is on the bar in every language at every size: never under More.
+    for chosen in [english, french] {
+      #expect(!SelectionBar.underMore(in: chosen).contains(.editText), "Edit text is under More in \(chosen)")
+    }
+    #expect(SelectionBar.Arrangement.allCases.allSatisfy { !SelectionBar.underMore(in: $0).contains(.editText) })
+    // At the default size the bar is one row in both languages: the title gives way before it stacks.
+    if size == .large {
+      #expect(english != .stacked && french != .stacked, "English: \(english), French: \(french)")
+    }
+    // Style and Copy go under More first, then Delete.
+    #expect(SelectionBar.underMore(in: .styleAndCopyInMore) == [.style, .copy])
+    #expect(SelectionBar.underMore(in: .deleteInMore) == [.style, .copy, .delete])
+  }
+
+  /// Wrapped, Edit text breaks only between words, never inside one, so no word is hyphenated (#303).
+  @Test("Edit text wraps only between its words, in French as in English")
+  func editTextWrapsOnlyBetweenWords() {
+    #expect(SelectionBar.editTextWords(locale: Locale(identifier: "fr")) == ["Modifier", "le", "texte"])
+    #expect(SelectionBar.editTextWords(locale: Locale(identifier: "en")) == ["Edit", "text"])
+    // Each word is laid out whole: lines end only between words, and a word wider than the line has
+    // a line to itself rather than being broken.
+    let widths: [CGFloat] = [80, 20, 50]
+    #expect(WordFlow.lines(widths: widths, maxWidth: 200, spacing: 5) == [[0, 1, 2]])
+    #expect(WordFlow.lines(widths: widths, maxWidth: 110, spacing: 5) == [[0, 1], [2]])
+    #expect(WordFlow.lines(widths: widths, maxWidth: 60, spacing: 5) == [[0], [1], [2]])
+    #expect(WordFlow.lines(widths: widths, maxWidth: 30, spacing: 5) == [[0], [1], [2]])
+    #expect(WordFlow.lines(widths: [], maxWidth: 30, spacing: 5).isEmpty)
+    // Stacked at the largest size, the bar draws in both languages.
+    for language in ["en", "fr"] {
+      let bar = SelectionBar(
+        selection: AnnotationSelection(kind: .textBox, pageIndex: 0, text: "Text"), onEdit: {}, onDelete: {},
+        onDone: {}, onMove: { _ in }, onResize: { _ in }, onColor: { _ in }
+      )
+      .row(.stacked).frame(width: 390 - 2 * SelectionBar.padding)
+      .environment(\.locale, Locale(identifier: language)).environment(\.dynamicTypeSize, .accessibility5)
+      #expect(ViewRendering.draws(bar))
+    }
+  }
+
+  /// The Move actions sit on the title while it is shown, and on Edit text when it is hidden, since a
+  /// container like the bar is not a stop for VoiceOver or Switch Control (#303).
+  @Test("When the bar hides its title, in one row or stacked, Edit text carries the Move actions")
+  func moveActionsWhenTheTitleIsHidden() {
+    #expect(SelectionBar.moveActionsCarrier(titleShown: true, isTextEditable: true) == .title)
+    #expect(SelectionBar.moveActionsCarrier(titleShown: false, isTextEditable: true) == .editText)
+    #expect(
+      SelectionBar.moveActionsCarrier(titleShown: false, isTextEditable: false) == .done,
+      "Without Edit text, Done carries them")
+    // The title is hidden in the one row that gives it up, and in the stacked bar when it doesn't fit.
+    for arrangement in SelectionBar.Arrangement.allCases {
+      for fits in [true, false] {
+        let hidden = arrangement == .deleteInMoreNoTitle || (arrangement == .stacked && !fits)
+        let shown = SelectionBar.showsTitle(in: arrangement, stackedTitleFits: fits)
+        #expect(shown == !hidden, "\(arrangement)")
+        #expect(
+          SelectionBar.moveActionsCarrier(titleShown: shown, isTextEditable: true) == (hidden ? .editText : .title),
+          "\(arrangement), the title fitting: \(fits)")
+        // A drawing, shape, stamp or signature moves too but has no Edit text: Done carries them.
+        #expect(
+          SelectionBar.moveActionsCarrier(titleShown: shown, isTextEditable: false) == (hidden ? .done : .title),
+          "\(arrangement) without Edit text, the title fitting: \(fits)")
+      }
+    }
+    #expect(AnnotationSelection(kind: .ink, pageIndex: 0, text: nil).isMovable)
+    #expect(!AnnotationSelection(kind: .ink, pageIndex: 0, text: nil).isTextEditable)
+  }
+
   @Test("Layout choices are remembered")
   func displayMode() async throws {
     let harness = Harness()
@@ -1739,6 +1834,48 @@ struct ReaderTextEditingTests {
     #expect(try #require(reader.controller).annotationCount(onPage: 0) == 0)
     let url = try await harness.library.fileURL(for: document.id)
     #expect(try PDFDocumentController(url: url).annotationCount(onPage: 0) == 0, "And the file is as it was")
+  }
+
+  /// Undo waits while text is being edited, so the notice that offers it must wait too (#269).
+  @Test("Undo on the notice, while other text is picked, keeps the notice until it can undo")
+  func coveredInsteadUndoWhileBusy() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try TextEditFixtures.invoice())
+    let reader = harness.reader(for: document, editor: RefusingEditor(rehearsalsFail: false))
+    await reader.load()
+    await reader.beginTextEditing()
+    try await pick("John Smith", in: reader)
+    #expect(await reader.commitTextEdit("Customer: David Smith"))
+    let controller = try #require(reader.controller)
+    // A line is picked on the page before the reader hears of it: text editing is busy.
+    let regions = await controller.pageText(onPage: 0).regions
+    controller.selectTextRegion(try #require(regions.first { $0.text.contains("Materials") }), onPage: 0)
+    await reader.undoCoverInstead()
+    #expect(
+      reader.textEditNotice == .coveredInstead || controller.annotationCount(onPage: 0) == 0,
+      "The notice went away and nothing was undone")
+    reader.cancelTextEdit()
+    await reader.undoCoverInstead()
+    #expect(reader.textEditNotice == nil && controller.annotationCount(onPage: 0) == 0)
+  }
+
+  /// With nothing left to undo, the notice's Undo puts the notice away rather than doing nothing (#269).
+  @Test("Undo on the notice with nothing left to undo puts the notice away")
+  func coveredInsteadUndoWithNothingToUndo() async throws {
+    let harness = Harness()
+    let document = await harness.seed(try TextEditFixtures.invoice())
+    let reader = harness.reader(for: document, editor: RefusingEditor(rehearsalsFail: false))
+    await reader.load()
+    await reader.beginTextEditing()
+    try await pick("John Smith", in: reader)
+    #expect(await reader.commitTextEdit("Customer: David Smith"))
+    #expect(reader.textEditNotice == .coveredInstead)
+    let controller = try #require(reader.controller)
+    // As after an edit that could not be saved was put back: the history is gone.
+    controller.undoManager.removeAllActions()
+    await reader.undoCoverInstead()
+    #expect(reader.textEditNotice == nil, "The notice's Undo did nothing and the notice stayed")
+    #expect(controller.annotationCount(onPage: 0) == 2, "Nothing could be undone, so the cover stays")
   }
 
   @Test("On a page that cannot be edited, the editor says it will cover before a letter is typed")

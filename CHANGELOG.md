@@ -130,6 +130,24 @@ Store notes (see the changelog strategy).
   over, and a long line squeezed into a narrow space could be found only in pieces.
 - The plans screen now says how much the yearly plan saves; with the App Store's own plans the
   line was missing.
+- Editing text (internal builds): covering text on a page turned sideways, or on one whose page box
+  doesn't start at the corner, now takes the colour from behind the text. Before, the cover could be
+  a patch of another part of the page's colour.
+- Editing text (internal builds): a table row whose columns are spaced apart in one line, such as
+  "Qty" and "Amount", is offered for covering rather than changed in place. Before, changing it
+  closed the columns up.
+- Editing text (internal builds): invisible text in a page is no longer offered for editing when
+  the page sets it with a decimal number. Editing and undoing many times no longer shortens the
+  undo history. Past its memory limit the history still drops its oldest steps, notes and other
+  annotations included; that is being looked at separately. Undo on the "Your text covers the old
+  text" notice, tapped while another line was picked, no longer puts the notice away without
+  undoing, and with nothing left to undo it puts the notice away.
+- Signatures: a typed signature is now selected and listed as a signature, as a drawn one is, and
+  no longer offers Edit text. Before, it was called a text box and could be retyped.
+- French: the bar shown with an annotation selected keeps to one line. Before, its titles wrapped
+  and "Supprimer" broke over two lines; what doesn't fit now goes into a More menu.
+- French: Extract gives the document type in French, such as "Facture" for an invoice. Before, it
+  was in English.
 
 ### Added
 - Annotations: a shape, stamp, signature or text box you drag to the top or bottom of the screen

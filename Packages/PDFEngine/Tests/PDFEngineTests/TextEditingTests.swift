@@ -572,7 +572,8 @@ struct TextEditorTests {
     // The same region twice in one batch.
     let twice = await editor.applying(
       [TextEdit(region: other, replacement: "Sum"), TextEdit(region: other, replacement: "All")], toPage: page)
-    #expect(twice.outcomes == [.edited(.contentStream), .refused(.stale)] && twice.page == nil)
+    // Neither was made, so neither says it was (#268).
+    #expect(twice.outcomes == [.refused(.otherEditFailed), .refused(.stale)] && twice.page == nil)
     #expect(await editor.applying([], toPage: page).outcomes.isEmpty)
   }
 
@@ -588,7 +589,8 @@ struct TextEditorTests {
     #expect(squeezedText(edited).contains("DavidSmith") && squeezedText(edited).contains("Timber"))
     let partial = await editor.applying(
       [edits[0], TextEdit(region: try region(regions, containing: "Materials"), replacement: "")], toPage: page)
-    #expect(partial.page == nil && partial.outcomes == [.edited(.contentStream), .refused(.unsupportedCharacters)])
+    #expect(
+      partial.page == nil && partial.outcomes == [.refused(.otherEditFailed), .refused(.unsupportedCharacters)])
   }
 
   @Test("Scenario 5: an image-only page has no text to edit, with or without a recognised text layer")

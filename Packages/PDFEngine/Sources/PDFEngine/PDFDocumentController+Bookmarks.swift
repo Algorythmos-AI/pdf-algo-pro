@@ -46,7 +46,8 @@ extension PDFDocumentController {
     if bookmarked {
       let item = PDFOutline()
       let number = document.index(for: page) + 1
-      item.label = String(localized: "Page \(number)")
+      item.label = String(
+        localized: "Page \(number)", bundle: .module, comment: "A bookmark's name in the document's outline")
       item.destination = PDFDestination(page: page, at: CGPoint(x: 0, y: page.bounds(for: .cropBox).maxY))
       let position = children(of: folder).firstIndex { (pageIndex(of: $0) ?? .max) > number - 1 }
       folder.insertChild(item, at: position ?? folder.numberOfChildren)

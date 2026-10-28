@@ -488,6 +488,45 @@ final class ReaderUITests: UITestCase {
       "The text box carries what was typed")
   }
 
+  /// Edit text is the selection bar's own button, not an entry under More, on the phone CI runs and
+  /// at the default text size; Style and Copy are on the bar or under More (#303).
+  func testASelectedTextBoxOffersEditTextOnTheBar() throws {
+    let app = launch(["-skip-onboarding", "-seed-library", "sample"])
+    XCTAssertTrue(app.staticTexts[ID.Reader.pageIndicator].waitForExistence(timeout: 15))
+    tapMenuItem(
+      app.buttons[ID.Reader.Markup.textBox], in: app.buttons[ID.Reader.markup],
+      until: app.alerts.firstMatch.textFields.firstMatch)
+    let text = app.alerts.firstMatch.textFields.firstMatch
+    text.tap()
+    text.typeText("Check with accounts")
+    app.alerts.buttons["Add"].tap()
+    let bar = app.descendants(matching: .any)[ID.Reader.Selection.actionBar].firstMatch
+    XCTAssertTrue(bar.waitForExistence(timeout: Self.settleTimeout), "A new text box is selected")
+    let edit = app.buttons[ID.Reader.Selection.edit]
+    XCTAssertTrue(edit.waitForExistence(timeout: Self.settleTimeout))
+    XCTAssertTrue(edit.isHittable, "Edit text is a button on the bar, not hidden under More")
+    let more = app.buttons[ID.Reader.Selection.more]
+    let style = app.buttons[ID.Reader.Selection.style]
+    let copy = app.buttons[ID.Reader.Selection.copy]
+    XCTAssertTrue(app.buttons[ID.Reader.Selection.done].exists)
+    XCTAssertTrue(
+      app.buttons[ID.Reader.Selection.delete].exists || more.exists, "Delete is on the bar or under More")
+    guard !(style.exists && copy.exists) else { return }
+    // Style and Copy are under More. It is opened once, both are found, and it is closed by one of its
+    // own items: Style › Larger, which keeps the text box selected. A tap elsewhere to close a menu can
+    // reach the page and let go of the selection.
+    XCTAssertTrue(more.exists, "Style or Copy is neither on the bar nor under More")
+    more.tap()
+    XCTAssertTrue(style.waitForExistence(timeout: Self.settleTimeout), "Style is under More")
+    XCTAssertTrue(copy.exists, "Copy is under More")
+    let larger = app.buttons[ID.Reader.Selection.larger]
+    style.tap()
+    XCTAssertTrue(larger.waitForExistence(timeout: Self.settleTimeout), "Style opens its own menu")
+    larger.tap()
+    XCTAssertTrue(bar.waitForExistence(timeout: Self.settleTimeout), "The text box is still selected")
+    XCTAssertTrue(edit.waitForExistence(timeout: Self.settleTimeout) && edit.isHittable, "Edit text is back on the bar")
+  }
+
   func testDraggingAcrossTextWithTheHighlighterMarksItOnce() throws {
     let app = launch(["-skip-onboarding", "-seed-library", "sample"])
     XCTAssertTrue(app.staticTexts[ID.Reader.pageIndicator].waitForExistence(timeout: 15))
@@ -525,7 +564,7 @@ final class ReaderUITests: UITestCase {
     let bar = app.descendants(matching: .any)[ID.Reader.Selection.actionBar].firstMatch
     XCTAssertTrue(bar.waitForExistence(timeout: Self.settleTimeout), "Tapping the drawing selects it (F3)")
     try auditInBothAppearances(app)
-    tapMenuItem(app.buttons["Larger"], in: app.buttons[ID.Reader.Selection.style], until: bar)
+    tapMenuItem(app.buttons[ID.Reader.Selection.larger], in: app.buttons[ID.Reader.Selection.style], until: bar)
     XCTAssertTrue(bar.waitForExistence(timeout: Self.settleTimeout), "Resizing keeps it selected (FR-ANN-005)")
     app.buttons[ID.Reader.Selection.delete].tap()
     XCTAssertFalse(bar.waitForExistence(timeout: 2), "Deleting clears the selection")

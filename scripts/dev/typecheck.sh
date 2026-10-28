@@ -22,6 +22,12 @@ common=(-sdk $SDK -target arm64-apple-ios26.0-simulator -swift-version 6 -enable
   # StoreKitTest, for the app's store tests: its header uses a symbol Apple deprecated (see project.yml).
   -F $SDK/Developer/Library/Frameworks -Xcc -Wno-error=deprecated-declarations)
 [[ -d $TOOLCHAIN/lib/swift/host/plugins/testing ]] && common+=(-plugin-path $TOOLCHAIN/lib/swift/host/plugins/testing)
+# PDFEngine's Objective-C target (#311): its header, as the module SwiftPM would make of it.
+mkdir -p $OUT/PDFKitGuard
+print "module PDFKitGuard { header \"$ROOT/Packages/PDFEngine/Sources/PDFKitGuard/include/PDFKitGuard.h\"\n  export * }" \
+  > $OUT/PDFKitGuard/module.modulemap
+# `package` declarations (PDFEngine and its tests) need a package name; one serves every module here.
+common+=(-I $OUT/PDFKitGuard -package-name typecheck)
 fail=0
 
 run() { # emit|check module isolation dir [bundle] [file to leave out]
@@ -46,7 +52,8 @@ run emit AccessibilityIDs non Packages/Core/Sources/AccessibilityIDs
 run emit Core non Packages/Core/Sources/Core
 run emit CoreTestSupport non Packages/Core/Sources/CoreTestSupport
 run emit DesignSystem main Packages/DesignSystem/Sources/DesignSystem bundle
-for m in PDFEngine DocumentStore OCR Scanning Search Intelligence Telemetry RemoteConfig Commerce; do
+run emit PDFEngine non Packages/PDFEngine/Sources/PDFEngine bundle
+for m in DocumentStore OCR Scanning Search Intelligence Telemetry RemoteConfig Commerce; do
   run emit $m non Packages/$m/Sources/$m
 done
 run emit CommerceTestSupport non Packages/Commerce/Sources/CommerceTestSupport

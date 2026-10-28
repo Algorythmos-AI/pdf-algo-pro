@@ -9,11 +9,11 @@ Owner: Product and Design · Reviewed: each milestone, and whenever a language i
 
 ## Where strings live
 
-- Each feature package has one String Catalog, `Resources/Localizable.xcstrings`, and its views
-  pass `bundle: .module`.
+- Each package that shows text has one String Catalog, `Resources/Localizable.xcstrings`, and
+  passes `bundle: .module`: the feature packages, DesignSystem, and PDFEngine (the ink layer's
+  VoiceOver label and the name of a bookmark).
 - The app has two catalogs in `App/PDFAlgoPro/Resources/`:
-  - `Localizable.xcstrings`, for the app and for PDFEngine, which has no resource bundle, so its
-    `String(localized:)` resolves from the app;
+  - `Localizable.xcstrings`, for the app's own text;
   - `AppShortcuts.xcstrings`, the Siri and Shortcuts phrases.
 - Info.plist text (the camera prompt) is translated in `App/PDFAlgoPro/<language>.lproj/InfoPlist.strings`,
   next to `Info.plist`, never in an `InfoPlist.xcstrings`. Xcode syncs the app's names into such a
@@ -31,12 +31,16 @@ Owner: Product and Design · Reviewed: each milestone, and whenever a language i
    conventions below.
 3. Import:
    `xcodebuild -importLocalizations -project PDFAlgoPro.xcodeproj -localizationPath build/loc/fr.xcloc -mergeImport`.
-   Move any string exported under `PDFEngine/Resources` into the app's `Localizable.xcstrings`, and
-   do not commit a `Resources` folder in PDFEngine. Leave the app's names untranslated.
+   Leave the app's names untranslated.
 4. Export again and run `python3 scripts/ci/untranslated.py "build/loc/fr.xcloc/Localized Contents/fr.xliff"`.
    It lists anything untranslated and exits 1 if there is any.
 5. A French speaker reviews every changed string in the pull request before the build reaches
    testers.
+
+Every pull request runs `python3 scripts/ci/untranslated.py` with no argument in the `docs` job
+(`ci.yml`). It reads every String Catalog in the repository and fails when a string has no French
+translation, or one marked as needing work. A string added in code is checked once it is in its
+catalog, which Xcode writes when it builds; the export in step 4 also finds the ones not there yet.
 
 ## French conventions
 

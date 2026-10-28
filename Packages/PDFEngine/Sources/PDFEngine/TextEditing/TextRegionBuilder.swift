@@ -236,6 +236,9 @@ enum TextRegionBuilder {
         return .unsupportedDrawing
       }
       if let clip = run.clip, !clip.insetBy(dx: -1, dy: -1).contains(region.bounds) { return .unsupportedDrawing }
+      // Wider than an em is a column gap, not a word space: redrawn as one string, the columns
+      // would close up (#252).
+      if run.widestGap > 1000 { return .spacedColumns }
     }
     guard region.text.unicodeScalars.allSatisfy(TextScript.isSimple) else { return .unsupportedScript }
     // New text is drawn last, so text that something later is drawn over cannot keep its place.

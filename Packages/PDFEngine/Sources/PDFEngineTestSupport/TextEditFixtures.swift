@@ -230,11 +230,14 @@ public enum TextEditFixtures {
   /// `/F2` Times-Roman, neither embedded.
   ///
   /// PDFKit rewrites the page before the editor sees it, so these test how unusual operators come
-  /// through that rewrite and the edit together.
-  public static func raw(content: String, extraResources: String = "", mediaBox: String = "0 0 612 792") -> Data {
+  /// through that rewrite and the edit together. `pageEntries` go into the page dictionary as they
+  /// are, for example `/Rotate 90`.
+  public static func raw(
+    content: String, extraResources: String = "", mediaBox: String = "0 0 612 792", pageEntries: String = ""
+  ) -> Data {
     assemble([
       "<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-      "<< /Type /Page /Parent 2 0 R /MediaBox [\(mediaBox)] /Contents 4 0 R /Resources << /Font << "
+      "<< /Type /Page /Parent 2 0 R /MediaBox [\(mediaBox)] \(pageEntries) /Contents 4 0 R /Resources << /Font << "
         + "/F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >> "
         + "/F2 << /Type /Font /Subtype /Type1 /BaseFont /Times-Roman /Encoding /WinAnsiEncoding >> >> "
         + "\(extraResources) >> >>",

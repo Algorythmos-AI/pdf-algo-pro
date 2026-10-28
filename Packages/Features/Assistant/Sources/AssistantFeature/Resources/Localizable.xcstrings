@@ -61,6 +61,28 @@
         }
       }
     },
+    "Bank statement" : {
+      "comment" : "A kind of document Extract found",
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Relevé bancaire"
+          }
+        }
+      }
+    },
+    "Bill" : {
+      "comment" : "A kind of document Extract found",
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Facture"
+          }
+        }
+      }
+    },
     "Check this value" : {
       "localizations" : {
         "fr" : {
@@ -101,12 +123,34 @@
         }
       }
     },
+    "Credit note" : {
+      "comment" : "A kind of document Extract found",
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avoir"
+          }
+        }
+      }
+    },
     "Date" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Date"
+          }
+        }
+      }
+    },
+    "Delivery note" : {
+      "comment" : "A kind of document Extract found",
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bon de livraison"
           }
         }
       }
@@ -151,6 +195,17 @@
         }
       }
     },
+    "Estimate" : {
+      "comment" : "A kind of document Extract found",
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Devis estimatif"
+          }
+        }
+      }
+    },
     "Extract" : {
       "localizations" : {
         "fr" : {
@@ -187,6 +242,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Généré par PDF Algo Pro à partir de ce document ; peut contenir des erreurs."
+          }
+        }
+      }
+    },
+    "Invoice" : {
+      "comment" : "A kind of document Extract found",
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Facture"
           }
         }
       }
@@ -231,12 +297,45 @@
         }
       }
     },
+    "Purchase order" : {
+      "comment" : "A kind of document Extract found",
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bon de commande"
+          }
+        }
+      }
+    },
+    "Quote" : {
+      "comment" : "A kind of document Extract found",
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Devis"
+          }
+        }
+      }
+    },
     "Reading the document on this device…" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Lecture du document sur cet appareil…"
+          }
+        }
+      }
+    },
+    "Receipt" : {
+      "comment" : "A kind of document Extract found",
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reçu"
           }
         }
       }
@@ -301,6 +400,17 @@
         }
       }
     },
+    "Statement" : {
+      "comment" : "A kind of document Extract found",
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Relevé"
+          }
+        }
+      }
+    },
     "Summaries, answers and extraction start again tomorrow. Pro has no daily limit. Your documents are not affected." : {
       "localizations" : {
         "fr" : {
@@ -327,6 +437,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tâche"
+          }
+        }
+      }
+    },
+    "Tax invoice" : {
+      "comment" : "A kind of document Extract found",
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Facture"
           }
         }
       }
