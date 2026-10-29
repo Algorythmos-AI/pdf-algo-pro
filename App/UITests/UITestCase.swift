@@ -24,9 +24,6 @@ class UITestCase: XCTestCase {
   /// nothing when things work.
   static let settleTimeout: TimeInterval = 30
 
-  /// Whether a test in this process has launched the app yet: the first launch warms the simulator up.
-  private static var hasLaunchedOnce = false
-
   func launch(_ arguments: [String]) -> XCUIApplication {
     continueAfterFailure = false
     // Every journey starts upright, whatever the one before it left. A test that stops on a failure
@@ -40,19 +37,12 @@ class UITestCase: XCTestCase {
     }
     let app = XCUIApplication()
     app.launchArguments = ["-ui-testing", "-disable-animations"] + arguments
-    if Self.hasLaunchedOnce {
-      app.launch()
-    } else {
-      // The first launch of a run can time out while the simulator is still warming up (issue #126:
-      // "Timed out while launching application via Xcode" after 75 seconds, then green on the next
-      // run). That one launch is tried once more before the journey fails.
-      Self.hasLaunchedOnce = true
-      tolerating("Quarantined flaky first launch, issue #126") { app.launch() }
-      if app.state != .runningForeground {
-        app.terminate()
-        app.launch()
-      }
-    }
+    // The first launch of a shard can time out while the simulator is still warming up (issue #126).
+    // Excusing that failure did not let the journey go on: XCTest ends a test whose launch fails, so
+    // the journey was reported as passing without having run (run 40859748967, "Failed to get
+    // background assertion", then straight to Tear Down). CI launches the app once before the tests
+    // instead (ci.yml, `ios-tests`), and a launch that fails here fails the journey.
+    app.launch()
     return app
   }
 
