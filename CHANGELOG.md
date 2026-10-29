@@ -30,6 +30,10 @@ Store notes (see the changelog strategy).
   only ever means a red annotation or Delete.
 
 ### Fixed
+- A trial reminder is less likely to arrive after you have paid, been refunded or let the
+  subscription lapse without opening the app: shortly before it is due, iOS may let the app check
+  your subscription in the background and remove it. iOS doesn't promise to run that check, so the
+  reminder still only says your trial ends within a day if it is still running.
 - When another app changes a document just as PDF Algo Pro saves it, the app no longer saves over the
   other app's version. It asks which version to keep. A change to a document's text that is still
   being made when another app changes the file is kept too, so you can keep it as a copy. If you

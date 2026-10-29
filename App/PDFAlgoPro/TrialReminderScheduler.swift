@@ -1,5 +1,7 @@
+import BackgroundTasks
 import Commerce
 import Foundation
+import OSLog
 import UserNotifications
 
 /// What the trial reminder needs from the system's notifications.
@@ -55,29 +57,74 @@ struct SilentNotifications: NotificationScheduling {
   func cancel(identifier: String) async {}
 }
 
+/// What the trial reminder needs from the system's background tasks: one check before it is due (#336).
+protocol BackgroundChecking: Sendable {
+  /// Asks the system to run the app's refresh task, not before a date, replacing any earlier request.
+  func schedule(identifier: String, at date: Date)
+  /// Withdraws a request that has not run yet.
+  func cancel(identifier: String)
+}
+
+/// The system's background app refresh.
+///
+/// The adapter alone: the simulator has no scheduler, so tests use a stand-in. The system runs the
+/// task when it sees fit, and not at all when Background App Refresh is off or the app was closed
+/// from the app switcher, so a failure to submit is only logged.
+struct SystemBackgroundChecks: BackgroundChecking {
+  func schedule(identifier: String, at date: Date) {
+    let request = BGAppRefreshTaskRequest(identifier: identifier)
+    request.earliestBeginDate = date
+    do {
+      try BGTaskScheduler.shared.submit(request)
+    } catch {
+      Logger(subsystem: "com.algorythmos.pdfalgopro", category: "store").error(
+        "The trial reminder's check was not scheduled")
+    }
+  }
+
+  func cancel(identifier: String) {
+    BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: identifier)
+  }
+}
+
+/// Background checks that are never asked of the system, for UI tests.
+struct NoBackgroundChecks: BackgroundChecking {
+  func schedule(identifier: String, at date: Date) {}
+  func cancel(identifier: String) {}
+}
+
 /// Schedules the reminder that a trial is about to end (FR-STORE-006, ADR-0026).
 ///
 /// There is at most one, a day before the trial ends. It is asked for on the purchase confirmation,
 /// the only place the app asks to send notifications, and it is removed as soon as the entitlement
 /// is no longer a trial: after a cancellation that has run out, a refund or the first paid period.
-/// The app learns of those only while it runs, so a reminder can still arrive for someone who has
-/// paid, changed plans or been refunded since without opening it; its words stay true then too (#264).
+/// The app learns of those when it runs: when it is opened, and in a background check the system may
+/// run shortly before the reminder is due (#336). Without either, a reminder can still arrive for
+/// someone who has paid, changed plans or been refunded since; its words stay true then too (#264).
 @MainActor
-final class TrialReminderScheduler {
+final class TrialReminderScheduler: TrialReminderHolding {
   static let identifier = "commerce.trial.reminder"
+
+  /// The background refresh task that checks the trial before its reminder is due (#336).
+  ///
+  /// Declared in Info.plist (BGTaskSchedulerPermittedIdentifiers) as
+  /// `$(PRODUCT_BUNDLE_IDENTIFIER).trial-reminder-check`.
+  static let checkIdentifier = "\(Bundle.main.bundleIdentifier ?? "com.algorythmos.pdfalgopro").trial-reminder-check"
 
   /// Where the scheduler remembers which trial it has reminded of, or will.
   static let key = "commerce.trial.reminded"
 
   private let notifications: any NotificationScheduling
+  private let checks: any BackgroundChecking
   private let defaults: UserDefaults
   private let now: @Sendable () -> Date
 
   init(
-    notifications: any NotificationScheduling, defaults: UserDefaults = .standard,
+    notifications: any NotificationScheduling, checks: any BackgroundChecking, defaults: UserDefaults = .standard,
     now: @escaping @Sendable () -> Date = { Date() }
   ) {
     self.notifications = notifications
+    self.checks = checks
     self.defaults = defaults
     self.now = now
   }
@@ -94,6 +141,7 @@ final class TrialReminderScheduler {
   ///   off, declined notifications, or less than a day of the trial is left.
   func set(_ isOn: Bool, trialEndsAt: Date) async -> TrialReminderOutcome {
     await notifications.cancel(identifier: Self.identifier)
+    checks.cancel(identifier: Self.checkIdentifier)
     if remindedTrialEnd == trialEndsAt { remindedTrialEnd = nil }
     guard isOn else { return .off }
     guard let date = TrialReminder.notificationDate(for: .trial(endsAt: trialEndsAt), now: now()) else {
@@ -103,9 +151,12 @@ final class TrialReminderScheduler {
     let words = Self.words()
     let scheduled = await notifications.schedule(
       identifier: Self.identifier, title: words.title, body: words.body, after: date.timeIntervalSince(now()))
+    guard scheduled else { return .failed }
     // The notification is the reminder for this trial; the in-app notice then stays away.
-    if scheduled { remindedTrialEnd = trialEndsAt }
-    return scheduled ? .scheduled : .failed
+    remindedTrialEnd = trialEndsAt
+    // Before it is due, the system may let the app look whether the trial still runs (#336).
+    if let check = TrialReminder.checkDate(trialEndsAt: trialEndsAt, now: now()) { scheduleCheck(at: check) }
+    return .scheduled
   }
 
   /// The reminder's title and body.
@@ -137,8 +188,18 @@ final class TrialReminderScheduler {
   /// The entitlement changed: a reminder for a trial that is over, refunded or paid is removed.
   func entitlementChanged(_ entitlement: Entitlement?) async {
     // Nothing known yet, or a trial still running: the reminder stays.
-    guard let entitlement else { return }
-    if case .trial(let endsAt) = entitlement, endsAt > now() { return }
+    guard !TrialReminder.keepsReminder(for: entitlement, now: now()) else { return }
+    await removeReminder()
+  }
+
+  /// Removes the pending reminder and the background check asked for it.
+  func removeReminder() async {
     await notifications.cancel(identifier: Self.identifier)
+    checks.cancel(identifier: Self.checkIdentifier)
+  }
+
+  /// Asks the system to check the trial again in the background, not before a date (#336).
+  func scheduleCheck(at date: Date) {
+    checks.schedule(identifier: Self.checkIdentifier, at: date)
   }
 }
