@@ -16,7 +16,7 @@ Pages and files
 - More > Pages: rotate, reorder and delete pages.
 - More > Export and protect: reduce the size, add then remove a password, share a flattened copy.
 - Edit a document, save twice, then More > Version history: restore the first version.
-- Select two documents on Home and merge them. Drag one into Mail or Files.
+- In All documents, tap Select, choose two documents and merge them. Drag one into Mail or Files.
 
 Scan
 - Scan two pages: rotate, reorder and name them before saving. Then search for a word from the scan.

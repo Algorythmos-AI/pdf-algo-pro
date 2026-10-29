@@ -16,7 +16,7 @@ Pages et fichiers
 - Plus > Pages : faites pivoter, réordonnez et supprimez des pages.
 - Plus > Exporter et protéger : réduisez la taille, ajoutez puis retirez un mot de passe, partagez une copie aplatie.
 - Modifiez un document, enregistrez deux fois, puis Plus > Historique des versions : rétablissez la première.
-- Sélectionnez deux documents sur l’accueil et fusionnez-les. Faites-en glisser un vers Mail ou Fichiers.
+- Dans Tous les documents, touchez Sélectionner, choisissez deux documents et fusionnez-les. Faites-en glisser un vers Mail ou Fichiers.
 
 Numériser
 - Numérisez deux pages : faites-les pivoter, réordonnez-les et nommez-les avant d’enregistrer. Puis cherchez un mot de la numérisation.
