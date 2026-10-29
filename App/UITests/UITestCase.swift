@@ -278,14 +278,36 @@ class UITestCase: XCTestCase {
     _ item: XCUIElement, in menu: XCUIElement, until result: XCUIElement, file: StaticString = #filePath,
     line: UInt = #line
   ) {
-    tap(menu, until: item, file: file, line: line)
+    open(menu, showing: item, file: file, line: line)
     item.tap()
     if result.waitForExistence(timeout: Self.settleTimeout) { return }
-    if !item.exists { tap(menu, until: item, file: file, line: line) }
+    if !item.exists { open(menu, showing: item, file: file, line: line) }
     item.tap()
     XCTAssertTrue(
       result.waitForExistence(timeout: Self.settleTimeout), "The menu item opens what it should", file: file, line: line
     )
+  }
+
+  /// Taps `menu` until `item` shows, up to three times, ten seconds apart.
+  ///
+  /// `tap(_:until:)` taps once more after three seconds. At a large text size on a loaded runner that
+  /// second tap can come while the menu is still opening, and close it; nothing opened it again, and
+  /// the item never showed in 33 seconds with More hittable (issue #324). A tap that closes the menu is
+  /// followed by one that opens it again. Where the item never shows, the screen and the element tree
+  /// are kept.
+  private func open(_ menu: XCUIElement, showing item: XCUIElement, file: StaticString, line: UInt) {
+    XCTAssertTrue(menu.waitForExistence(timeout: Self.settleTimeout), "The control exists", file: file, line: line)
+    for _ in 0..<3 {
+      menu.tap()
+      if item.waitForExistence(timeout: 10) { return }
+    }
+    let app = XCUIApplication()
+    let state =
+      "Waited 30 s over three taps for \(item). The menu, \(menu), exists: \(menu.exists), "
+      + "hittable: \(menu.exists && menu.isHittable); items shown (buttons in menus and lists): "
+      + "\(app.collectionViews.buttons.count)."
+    keepEvidence(app, named: "menu \(line)", notes: state)
+    XCTFail("The menu opens and shows the item. \(state)", file: file, line: line)
   }
 
   /// An item of an open submenu (Markup › Shapes, Markup › Stamp): by its identifier where the system

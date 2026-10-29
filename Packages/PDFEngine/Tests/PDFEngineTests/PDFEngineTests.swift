@@ -982,6 +982,55 @@ struct ToolkitTests {
     #expect(webLinks(later) == [URL(string: "https://example.com/terms")], "web links: \(webLinks(later))")
   }
 
+  @Test("Removing a password keeps an outline entry's web address and a destination's zoom (#341)")
+  func passwordRemovalKeepsOutlineActions() throws {
+    let source = try #require(PDFDocument(data: SyntheticPDF.make(pages: ["One", "Two", "Three"])))
+    let second = try #require(source.page(at: 1))
+    let outline = PDFOutline()
+    let web = PDFOutline()
+    web.label = "Terms"
+    web.action = PDFActionURL(url: try #require(URL(string: "https://example.com/terms")))
+    outline.insertChild(web, at: 0)
+    let zoomed = PDFOutline()
+    zoomed.label = "Two"
+    let destination = PDFDestination(page: second, at: CGPoint(x: 72, y: 700))
+    destination.zoom = 2
+    zoomed.destination = destination
+    outline.insertChild(zoomed, at: 1)
+    source.outlineRoot = outline
+    let protected = try PDFDocumentController(data: try #require(PDFDocumentController.dataRepresentation(of: source)))
+    #expect(protected.setPassword("secret"))
+    let url = temporaryURL()
+    try protected.save(to: url)
+
+    // The first entry's web address, and the second's page index and zoom.
+    func entries(_ document: PDFDocument?) -> (url: URL?, page: Int?, zoom: CGFloat?) {
+      guard let document, let root = document.outlineRoot, root.numberOfChildren == 2 else { return (nil, nil, nil) }
+      let url = (root.child(at: 0)?.action as? PDFActionURL)?.url
+      let item = root.child(at: 1)
+      let destination = item?.destination ?? (item?.action as? PDFActionGoTo)?.destination
+      return (url, destination?.page.map { document.index(for: $0) }, destination?.zoom)
+    }
+
+    let locked = try PDFDocumentController(url: url)
+    #expect(locked.unlock(password: "secret") && locked.removePassword())
+    try #require(entries(locked.document).url != nil, "the protected fixture's outline: \(entries(locked.document))")
+    let copy = entries(locked.unencryptedCopy())
+    #expect(
+      copy.url == URL(string: "https://example.com/terms"), "the copy's web entry: \(String(describing: copy.url))")
+    #expect(
+      copy.page == 1 && copy.zoom == 2,
+      "the copy's zoomed entry goes to page \(String(describing: copy.page)) at zoom \(String(describing: copy.zoom))")
+
+    try locked.save(to: url)
+    let saved = entries(PDFDocument(url: url))
+    #expect(
+      saved.url == URL(string: "https://example.com/terms"), "the saved web entry: \(String(describing: saved.url))")
+    #expect(
+      saved.page == 1 && saved.zoom == 2,
+      "the saved zoomed entry goes to page \(String(describing: saved.page)) at zoom \(String(describing: saved.zoom))")
+  }
+
   @Test("A password that only opens the document can't remove the author's protection")
   func userPasswordCannotRemove() throws {
     let controller = try PDFDocumentController(

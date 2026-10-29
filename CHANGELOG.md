@@ -10,6 +10,8 @@ Store notes (see the changelog strategy).
 ## [Unreleased]
 
 ### Added
+- Settings › About: Rate PDF Algo Pro opens the app's page in the App Store, where you can rate
+  and review it.
 - Answers, summaries and extracted fields you copy or share now end with a line saying that PDF
   Algo Pro generated them from the document and that they may contain errors. In a CSV it is the
   last row, so the file still opens as a table.
@@ -55,6 +57,10 @@ Store notes (see the changelog strategy).
   to Manage Subscription, instead of offering to buy Pro again. The trial reminder no longer says the
   trial ends tomorrow when it may already have changed, and it arrives a day before the trial ends
   wherever you are.
+- Editing text (internal builds): after many edits, when the undo history lets go of its oldest
+  steps to save memory, the pages those steps changed stay whole. Before, such a page, or one Undo
+  brought back, still showed its text, but the text could no longer be picked to edit, and
+  extracting the page or saving the document without its password left the page empty.
 - When a document is saved but the library can't note the change, the app no longer says the save
   failed, and Share and Print work.
 - Share and Print say so when the document's file can't be found, for example after it was moved in
@@ -114,6 +120,22 @@ Store notes (see the changelog strategy).
   until the App Store's renewal reached the device.
 - Pro: a subscriber whose payment is being retried in the App Store's grace period keeps Pro when
   the subscription's state can't be read, for example offline. Before, Pro could switch off.
+- Restore purchases now says how it went: that Pro is back, that this Apple Account has nothing to
+  restore, or that the App Store couldn't be reached. Before, it said nothing when there was
+  nothing to restore, and asked you to check your Apple Account when you were offline or had
+  cancelled the sign-in. Cancelling now says nothing, and a second tap while a restore runs is
+  ignored. While Pro is paused because a payment failed, it says so and points to Manage
+  subscription, rather than that there is nothing to restore.
+- App Lock: after the cover goes away, for example when you come back from Notification Center,
+  typing goes on in the field you were typing in. Before, the keyboard could be given to another
+  of the app's windows, and typing stopped until you tapped the field again.
+- Free plan: two summaries or answers started at the same moment can no longer both use the day's
+  last free request.
+- Pro: a purchase waiting for approval, as with Ask to Buy, now shows Waiting for approval on its
+  button until the plans screen closes. Before, the button was ready again, and a second tap sent
+  the approver a second request.
+- Assistant: closing it straight after opening it no longer leaves a summary, extraction or
+  explanation running unseen.
 - Editing text (internal builds): a name pasted from a web page with a hidden soft hyphen or
   zero-width space is now changed in the page. Before, the hidden character made the change fail,
   the line was covered instead, and every other line on that page could then only be covered.
@@ -178,6 +200,9 @@ Store notes (see the changelog strategy).
   and "Supprimer" broke over two lines; what doesn't fit now goes into a More menu.
 - French: Extract gives the document type in French, such as "Facture" for an invoice. Before, it
   was in English.
+- Removing a document's password keeps what its contents entries do: one that opens a web page
+  still opens it, and one that opens a page at a zoom still uses that zoom. Before, the first did
+  nothing and the second opened at the default zoom.
 
 ### Added
 - Annotations: a shape, stamp, signature or text box you drag to the top or bottom of the screen
