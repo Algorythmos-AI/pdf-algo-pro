@@ -28,12 +28,18 @@ class UITestCase: XCTestCase {
     continueAfterFailure = false
     // Every journey starts upright, whatever the one before it left. A test that stops on a failure
     // does not run its own clean-up: on CI (2026-10-09) the test after one that failed in landscape
-    // ran in landscape, and audited its screen there. The device is asked to turn only when it is not
-    // upright already: on a loaded runner the request itself timed out, "Timed out waiting for
-    // confirmation of orientation change", and failed a journey before it began (issue #197). When the
-    // request is needed and still times out, the journey goes on upright or not, and says so.
-    if XCUIDevice.shared.orientation != .portrait {
-      tolerating("Quarantined flaky orientation change, issue #197") { XCUIDevice.shared.orientation = .portrait }
+    // ran in landscape, and audited its screen there. So a turn a journey made is undone, and only
+    // that: a shard's first test reads an orientation that is not upright, before anything has turned
+    // the simulator, and asking it to turn then timed out on a loaded runner ("Timed out waiting for
+    // confirmation of orientation change", issue #197: runs 40362705071 and 40609621149, both at the
+    // first test of ui-3). XCTest ends a test whose turn fails, so excusing the failure only let that
+    // journey pass unrun. What was read is logged, so a later run shows it.
+    let orientation = XCUIDevice.shared.orientation
+    if orientation != .portrait {
+      XCTContext.runActivity(named: "Orientation at launch: \(orientation.rawValue)") { _ in }
+    }
+    if orientation.isLandscape || orientation == .portraitUpsideDown {
+      XCUIDevice.shared.orientation = .portrait
     }
     let app = XCUIApplication()
     app.launchArguments = ["-ui-testing", "-disable-animations"] + arguments
