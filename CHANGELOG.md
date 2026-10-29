@@ -72,6 +72,8 @@ Store notes (see the changelog strategy).
   Undo, and typing a search no longer briefly says search is unavailable. An import that fails for
   a reason other than a bad file says why, and a partly successful one says how many were added.
 - Changing only the capitals of a document's name no longer adds " 2" to its file name.
+- Launching no longer waits for the library's index to open, or to update to a new format after an
+  update: that happens in the background while the library shows it is loading.
 - Dark mode: the App Lock's "Unlock with Face ID" button and the selection bar's Delete are easy to
   read again. Both fell below the 4.5:1 contrast text needs on an iPhone in dark mode.
 - Welcome to Pro: the "Remind me the day before" switch no longer turns itself back off without a

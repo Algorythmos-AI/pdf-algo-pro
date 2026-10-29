@@ -1,17 +1,17 @@
 import Core
 import Foundation
 
-/// The library index as the app opens it at launch (#244).
+/// The library index as the app opens it at launch: on a background task, so launch never waits for
+/// the store to open or for a schema migration to run (#244).
 ///
 /// Every call waits until the store is open, so the library shows its loading state meanwhile. The
 /// store opens as `LibraryIndex` opens it, with the same fallback ladder.
 public final class OpeningLibraryIndex: LibraryStore, Sendable {
   private let opening: Task<LibraryIndex, Never>
 
-  /// Opens the index at a store URL, or in memory when the URL is `nil`.
+  /// Starts opening the index at a store URL, or in memory when the URL is `nil`, and returns at once.
   public init(storeURL: URL?) {
-    let index = LibraryIndex(storeURL: storeURL)
-    opening = Task { index }
+    opening = Task.detached(priority: .userInitiated) { LibraryIndex(storeURL: storeURL) }
   }
 
   /// How the index was opened, once it has.

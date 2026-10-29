@@ -282,7 +282,8 @@ final class AppContainer {
   }
   /// Counts about the last look at a page's text, for "Report a problem"; in memory only.
   let textEditingDiagnostics = TextEditingDiagnosticsLog()
-  let indexLevel: LibraryIndex.StoreLevel
+  /// The library index, opening on a background task from launch (#244).
+  private let libraryIndex: OpeningLibraryIndex
   let environment: LaunchEnvironment
 
   init(environment: LaunchEnvironment = LaunchEnvironment()) {
@@ -309,8 +310,10 @@ final class AppContainer {
       authenticator = LocalAuthenticator()
     #endif
 
-    let libraryIndex = LibraryIndex(storeURL: folders.indexStore)
-    indexLevel = libraryIndex.level
+    // Opened off the main thread, with any schema migration: launch doesn't wait for it, and the
+    // library shows its loading state until it is open (#244).
+    let libraryIndex = OpeningLibraryIndex(storeURL: folders.indexStore)
+    self.libraryIndex = libraryIndex
     let library = FileDocumentLibrary(
       documentsFolder: folders.documents, deletedFolder: folders.recentlyDeleted,
       previousVersionsFolder: folders.previousVersions, index: libraryIndex)
@@ -408,10 +411,11 @@ final class AppContainer {
   func diagnostics() async -> String {
     let info = Bundle.main.infoDictionary ?? [:]
     let count = (try? await library.documents(in: .all, sortedBy: .title).count) ?? 0
+    let level = await libraryIndex.level
     return DiagnosticsSummary(
       appVersion: info["CFBundleShortVersionString"] as? String ?? "?",
       build: info["CFBundleVersion"] as? String ?? "?",
-      system: ProcessInfo.processInfo.operatingSystemVersionString, libraryIndex: "\(indexLevel)", documentCount: count,
+      system: ProcessInfo.processInfo.operatingSystemVersionString, libraryIndex: "\(level)", documentCount: count,
       events: await telemetry.todaysCounts(), problems: await diagnosticsLog.summary(),
       textEditing: textEditingDiagnostics.summary()
     ).text
