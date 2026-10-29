@@ -749,6 +749,24 @@ struct LibraryModelTests {
     #expect(try await harness.library.document(withID: document.id)?.pageCount == 1)
   }
 
+  @Test("Sharing says how many chosen documents can't be found and are left out, once for each (#239)")
+  func shareSaysWhatIsLeftOut() async throws {
+    let harness = Harness()
+    let first = await harness.library.seed(Document(title: "A", fileName: "a.pdf", addedAt: .now))
+    let second = await harness.library.seed(Document(title: "B", fileName: "b.pdf", addedAt: .now))
+    await harness.model.load()
+    // The first file was removed in the Files app since the list loaded.
+    await harness.library.failNext(with: .notFound)
+    let urls = await harness.model.fileURLs(for: [first.id, second.id])
+    #expect(urls.count == 1)
+    let message = try #require(harness.model.errorMessage, "The person is told one is left out")
+    #expect(message.contains("1"), "\(message)")
+    harness.model.errorMessage = nil
+    await harness.library.failNext(with: .notFound)
+    _ = await harness.model.fileURLs(for: [first.id, second.id])
+    #expect(harness.model.errorMessage == nil, "Choosing again doesn't say it again")
+  }
+
   @Test("A search cancelled by more typing is not reported as search being unavailable (#240)")
   func cancelledSearchIsQuiet() async {
     let harness = Harness()
