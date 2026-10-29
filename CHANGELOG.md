@@ -65,6 +65,14 @@ Store notes (see the changelog strategy).
   steps to save memory, the pages those steps changed stay whole. Before, such a page, or one Undo
   brought back, still showed its text, but the text could no longer be picked to edit, and
   extracting the page or saving the document without its password left the page empty.
+- When a document is saved but the library can't note the change, the app no longer says the save
+  failed, and Share and Print work.
+- Share and Print say so when the document's file can't be found, for example after it was moved in
+  the Files app, instead of doing nothing.
+- "Reduce size" no longer makes a "(smaller)" copy, with a nonsense size, when the document's size
+  can't be read.
+- Text recognition replaces the file in a way other apps can see safely, as a save does, and never
+  writes over a version another app saved meanwhile.
 - Dark mode: the App Lock's "Unlock with Face ID" button and the selection bar's Delete are easy to
   read again. Both fell below the 4.5:1 contrast text needs on an iPhone in dark mode.
 - Welcome to Pro: the "Remind me the day before" switch no longer turns itself back off without a
