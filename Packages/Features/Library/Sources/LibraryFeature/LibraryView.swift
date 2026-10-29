@@ -502,12 +502,7 @@ public struct LibraryView<Detail: View>: View {
     .searchable(text: $model.query, prompt: Text("Titles, tags and text", bundle: .module))
     .task(id: model.query) {
       // Typing on cancels this wait; only the last query is searched (#240).
-      do {
-        try await Task.sleep(for: .milliseconds(200))
-      } catch {
-        return
-      }
-      await model.search()
+      await model.searchAfterPause(.milliseconds(200))
     }
     .dropDestination(for: URL.self) { urls, _ in
       Task { await model.importFiles(urls.filter { $0.pathExtension.lowercased() == "pdf" }) }

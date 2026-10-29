@@ -287,8 +287,15 @@ public final class LibraryModel {
   }
 
   /// Searches once typing has paused for `delay`, as the search field asks at each change.
+  ///
+  /// A wait cut short, because more typing replaced it, searches nothing: only the last query is
+  /// searched (#240).
   public func searchAfterPause(_ delay: Duration) async {
-    try? await Task.sleep(for: delay)
+    do {
+      try await Task.sleep(for: delay)
+    } catch {
+      return
+    }
     await search()
   }
 
