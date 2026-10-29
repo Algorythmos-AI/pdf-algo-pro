@@ -12,7 +12,7 @@ private final class Revealed {
 
 @MainActor
 private func makeModel(
-  task: AssistantTask, intelligence: FakeIntelligence = FakeIntelligence(),
+  task: AssistantTask, intelligence: any DocumentIntelligence = FakeIntelligence(),
   telemetry: RecordingTelemetry = RecordingTelemetry()
 ) -> (AssistantModel, Revealed) {
   let revealed = Revealed()
@@ -54,6 +54,37 @@ private actor GatedIntelligence: DocumentIntelligence {
 
   private func grounded(_ text: String) -> Answer {
     Answer(text: text, citations: [Citation(pageIndex: 0, quote: "testing")], tier: .onDevice, isGrounded: true)
+  }
+}
+
+/// An intelligence that says whether it can run only when the test lets it, and counts the requests
+/// that reach it.
+private actor SlowAvailability: DocumentIntelligence {
+  private var waiting: CheckedContinuation<Void, Never>?
+  private(set) var requests = 0
+
+  var isAsked: Bool { waiting != nil }
+  func answerAvailability() {
+    waiting?.resume()
+    waiting = nil
+  }
+
+  func availability() async -> IntelligenceAvailability {
+    await withCheckedContinuation { waiting = $0 }
+    return .available(.onDevice)
+  }
+  func summarize(_ pages: [PageText]) async throws -> Answer { respond() }
+  func answer(_ question: String, from pages: [PageText]) async throws -> Answer { respond() }
+  func extractFields(from pages: [PageText]) async throws -> Extraction {
+    requests += 1
+    return Extraction(fields: [], tier: .onDevice)
+  }
+  func explainContract(_ pages: [PageText]) async throws -> Answer { respond() }
+
+  private func respond() -> Answer {
+    requests += 1
+    return Answer(
+      text: "answer", citations: [Citation(pageIndex: 0, quote: "testing")], tier: .onDevice, isGrounded: true)
   }
 }
 
@@ -132,6 +163,20 @@ struct AssistantModelTests {
     #expect(model.shareableText == "The document is about testing.\n\nSources: p. 1\n\n\(footer)")
     await model.recordKept()
     #expect(await telemetry.events == ["intelligence.request.completed", "intelligence.answer.kept"])
+  }
+
+  @Test("Closing the assistant while it is still starting runs nothing (#271)")
+  func closingDuringStartRunsNothing() async throws {
+    let intelligence = SlowAvailability()
+    let (model, _) = makeModel(task: .summarize, intelligence: intelligence)
+    let starting = Task { await model.start() }
+    try await waitUntil { await intelligence.isAsked }
+    // The sheet closed while the assistant was asking whether intelligence can run.
+    model.cancel()
+    await intelligence.answerAvailability()
+    await starting.value
+    #expect(await intelligence.requests == 0)
+    #expect(model.phase == .idle)
   }
 
   @Test("Ask waits for a question and ignores blank ones (FR-AI-002)")

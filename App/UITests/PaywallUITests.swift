@@ -104,6 +104,7 @@ final class PaywallUITests: UITestCase {
     alert.buttons["OK"].tap()
     XCTAssertTrue(app.buttons[ID.Paywall.close].waitForExistence(timeout: Self.settleTimeout))
     XCTAssertFalse(element("paywall.welcome", in: app).exists, "Nothing is unlocked until it is approved")
+    XCTAssertFalse(app.buttons[ID.Paywall.purchase].isEnabled, "One request to the approver is enough (#266)")
   }
 
   func testWithoutPlansTheOfferSaysSoAndOffersToAskAgain() throws {
