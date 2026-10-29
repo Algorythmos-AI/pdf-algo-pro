@@ -767,6 +767,22 @@ struct LibraryModelTests {
     #expect(harness.model.errorMessage == nil, "Choosing again doesn't say it again")
   }
 
+  @Test("A search waits for typing to pause; a wait cut short by more typing searches nothing (#240)")
+  func searchWaitsForTypingToPause() async throws {
+    let harness = Harness()
+    await harness.model.load()
+    // A search that runs shows search as unavailable here, so it can be seen.
+    await harness.index.failSearches(true)
+    harness.model.query = "inv"
+    // The field's task for "inv" is cancelled when "invoice" is typed.
+    let wait = Task { await harness.model.searchAfterPause(.seconds(60)) }
+    wait.cancel()
+    await wait.value
+    #expect(!harness.model.isSearchUnavailable, "The wait cut short searched nothing")
+    await harness.model.searchAfterPause(.zero)
+    #expect(harness.model.isSearchUnavailable, "A wait that runs out searches")
+  }
+
   @Test("A search cancelled by more typing is not reported as search being unavailable (#240)")
   func cancelledSearchIsQuiet() async {
     let harness = Harness()

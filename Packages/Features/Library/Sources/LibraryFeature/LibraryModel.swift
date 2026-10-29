@@ -286,6 +286,12 @@ public final class LibraryModel {
     listRequests += 1
   }
 
+  /// Searches once typing has paused for `delay`, as the search field asks at each change.
+  public func searchAfterPause(_ delay: Duration) async {
+    try? await Task.sleep(for: delay)
+    await search()
+  }
+
   /// Searches the whole library, whichever section is showing (FR-LIB-003).
   ///
   /// A document is found wherever it is filed; in Recently Deleted, the search covers the deleted
