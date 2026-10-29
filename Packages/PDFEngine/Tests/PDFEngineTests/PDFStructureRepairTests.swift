@@ -269,6 +269,75 @@ struct PDFStructureRepairTests {
     #expect(linkTargets(PDFDocument(data: intact)) == [2])
   }
 
+  /// A document whose outline has an entry that opens a web address and one that opens its second page
+  /// at twice the size.
+  private func documentWithOutlineActions() throws -> PDFDocument {
+    let source = try document()
+    let root = PDFOutline()
+    let web = PDFOutline()
+    web.label = "Terms"
+    web.action = PDFActionURL(url: try #require(URL(string: "https://example.com/terms?a=1&b=(2)")))
+    root.insertChild(web, at: 0)
+    let zoomed = PDFOutline()
+    zoomed.label = "Two"
+    let destination = PDFDestination(page: try #require(source.page(at: 1)), at: CGPoint(x: 72, y: 700))
+    destination.zoom = 2
+    zoomed.destination = destination
+    root.insertChild(zoomed, at: 1)
+    source.outlineRoot = root
+    return source
+  }
+
+  /// Each top-level entry's title, web address, page index and zoom.
+  private func outlineActions(_ document: PDFDocument?) -> [String] {
+    guard let document, let root = document.outlineRoot else { return [] }
+    return (0..<root.numberOfChildren).compactMap { root.child(at: $0) }.map { item in
+      let destination = item.destination ?? (item.action as? PDFActionGoTo)?.destination
+      let page = destination?.page.map { document.index(for: $0) }
+      let zoom = destination.map { $0.zoom < 1_000_000 ? String(format: "%g", Double($0.zoom)) : "-" }
+      return [
+        item.label ?? "", (item.action as? PDFActionURL)?.url?.absoluteString ?? "-", page.map(String.init) ?? "-",
+        zoom ?? "-",
+      ].joined(separator: " ")
+    }
+  }
+
+  @Test("An outline put back keeps an entry's web address and a destination's zoom (#356)")
+  func outlineActionsAreWritten() throws {
+    let source = try documentWithOutlineActions()
+    let expected = ["Terms https://example.com/terms?a=1&b=(2) - -", "Two - 1 2"]
+    try #require(outlineActions(source) == expected, "the source's outline: \(outlineActions(source))")
+    // Writes the document as PDFKit on iOS 27 does: with the outline it was opened with, none here.
+    let iOS27 = { (document: PDFDocument) -> Data? in
+      document.dataRepresentation().flatMap { PDFStructureRepair.repaired($0, links: [], outline: [])?.data }
+    }
+    let written = try #require(PDFDocumentController.dataRepresentation(of: source, writtenBy: iOS27))
+    #expect(outlineActions(PDFDocument(data: written)) == expected)
+  }
+
+  @Test("In an encrypted file, an outline put back keeps an entry's web address and a destination's zoom (#356)")
+  func encryptedOutlineActionsAreWritten() throws {
+    let source = try documentWithOutlineActions()
+    let url = FileManager.default.temporaryDirectory.appendingPathComponent("actions-\(UUID()).pdf")
+    defer { try? FileManager.default.removeItem(at: url) }
+    #expect(source.write(to: url, withOptions: [.userPasswordOption: "fixture", .ownerPasswordOption: "owner"]))
+    // The protected file as iOS 27 writes it, without the outline it should have.
+    let lost = try #require(
+      PDFStructureRepair.repaired(try Data(contentsOf: url), links: [], outline: [], password: "fixture")?.data)
+    let check = try #require(PDFDocument(data: lost))
+    try #require(check.unlock(withPassword: "fixture") && outlineActions(check).isEmpty)
+
+    let mend = PDFDocumentController.mendStructure(
+      of: check, writtenFrom: source, password: "fixture", bytes: { lost })
+    guard case .mended(let result) = mend else {
+      Issue.record("the protected file was not mended: \(mend)")
+      return
+    }
+    let reopened = try #require(PDFDocument(data: result.data))
+    #expect(reopened.isLocked && reopened.unlock(withPassword: "fixture"), "the file stays protected")
+    #expect(outlineActions(reopened) == ["Terms https://example.com/terms?a=1&b=(2) - -", "Two - 1 2"])
+  }
+
   @Test("A file this can't read is left alone")
   func unreadableFiles() {
     #expect(PDFStructureRepair.repaired(Data("not a PDF".utf8), links: [], outline: []) == nil)
