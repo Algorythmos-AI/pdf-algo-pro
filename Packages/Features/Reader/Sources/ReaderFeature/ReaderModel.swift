@@ -1174,7 +1174,9 @@ public final class ReaderModel {
         written: { target in written = FileVersion.current(at: target) })
       reportTextEditsPutBack(by: controller)
       knownVersion = written
-      try await library.recordModified(documentID)
+      // The file has every change now, so the save succeeded and counts as done; a library record that
+      // can't follow it is no failed save (#234).
+      try? await library.recordModified(documentID)
       canRestorePreviousVersion = await library.hasPreviousVersion(of: documentID)
       await telemetry.record("task.core.completed")
       return true
@@ -1529,7 +1531,16 @@ public final class ReaderModel {
     guard phase == .ready else { return nil }
     if conflictWaits, let controller { return try? sharedCopy(of: controller) }
     guard await save() else { return nil }
-    return try? await library.fileURL(for: documentID)
+    // Saved, but the file may be gone, say because it was moved in the Files app while the document was
+    // open: the library still names the old place, so the file itself is looked for (#260).
+    guard let url = try? await library.fileURL(for: documentID), FileManager.default.fileExists(atPath: url.path)
+    else {
+      errorMessage = String(
+        localized: "Couldn't find this document's file. It may have been moved or deleted in the Files app.",
+        bundle: .module)
+      return nil
+    }
+    return url
   }
 
   /// The version this reader shows, written to a file of its own to share; it still counts as unsaved.
@@ -1595,7 +1606,10 @@ public final class ReaderModel {
   public func reduceSize(_ preset: PDFDocumentController.CompressionPreset) async {
     guard let controller, await save(), let fileURL else { return }
     do {
-      let original = (try? fileURL.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? .max
+      // Without the file's size there is nothing to compare with, so no copy is made (#262).
+      guard let original = try fileURL.resourceValues(forKeys: [.fileSizeKey]).fileSize else {
+        throw CocoaError(.fileReadUnknown)
+      }
       guard let data = try controller.compressed(preset, comparedTo: original) else {
         notice = String(localized: "This document is already about as small as it gets.", bundle: .module)
         return

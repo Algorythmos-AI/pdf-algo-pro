@@ -61,6 +61,14 @@ Store notes (see the changelog strategy).
   steps to save memory, the pages those steps changed stay whole. Before, such a page, or one Undo
   brought back, still showed its text, but the text could no longer be picked to edit, and
   extracting the page or saving the document without its password left the page empty.
+- When a document is saved but the library can't note the change, the app no longer says the save
+  failed, and Share and Print work.
+- Share and Print say so when the document's file can't be found, for example after it was moved in
+  the Files app, instead of doing nothing.
+- "Reduce size" no longer makes a "(smaller)" copy, with a nonsense size, when the document's size
+  can't be read.
+- Text recognition replaces the file in a way other apps can see safely, as a save does, and never
+  writes over a version another app saved meanwhile.
 - After a password, a text edit or a restore, search and Spotlight catch up even when the first
   attempt to update them fails: it is done again the next time the library opens, without holding
   up the list. A protected document's words leave search and Spotlight at once, even on a full
