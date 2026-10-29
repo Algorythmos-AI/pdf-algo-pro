@@ -144,9 +144,10 @@ public struct DocumentIntake: Sendable {
   /// Re-reads a document whose file was changed or replaced outside the app at `date`, which is
   /// recorded as its change.
   ///
-  /// The owner's decision on #242, "Keep tags": its tags and favourite stay, its search text becomes
-  /// the new file's, and its reading position goes back to the first page. A replacement can't be told
-  /// apart from another app's save of the same document, so both start again there.
+  /// The owner's decisions on #242, "Keep tags" and "Reset if pages change": its tags and favourite
+  /// stay, its search text becomes the new file's, and its reading position stays when the page count
+  /// is the same and goes back to the first page when it isn't. A replacement can't be told apart from
+  /// another app's save of the same document, so both are treated alike.
   public func refresh(_ id: DocumentID, changedAt date: Date) async throws -> Document {
     try await run(id, recordsChange: true, changedAt: date)
   }
@@ -179,9 +180,10 @@ public struct DocumentIntake: Sendable {
     if recordsChange { _ = try? await pending?.add(id) }
     let covers = await pending?.coverage(id)
     do {
-      // Changed outside the app: the old position may be on a page of another document (#242).
-      if changedAt != nil { try await library.resetReadingPosition(id) }
       let refreshed = try await finish(document, isNew: false, changedAt: changedAt ?? Date())
+      // Changed outside the app with another number of pages: the old position may be on a page of
+      // another document, so reading starts again on the first page (#242).
+      if changedAt != nil, refreshed.pageCount != document.pageCount { try await library.resetReadingPosition(id) }
       if let changedAt {
         try await library.recordModified(id, at: changedAt)
       } else {

@@ -66,9 +66,9 @@ Store notes (see the changelog strategy).
   up the list. A protected document's words leave search and Spotlight at once, even on a full
   disk. Spotlight follows a document's new name and tags.
 - A PDF edited in another app, or replaced in Files with another of the same name, is read again
-  when the library opens: its pages and text follow the file, it keeps its tags and favourite, and
-  reading starts again on its first page. A replacement is read again even when it is older than the
-  document it replaced, and as soon as the app comes back to the foreground.
+  when the library opens, even when the new file is older, and when the app comes back to the
+  foreground. Its text follows the file and it keeps its tags and favourite; it opens on its first
+  page only if its number of pages changed.
 - Photos that fail to load are counted, and when none load the library and Scan say so. Merging
   stops, and says so, when a document's file is missing, and sharing says how many it leaves out.
   Deleting a second document keeps its Undo, and typing a search no longer briefly says search is
@@ -211,6 +211,10 @@ Store notes (see the changelog strategy).
 - Removing a document's password keeps what its contents entries do: one that opens a web page
   still opens it, and one that opens a page at a zoom still uses that zoom. Before, the first did
   nothing and the second opened at the default zoom.
+
+### Known issues
+- A different PDF put in Files under a document's name, with exactly the same number of pages, opens
+  where the old one was being read (#242).
 
 ### Added
 - Annotations: a shape, stamp, signature or text box you drag to the top or bottom of the screen

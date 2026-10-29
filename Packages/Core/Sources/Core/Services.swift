@@ -31,7 +31,7 @@ public protocol DocumentLibrary: Sendable {
   /// Records that a document was opened and the page it showed.
   func recordOpened(_ id: DocumentID, pageIndex: Int) async throws
   /// Puts the reading position back on the first page, without counting as an opening: the file was
-  /// replaced or changed outside the app (#242).
+  /// replaced or changed outside the app, with another number of pages (#242).
   func resetReadingPosition(_ id: DocumentID) async throws
   /// Records that the file's contents changed (after a save).
   func recordModified(_ id: DocumentID) async throws
