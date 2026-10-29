@@ -463,6 +463,34 @@ struct DocumentIntakeTests {
     #expect(await index.inSpotlight.contains(added.id))
   }
 
+  @Test("A library change whose Spotlight part fails is owed; a protected entry is tried until it is gone (#360)")
+  func catchUpIsOwed() async throws {
+    let library = FakeDocumentLibrary()
+    let index = FakeIndex()
+    let pending = PendingRefreshes(url: nil)
+    var payslip = Document(title: "Payslip", fileName: "p.pdf", addedAt: .distantPast)
+    payslip.isEncrypted = true
+    let binned = await library.seed(payslip)
+    try await index.index(binned, pages: [])
+    let intake = DocumentIntake(
+      library: library, inspector: FakeInspector(result: PDFInspection(pageCount: 0, isEncrypted: true, pages: [])),
+      index: index, pending: pending)
+    try await library.moveToRecentlyDeleted(binned.id)
+    await index.failSpotlightRemoval(true)
+
+    #expect(await intake.catchUp(binned.id, protecting: true) == false)
+    for _ in 0..<5 { _ = await intake.refreshPending() }
+
+    #expect(await pending.all == [binned.id], "Never given up while Spotlight has it")
+    #expect(await index.inSpotlight.contains(binned.id))
+    await index.failSpotlightRemoval(false)
+    _ = await intake.refreshPending()
+    #expect(await !index.inSpotlight.contains(binned.id))
+    #expect(await pending.all.isEmpty)
+    #expect(await intake.catchUp(binned.id), "Nothing owed when it works")
+    #expect(await pending.all.isEmpty)
+  }
+
   @Test("The refreshes still owed survive a relaunch (#236)")
   func pendingRefreshesPersist() async throws {
     let url = FileManager.default.temporaryDirectory.appendingPathComponent("pending-\(UUID().uuidString).json")

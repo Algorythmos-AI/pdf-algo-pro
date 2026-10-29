@@ -226,11 +226,22 @@ public final class LibraryModel {
   }
 
   private func removeDerivedData(of id: DocumentID) async {
-    do {
-      try await index.remove(id)
-    } catch {
-      await telemetry.record("quality.operation.failed")
-    }
+    await catchUp(id)
+  }
+
+  /// Brings search and Spotlight up to date with a library change that worked (#360).
+  ///
+  /// A failure is counted, not shown: the change itself worked, and what search and Spotlight are
+  /// owed is done again at the next library load or return to the foreground. A protected document's
+  /// entry is tried until it is gone.
+  private func catchUp(_ id: DocumentID, protecting: Bool? = nil) async {
+    if await !intake.catchUp(id, protecting: protecting) { await telemetry.record("quality.operation.failed") }
+  }
+
+  /// `true` when a document is protected, so its Spotlight entry must go whatever else fails; `nil`
+  /// otherwise, or when it can't be read.
+  private func protection(of id: DocumentID) async -> Bool? {
+    (try? await library.document(withID: id))?.isEncrypted == true ? true : nil
   }
 
   /// Removes derived data the library no longer has documents for.
@@ -502,24 +513,19 @@ public final class LibraryModel {
 
   /// Gives search and Spotlight a document's new title or tags, with its stored text (#241).
   ///
-  /// A failure is counted, not shown: the change itself worked, and the next refresh of the document
-  /// writes them again.
+  /// A failure is counted, not shown: the change itself worked, and it is owed and done again (#360).
   private func reindex(_ document: Core.Document) async {
-    do {
-      // Spotlight only: the stored text isn't written, so a refresh landing meanwhile keeps its own.
-      try await index.updateDetails(of: document)
-    } catch {
-      await telemetry.record("quality.operation.failed")
-    }
+    await catchUp(document.id)
   }
 
   /// Moves a document to Recently Deleted and out of Spotlight.
+  ///
+  /// Only a failure of the move is shown; Spotlight's part is owed when it fails (#360).
   public func delete(_ id: DocumentID) async {
     await perform {
+      let protecting = await self.protection(of: id)
       try await self.library.moveToRecentlyDeleted(id)
-      if let deleted = try await self.library.document(withID: id) {
-        try await self.index.index(deleted, pages: try await self.index.pages(of: id))
-      }
+      await self.catchUp(id, protecting: protecting)
     }
     if selection?.id == id { selection = nil }
   }
@@ -612,20 +618,24 @@ public final class LibraryModel {
   }
 
   /// Restores a document from Recently Deleted.
+  ///
+  /// Only a failure of the restore is shown; Spotlight's part is owed when it fails (#360).
   public func restore(_ id: DocumentID) async {
     await perform {
       try await self.library.restore(id)
-      if let restored = try await self.library.document(withID: id) {
-        try await self.index.index(restored, pages: try await self.index.pages(of: id))
-      }
+      await self.catchUp(id)
     }
   }
 
   /// Deletes a document now, with its derived data (FR-LIB-006).
+  ///
+  /// Only a failure of the deletion is shown; removing its text and Spotlight entry is owed when it
+  /// fails, and for a protected document never given up (#360).
   public func deletePermanently(_ id: DocumentID) async {
     await perform {
+      let protecting = await self.protection(of: id)
       try await self.library.deletePermanently(id)
-      try await self.index.remove(id)
+      await self.catchUp(id, protecting: protecting)
     }
   }
 

@@ -61,7 +61,8 @@ public struct DocumentIntake: Sendable {
 
   /// Refreshes every document a refresh is still owed to (#236).
   ///
-  /// A document no longer in the library is crossed off. One whose file isn't a readable PDF any
+  /// A document no longer in the library is crossed off once its text and Spotlight entry are gone
+  /// too (#360). One whose file isn't a readable PDF any
   /// more is crossed off at once, its old text taken out of search. One that has failed
   /// `attempts` times is given up, except that a protected document is crossed off only once its
   /// words are out of search and Spotlight: that is tried every time until it works. A cancelled
@@ -77,7 +78,14 @@ public struct DocumentIntake: Sendable {
       do {
         _ = try await run(id, recordsChange: false, changedAt: nil)
       } catch LibraryError.notFound {
-        try? await pending.remove(id)
+        // Gone from the library: crossed off once search and Spotlight have let it go too (#360).
+        if (try? await index.remove(id)) != nil {
+          try? await pending.remove(id)
+        } else {
+          failed += 1
+          let failures = (try? await pending.failed(id)) ?? Self.attempts
+          if failures >= Self.attempts, !owed.protects { try? await pending.remove(id) }
+        }
       } catch is CancellationError {
         return failed
       } catch LibraryError.notAPDF {
@@ -109,6 +117,42 @@ public struct DocumentIntake: Sendable {
       }
     }
     return failed
+  }
+
+  /// Brings search and Spotlight up to date with a library change that has already worked: a move to
+  /// Recently Deleted, a restore, a deletion for good, a new name or new tags (#360).
+  ///
+  /// The change worked, so a failure here isn't one to show: it is written down as owed, like a failed
+  /// refresh, and done again at the next library load or return to the foreground.
+  ///
+  /// - Parameters:
+  ///   - id: The document that changed; one no longer in the library leaves search and Spotlight.
+  ///   - protecting: `true` for a protected document, whose entry is then tried until it is gone and
+  ///     never given up; `nil` leaves what is owed as it was.
+  /// - Returns: whether search and Spotlight are up to date now.
+  @discardableResult
+  public func catchUp(_ id: DocumentID, protecting: Bool? = nil) async -> Bool {
+    do {
+      try await inLane(id) {
+        if let document = try await library.document(withID: id) {
+          // The stored text isn't written, so a refresh landing meanwhile keeps its own (#241).
+          try await index.updateDetails(of: document)
+        } else {
+          try await index.remove(id)
+        }
+      }
+      return true
+    } catch {
+      await owe(id, protecting: protecting, after: error)
+      return false
+    }
+  }
+
+  /// Writes a refresh down as owed after search or Spotlight failed; a cancelled one isn't counted
+  /// as a failure.
+  private func owe(_ id: DocumentID, protecting: Bool?, after error: any Error) async {
+    _ = try? await pending?.add(id, protecting: protecting)
+    if !(error is CancellationError) { _ = try? await pending?.failed(id) }
   }
 
   /// Imports a file from outside the library.
@@ -207,6 +251,9 @@ public struct DocumentIntake: Sendable {
 
   /// Inspects, records and indexes a document; `changedAt` is the change search and Spotlight are
   /// told about, when it isn't recorded yet.
+  ///
+  /// A new document whose search text or Spotlight entry fails is still returned: it is in the
+  /// library, so the failure isn't reported, and search and Spotlight are owed a refresh (#360).
   private func finish(_ document: Document, isNew: Bool, changedAt: Date? = nil) async throws -> Document {
     let inspection: PDFInspection
     do {
@@ -217,10 +264,11 @@ public struct DocumentIntake: Sendable {
       if error is CancellationError { throw error }
       throw LibraryError.notAPDF
     }
+    var owed: (any Error)?
     // A protected document's words leave search and Spotlight first. Removing needs no space, so
     // this works on a full disk, where everything after it may fail (#236).
     if inspection.isLocked {
-      try await index.remove(document.id)
+      owed = try await indexing(isNew: isNew) { try await index.remove(document.id) }
     } else {
       // The file as it is isn't locked, so no change protects it any more (unless one is still being
       // saved): a failure from here on doesn't take its words out of search.
@@ -229,17 +277,34 @@ public struct DocumentIntake: Sendable {
     try await library.updateInspection(inspection, for: document.id)
     guard var updated = try await library.document(withID: document.id) else { throw LibraryError.notFound }
     if let changedAt { updated.modifiedAt = changedAt }
-    try await index.index(updated, pages: inspection.pages)
+    let recorded = updated
+    owed = try await indexing(isNew: isNew) { try await index.index(recorded, pages: inspection.pages) } ?? owed
     // Deleted for good while this ran: it must not come back in search or Spotlight.
     guard let current = try await library.document(withID: document.id) else {
       try await index.remove(document.id)
       throw LibraryError.notFound
     }
+    var result = updated
     // Moved to Recently Deleted while this ran: indexed as it is now, which takes it out of Spotlight.
     if current.isDeleted, !updated.isDeleted {
-      try await index.index(current, pages: inspection.pages)
-      return current
+      owed = try await indexing(isNew: isNew) { try await index.index(current, pages: inspection.pages) } ?? owed
+      result = current
     }
-    return updated
+    if let owed { await owe(document.id, protecting: inspection.isLocked ? true : nil, after: owed) }
+    return result
+  }
+
+  /// Runs a search or Spotlight step of `finish`.
+  ///
+  /// For a new document a failure is returned, to be owed once the document is recorded, instead of
+  /// thrown; a cancellation is always thrown (#360).
+  private func indexing(isNew: Bool, _ step: () async throws -> Void) async throws -> (any Error)? {
+    do {
+      try await step()
+      return nil
+    } catch {
+      guard isNew, !(error is CancellationError) else { throw error }
+      return error
+    }
   }
 }

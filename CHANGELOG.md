@@ -66,8 +66,10 @@ Store notes (see the changelog strategy).
   up the list. A protected document's words leave search and Spotlight at once, even on a full
   disk. Spotlight follows a document's new name and tags.
 - When Spotlight can't take a change, the app no longer counts the update as done: it tries again
-  the next time the library opens. A protected document's words could stay in Spotlight after they
-  had left the app's own search; now the app keeps trying until they are out of Spotlight too.
+  the next time the library opens or the app comes back. A protected document's words could stay in
+  Spotlight after they had left the app's own search; now the app keeps trying until they are out of
+  Spotlight too, including after it is deleted. Moving a document to Recently Deleted, restoring it,
+  deleting it for good or adding one no longer says it didn't work when only Spotlight failed.
 - A PDF edited in another app, or replaced in Files with another of the same name, is read again
   when the library opens, even when the new file is older, and when the app comes back to the
   foreground. Its text follows the file and it keeps its tags and favourite; it opens on its first

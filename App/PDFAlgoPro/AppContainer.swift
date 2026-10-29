@@ -432,6 +432,23 @@ final class AppContainer {
     return await index.reindexSpotlight(documents)
   }
 
+  /// Writes every document to Spotlight again after the text setting changed (defect D11).
+  ///
+  /// When Spotlight didn't take them all, the launch migration is marked not done, so the next launch
+  /// writes them again (#360).
+  func textSettingChanged(defaults: UserDefaults = .standard) async {
+    await Self.reindexAfterTextSetting(defaults: defaults, reindex: { await self.reindexSpotlight() })
+  }
+
+  /// The text-setting rewrite's steps, with what refills the index passed in.
+  static func reindexAfterTextSetting(defaults: UserDefaults, reindex: () async -> Bool) async {
+    guard await !reindex() else { return }
+    defaults.set(1, forKey: spotlightIndexVersionKey)
+  }
+
+  /// Where the Spotlight migration records that it is done: 2 once the protected index is filled.
+  static let spotlightIndexVersionKey = "spotlight.indexVersion"
+
   /// Moves Spotlight to the protected index once (defect D11).
   ///
   /// Empties the index earlier builds wrote to, then reindexes. Later launches do nothing.
@@ -449,7 +466,7 @@ final class AppContainer {
   static func migrateSpotlight(
     defaults: UserDefaults, retire: () async -> Void, reindex: () async -> Bool
   ) async {
-    let key = "spotlight.indexVersion"
+    let key = spotlightIndexVersionKey
     guard defaults.integer(forKey: key) < 2 else { return }
     await retire()
     guard await reindex() else { return }
