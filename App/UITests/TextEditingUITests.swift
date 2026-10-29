@@ -166,10 +166,21 @@ final class TextEditingUITests: UITestCase {
     XCTAssertTrue(app.staticTexts["Edit this PDF"].exists)
     try audit(app)
 
-    // The tip is not in the way: one tap on Edit enters text editing, and the tip is gone.
-    app.buttons[ID.Reader.edit].tap()
+    // The tip is not in the way: one tap on Edit enters text editing, and the tip is gone. One tap
+    // only, since a tip that took the first tap is what this checks; so Edit is tapped once nothing
+    // covers it, and a failure says what was on the screen (issue #353: on run 40736394712 the tap
+    // went in the second the audit ended, and Done never showed).
+    let edit = app.buttons[ID.Reader.edit]
+    waitUntilHittable(edit, in: app, "Nothing covers Edit while the tip shows")
+    edit.tap()
     let done = app.buttons[ID.Reader.doneEditingText]
-    XCTAssertTrue(done.waitForExistence(timeout: 10), "One tap on Edit, with the tip showing")
+    if !done.waitForExistence(timeout: Self.settleTimeout) {
+      let state =
+        "Done never showed. The tip exists: \(tip.exists); Edit exists: \(edit.exists), "
+        + "hittable: \(edit.exists && edit.isHittable)."
+      keepEvidence(app, named: "edit with tip", notes: state)
+      XCTFail("One tap on Edit, with the tip showing. \(state)")
+    }
     XCTAssertTrue(tip.waitForNonExistence(timeout: 5))
     done.tap()
     XCTAssertTrue(app.buttons[ID.Reader.edit].waitForExistence(timeout: 5))

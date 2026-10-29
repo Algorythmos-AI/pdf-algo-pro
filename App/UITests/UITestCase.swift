@@ -477,6 +477,11 @@ class UITestCase: XCTestCase {
       XCTFail(
         "\(findings.count) accessibility finding(s):\n" + findings.joined(separator: "\n"), file: file, line: line)
     }
+    // The audit puts the text size back as it ends, and the screen redraws after it. A tap made at once
+    // was lost twice: Edit did not enter text editing (issue #353, run 40736394712), and a page in the
+    // strip did not open (issue #286, run 40122866508), both tapped in the second the audit ended. So the
+    // journey goes on once the screen is still again.
+    waitUntilStill(app)
   }
 
   /// The nodes PDFKit exposes for the pages in view, as `nodeKey`s.
