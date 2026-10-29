@@ -53,6 +53,11 @@ public final class PaywallModel {
   public private(set) var selectedPlanID: String?
   /// Whether the App Store's own sheet is up, or about to be.
   public private(set) var isPurchasing = false
+  /// The plans whose purchase waits for approval, such as a parent's with Ask to Buy.
+  ///
+  /// Each is asked for once while the offer shows: a second request would only reach the approver
+  /// again (#266).
+  public private(set) var plansWaitingForApproval: Set<String> = []
   /// What to tell the person about the last purchase, if anything.
   public var notice: Notice?
   /// Whether the person already had Pro when the offer appeared: the offer then says so, and its
@@ -63,8 +68,10 @@ public final class PaywallModel {
   /// Why the reminder is off although it was asked for: notifications declined, too little of the trial
   /// left, or the system didn't schedule it; `nil` when it is on, or was never asked for.
   public private(set) var reminderProblem: TrialReminderOutcome?
-  /// Whether the last restore found nothing to bring back or could not be made.
-  public var restoreFailed = false
+  /// How the last restore ended; `nil` before one, and once the person has read what it says.
+  public var restoreOutcome: RestoreOutcome?
+  /// Whether a restore is under way; Restore Purchases waits for it.
+  public private(set) var isRestoring = false
 
   /// Why the offer is showing.
   public let trigger: PaywallTrigger
@@ -156,6 +163,11 @@ public final class PaywallModel {
     await loadPlans()
   }
 
+  /// Whether the selected plan's purchase waits for approval, so its button asks nothing more.
+  public var selectedPlanIsWaiting: Bool {
+    selectedPlanID.map(plansWaitingForApproval.contains) ?? false
+  }
+
   /// The plan that is selected, once the plans have loaded.
   public var selectedPlan: PlanOffer? {
     guard case .loaded(let offers) = plans else { return nil }
@@ -191,7 +203,9 @@ public final class PaywallModel {
   /// The App Store confirms the purchase in its own sheet. A purchase that succeeds is read back
   /// as an entitlement, and it is the entitlement that leads to the confirmation.
   public func purchase() async {
-    guard phase == .offer, !alreadyHasPro, !paymentPaused, !isPurchasing, let planID = selectedPlanID else { return }
+    guard phase == .offer, !alreadyHasPro, !paymentPaused, !isPurchasing, let planID = selectedPlanID,
+      !plansWaitingForApproval.contains(planID)
+    else { return }
     isPurchasing = true
     defer { isPurchasing = false }
     await telemetry.record("commerce.purchase.started")
@@ -200,6 +214,7 @@ public final class PaywallModel {
       await entitlements.refresh()
       await entitlementChanged()
     case .pending:
+      plansWaitingForApproval.insert(planID)
       notice = .pending
     case .cancelled:
       break
@@ -269,16 +284,33 @@ public final class PaywallModel {
   }
 
   /// Brings back purchases made elsewhere (Restore Purchases on the offer).
+  ///
+  /// `restoreOutcome` then says whether Pro came back, is paused over a payment (#248), there was
+  /// nothing to bring back, or the App Store could not be asked (#247). A second tap while one runs is ignored.
   public func restore(using store: any StoreAccessing) async {
-    let answered = await store.restorePurchases()
-    restoreFailed = !answered
+    guard !isRestoring else { return }
+    isRestoring = true
+    defer { isRestoring = false }
+    restoreOutcome = nil
+    let answer = await store.restorePurchases()
     await entitlements.refresh()
-    if !answered {
+    restoreOutcome = RestoreOutcome.after(answer, hasPro: grantsPro, paused: paymentPaused)
+    if answer != .synced {
       await telemetry.record("commerce.restore.failed")
     } else if hadPro == false, grantsPro {
       // The confirmation follows, as after a purchase; it is recorded there as a restore.
       wasRestored = true
     }
+  }
+
+  /// Whether an alert tells the person how a restore ended.
+  ///
+  /// Not after a cancellation, which they chose, and not after a restore that brought Pro back to
+  /// someone who had none when the offer appeared: the confirmation follows and says it. Someone who
+  /// already had Pro is told their purchases are restored, since nothing else on screen changes.
+  public func alertsAbout(_ outcome: RestoreOutcome) -> Bool {
+    guard outcome.message != nil else { return false }
+    return outcome != .restored || !wasRestored
   }
 
   /// The person switched the trial reminder on or off.

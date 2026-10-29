@@ -10,6 +10,8 @@ Store notes (see the changelog strategy).
 ## [Unreleased]
 
 ### Added
+- Settings › About: Rate PDF Algo Pro opens the app's page in the App Store, where you can rate
+  and review it.
 - Answers, summaries and extracted fields you copy or share now end with a line saying that PDF
   Algo Pro generated them from the document and that they may contain errors. In a CSV it is the
   last row, so the file still opens as a table.
@@ -110,6 +112,22 @@ Store notes (see the changelog strategy).
   until the App Store's renewal reached the device.
 - Pro: a subscriber whose payment is being retried in the App Store's grace period keeps Pro when
   the subscription's state can't be read, for example offline. Before, Pro could switch off.
+- Restore purchases now says how it went: that Pro is back, that this Apple Account has nothing to
+  restore, or that the App Store couldn't be reached. Before, it said nothing when there was
+  nothing to restore, and asked you to check your Apple Account when you were offline or had
+  cancelled the sign-in. Cancelling now says nothing, and a second tap while a restore runs is
+  ignored. While Pro is paused because a payment failed, it says so and points to Manage
+  subscription, rather than that there is nothing to restore.
+- App Lock: after the cover goes away, for example when you come back from Notification Center,
+  typing goes on in the field you were typing in. Before, the keyboard could be given to another
+  of the app's windows, and typing stopped until you tapped the field again.
+- Free plan: two summaries or answers started at the same moment can no longer both use the day's
+  last free request.
+- Pro: a purchase waiting for approval, as with Ask to Buy, now shows Waiting for approval on its
+  button until the plans screen closes. Before, the button was ready again, and a second tap sent
+  the approver a second request.
+- Assistant: closing it straight after opening it no longer leaves a summary, extraction or
+  explanation running unseen.
 - Editing text (internal builds): a name pasted from a web page with a hidden soft hyphen or
   zero-width space is now changed in the page. Before, the hidden character made the change fail,
   the line was covered instead, and every other line on that page could then only be covered.
