@@ -285,9 +285,12 @@ public actor FakeIndex: DocumentIndexing {
   public private(set) var indexed: [Document] = []
   /// How many times page text was written.
   public private(set) var pageWrites = 0
+  /// The documents Spotlight has an entry for.
+  public private(set) var inSpotlight: Set<DocumentID> = []
   private var failsNextIndex = false
   private var failsIndexing = false
   private var failsRemoving = false
+  private var failsSpotlightRemoval = false
   private var cancelsSearches = false
 
   /// Creates an empty index.
@@ -320,6 +323,24 @@ public actor FakeIndex: DocumentIndexing {
     failsRemoving = fails
   }
 
+  /// Makes Spotlight fail to remove entries while `fails` is set, as the real index reports it (#360).
+  ///
+  /// `remove(_:)` throws once the stored text is gone, and indexing a document in Recently Deleted,
+  /// which takes it out of Spotlight, throws too.
+  public func failSpotlightRemoval(_ fails: Bool) {
+    failsSpotlightRemoval = fails
+  }
+
+  /// Gives Spotlight a document: a document in Recently Deleted leaves it.
+  private func mirror(_ document: Document) throws {
+    guard document.isDeleted else {
+      inSpotlight.insert(document.id)
+      return
+    }
+    if failsSpotlightRemoval { throw LibraryError.fileAccessFailed }
+    inSpotlight.remove(document.id)
+  }
+
   /// Stores page texts directly.
   public func seed(_ id: DocumentID, pages: [PageText]) {
     stored[id] = pages
@@ -334,19 +355,23 @@ public actor FakeIndex: DocumentIndexing {
     stored[document.id] = pages
     pageWrites += 1
     indexed.append(document)
+    try mirror(document)
   }
 
   /// Gives Spotlight a document's new title or tags; the stored text is not written.
   public func updateDetails(of document: Document) async throws {
     if failsIndexing { throw LibraryError.fileAccessFailed }
     indexed.append(document)
+    try mirror(document)
   }
 
   /// Removes a document and its derived text (FR-LIB-006).
   public func remove(_ id: DocumentID) async throws {
     if failsRemoving { throw LibraryError.fileAccessFailed }
     stored[id] = nil
+    if failsSpotlightRemoval { throw LibraryError.fileAccessFailed }
     removed.append(id)
+    inSpotlight.remove(id)
   }
 
   /// Removes the stored text of every document not in `ids`.
@@ -355,6 +380,7 @@ public actor FakeIndex: DocumentIndexing {
     for id in stale {
       stored[id] = nil
       removed.append(id)
+      inSpotlight.remove(id)
     }
     return Array(stale)
   }

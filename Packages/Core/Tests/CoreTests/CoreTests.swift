@@ -421,6 +421,48 @@ struct DocumentIntakeTests {
     #expect(await pending.all.isEmpty)
   }
 
+  @Test("A document deleted for good stays owed until it is out of search and Spotlight (#360)")
+  func goneDocumentStaysOwedUntilRemoved() async throws {
+    let pending = PendingRefreshes(url: nil)
+    let index = FakeIndex()
+    let gone = DocumentID()
+    let protected = DocumentID()
+    try await pending.add(gone)
+    try await pending.add(protected, protecting: true)
+    await index.failSpotlightRemoval(true)
+    let intake = DocumentIntake(
+      library: FakeDocumentLibrary(), inspector: FakeInspector(), index: index, pending: pending)
+
+    _ = await intake.refreshPending()
+
+    #expect(Set(await pending.all) == [gone, protected], "Not crossed off while Spotlight still has them")
+    for _ in 0..<4 { _ = await intake.refreshPending() }
+    #expect(await pending.all == [protected], "Given up after three tries, unless it is protected")
+    await index.failSpotlightRemoval(false)
+    _ = await intake.refreshPending()
+    #expect(await pending.all.isEmpty)
+    #expect(await index.removed == [protected])
+  }
+
+  @Test("A new document whose search or Spotlight entry fails is kept and not reported; it catches up later (#360)")
+  func newDocumentIndexFailureIsOwed() async throws {
+    let library = FakeDocumentLibrary()
+    let index = FakeIndex()
+    let pending = PendingRefreshes(url: nil)
+    let intake = DocumentIntake(library: library, inspector: FakeInspector(), index: index, pending: pending)
+    await index.failIndexing(true)
+
+    let added = try await intake.add(data: Data("%PDF-1.7\n".utf8), title: "Scan")
+
+    #expect(try await library.document(withID: added.id) != nil)
+    #expect(added.pageCount == 1, "Recorded as read")
+    #expect(await pending.all == [added.id], "Search and Spotlight are owed")
+    await index.failIndexing(false)
+    #expect(await intake.refreshPending() == 0)
+    #expect(await pending.all.isEmpty)
+    #expect(await index.inSpotlight.contains(added.id))
+  }
+
   @Test("The refreshes still owed survive a relaunch (#236)")
   func pendingRefreshesPersist() async throws {
     let url = FileManager.default.temporaryDirectory.appendingPathComponent("pending-\(UUID().uuidString).json")

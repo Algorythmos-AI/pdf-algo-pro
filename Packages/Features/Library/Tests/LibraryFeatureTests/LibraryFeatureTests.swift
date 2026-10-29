@@ -293,6 +293,96 @@ struct LibraryModelTests {
     #expect(harness.model.documents.isEmpty)
   }
 
+  @Test("When only Spotlight fails, moving to Recently Deleted shows no error and is retried (#360)")
+  func binningWithSpotlightFailing() async throws {
+    let pending = PendingRefreshes(url: nil)
+    let harness = Harness(pending: pending)
+    let document = await harness.library.seed(Document(title: "Old", fileName: "o.pdf", addedAt: .now))
+    try await harness.index.index(document, pages: [PageText(pageIndex: 0, text: "text")])
+    await harness.model.load()
+    await harness.index.failSpotlightRemoval(true)
+
+    await harness.model.delete(document.id)
+
+    #expect(harness.model.errorMessage == nil, "The move worked")
+    #expect(try await harness.library.document(withID: document.id)?.isDeleted == true)
+    #expect(await pending.all == [document.id], "Taking it out of Spotlight is owed")
+    #expect(await harness.index.inSpotlight.contains(document.id))
+    await harness.index.failSpotlightRemoval(false)
+    await harness.model.filesMayHaveChanged()
+    #expect(await !harness.index.inSpotlight.contains(document.id), "Tried again: out of Spotlight")
+    #expect(await pending.all.isEmpty)
+  }
+
+  @Test("When only Spotlight fails, restoring shows no error and is retried (#360)")
+  func restoringWithSpotlightFailing() async throws {
+    let pending = PendingRefreshes(url: nil)
+    let harness = Harness(pending: pending)
+    var binned = Document(title: "Old", fileName: "o.pdf", addedAt: .now)
+    binned.deletedAt = .now
+    let document = await harness.library.seed(binned)
+    await harness.index.seed(document.id, pages: [PageText(pageIndex: 0, text: "text")])
+    await harness.model.load()
+    await harness.index.failIndexing(true)
+
+    await harness.model.restore(document.id)
+
+    #expect(harness.model.errorMessage == nil, "The restore worked")
+    #expect(try await harness.library.document(withID: document.id)?.isDeleted == false)
+    #expect(await pending.all == [document.id], "Putting it back in Spotlight is owed")
+    await harness.index.failIndexing(false)
+    await harness.model.filesMayHaveChanged()
+    #expect(await harness.index.inSpotlight.contains(document.id), "Tried again: back in Spotlight")
+    #expect(await pending.all.isEmpty)
+  }
+
+  @Test("When only Spotlight fails, Delete Now shows no error, and removal is retried until it works (#360)")
+  func deletingNowWithSpotlightFailing() async throws {
+    let pending = PendingRefreshes(url: nil)
+    let harness = Harness(pending: pending)
+    let document = await harness.library.seed(Document(title: "Old", fileName: "o.pdf", addedAt: .now))
+    try await harness.index.index(document, pages: [PageText(pageIndex: 0, text: "text")])
+    await harness.model.load()
+    await harness.index.failSpotlightRemoval(true)
+
+    await harness.model.deletePermanently(document.id)
+
+    #expect(harness.model.errorMessage == nil, "The deletion worked")
+    #expect(try await harness.library.document(withID: document.id) == nil)
+    #expect(await pending.all == [document.id], "Taking it out of Spotlight is owed")
+    await harness.index.failSpotlightRemoval(false)
+    await harness.model.filesMayHaveChanged()
+    #expect(await !harness.index.inSpotlight.contains(document.id), "Tried again: out of Spotlight")
+    #expect(await pending.all.isEmpty)
+  }
+
+  @Test("A protected document's Spotlight entry is retried until it is gone, binned or deleted for good (#360)")
+  func protectedEntryIsRetriedUntilGone() async throws {
+    let pending = PendingRefreshes(url: nil)
+    let locked = FakeInspector(result: PDFInspection(pageCount: 0, isEncrypted: true, pages: []))
+    let harness = Harness(inspector: locked, pending: pending)
+    var protected = Document(title: "Payslip", fileName: "p.pdf", addedAt: .now)
+    protected.isEncrypted = true
+    var other = Document(title: "Bank", fileName: "b.pdf", addedAt: .now)
+    other.isEncrypted = true
+    let binned = await harness.library.seed(protected)
+    let gone = await harness.library.seed(other)
+    for document in [binned, gone] { try await harness.index.index(document, pages: []) }
+    await harness.model.load()
+    await harness.index.failSpotlightRemoval(true)
+
+    await harness.model.delete(binned.id)
+    await harness.model.deletePermanently(gone.id)
+    for _ in 0..<5 { await harness.model.filesMayHaveChanged() }
+
+    #expect(harness.model.errorMessage == nil)
+    #expect(Set(await pending.all) == [binned.id, gone.id], "Never given up while Spotlight has them")
+    await harness.index.failSpotlightRemoval(false)
+    await harness.model.filesMayHaveChanged()
+    #expect(await harness.index.inSpotlight.isEmpty, "Out of Spotlight")
+    #expect(await pending.all.isEmpty)
+  }
+
   @Test("Opening the library removes the search text of purged and vanished documents (FR-LIB-006)")
   func housekeepingRemovesDerivedData() async throws {
     let harness = Harness()
