@@ -9,12 +9,132 @@ Store notes (see the changelog strategy).
 
 ## [Unreleased]
 
+## [1.0.0] - YYYY-MM-DD
+
 ### Added
 - Settings › About: Rate PDF Algo Pro opens the app's page in the App Store, where you can rate
   and review it.
 - Answers, summaries and extracted fields you copy or share now end with a line saying that PDF
   Algo Pro generated them from the document and that they may contain errors. In a CSV it is the
   last row, so the file still opens as a table.
+
+- Annotations: a shape, stamp, signature or text box you drag to the top or bottom of the screen
+  now scrolls the page with it, faster the nearer the edge, and stays under your finger. A line of
+  text held to be moved does the same. Before, the page kept still, so something could only be moved
+  as far as the screen showed. It stays on its own page: the scrolling stops at the page's edge.
+- Stamps: a tick, a cross, today's date or initials chosen from Markup › Stamp now goes where you
+  tap the page, as many times as you tap, until Done. Before, it was dropped near the top right
+  corner of the page and had to be dragged into place.
+- Annotations: copy, cut and paste. Select a tick, a stamp, a shape, a drawing or a text box and
+  choose Copy, Cut or Duplicate in its bar. After Copy or Cut, each tap on a page puts a copy where
+  you tap, so one tick can fill a whole column of boxes; Done ends it. Paste in the Markup menu
+  starts again, also in another document. Each paste is undone on its own, also with Undo and
+  Redo in the paste bar, without leaving pasting.
+- Scanning (internal builds): a page set in columns is now read one column after the other, and a
+  table row by row, so searching for a phrase and asking about a scan work on the text as you
+  would read it.
+- Scanning (internal builds): text is recognised in more languages, among them German, Spanish,
+  Italian, Portuguese, Dutch, Polish, Russian and Ukrainian, without choosing one first.
+- Scanning (internal builds): on a scan you can now select a single word; before, the selection
+  could only follow whole lines loosely.
+- Search (internal builds): a word also finds its simpler form, so "invoices" finds "invoice" and
+  "paid" finds "pay". The assistant uses the same idea to pick the pages a question is about.
+- Library (internal builds): press and hold a document and drag it into another app, such as
+  Mail or Files, to put a copy of the PDF there.
+- Reading (internal builds): a strip of small pages along the bottom of a document. Tap a small
+  page to go to it; the strip steps aside while you edit or mark up, and Layout › Page strip
+  puts it away.
+- Reading (internal builds): pinching out now stops at the whole page instead of leaving a small
+  page adrift.
+- Reading (internal builds): with a keyboard, the left and right arrows turn the page, and
+  Command with plus, minus and zero zooms in, out and back to the whole page.
+- A short introduction the first time you open the app: three pages on what it does, each with a
+  picture of the app at work, and Skip on every one. Swipe or tap Continue to move between them.
+- PDF Algo Pro now has a Pro subscription. The app stays free to use, with a daily limit on new
+  scans and on summaries and answers; Pro removes it. Settings › Subscription shows your plan and lets you see the plans, manage
+  or restore a subscription, and redeem a code. Opening, reading, signing, sharing and exporting
+  your documents never need Pro. Pro comes as a yearly plan with a free trial, marked Best Value
+  with how much it saves you, or as a weekly plan.
+- Editing text (internal builds): move a line of a PDF's own text. Tap Edit, press and hold a line,
+  and drag it to where you want it. The line moves in the page itself and can be undone; it is not
+  moved on top of other content.
+- Settings › About is now a page of its own: the app's version, the privacy policy, terms and
+  support, a way to share PDF Algo Pro, and who makes it.
+- The app opens on a new Home: scan or import in one tap, pick up the documents you opened last,
+  and see how many documents each section holds. Home also says what the app promises, that your
+  documents stay on this device, and who makes it.
+- Settings › About links to the privacy policy, the terms of use and the support page on
+  algorythmos.com, in French when the app is in French. They open in the browser.
+- Edit the text already in a PDF (internal builds for now): tap Edit, tap a line, type, tap Done.
+  The words change in the page itself, in the same font where the iPhone has it, and the change is
+  still there when the file is opened in another app. Each edit can be undone, and the version
+  before it is kept. When something can't be changed safely, the app says so and changes nothing.
+  Scanned pages say they are images and offer Recognise text; signed documents are edited in a copy.
+- App Lock: Settings › Privacy can require Face ID, Touch ID, Optic ID or the passcode to open the app.
+  While it is on, the app switcher shows no document and document text stays out of Spotlight.
+- Tapping a web, email or phone link in a document now shows its full address and asks before
+  opening it. Links to files, other apps or scripts are never opened; their address can be copied.
+- More › Annotations lists every highlight, note, drawing, shape and signature by page; choosing one
+  opens its page, and the list can be shared as text.
+- Extracted fields can be shared as a CSV file that opens correctly in Excel and Numbers: accents are
+  kept, and where numbers use a decimal comma (as in French) the columns are separated by semicolons.
+- Siri and Shortcuts can summarise a document: "Summarise … with PDF Algo Pro" returns the summary with
+  the pages it cites, made on this device, and needs the iPhone unlocked.
+- The app may ask for a rating, at most once per version: only after several things went well over at
+  least two days, never in the first session or after something went wrong, and only once a document
+  or sheet has been closed.
+- PDF from photos: hold Import in the library and choose photos; each becomes a page, upright, in a
+  new document. No access to your photo library is needed.
+- Tools in the reader's More menu: reduce file size into a smaller copy (for email or for printing),
+  add or remove a password, share a flattened copy that nobody can change, and share the page on
+  screen as an image.
+- Organise pages: in Pages, choose Select to rotate pages, move one earlier or later, delete pages,
+  or copy them into a new document. Each change can be undone.
+- Version history: before each save the app keeps the version it replaces for 30 days, and More ›
+  Version history restores any of them; the version being replaced is kept too, so a restore can be
+  undone. Settings › Storage shows the space it takes and can delete it.
+- Privacy report in Settings: how many AI requests ran on this iPhone or in the cloud over the last
+  30 days, and how many documents were sent to cloud AI (none). Only the counts are kept.
+- Select several documents in the library to share, favourite, merge into one PDF, or delete them
+  together, with Undo.
+- Annotations, shapes, drawings, text boxes and signatures can be moved by dragging, resized by
+  pinching or from Style, and given another colour; each change is one undo step. VoiceOver users
+  can move a selection with its Move actions.
+- Stamps in Markup: today's date, a tick, a cross, or your own text such as initials or "Paid".
+- Bookmarks: bookmark the page on screen from More; bookmarks are listed in Contents and saved in the
+  PDF, so other apps show them too.
+- Review a scan before it is saved: rotate, reorder or delete pages, and name it; the name is
+  suggested from the first page's headline, recognised on this device.
+- Recognising text you start carries on if you leave the app, with its progress shown by the system
+  (on the Lock Screen and in the Dynamic Island); you can cancel it from there.
+- A digitally signed PDF keeps its valid signature: your changes are saved in a copy marked
+  "(edited)", and the app says so.
+- If another app changes a document while it is open, the reader shows the new version; if you have
+  unsaved changes, you choose to keep yours as a copy or use the other version, so nothing is lost.
+- Follow-up questions in the assistant: ask about the answer you just got, and the earlier questions
+  and answers stay on screen with their sources. Answers still come only from the document.
+- Document info, from a document's menu in the library: file name, size, pages, dates, author, the
+  app that made it, PDF version, and whether a password protects it or printing and copying are allowed.
+- The native iOS foundation app: onboarding with AI-first options, a library in the Files-visible
+  Documents folder with Recently Deleted, search across titles, tags and recognised text (and
+  Spotlight), a PDFKit reader with markup, notes, read aloud and on-device text recognition, scanning
+  to searchable PDFs, and on-device document intelligence that cites its pages and says when an answer
+  is not in the document.
+- Repository foundation: licence, agent rules, templates, workflows, rulesets as code, labels,
+  milestones, and the process documentation for branching, releases and quality gates.
+- Markup: draw with a finger or Apple Pencil; add rectangles, ovals, arrows and text boxes; tap any
+  annotation to edit its text or delete it (#66).
+- Signatures: draw one and keep it in the Keychain on this device only, or type your name, then
+  place it on the page (#59, #66).
+- Every save keeps the version from before it, and "Restore the version before the last save" in the
+  reader's More menu puts it back (restoring again switches back). A document that won't open offers
+  the same. Saving stops with a clear message when the device is too full to save safely.
+- Find in the document, go to a page by number, and share or print from the reader (#58).
+- A tag editor for documents, and onboarding choices that open the assistant on a chosen PDF (#57).
+- A setting to keep what documents say out of Spotlight; titles and tags stay searchable (#61).
+- Summaries of crashes and hangs that iOS reports, kept on this device and included in Report a
+  problem only when you send it (#61).
+- An interim app icon, and a Staging build named "PDF Algo β" for internal testing (#52, #54).
 
 ### Changed
 - The App Store version now has what TestFlight builds have had: the page strip and keyboard
@@ -28,6 +148,46 @@ Store notes (see the changelog strategy).
 - A new look: red on white. Buttons, tiles and the app icon are now red, and screens stay white
   (or dark in Dark Mode). On a document, what you select is outlined in blue, so that red there
   only ever means a red annotation or Delete.
+
+- Report a problem now includes the diagnostics summary unless you turn it off in Settings › Help,
+  and remembers your choice. The summary never includes your documents, and you can read it in the
+  email, and delete it, before you send.
+- Drawing: Undo and Redo are in the bar while you draw or mark text, so a line or shape that went
+  wrong is taken back with one tap. With a shape tool in hand, dragging a shape that is already on
+  the page moves it; dragging on the bare page draws a new one.
+- Settings is easier to scan: every row has a symbol, and privacy and security are in one place
+  (the privacy report moved there from its own section).
+- Report a problem now writes to pdfalgopro@algorythmos.com.
+- Editing text (internal builds) is easier to find: the reader's bar has a filled button that says
+  Edit, and the first time a document with text is open a short tip points to it. The tip goes
+  away for good once Edit is used or the tip is closed. On narrower iPhones the bar no longer shows
+  the document's title.
+- Scan offers "Choose from Photos" as well as "Choose from Files", since photos of pages are usually
+  in the photo library.
+- Highlight, Underline and Strike through are tools you pick up: choose one, then select text and it
+  is marked, until you tap Done. Choosing one with nothing selected no longer shows an error.
+- The reader's More menu is grouped, with the export and password tools under "Export and protect",
+  so it fits on the screen.
+- Settings opens on what people look for: the ten "What you do most" switches moved to their own
+  screen.
+- A new app icon: a larger page with a bold "PDF" mark on a crimson-to-violet field. The Staging
+  build carries the same icon with a beta badge.
+- Search looks through the whole library from any section, so a document is found wherever it is
+  filed; in Recently Deleted it searches only deleted documents.
+- The start-here card in the library goes once you have opened one of your own documents, instead of
+  staying until the third and still saying "Open your first PDF".
+- The app icon is layered, so iOS 26 draws it with Liquid Glass in the default, dark, tinted and clear
+  appearances.
+- Read aloud goes on from page to page to the end of the document, turning the pages as it reads,
+  and carries on from the page on screen when you start it again.
+- After a wrong password, the password field clears, so the next attempt starts fresh.
+- The assistant shows only the latest answer, and every sentence of an answer is checked against
+  the page it cites; unsupported parts are left out (#60).
+- Deleting permanently asks first; onboarding marks the options coming in a later update; hiding
+  AI also hides it on library cards (#57).
+- The library index is now backed up with the device; the search index and Spotlight forget
+  documents that are removed (#61).
+- On iPad the app uses a single window for now (#54).
 
 ### Fixed
 - When another app changes a document just as PDF Algo Pro saves it, the app no longer saves over the
@@ -196,167 +356,6 @@ Store notes (see the changelog strategy).
   still opens it, and one that opens a page at a zoom still uses that zoom. Before, the first did
   nothing and the second opened at the default zoom.
 
-### Added
-- Annotations: a shape, stamp, signature or text box you drag to the top or bottom of the screen
-  now scrolls the page with it, faster the nearer the edge, and stays under your finger. A line of
-  text held to be moved does the same. Before, the page kept still, so something could only be moved
-  as far as the screen showed. It stays on its own page: the scrolling stops at the page's edge.
-- Stamps: a tick, a cross, today's date or initials chosen from Markup › Stamp now goes where you
-  tap the page, as many times as you tap, until Done. Before, it was dropped near the top right
-  corner of the page and had to be dragged into place.
-- Annotations: copy, cut and paste. Select a tick, a stamp, a shape, a drawing or a text box and
-  choose Copy, Cut or Duplicate in its bar. After Copy or Cut, each tap on a page puts a copy where
-  you tap, so one tick can fill a whole column of boxes; Done ends it. Paste in the Markup menu
-  starts again, also in another document. Each paste is undone on its own, also with Undo and
-  Redo in the paste bar, without leaving pasting.
-- Scanning (internal builds): a page set in columns is now read one column after the other, and a
-  table row by row, so searching for a phrase and asking about a scan work on the text as you
-  would read it.
-- Scanning (internal builds): text is recognised in more languages, among them German, Spanish,
-  Italian, Portuguese, Dutch, Polish, Russian and Ukrainian, without choosing one first.
-- Scanning (internal builds): on a scan you can now select a single word; before, the selection
-  could only follow whole lines loosely.
-- Search (internal builds): a word also finds its simpler form, so "invoices" finds "invoice" and
-  "paid" finds "pay". The assistant uses the same idea to pick the pages a question is about.
-- Library (internal builds): press and hold a document and drag it into another app, such as
-  Mail or Files, to put a copy of the PDF there.
-- Reading (internal builds): a strip of small pages along the bottom of a document. Tap a small
-  page to go to it; the strip steps aside while you edit or mark up, and Layout › Page strip
-  puts it away.
-- Reading (internal builds): pinching out now stops at the whole page instead of leaving a small
-  page adrift.
-- Reading (internal builds): with a keyboard, the left and right arrows turn the page, and
-  Command with plus, minus and zero zooms in, out and back to the whole page.
-- A short introduction the first time you open the app: three pages on what it does, each with a
-  picture of the app at work, and Skip on every one. Swipe or tap Continue to move between them.
-- PDF Algo Pro now has a Pro subscription. The app stays free to use, with a daily limit on new
-  scans and on summaries and answers; Pro removes it. Settings › Subscription shows your plan and lets you see the plans, manage
-  or restore a subscription, and redeem a code. Opening, reading, signing, sharing and exporting
-  your documents never need Pro. Pro comes as a yearly plan with a free trial, marked Best Value
-  with how much it saves you, or as a weekly plan.
-- Editing text (internal builds): move a line of a PDF's own text. Tap Edit, press and hold a line,
-  and drag it to where you want it. The line moves in the page itself and can be undone; it is not
-  moved on top of other content.
-- Settings › About is now a page of its own: the app's version, the privacy policy, terms and
-  support, a way to share PDF Algo Pro, and who makes it.
-- The app opens on a new Home: scan or import in one tap, pick up the documents you opened last,
-  and see how many documents each section holds. Home also says what the app promises, that your
-  documents stay on this device, and who makes it.
-- Settings › About links to the privacy policy, the terms of use and the support page on
-  algorythmos.com, in French when the app is in French. They open in the browser.
-- Edit the text already in a PDF (internal builds for now): tap Edit, tap a line, type, tap Done.
-  The words change in the page itself, in the same font where the iPhone has it, and the change is
-  still there when the file is opened in another app. Each edit can be undone, and the version
-  before it is kept. When something can't be changed safely, the app says so and changes nothing.
-  Scanned pages say they are images and offer Recognise text; signed documents are edited in a copy.
-- App Lock: Settings › Privacy can require Face ID, Touch ID, Optic ID or the passcode to open the app.
-  While it is on, the app switcher shows no document and document text stays out of Spotlight.
-- Tapping a web, email or phone link in a document now shows its full address and asks before
-  opening it. Links to files, other apps or scripts are never opened; their address can be copied.
-- More › Annotations lists every highlight, note, drawing, shape and signature by page; choosing one
-  opens its page, and the list can be shared as text.
-- Extracted fields can be shared as a CSV file that opens correctly in Excel and Numbers: accents are
-  kept, and where numbers use a decimal comma (as in French) the columns are separated by semicolons.
-- Siri and Shortcuts can summarise a document: "Summarise … with PDF Algo Pro" returns the summary with
-  the pages it cites, made on this device, and needs the iPhone unlocked.
-- The app may ask for a rating, at most once per version: only after several things went well over at
-  least two days, never in the first session or after something went wrong, and only once a document
-  or sheet has been closed.
-- PDF from photos: hold Import in the library and choose photos; each becomes a page, upright, in a
-  new document. No access to your photo library is needed.
-- Tools in the reader's More menu: reduce file size into a smaller copy (for email or for printing),
-  add or remove a password, share a flattened copy that nobody can change, and share the page on
-  screen as an image.
-- Organise pages: in Pages, choose Select to rotate pages, move one earlier or later, delete pages,
-  or copy them into a new document. Each change can be undone.
-- Version history: before each save the app keeps the version it replaces for 30 days, and More ›
-  Version history restores any of them; the version being replaced is kept too, so a restore can be
-  undone. Settings › Storage shows the space it takes and can delete it.
-- Privacy report in Settings: how many AI requests ran on this iPhone or in the cloud over the last
-  30 days, and how many documents were sent to cloud AI (none). Only the counts are kept.
-- Select several documents in the library to share, favourite, merge into one PDF, or delete them
-  together, with Undo.
-- Annotations, shapes, drawings, text boxes and signatures can be moved by dragging, resized by
-  pinching or from Style, and given another colour; each change is one undo step. VoiceOver users
-  can move a selection with its Move actions.
-- Stamps in Markup: today's date, a tick, a cross, or your own text such as initials or "Paid".
-- Bookmarks: bookmark the page on screen from More; bookmarks are listed in Contents and saved in the
-  PDF, so other apps show them too.
-- Review a scan before it is saved: rotate, reorder or delete pages, and name it; the name is
-  suggested from the first page's headline, recognised on this device.
-- Recognising text you start carries on if you leave the app, with its progress shown by the system
-  (on the Lock Screen and in the Dynamic Island); you can cancel it from there.
-- A digitally signed PDF keeps its valid signature: your changes are saved in a copy marked
-  "(edited)", and the app says so.
-- If another app changes a document while it is open, the reader shows the new version; if you have
-  unsaved changes, you choose to keep yours as a copy or use the other version, so nothing is lost.
-- Follow-up questions in the assistant: ask about the answer you just got, and the earlier questions
-  and answers stay on screen with their sources. Answers still come only from the document.
-- Document info, from a document's menu in the library: file name, size, pages, dates, author, the
-  app that made it, PDF version, and whether a password protects it or printing and copying are allowed.
-- The native iOS foundation app: onboarding with AI-first options, a library in the Files-visible
-  Documents folder with Recently Deleted, search across titles, tags and recognised text (and
-  Spotlight), a PDFKit reader with markup, notes, read aloud and on-device text recognition, scanning
-  to searchable PDFs, and on-device document intelligence that cites its pages and says when an answer
-  is not in the document.
-- Repository foundation: licence, agent rules, templates, workflows, rulesets as code, labels,
-  milestones, and the process documentation for branching, releases and quality gates.
-- Markup: draw with a finger or Apple Pencil; add rectangles, ovals, arrows and text boxes; tap any
-  annotation to edit its text or delete it (#66).
-- Signatures: draw one and keep it in the Keychain on this device only, or type your name, then
-  place it on the page (#59, #66).
-- Every save keeps the version from before it, and "Restore the version before the last save" in the
-  reader's More menu puts it back (restoring again switches back). A document that won't open offers
-  the same. Saving stops with a clear message when the device is too full to save safely.
-- Find in the document, go to a page by number, and share or print from the reader (#58).
-- A tag editor for documents, and onboarding choices that open the assistant on a chosen PDF (#57).
-- A setting to keep what documents say out of Spotlight; titles and tags stay searchable (#61).
-- Summaries of crashes and hangs that iOS reports, kept on this device and included in Report a
-  problem only when you send it (#61).
-- An interim app icon, and a Staging build named "PDF Algo β" for internal testing (#52, #54).
-
-### Changed
-- Report a problem now includes the diagnostics summary unless you turn it off in Settings › Help,
-  and remembers your choice. The summary never includes your documents, and you can read it in the
-  email, and delete it, before you send.
-- Drawing: Undo and Redo are in the bar while you draw or mark text, so a line or shape that went
-  wrong is taken back with one tap. With a shape tool in hand, dragging a shape that is already on
-  the page moves it; dragging on the bare page draws a new one.
-- Settings is easier to scan: every row has a symbol, and privacy and security are in one place
-  (the privacy report moved there from its own section).
-- Report a problem now writes to pdfalgopro@algorythmos.com.
-- Editing text (internal builds) is easier to find: the reader's bar has a filled button that says
-  Edit, and the first time a document with text is open a short tip points to it. The tip goes
-  away for good once Edit is used or the tip is closed. On narrower iPhones the bar no longer shows
-  the document's title.
-- Scan offers "Choose from Photos" as well as "Choose from Files", since photos of pages are usually
-  in the photo library.
-- Highlight, Underline and Strike through are tools you pick up: choose one, then select text and it
-  is marked, until you tap Done. Choosing one with nothing selected no longer shows an error.
-- The reader's More menu is grouped, with the export and password tools under "Export and protect",
-  so it fits on the screen.
-- Settings opens on what people look for: the ten "What you do most" switches moved to their own
-  screen.
-- A new app icon: a larger page with a bold "PDF" mark on a crimson-to-violet field. The Staging
-  build carries the same icon with a beta badge.
-- Search looks through the whole library from any section, so a document is found wherever it is
-  filed; in Recently Deleted it searches only deleted documents.
-- The start-here card in the library goes once you have opened one of your own documents, instead of
-  staying until the third and still saying "Open your first PDF".
-- The app icon is layered, so iOS 26 draws it with Liquid Glass in the default, dark, tinted and clear
-  appearances.
-- Read aloud goes on from page to page to the end of the document, turning the pages as it reads,
-  and carries on from the page on screen when you start it again.
-- After a wrong password, the password field clears, so the next attempt starts fresh.
-- The assistant shows only the latest answer, and every sentence of an answer is checked against
-  the page it cites; unsupported parts are left out (#60).
-- Deleting permanently asks first; onboarding marks the options coming in a later update; hiding
-  AI also hides it on library cards (#57).
-- The library index is now backed up with the device; the search index and Spotlight forget
-  documents that are removed (#61).
-- On iPad the app uses a single window for now (#54).
-
-### Fixed
 - Editing text (internal builds): on a long line in small print, the end of the sentence could not
   be reached while typing, because the typing field ran off the side of the screen. The field now
   stays on screen and scrolls along the line as you move through it.
@@ -425,3 +424,44 @@ Store notes (see the changelog strategy).
 - Saving a PDF whose metadata is damaged in a certain way no longer closes the app (#67).
 - A cited page, or a page chosen in Contents or Pages, stays on screen after the sheet closes
   (#63, #71).
+
+### Known issues
+- A drag that starts right after a tap on a page doesn't move the page; waiting a moment before
+  dragging works (#202). (to remove if fixed before release)
+- If the library can't record a save, for example on a full disk, the app says the changes weren't
+  saved although the file was saved (#234).
+- After a password is added or removed, text is edited or a version is restored, library search and
+  Spotlight can stay out of date if updating them fails (#236). (to remove if fixed before release)
+- After an update, Spotlight can stop finding documents if the library couldn't be read when the app
+  started (#237). (to remove if fixed before release)
+- Photos that can't be loaded, such as iCloud originals while offline, are left out without a
+  message, and if none load nothing happens (#238).
+- Merge leaves out, without a message, a document whose file was removed in Files (#239). (to remove
+  if fixed before release)
+- Deleting a second document within 8 seconds of the first can take away the first one's Undo
+  straight away (#240). (to remove if fixed before release)
+- Spotlight keeps a document's old title and tags after it is renamed or its tags change (#241). (to
+  remove if fixed before release)
+- A different PDF saved in Files under an existing document's name takes over that document's tags,
+  reading position and search text (#242). (to remove if fixed before release)
+- An import that the library fails to record can come back as a duplicate, and every import failure
+  is described as not a readable PDF (#243). (to remove if fixed before release)
+- With a very large library, the app can pause at launch while the library opens (#244). (to remove
+  if fixed before release)
+- Share or Print does nothing if the document's file was moved in Files while it was open (#260).
+- Rarely, the reader can take its own save for a change made by another app and say so (#261). (to
+  remove if fixed before release)
+- Reduce file size makes a copy, and shows a size that makes no sense, when the file's size can't be
+  read (#262).
+- Changing only the capitalisation of a title can add " 2" to the file's name (#263). (to remove if
+  fixed before release)
+- While text recognition replaces a document's file, another app reading the file at that moment can
+  get an incomplete copy (#270).
+- On some devices, after a shape is resized with a pinch, a slow drag moves the page only part of
+  the way (#296).
+- A trial reminder can still arrive after you subscribe or are refunded, if the app isn't opened
+  before it is due (#336). (to remove if fixed before release)
+- Editing text (internal builds): past the undo memory limit, older annotation changes can no longer
+  be undone (#339). (to remove if fixed before release)
+- On iOS 27, saving a password-protected document loses a contents entry's web address (#356). (to
+  remove if fixed before release)
