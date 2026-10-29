@@ -165,9 +165,11 @@ public final class LibraryModel {
     do {
       let reconciliation = try await library.reconcileWithFiles()
       for id in reconciliation.removed { await removeDerivedData(of: id) }
-      for document in reconciliation.added {
+      // Files added, and files put in place of a document's own under its name, whose date may be older
+      // than the document's last change (#242): both are read now.
+      for id in reconciliation.added.map(\.id) + reconciliation.changed {
         do {
-          _ = try await intake.refresh(document.id)
+          _ = try await intake.refresh(id)
         } catch {
           await telemetry.record("quality.operation.failed")
         }

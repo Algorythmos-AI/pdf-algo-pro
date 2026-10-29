@@ -368,8 +368,9 @@ public actor FileDocumentLibrary: DocumentLibrary {
   /// An entry's earlier versions stay when its file is gone, until their 30 days or the quota ends
   /// them.
   ///
-  /// Returns the documents added, which still need inspecting and indexing, and the entries removed,
-  /// whose derived data must be removed too.
+  /// Returns the documents added, which still need inspecting and indexing, the entries removed,
+  /// whose derived data must be removed too, and the entries kept with another file at their name,
+  /// which need reading again (#242).
   public func reconcileWithFiles() async throws -> Reconciliation {
     try await exclusively {
       let entries = try await index.all()
@@ -379,6 +380,7 @@ public actor FileDocumentLibrary: DocumentLibrary {
       }
       var removed: [DocumentID] = []
       var added: [Document] = []
+      var changed: [DocumentID] = []
       var files = pdfFiles(in: documentsFolder)
       // Entries whose file isn't at its name, or whose name has another file.
       var unsettled: [Document] = []
@@ -405,6 +407,16 @@ public actor FileDocumentLibrary: DocumentLibrary {
         }
         files[document.fileName] = nil
         if let current, identities[document.id] != current.stored {
+          // The same document identifier on a new file: a file put at its name since the app last
+          // recorded it, by another app's save or by the Files app's Replace, which the system treats
+          // alike. The app records the identity after each save it makes, so this is a change made
+          // elsewhere, and its date may be older than the entry's (#242).
+          // An identity recorded on another volume (a backup restored) says nothing about this file.
+          if let recorded = recordedIdentity(of: document.id), recorded.isOnSameVolume(as: current),
+            let was = recorded.file, let now = current.file, was != now
+          {
+            changed.append(document.id)
+          }
           try await index.setFileIdentity(current.stored, for: document.id)
         }
       }
@@ -448,8 +460,10 @@ public actor FileDocumentLibrary: DocumentLibrary {
       files = files.filter { !taken.contains($0.key) }
       for document in unfound {
         if files.removeValue(forKey: document.fileName) != nil {
-          // Its name still has a file, and no other file is its own: it keeps that one.
+          // Its name still has a file, and no other file is its own: it keeps that one. That file isn't
+          // the one recorded, so it is read again, whatever its date (#242).
           await recordIdentity(of: document)
+          changed.append(document.id)
         } else {
           try await index.setGone(now(), for: document.id)
           removed.append(document.id)
@@ -479,7 +493,7 @@ public actor FileDocumentLibrary: DocumentLibrary {
         try await index.upsert(document)
         await recordIdentity(of: document)
       }
-      return Reconciliation(added: added, removed: removed)
+      return Reconciliation(added: added, removed: removed, changed: changed)
     }
   }
 
