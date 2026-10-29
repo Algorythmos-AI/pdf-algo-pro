@@ -11,6 +11,7 @@ public actor FakeDocumentLibrary: DocumentLibrary {
   private let now: @Sendable () -> Date
   /// When set, the next call throws this error.
   public var nextError: LibraryError?
+  private var nextReconciliation: Reconciliation?
 
   /// Creates an empty library with its own temporary folder.
   public init(now: @escaping @Sendable () -> Date = { Date(timeIntervalSince1970: 1_800_000_000) }) {
@@ -227,10 +228,17 @@ public actor FakeDocumentLibrary: DocumentLibrary {
   /// Brings the index in line with the files: PDFs added outside the app (for example in the Files app) are added,
   /// entries whose file is gone are removed.
   ///
-  /// Returns what changed; this fake never finds new files.
+  /// Returns what changed: what `reportNextReconciliation(_:)` gave, once; otherwise nothing, since
+  /// this fake never finds new files.
   public func reconcileWithFiles() async throws -> Reconciliation {
     try check()
-    return Reconciliation()
+    defer { nextReconciliation = nil }
+    return nextReconciliation ?? Reconciliation()
+  }
+
+  /// Makes the next reconciliation report `reconciliation`, as when files changed in the Files app.
+  public func reportNextReconciliation(_ reconciliation: Reconciliation) {
+    nextReconciliation = reconciliation
   }
 }
 

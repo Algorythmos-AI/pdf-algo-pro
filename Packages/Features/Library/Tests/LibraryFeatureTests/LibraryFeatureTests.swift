@@ -736,6 +736,19 @@ struct LibraryModelTests {
     #expect(attempts <= DocumentIntake.attempts, "\(attempts) attempts")
   }
 
+  @Test("A file replaced under its name is read again when the library looks at its files, whatever its date (#242)")
+  func replacedFileIsReadAgain() async throws {
+    let harness = Harness()
+    let later = Date.now.addingTimeInterval(3_600)
+    let document = await harness.library.seed(Document(title: "Invoice", fileName: "i.pdf", addedAt: later))
+    await harness.model.load()
+    #expect(await harness.index.stored[document.id] == nil, "Its date says it hasn't changed")
+    await harness.library.reportNextReconciliation(Reconciliation(changed: [document.id]))
+    await harness.model.filesMayHaveChanged()
+    #expect(await harness.index.stored[document.id] != nil, "Read again: its search text follows the file")
+    #expect(try await harness.library.document(withID: document.id)?.pageCount == 1)
+  }
+
   @Test("A search cancelled by more typing is not reported as search being unavailable (#240)")
   func cancelledSearchIsQuiet() async {
     let harness = Harness()

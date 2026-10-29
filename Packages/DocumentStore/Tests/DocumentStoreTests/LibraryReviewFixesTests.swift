@@ -44,6 +44,25 @@ struct LibraryReviewFixesTests {
       "A locked document's page count is unknown, so its position stays")
   }
 
+  @Test("A file replaced under its name by an older PDF is reported for reading again, once (#242)")
+  func replacedFileIsReported() async throws {
+    let (library, documents) = library()
+    let document = try await library.addDocument(data: pdf, title: "Invoice")
+    #expect(try await library.reconcileWithFiles() == Reconciliation(), "Nothing changed yet")
+    // Another PDF, last changed long before, put in its place, as the Files app's Replace does.
+    let url = documents.appendingPathComponent(document.fileName)
+    let other = documents.deletingLastPathComponent().appendingPathComponent("Other.pdf")
+    try Data("%PDF-1.7\n% another invoice\n%%EOF\n".utf8).write(to: other)
+    try FileManager.default.setAttributes([.modificationDate: Date(timeIntervalSince1970: 0)], ofItemAtPath: other.path)
+    try FileManager.default.removeItem(at: url)
+    try FileManager.default.moveItem(at: other, to: url)
+    #expect(try await library.changedSinceRecorded().isEmpty, "Its date alone doesn't tell")
+    let result = try await library.reconcileWithFiles()
+    #expect(result.changed == [document.id], "\(result)")
+    #expect(result.added.isEmpty && result.removed.isEmpty)
+    #expect(try await library.reconcileWithFiles() == Reconciliation(), "Reported once")
+  }
+
   // MARK: - Opening at launch (#244)
 
   /// Opens the app's index while another store holds the opening lock for up to two seconds, as a

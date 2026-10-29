@@ -126,11 +126,17 @@ public struct Reconciliation: Equatable, Sendable {
   /// Entries removed because their file is gone (the library may keep one a while in case its file
   /// comes back); their search text and Spotlight entry must go too (FR-LIB-006).
   public var removed: [DocumentID]
+  /// Entries whose name now holds another file than the one recorded, which need reading again.
+  ///
+  /// The file was replaced in the Files app, or saved by another app as a new file; its date may be
+  /// older than the entry's last change, so the date alone wouldn't tell (#242).
+  public var changed: [DocumentID]
 
   /// Creates a result.
-  public init(added: [Document] = [], removed: [DocumentID] = []) {
+  public init(added: [Document] = [], removed: [DocumentID] = [], changed: [DocumentID] = []) {
     self.added = added
     self.removed = removed
+    self.changed = changed
   }
 }
 
