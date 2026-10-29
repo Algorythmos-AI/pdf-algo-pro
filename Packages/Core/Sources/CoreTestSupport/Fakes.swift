@@ -135,6 +135,12 @@ public actor FakeDocumentLibrary: DocumentLibrary {
     documents[id]?.lastPageIndex = pageIndex
   }
 
+  /// Puts the reading position back on the first page.
+  public func resetReadingPosition(_ id: DocumentID) async throws {
+    try check()
+    documents[id]?.lastPageIndex = 0
+  }
+
   /// Records that the file's contents changed (after a save).
   public func recordModified(_ id: DocumentID) async throws {
     try check()

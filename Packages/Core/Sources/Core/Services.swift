@@ -30,6 +30,9 @@ public protocol DocumentLibrary: Sendable {
   func setTags(_ tags: [String], for id: DocumentID) async throws
   /// Records that a document was opened and the page it showed.
   func recordOpened(_ id: DocumentID, pageIndex: Int) async throws
+  /// Puts the reading position back on the first page, without counting as an opening: the file was
+  /// replaced or changed outside the app (#242).
+  func resetReadingPosition(_ id: DocumentID) async throws
   /// Records that the file's contents changed (after a save).
   func recordModified(_ id: DocumentID) async throws
   /// Moves a document to Recently Deleted, where it stays for 30 days.

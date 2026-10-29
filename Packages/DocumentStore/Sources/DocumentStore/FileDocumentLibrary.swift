@@ -256,6 +256,16 @@ public actor FileDocumentLibrary: DocumentLibrary {
     }
   }
 
+  /// Puts the reading position back on the first page, without counting as an opening (#242).
+  public func resetReadingPosition(_ id: DocumentID) async throws {
+    try await exclusively {
+      var document = try await existing(id)
+      guard document.lastPageIndex != 0 else { return }
+      document.lastPageIndex = 0
+      try await index.upsert(document)
+    }
+  }
+
   /// Records that the file's contents changed (after a save).
   public func recordModified(_ id: DocumentID) async throws {
     try await exclusively {

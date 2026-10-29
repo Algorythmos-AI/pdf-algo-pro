@@ -66,9 +66,9 @@ Store notes (see the changelog strategy).
   up the list. A protected document's words leave search and Spotlight at once, even on a full
   disk. Spotlight follows a document's new name and tags.
 - A PDF edited in another app, or replaced in Files with another of the same name, is read again
-  when the library opens: its pages, text and reading position follow the file. A replacement is
-  read again even when it is older than the document it replaced, and as soon as the app comes back
-  to the foreground.
+  when the library opens: its pages and text follow the file, it keeps its tags and favourite, and
+  reading starts again on its first page. A replacement is read again even when it is older than the
+  document it replaced, and as soon as the app comes back to the foreground.
 - Photos that fail to load are counted, and when none load the library and Scan say so. Merging
   stops, and says so, when a document's file is missing, and sharing says how many it leaves out.
   Deleting a second document keeps its Undo, and typing a search no longer briefly says search is

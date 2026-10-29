@@ -168,11 +168,19 @@ public final class LibraryModel {
     do {
       let reconciliation = try await library.reconcileWithFiles()
       for id in reconciliation.removed { await removeDerivedData(of: id) }
-      // Files added, and files put in place of a document's own under its name, whose date may be older
-      // than the document's last change (#242): both are read now.
-      for id in reconciliation.added.map(\.id) + reconciliation.changed {
+      for document in reconciliation.added {
         do {
-          _ = try await intake.refresh(id)
+          _ = try await intake.refresh(document.id)
+        } catch {
+          await telemetry.record("quality.operation.failed")
+        }
+      }
+      // Files put in place of a document's own under its name, whose date may be older than the
+      // document's last change: read now as changed outside the app, so the entry keeps its tags and
+      // favourite and starts again on the first page (#242).
+      for id in reconciliation.changed {
+        do {
+          _ = try await intake.refresh(id, changedAt: now())
         } catch {
           await telemetry.record("quality.operation.failed")
         }
@@ -188,7 +196,7 @@ public final class LibraryModel {
   ///
   /// The app records every change it makes after writing the file, so only changes made elsewhere are
   /// found. Its tags and favourite stay, whether the file was edited in another app or replaced under
-  /// the same name.
+  /// the same name, and reading starts again on the first page: the owner's decision on #242.
   ///
   /// The library lists its folder once, off the main actor. Each change is recorded at the time the
   /// other app made it. A file that isn't a readable PDF any more is recorded as seen, so it isn't
