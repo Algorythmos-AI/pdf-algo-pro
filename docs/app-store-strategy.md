@@ -138,6 +138,17 @@ Rules applied:
   the build (PAP-065); everything it describes runs on the device.
 - No prices in the description (same source), no superlatives that cannot be proven ("best",
   "fastest"), and "Built by Algorythmos" at the end.
+- Promotional text for 1.0, in English (all three English localisations) and French (both French
+  localisations), each within the 170 characters; it names Apple Intelligence because answers need
+  it, and nothing the build does not have:
+
+  ```text
+  Ask a PDF a question and see the page each answer comes from, with Apple Intelligence. Scan, sign, mark up and merge on your iPhone, with no account.
+  ```
+
+  ```text
+  Posez une question à un PDF et voyez la page d’où vient chaque réponse, avec Apple Intelligence. Numérisez, signez, annotez et fusionnez sur votre iPhone, sans compte.
+  ```
 
 ### What's New in 1.0
 
@@ -367,10 +378,10 @@ Events must describe something genuinely happening in the app. Candidates:
   version. `Assumption:` these thresholds; tuned with ratings volume after launch.
 - **No review gating.** No "Do you like the app?" pre-question that sends only happy users to the
   prompt, no incentives (Guideline 5.6.1).
-- A permanent "Rate PDF Algo Pro" row in Settings opens the product page with `action=write-review`
-  (same RequestReviewAction page). Not on `integration` yet: the link needs the production App Store
-  ID ([working memory](working-memory.md), open questions); until it lands, the 1.0 notes and copy
-  do not mention it.
+- A permanent "Rate PDF Algo Pro" row in Settings › About opens the product page with
+  `action=write-review` (same RequestReviewAction page). On `integration` since #351, with the
+  production App Store ID; the page loads only once the app is released, so in TestFlight and in App
+  Review it is expected not to load, as the 1.0 review notes say.
 - Replies to reviews in App Store Connect are factual and courteous; bug reports in reviews become
   issues without copying any personal details ([operations](operations.md)).
 
@@ -395,72 +406,88 @@ Guideline text from the [App Review Guidelines](https://developer.apple.com/app-
 
 The text for App Store Connect's "Notes" field (App Review Information) and for Beta App Review,
 to paste for the first submission (plan step L5). It describes the 1.0 scope (PAP-065 to PAP-067)
-and was checked against the code on `integration` on 2026-10-28; before each submission, check every
-line again against the build submitted (the table after it). Text editing is off in the Release
-configuration today (`textEditing` in [`ReleaseFlags.swift`](../Packages/Core/Sources/Core/ReleaseFlags.swift)),
+and was checked against the code on `integration` on 2026-10-29, after #351, with the background
+check of #336 (in review on `fix/trial-reminder-after-payment`) read from its branch; before each
+submission, check every line again against the build submitted (the table after it). Text editing
+is off in the Release configuration today (`textEditing` in [`ReleaseFlags.swift`](../Packages/Core/Sources/Core/ReleaseFlags.swift)),
 so the notes leave it out; if its device test is signed off and the flag goes on (PAP-066), add the
-bracketed sentence. The French storefronts are reviewed with the same English notes. `Assumption:`
-the Notes field holds 4,000 characters, like the other long text fields in App Store Connect; the
-text below is about 3,600 characters.
+bracketed sentence. The French storefronts are reviewed with the same English notes; the
+background sentence is also given in French after the notes, for a reply to App Review in French
+and for the French tester notes. `Assumption:` the Notes field holds 4,000 characters, like the
+other long text fields in App Store Connect. Pasted with each wrapped line joined to its paragraph,
+the text below is 3,837 characters, or 3,934 with the text-editing sentence.
 
-> PDF Algo Pro needs no account and has no server of its own. There is nothing to sign in to, and no
-> demo account is needed.
+> PDF Algo Pro needs no account and has no server of its own, so no demo account is needed.
 >
 > How to reach every feature
 > 1. On first launch, go through the three introduction pages (Continue, or Skip), then tap Close on
 > the subscription offer.
-> 2. On Home, tap "Try a sample". It adds a three-page synthetic document (a short guide, an invoice
-> and a privacy page) and opens it.
-> 3. In the document: Find and Share in the bar; Markup for highlight, draw, shapes, text box,
-> Signature, notes and stamps; More for Pages (rotate, reorder, delete), Contents, bookmarks, Export
-> and protect (reduce file size, add or remove a password, share a flattened copy or a page as an
-> image), Read aloud, Recognise text and Version history.
-> 4. Ask (the sparkles button) holds Summarise, Ask a question, Extract data and Explain contract.
-> 5. Scan: on Home, tap Scan.
-> 6. Merge: with two documents in the library (scan a page, or import a PDF from Files), tap Select
-> on Home, choose both, then Merge.
+> 2. Home opens with an empty library. Tap "Try a sample": it adds a three-page synthetic document (a
+> guide, an invoice and a privacy page) and opens it.
+> 3. In the document, Ask (the sparkles button) holds Summarise, Ask a question, Extract data and
+> Explain contract; ask "What is the total due?" and tap the page cited. Markup holds highlight,
+> draw, shapes, text box, Signature, notes and stamps. More holds Find, Share and Print, Pages
+> (rotate, reorder, delete), Contents, bookmarks, Export and protect (reduce file size, add or remove
+> a password, share a flattened copy or a page as an image) and Read aloud. Version history appears
+> there once a change is saved, Recognise text for pages with no text (a PDF made from photos).
+> 4. Back leads to All documents: its search field finds words inside documents (try "invoice"), and
+> Select chooses documents to share, favourite, merge or delete.
+> 5. Scan: on Home, tap Scan (camera, Photos or Files). Pages can be rotated, moved or deleted, and the
+> scan named, before saving.
+> 6. Merge: with two documents (a scan, or a PDF from Import), in All documents tap Select, choose
+> both, then Merge.
+> 7. Settings is the gear button on Home.
 >
 > On-device intelligence
-> Summaries, answers, extraction and contract explanations run on the device with Apple's
-> Foundation Models framework, and every answer cites the pages it comes from. They need Apple
-> Intelligence. The introduction's page about it appears only where Apple Intelligence is available
-> and turned on; elsewhere Ask explains why it cannot answer (device not supported, Apple
-> Intelligence turned off, or the model still getting ready), and every other feature works.
-> Settings > Hide AI features removes Ask altogether.
+> Summaries, answers, extraction and contract explanations run on the device with Apple's Foundation
+> Models framework, and every answer cites its pages. They need Apple Intelligence; where it is not
+> available, Ask explains why (device not supported, turned off, or the model getting ready), and
+> everything else works. Settings > Hide AI features removes Ask. Explain contract always shows
+> "Explains the document. Not legal advice."
 >
 > Nothing leaves the device
-> Documents, questions and answers stay on the iPhone. There is no cloud AI in this version and no
-> analytics. The only network traffic is the App Store's own, to show plans and process purchases,
-> and web pages the person chooses to open, which open in Safari.
+> Documents, questions and answers stay on the iPhone. There is no cloud AI and no analytics. The only
+> network traffic is the App Store's, for plans and purchases, and links the person taps, which open
+> in Safari or the App Store.
 >
-> Explain contract
-> Every result shows "Explains the document. Not legal advice." ("Analyse contract" is the matching
-> choice in Settings > What you do most.)
+> Background
+> The app declares the background fetch mode for one purpose: shortly before a free trial's reminder
+> is due, it checks the subscription on the device and removes the reminder if the person has already
+> subscribed or been refunded; it makes no network request of its own. Text recognition a person
+> starts may also finish in the background.
 >
 > Subscriptions
-> One group with two plans, Pro Weekly and Pro Yearly. The free trial is on Pro Yearly only, shown
-> only when the App Store says the account is eligible; Family Sharing is on Pro Yearly. The offer
-> appears once, after the introduction, with Close from the first moment, and at any time from
-> Settings > Subscription > See plans. It shows the App Store's own prices and periods, the trial's
-> length, what is due today and what follows, that the plan renews until cancelled, and Restore
-> purchases, Redeem a code, Terms and Privacy links. Settings > Subscription also has Manage
-> subscription, Restore purchases and Redeem a code; Settings > About has the Privacy Policy and Terms
-> of Use. To test: start the Pro Yearly trial with a Sandbox account, then delete and reinstall the
-> app and tap Settings > Subscription > Restore purchases. Opening, reading, signing, sharing and exporting documents never need
-> a subscription; Pro removes the daily limits on scans saved and on-device answers. [If text editing
-> ships: "Pro also adds editing of the existing text of a PDF, with the Edit button in the
-> document's bar."]
+> One group, Pro Weekly and Pro Yearly. The free trial is on Pro Yearly only, shown only when the App
+> Store says the account is eligible; Family Sharing is on Pro Yearly. The offer appears once after
+> the introduction, with Close from the start, and any time from Settings > Subscription > See plans.
+> It shows the App Store's prices and periods, the trial's length, what is due today and after, that
+> the plan renews until cancelled, Restore purchases, Redeem a code, Terms and Privacy. Settings >
+> Subscription also has Manage subscription. To test: start the Pro Yearly trial with a Sandbox
+> account, reinstall the app, then tap Settings > Subscription > Restore purchases. Reading, signing,
+> sharing and exporting never need a subscription; Pro removes the daily limits on saved scans and
+> on-device answers. [If text editing ships: "Pro also adds editing of the existing text
+> of a PDF, with the Edit button in the document's bar."]
+>
+> Settings > About: Privacy Policy, Terms of Use, Support, and Rate PDF Algo Pro (the App Store's
+> review page, which loads once the app is released).
 >
 > Permissions
-> - Camera: only to scan a document, asked the first time the document camera opens.
+> - Camera: only to scan, asked the first time the document camera opens.
 > - Face ID: only if you turn on Settings > Require Face ID (App Lock).
 > - Notifications: only if, after starting the trial, you turn on "Remind me the day before" on the
 > Welcome to Pro screen.
 >
-> Privacy label: Data Not Collected.
->
-> Nothing is switched on remotely: every feature described here is in the build, and the app has no
-> remote configuration in this version.
+> Privacy label: Data Not Collected. Nothing is switched on remotely: the app has no remote
+> configuration in this version.
+
+The background sentence in French:
+
+> L’app déclare le mode de récupération en arrière-plan pour une seule raison : peu avant l’échéance
+> du rappel d’un essai gratuit, elle vérifie l’abonnement sur l’appareil et retire le rappel si la
+> personne s’est déjà abonnée ou a été remboursée ; elle ne fait aucune requête réseau de son côté.
+
+If #336 does not ship in 1.0, the Background paragraph keeps only its last sentence, on text
+recognition.
 
 Before pasting, check each claim against the build and its evidence:
 
@@ -468,19 +495,26 @@ Before pasting, check each claim against the build and its evidence:
 |---|---|
 | No account, no server | No account code; no `URLSession` or other networking code in `App/` or `Packages/`; no entitlements file, so no iCloud or CloudKit; [compliance roadmap](compliance-roadmap.md) V1-09 |
 | Three introduction pages, Skip and Continue; Close on the offer | `OnboardingModel.pages` and `OnboardingView`; `PaywallFlowView` (Close); `OnboardingUITests`, `PaywallUITests` |
-| "Try a sample" on Home, three synthetic pages | `LibraryView` (`library.home.sample`, `library.empty.sample`); `SyntheticPDF.makeSample()` and `SampleContent`; `LibraryUITests` |
-| The reader's menus as named | `ReaderToolbar.swift`: Ask, Markup, More, Pages, Export and protect, Read aloud, Recognise text, Version history |
-| Merge from Select on Home | `LibraryView` (Select, Merge) |
+| "Try a sample" on Home while the library is empty; three synthetic pages; the sample opens | `LibraryView.home` shows `homeStart` while `counts[.all] == 0` (`library.home.sample`; the empty All documents list has `library.empty.sample`); `LibraryModel.addSample(task:)` adds and opens it, with no assistant task unless one was chosen in What you do most (none by default, `HomeAction.primary(for:)`); `SyntheticPDF.makeSample()` and `SampleContent` (its first page suggests "What is the total due?"); `LibraryUITests` |
+| The reader's menus as named | `ReaderToolbar.swift`: Ask with its four tasks; Markup; More with Find, Share and Print in one row, Pages, Contents, the bookmark, Export and protect, Read aloud; Version history only when `canRestorePreviousVersion` (after a save), Recognise text only when `canRecognizeText` (no text layer) |
+| Back leads to All documents; search and Select there | `LibraryView.startAtAllDocuments()`; `.searchable` ("Titles, tags and text") and Select on the document list; the selection bar's Share, Favourite, Merge and Delete |
+| Scan from the camera, Photos or Files; rotate, move, delete and name before saving | `ScanView` |
+| Merge from Select in All documents | `LibraryView` (Select, Merge, enabled from two documents) |
+| Settings from Home | The gear button in `LibraryView`'s sidebar toolbar (`library.sidebar.settings`) |
 | On-device only, with Foundation Models; citations | `OnDeviceModel` (`SystemLanguageModel`); citations required in [AI governance](ai-governance.md); PAP-065 (the Private Cloud Compute tier is V1.1) |
-| The introduction's AI page only where it is available; Ask explains otherwise | `OnboardingModel.load()`; `AssistantView.explanation(for:)`; `AssistantUITests` with `-intelligence-unavailable` |
+| Ask explains when intelligence is unavailable | `OnboardingModel.load()`; `AssistantView.explanation(for:)`; `AssistantUITests` with `-intelligence-unavailable` |
 | Hide AI features | `SettingsView` (`isIntelligenceHidden`); `ReaderModel.showsIntelligence` |
 | The contract disclosure | `ContractDisclosure` in `DesignSystem/Components.swift`, shown by `AssistantView` for Explain contract; V1-06 in the [compliance roadmap](compliance-roadmap.md) |
+| Background fetch for the trial reminder only, no request of the app's own | On `fix/trial-reminder-after-payment` ([#336](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/336)) until it merges: `UIBackgroundModes: [fetch]` and the `trial-reminder-check` identifier in `project.yml`; `SystemBackgroundChecks` submits one `BGAppRefreshTaskRequest`; `TrialReminderCheck.run()` refreshes the entitlement through StoreKit and removes the reminder when the trial no longer runs |
+| Recognition may finish in the background | `ContinuedProcessing` (`BGContinuedProcessingTask`) in `ContinuedWork.swift`; the `recognition.*` identifiers in `project.yml` |
 | Plans, trial on Pro Yearly, Family Sharing | PAP-049, PAP-050; `PaywallOfferView`; plan names in the [subscriptions runbook](process/runbooks/app-store-connect-subscriptions.md) |
-| Restore purchases, Redeem a code, Terms, Privacy, Manage subscription | `PaywallOfferView`, `SubscriptionSection`, `AboutView`; [subscription disclosure](#subscription-disclosure) below |
-| Permissions and when they are asked | `NSCameraUsageDescription` and `NSFaceIDUsageDescription` in `App/PDFAlgoPro/Info.plist`; `AppLock.swift`; `TrialReminderScheduler` asks for notifications only from the reminder switch in `WelcomeProView` |
+| Restore purchases, Redeem a code, Terms, Privacy, Manage subscription | `PaywallOfferView`, `SubscriptionSection`; what a restore ends in, in `RestoreOutcome` (#351); [subscription disclosure](#subscription-disclosure) below |
+| Free use and the daily limits Pro removes | `PaywallContent` ("Unlimited scans", "Unlimited answers"); `UsageAllowance` |
+| About: Privacy Policy, Terms of Use, Support, Rate PDF Algo Pro | `AboutView`; `AppLinks.writeReview` opens `apps.apple.com` with `action=write-review`, handed to the system as a `Link` (#351) |
+| Permissions and when they are asked | `NSCameraUsageDescription` and `NSFaceIDUsageDescription` in `project.yml` and the generated `App/PDFAlgoPro/Info.plist`; `AppLock.swift`; `TrialReminderScheduler` asks for notifications only from the reminder switch in `WelcomeProView` |
 | Data Not Collected | [Privacy labels](#privacy-labels) below; `PrivacyInfo.xcprivacy`; PAP-017 |
 | Nothing switched on remotely | `RemoteConfig` is linked but imported by no app or feature code; release flags are compiled in ([release flags](process/release-flags.md)) |
-| Text editing | Off in Release unless its device test is signed off (PAP-066 in the [decision register](decision-register.md)) |
+| Text editing | Off in Release unless its device test is signed off (`ReleaseFlag.textEditing.compiledDefault` is `false`; PAP-066 in the [decision register](decision-register.md)) |
 
 ## Subscription disclosure
 
@@ -602,7 +636,8 @@ containment). **Risks.** A defect that appears only at scale; mitigated by kill 
 ## 1.0 metadata check
 
 Every claim this document makes for the product page, the review and the listing, read against the
-1.0 scope (PAP-065 to PAP-067, PAP-070) and the code on `integration` on 2026-10-28. "Changed" means
+1.0 scope (PAP-065 to PAP-067, PAP-070) and the code on `integration` on 2026-10-28; the Rate row
+rechecked on 2026-10-29, after #351. "Changed" means
 the text above now says what 1.0 does; "Flagged" means the owner decides before the listing is
 filled in; "Holds" means the claim is true of the 1.0 build as it stands.
 
@@ -623,7 +658,7 @@ filled in; "Holds" means the claim is true of the 1.0 build as it stands.
 | The word "Edit" in the name, and "editor" as a keyword | Name and subtitle, keyword field | Flagged: true of markup, forms and page editing in 1.0; the owner decides whether "Edit" in the name reads as text editing while PAP-066 keeps text editing off |
 | Custom product page deep links, `pdfalgopro://start?intent=` | Custom product pages | Changed: the 1.0 router has no `start` route; the pages ship without a deep link, or the Scan page uses `pdfalgopro://scan` |
 | The Edit custom product page, "Edit existing text" first | Custom product pages | Flagged: only if text editing ships (PAP-066) |
-| A "Rate PDF Algo Pro" row in Settings | Ratings and reviews | Changed: not on `integration` until the App Store ID exists; not claimed in 1.0 copy |
+| A "Rate PDF Algo Pro" row in Settings | Ratings and reviews; review notes | Holds: in Settings › About since #351; the review notes say its page loads once the app is released |
 | "Target declarations on iPhone and iPad" | Accessibility Nutrition Labels | Changed: iPhone only in 1.0 |
 | iPad edition, multi-document questions | In-app events | Holds: listed as later events, not 1.0 |
 | Redaction, Office conversion, image editing, split and extract, widgets, the iCloud library, the cloud tier | Anywhere in the listing | Holds: none is claimed for 1.0 in this document after these changes |
