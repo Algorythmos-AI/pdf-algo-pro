@@ -43,4 +43,53 @@ struct LibraryReviewFixesTests {
       try await library.document(withID: document.id)?.lastPageIndex == 1,
       "A locked document's page count is unknown, so its position stays")
   }
+
+  // MARK: - Opening at launch (#244)
+
+  /// Opens the app's index while another store holds the opening lock for up to two seconds, as a
+  /// slow open or a migration would, and returns how long the caller waited.
+  private static func openWhileAnotherStoreOpens(at storeURL: URL) -> (OpeningLibraryIndex, Duration) {
+    let held = DispatchSemaphore(value: 0)
+    let release = DispatchSemaphore(value: 0)
+    Thread {
+      LibraryIndex.opening.withLock { _ in
+        held.signal()
+        _ = release.wait(timeout: .now() + 2)
+      }
+    }.start()
+    held.wait()
+    let clock = ContinuousClock()
+    let started = clock.now
+    let index = OpeningLibraryIndex(storeURL: storeURL)
+    let waited = clock.now - started
+    release.signal()
+    return (index, waited)
+  }
+
+  @Test("Launch doesn't wait for the library index to open or migrate; its calls do (#244)")
+  func indexOpensOffTheCaller() async throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent("opening-\(UUID().uuidString)")
+    let (index, waited) = Self.openWhileAnotherStoreOpens(at: root.appendingPathComponent("Index/Library.store"))
+    #expect(waited < .seconds(1), "The caller waited \(waited) for the store to open")
+    let document = Document(title: "Lease", fileName: "Lease.pdf", addedAt: .now)
+    try await index.upsert(document)
+    #expect(try await index.all().map(\.id) == [document.id], "A call waits until the store is open")
+    #expect(await index.level == .onDisk)
+  }
+
+  @Test("Creating the library moves no file; earlier versions are moved before any is read (#244)")
+  func versionsMoveOffTheCaller() async throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent("versions-\(UUID().uuidString)")
+    let previous = root.appendingPathComponent("Previous")
+    try FileManager.default.createDirectory(at: previous, withIntermediateDirectories: true)
+    let id = DocumentID()
+    let single = previous.appendingPathComponent("\(id.rawValue.uuidString).pdf")
+    try pdf.write(to: single)
+    let library = FileDocumentLibrary(
+      documentsFolder: root.appendingPathComponent("Documents"), deletedFolder: root.appendingPathComponent("Deleted"),
+      previousVersionsFolder: previous, index: LibraryIndex(storeURL: nil))
+    #expect(FileManager.default.fileExists(atPath: single.path), "Launch doesn't wait for the move")
+    #expect(await library.versions(of: id).count == 1, "Moved before the history is read")
+    #expect(!FileManager.default.fileExists(atPath: single.path))
+  }
 }
