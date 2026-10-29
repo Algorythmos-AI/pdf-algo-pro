@@ -209,6 +209,12 @@ Store notes (see the changelog strategy).
   still opens it, and one that opens a page at a zoom still uses that zoom. Before, the first did
   nothing and the second opened at the default zoom.
 
+### Known issues
+- In a document, a drag that starts right after a tap may not move the page. Wait a moment after
+  the tap, then drag.
+- On iPhone, right after you resize a shape with two fingers, the page may follow your next slow
+  drag only part of the way. Lift your finger and drag again.
+
 ### Added
 - Annotations: a shape, stamp, signature or text box you drag to the top or bottom of the screen
   now scrolls the page with it, faster the nearer the edge, and stays under your finger. A line of
