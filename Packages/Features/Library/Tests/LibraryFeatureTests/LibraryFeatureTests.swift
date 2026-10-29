@@ -740,13 +740,18 @@ struct LibraryModelTests {
   func replacedFileIsReadAgain() async throws {
     let harness = Harness()
     let later = Date.now.addingTimeInterval(3_600)
-    let document = await harness.library.seed(Document(title: "Invoice", fileName: "i.pdf", addedAt: later))
+    let document = await harness.library.seed(
+      Document(title: "Invoice", fileName: "i.pdf", addedAt: later, lastPageIndex: 5, isFavorite: true, tags: ["Paid"]))
     await harness.model.load()
     #expect(await harness.index.stored[document.id] == nil, "Its date says it hasn't changed")
     await harness.library.reportNextReconciliation(Reconciliation(changed: [document.id]))
     await harness.model.filesMayHaveChanged()
     #expect(await harness.index.stored[document.id] != nil, "Read again: its search text follows the file")
-    #expect(try await harness.library.document(withID: document.id)?.pageCount == 1)
+    let after = try #require(try await harness.library.document(withID: document.id))
+    #expect(after.pageCount == 1)
+    // The owner's decision, "Keep tags": tags and favourite stay, reading starts again.
+    #expect(after.tags == ["Paid"] && after.isFavorite)
+    #expect(after.lastPageIndex == 0)
   }
 
   @Test("Sharing says how many chosen documents can't be found and are left out, once for each (#239)")

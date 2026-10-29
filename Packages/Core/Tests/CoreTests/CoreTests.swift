@@ -627,6 +627,34 @@ struct DocumentIntakeTests {
     #expect(await pending.all.isEmpty)
   }
 
+  @Test(
+    "A file replaced outside the app keeps its tags and favourite; its page and search text start again (#242)",
+    arguments: [-3_600.0, 3_600.0])
+  func replacedFileStartsAgain(changedBy offset: TimeInterval) async throws {
+    // The owner's decision on #242, "Keep tags", for a replacement older than the document (found by
+    // its file identity) and one newer (found by its date): both are read again with a date.
+    let library = FakeDocumentLibrary()
+    let index = FakeIndex()
+    let recorded = Date(timeIntervalSince1970: 1_000_000)
+    let seeded = await library.seed(
+      Document(
+        title: "Invoice", fileName: "invoice.pdf", addedAt: recorded, lastPageIndex: 5, pageCount: 8,
+        isFavorite: true, tags: ["Paid"]))
+    await index.seed(seeded.id, pages: [PageText(pageIndex: 0, text: "old words")])
+    let replacement = [PageText(pageIndex: 0, text: "new words")]
+    let inspector = FakeInspector(result: PDFInspection(pageCount: 10, isEncrypted: false, pages: replacement))
+    let intake = DocumentIntake(library: library, inspector: inspector, index: index)
+
+    _ = try await intake.refresh(seeded.id, changedAt: recorded.addingTimeInterval(offset))
+
+    let after = try #require(try await library.document(withID: seeded.id))
+    #expect(after.tags == ["Paid"], "Tags kept")
+    #expect(after.isFavorite, "Favourite kept")
+    #expect(after.lastPageIndex == 0, "Reading starts again on the first page, not page \(after.lastPageIndex + 1)")
+    #expect(after.pageCount == 10)
+    #expect(await index.stored[seeded.id] == replacement, "Only the new file's words are searchable")
+  }
+
   @Test("A cancelled refresh stays owed, and isn't counted as a failure (#236)")
   func cancelledRefreshStaysOwed() async throws {
     let library = FakeDocumentLibrary()
