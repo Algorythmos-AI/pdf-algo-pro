@@ -14,7 +14,9 @@ import Foundation
 /// It understands what PDFKit writes: a cross-reference table, not a stream. Anything else, it leaves
 /// alone and says so by returning `nil`. In an encrypted file it mends links, which hold no strings, and
 /// writes the outline only under the standard handler as PDFKit writes it (revision 3 with RC4 on iOS 27,
-/// revision 4 with AES-128 on macOS), encrypting the titles with the password (#309).
+/// revision 4 with AES-128 on macOS), encrypting the titles with the password (#309). An outline item
+/// keeps the zoom its page opens at and, when it opens one, its web address, encrypted like its title
+/// (#356).
 enum PDFStructureRepair {
   /// A link as the document has it: on which page, where, and the page it goes to.
   struct Link: Equatable {
@@ -31,6 +33,23 @@ enum PDFStructureRepair {
     let point: CGPoint?
     let isOpen: Bool
     let children: [OutlineItem]
+    /// The web address the item opens, when it opens one rather than a page (#356).
+    let url: URL?
+    /// The zoom its page opens at, when it sets one (#356).
+    let zoom: CGFloat?
+
+    init(
+      title: String, target: Int?, point: CGPoint?, isOpen: Bool, children: [OutlineItem], url: URL? = nil,
+      zoom: CGFloat? = nil
+    ) {
+      self.title = title
+      self.target = target
+      self.point = point
+      self.isOpen = isOpen
+      self.children = children
+      self.url = url
+      self.zoom = zoom
+    }
   }
 
   /// What a repair did.
@@ -70,7 +89,7 @@ enum PDFStructureRepair {
           rect.isClose(to: link.rect)
         else { continue }
         annotation.remove("A")
-        annotation["Dest"] = destination(targetRef, link.point)
+        annotation["Dest"] = destination(targetRef, link.point, nil)
         file.replace(number, generation, with: .dictionary(annotation))
         claimed.insert(number)
         mended += 1
@@ -96,13 +115,16 @@ enum PDFStructureRepair {
     return Result(data: file.updated(), mendedLinks: mended, wroteOutline: wroteOutline)
   }
 
-  /// `[page /XYZ x y null]`: the page at that point, or at its top when there is none.
-  private static func destination(_ page: WrittenPDFValue, _ point: CGPoint?) -> WrittenPDFValue {
+  /// `[page /XYZ x y zoom]`: the page at that point, or at its top when there is none, at that zoom, or
+  /// at the zoom it is read at when there is none.
+  private static func destination(_ page: WrittenPDFValue, _ point: CGPoint?, _ zoom: CGFloat?) -> WrittenPDFValue {
     func coordinate(_ value: CGFloat?) -> WrittenPDFValue {
       guard let value, value.isFinite, abs(value) < 1_000_000 else { return .null }
       return .number(String(format: "%.2f", Double(value)))
     }
-    return .array([page, .name("XYZ"), coordinate(point?.x), coordinate(point?.y), .null])
+    var scale = WrittenPDFValue.null
+    if let zoom, zoom.isFinite, zoom > 0, zoom < 1_000_000 { scale = .number(String(format: "%.4f", Double(zoom))) }
+    return .array([page, .name("XYZ"), coordinate(point?.x), coordinate(point?.y), scale])
   }
 }
 
@@ -272,9 +294,12 @@ struct WrittenPDF {
   }
 
   /// Writes an outline's objects and returns a reference to its root.
+  ///
+  /// An item goes to its page, at its point and zoom, or else opens its web address (#356), whose
+  /// string is encrypted like the titles.
   mutating func addOutline(
     _ items: [PDFStructureRepair.OutlineItem], security: PDFStandardSecurity?,
-    destination: (WrittenPDFValue, CGPoint?) -> WrittenPDFValue
+    destination: (WrittenPDFValue, CGPoint?, CGFloat?) -> WrittenPDFValue
   ) -> WrittenPDFValue? {
     var failed = false
     // Numbers first, so every item can point to its parent and its neighbours.
@@ -305,7 +330,22 @@ struct WrittenPDF {
         if index > 0 { dictionary["Prev"] = .reference(numbers[index - 1], 0) }
         if index < items.count - 1 { dictionary["Next"] = .reference(numbers[index + 1], 0) }
         if let target = item.target, let page = pageReferences[safe: target] {
-          dictionary["Dest"] = destination(page, item.point)
+          dictionary["Dest"] = destination(page, item.point, item.zoom)
+        } else if let url = item.url {
+          // A URI is ASCII (ISO 32000-1, 12.6.4.7); written in hexadecimal, it needs no escaping.
+          let address = Array(url.absoluteString.utf8)
+          var uri = WrittenPDFDictionary()
+          uri["S"] = .name("URI")
+          if let security {
+            guard let sealed = security.encrypt(address, object: numbers[index], generation: 0) else {
+              failed = true
+              continue
+            }
+            uri["URI"] = .string(WrittenPDF.hex(sealed))
+          } else {
+            uri["URI"] = .string(WrittenPDF.hex(address))
+          }
+          dictionary["A"] = .dictionary(uri)
         }
         if let children = place(item.children, parent: numbers[index]) {
           dictionary["First"] = .reference(children.first, 0)
