@@ -7,10 +7,10 @@ final class AssistantUITests: UITestCase {
   func testAnswersCiteTheirPageAndTheCitationOpensIt() throws {
     let app = launch(["-skip-onboarding", "-seed-library", "sample"])
     XCTAssertTrue(app.staticTexts[ID.Reader.pageIndicator].waitForExistence(timeout: 15))
-    app.buttons[ID.Reader.ask].tap()
-    app.buttons[ID.Reader.Ask.question].tap()
+    // Ask is a menu, and a tap on it can be lost while the reader settles: on run 40294609412 its items
+    // never showed and "Ask a question" was not found. So it is opened again until they show.
     let question = app.descendants(matching: .any)[ID.Assistant.question].firstMatch
-    XCTAssertTrue(question.waitForExistence(timeout: Self.settleTimeout))
+    tapMenuItem(app.buttons[ID.Reader.Ask.question], in: app.buttons[ID.Reader.ask], until: question)
     question.tap()
     question.typeText("What is the total due?\n")
     XCTAssertTrue(
@@ -39,10 +39,8 @@ final class AssistantUITests: UITestCase {
   func testQuestionsTheDocumentCannotAnswerSaySo() throws {
     let app = launch(["-skip-onboarding", "-seed-library", "sample"])
     XCTAssertTrue(app.staticTexts[ID.Reader.pageIndicator].waitForExistence(timeout: 15))
-    app.buttons[ID.Reader.ask].tap()
-    app.buttons[ID.Reader.Ask.question].tap()
     let question = app.descendants(matching: .any)[ID.Assistant.question].firstMatch
-    XCTAssertTrue(question.waitForExistence(timeout: Self.settleTimeout))
+    tapMenuItem(app.buttons[ID.Reader.Ask.question], in: app.buttons[ID.Reader.ask], until: question)
     question.tap()
     question.typeText("Who won the match?\n")
     XCTAssertTrue(
@@ -53,11 +51,9 @@ final class AssistantUITests: UITestCase {
   func testUnavailableIntelligenceIsExplained() throws {
     let app = launch(["-skip-onboarding", "-seed-library", "sample", "-intelligence-unavailable"])
     XCTAssertTrue(app.staticTexts[ID.Reader.pageIndicator].waitForExistence(timeout: 15))
-    app.buttons[ID.Reader.ask].tap()
-    app.buttons[ID.Reader.Ask.summarise].firstMatch.tap()
-    XCTAssertTrue(
-      app.staticTexts["Document intelligence isn't available"].waitForExistence(timeout: Self.answerTimeout),
-      "FR-ONB-006")
+    let unavailable = app.staticTexts["Document intelligence isn't available"]
+    tapMenuItem(app.buttons[ID.Reader.Ask.summarise].firstMatch, in: app.buttons[ID.Reader.ask], until: unavailable)
+    XCTAssertTrue(unavailable.waitForExistence(timeout: Self.answerTimeout), "FR-ONB-006")
     try audit(app, onSheet: true)
   }
 }

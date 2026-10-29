@@ -386,8 +386,9 @@ class UITestCase: XCTestCase {
   /// "Potentially inaccessible text" findings that come without an element. Contrast anywhere else still
   /// fails.
   ///
-  /// Quarantined (issue #53, flaky): the audit itself sometimes gives up with "Audit failed to complete in
-  /// time" on a loaded runner. That timeout is recorded the same way; the journey goes on.
+  /// Each audit's duration is logged as a named activity. The audit once gave up with "Audit failed to
+  /// complete in time" on a loaded runner (issue #53). No run in the test history from 2026-10-21 on
+  /// recorded that timeout, so it is no longer excused: it fails the journey like any other error.
   func audit(
     _ app: XCUIApplication, onSheet: Bool = false, file: StaticString = #filePath, line: UInt = #line
   ) throws {
@@ -400,24 +401,16 @@ class UITestCase: XCTestCase {
     let barTitles = Set(app.navigationBars.allElementsBoundByIndex.map(\.identifier).filter { !$0.isEmpty })
     var findings: [String] = []
     var appearing: [String] = []
-    // How long each audit takes, as a named activity in the CI log, for the timeouts in issue #53.
+    // How long each audit takes, as a named activity in the CI log (issue #53).
     let started = Date()
     defer {
       let seconds = String(format: "%.1f", Date().timeIntervalSince(started))
       let place = "\(URL(fileURLWithPath: "\(file)").lastPathComponent):\(line)"
       XCTContext.runActivity(named: "Accessibility audit at \(place) took \(seconds) s") { _ in }
     }
-    do {
-      try runAudit(
-        app, onSheet: onSheet, bars: bars, barTitles: barTitles, actionBars: actionBars, searchFields: searchFields,
-        findings: &findings, appearing: &appearing)
-    } catch let error as NSError
-      where error.domain == "com.apple.xcode.xctest.accessibilityAudit" && error.code == -56
-    {
-      // Findings collected before the timeout are still reported below.
-      recordQuarantined(
-        "Quarantined flaky audit timeout, issue #53", details: error.localizedDescription, file: file, line: line)
-    }
+    try runAudit(
+      app, onSheet: onSheet, bars: bars, barTitles: barTitles, actionBars: actionBars, searchFields: searchFields,
+      findings: &findings, appearing: &appearing)
     if !appearing.isEmpty {
       // On a focused run (UI_EVIDENCE=all), quarantined findings keep the screen too: a finding the audit
       // reports without its element is quarantined (issue #76), and on run 37939544303 the paywall's
