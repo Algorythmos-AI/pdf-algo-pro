@@ -87,6 +87,9 @@ public final class LibraryModel {
   public private(set) var phase: Phase = .loading
   /// A message for the last failed action; the library itself is unchanged.
   public var errorMessage: String?
+  /// The chosen documents found missing when their files were last gathered for sharing, so each is
+  /// reported once (#239).
+  @ObservationIgnored private var missingFromSharing: Set<DocumentID> = []
   /// The document shown next to the list.
   public var selection: DocumentSelection?
   /// Whether the last search failed (rather than finding nothing).
@@ -543,11 +546,24 @@ public final class LibraryModel {
   }
 
   /// The files of several documents, for sharing.
+  ///
+  /// A document whose file can't be found, as when it was removed in the Files app, is left out, and
+  /// the person is told how many were, once for each such document while it stays chosen (#239).
   public func fileURLs(for ids: [DocumentID]) async -> [URL] {
     var urls: [URL] = []
+    var missing: Set<DocumentID> = []
     for id in ids {
-      if let url = try? await library.fileURL(for: id) { urls.append(url) }
+      if let url = try? await library.fileURL(for: id) {
+        urls.append(url)
+      } else {
+        missing.insert(id)
+      }
     }
+    if !missing.subtracting(missingFromSharing).isEmpty {
+      errorMessage = String(
+        localized: "\(missing.count) chosen document(s) can't be found, so sharing leaves them out.", bundle: .module)
+    }
+    missingFromSharing = missing
     return urls
   }
 

@@ -70,9 +70,10 @@ Store notes (see the changelog strategy).
   read again even when it is older than the document it replaced, and as soon as the app comes back
   to the foreground.
 - Photos that fail to load are counted, and when none load the library and Scan say so. Merging
-  stops, and says so, when a document's file is missing. Deleting a second document keeps its
-  Undo, and typing a search no longer briefly says search is unavailable. An import that fails for
-  a reason other than a bad file says why, and a partly successful one says how many were added.
+  stops, and says so, when a document's file is missing, and sharing says how many it leaves out.
+  Deleting a second document keeps its Undo, and typing a search no longer briefly says search is
+  unavailable. An import that fails for a reason other than a bad file says why, and a partly
+  successful one says how many were added.
 - Changing only the capitals of a document's name no longer adds " 2" to its file name.
 - Launching no longer waits for the library's index to open, or to update to a new format after an
   update: that happens in the background while the library shows it is loading.

@@ -57,6 +57,52 @@
         }
       }
     },
+    "%lld chosen document(s) can't be found, so sharing leaves them out." : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld chosen document can't be found, so sharing leaves it out."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld chosen documents can't be found, so sharing leaves them out."
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld document choisi est introuvable : il ne sera pas partagé."
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld documents choisis sont introuvables : ils ne seront pas partagés."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld documents choisis sont introuvables : ils ne seront pas partagés."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%lld documents" : {
       "localizations" : {
         "en" : {
