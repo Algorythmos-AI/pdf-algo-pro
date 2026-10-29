@@ -739,17 +739,67 @@ extension PDFDocumentController {
     textUndoSteps.reduce(0) { total, entry in total + (entry.step?.bytes ?? 0) }
   }
 
+  /// How many of the newest text edits the history keeps, however much they hold.
+  static let textUndoStepsKept = 4
+
   /// Keeps the undo history's memory bounded: each text edit keeps the page it replaced.
   ///
-  /// The undo manager cannot drop one entry, so when the count passes the limit the history is
-  /// shortened to its newest half, oldest steps first, and stays at that length. That trims
-  /// annotation steps too; it is tracked separately. The steps it drops leave the count.
+  /// When the count passes the limit, the history lets go of the oldest text edits, and only them,
+  /// until it is back within the limit or holds only the newest few: each edit is the undo target
+  /// of its own steps, so it leaves the undo and redo sides alone and every other step stays (#339).
+  /// The pages those edits made stay in the document; an older step that keeps a page acts on the
+  /// page now in its place (`live(_:)`).
+  ///
+  /// Steps taken out while the undo manager has a group open leave it with empty groups that Undo
+  /// never gets past, so then the edits leave once the group has closed.
   func limitUndoMemory() {
     textUndoSteps.removeAll { $0.step == nil }
-    guard textUndoBytes > textUndoMemoryLimit else { return }
-    let current = undoManager.levelsOfUndo == 0 ? 64 : undoManager.levelsOfUndo
-    undoManager.levelsOfUndo = max(4, current / 2)
-    textUndoSteps.removeAll { $0.step == nil }
+    guard textUndoBytes > textUndoMemoryLimit, textUndoSteps.count > Self.textUndoStepsKept else { return }
+    guard undoManager.groupingLevel == 0, !undoManager.isUndoing, !undoManager.isRedoing else {
+      limitUndoMemoryOnceGroupCloses()
+      return
+    }
+    if let observer = undoGroupObserver { NotificationCenter.default.removeObserver(observer) }
+    undoGroupObserver = nil
+    while textUndoBytes > textUndoMemoryLimit, textUndoSteps.count > Self.textUndoStepsKept {
+      let oldest = textUndoSteps.removeFirst()
+      if let step = oldest.step { undoManager.removeAllActions(withTarget: step) }
+    }
+  }
+
+  /// Limits the undo history's memory once the undo manager has closed the group open now.
+  private func limitUndoMemoryOnceGroupCloses() {
+    guard undoGroupObserver == nil else { return }
+    undoGroupObserver = NotificationCenter.default.addObserver(
+      forName: .NSUndoManagerDidCloseUndoGroup, object: undoManager, queue: nil
+    ) { [weak self] _ in
+      MainActor.assumeIsolated {
+        // Posted just before the group closes, so the edits leave straight after.
+        guard let self, self.undoMemoryRelease == nil else { return }
+        self.undoMemoryRelease = Task { [weak self] in
+          self?.undoMemoryRelease = nil
+          self?.limitUndoMemory()
+        }
+      }
+    }
+  }
+
+  /// The page now in the document in place of `page`: `page` itself while it is in the document,
+  /// otherwise the page that the text edits since it was kept put in its place.
+  ///
+  /// An undo step keeps the page it was made on. When the history has let go of a text edit made on
+  /// that page since, nothing swaps the page back, so the step acts on the page that replaced it
+  /// instead of one no longer in the document (#339). A page with no replacement in the document,
+  /// such as a deleted page, is `page` itself.
+  func live(_ page: PDFPage) -> PDFPage {
+    var current = page
+    var seen: Set<ObjectIdentifier> = []
+    while document.index(for: current) == NSNotFound, seen.insert(ObjectIdentifier(current)).inserted,
+      let next = pageReplacements.last(where: { $0.old === current })?.new
+    {
+      current = next
+    }
+    return document.index(for: current) == NSNotFound ? page : current
   }
 
   // MARK: - Swapping a page
@@ -816,16 +866,30 @@ extension PDFDocumentController {
     } else {
       textEditOriginals[ObjectIdentifier(new)] = old
     }
+    // A step that keeps `old` finds `new` in its place (#339). Replacements of pages nothing keeps
+    // any more are let go.
+    pageReplacements.removeAll { $0.old == nil || $0.old === old }
+    pageReplacements.append(PageReplacement(old: old, new: new))
     structureGeneration += 1
     hasUnsavedChanges = true
     #if canImport(UIKit)
       view?.pageSwapped(to: new, keeping: place)
     #endif
-    undoManager.registerUndo(withTarget: self) { controller in
+    guard let step else {
+      undoManager.registerUndo(withTarget: self) { controller in
+        MainActor.assumeIsolated {
+          controller.swap(new, for: old, keeping: source, links: controller.incomingLinks ?? [:])
+        }
+      }
+      return
+    }
+    // The edit is the target, so the history can let go of this edit's steps alone (#339). The
+    // handler keeps `step`, so it is counted for as long as the history holds this edit, and
+    // `source`, so the page that may come back keeps its document.
+    undoManager.registerUndo(withTarget: step) { [weak self, step] _ in
       MainActor.assumeIsolated {
-        // `source` is captured so the page that may come back keeps its document, and `step` so it
-        // is counted for as long as the history holds this edit.
-        controller.swap(new, for: old, keeping: source, links: controller.incomingLinks ?? [:], step: step)
+        guard let self else { return }
+        self.swap(new, for: old, keeping: source, links: self.incomingLinks ?? [:], step: step)
       }
     }
   }
@@ -1084,4 +1148,12 @@ final class TextUndoStep {
 /// A text edit in `textUndoSteps`, held weakly.
 struct WeakTextUndoStep {
   weak var step: TextUndoStep?
+}
+
+/// A page a text edit took out, held weakly, and the page it put in (#339).
+///
+/// Kept only while something, such as an undo step, still keeps the page taken out.
+struct PageReplacement {
+  weak var old: PDFPage?
+  let new: PDFPage
 }

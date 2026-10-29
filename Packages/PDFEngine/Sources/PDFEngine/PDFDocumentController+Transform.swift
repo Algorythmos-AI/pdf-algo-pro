@@ -133,6 +133,7 @@ extension PDFDocumentController {
   private func setGeometry(
     _ geometry: AnnotationGeometry, of annotation: PDFAnnotation, on page: PDFPage, undoTo previous: AnnotationGeometry
   ) {
+    let page = live(page)
     apply(geometry, to: annotation, on: page)
     hasUnsavedChanges = true
     undoManager.registerUndo(withTarget: self) { controller in
@@ -157,6 +158,7 @@ extension PDFDocumentController {
   private func setColor(
     _ color: PlatformColor, of annotation: PDFAnnotation, kind: AnnotationSelection.Kind, on page: PDFPage
   ) {
+    let page = live(page)
     let previous = kind == .textBox ? annotation.fontColor : annotation.color
     if kind == .textBox {
       annotation.fontColor = color

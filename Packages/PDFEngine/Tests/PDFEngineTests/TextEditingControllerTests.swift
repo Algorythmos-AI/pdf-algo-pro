@@ -612,31 +612,41 @@ extension GoldenCorpusTests {
 @MainActor
 @Suite("Text editing: undo memory")
 struct TextEditingUndoMemoryTests {
-  @Test("The undo history is shortened once the pages it keeps pass the limit, and the count follows it")
+  @Test("Past the limit the history lets go of the oldest text edits only, and the count follows it (#339)")
   func bounded() throws {
     let controller = try PDFDocumentController(data: TextEditFixtures.invoice())
-    #expect(controller.undoManager.levelsOfUndo == 0, "Unlimited until there is a reason")
+    #expect(controller.undoManager.levelsOfUndo == 0, "Unlimited")
     #expect(controller.textUndoMemoryLimit == PDFDocumentController.undoMemoryLimit)
     controller.undoManager.groupsByEvent = false
     controller.textUndoMemoryLimit = 0
-    // Steps of 1, 2, 4… bytes, each held only by its own undo step, as a text edit's is.
+    // One step that isn't a text edit, first, so it is the oldest in the history.
+    controller.undoManager.beginUndoGrouping()
+    controller.undoManager.registerUndo(withTarget: controller) { _ in }
+    controller.undoManager.endUndoGrouping()
+    // Steps of 1, 2, 4… bytes, each held only by its own undo step and its target, as a text edit's is.
     func add(_ bytes: Int) {
       let step = TextUndoStep(bytes: bytes)
       controller.undoManager.beginUndoGrouping()
-      controller.undoManager.registerUndo(withTarget: controller) { [step] _ in _ = step }
+      controller.undoManager.registerUndo(withTarget: step) { [step] _ in _ = step }
       controller.undoManager.endUndoGrouping()
       controller.textUndoSteps.append(WeakTextUndoStep(step: step))
       controller.limitUndoMemory()
     }
-    // Past the limit each step halves the history's length, from 64, never below 4.
     for power in 0..<5 { add(1 << power) }
-    #expect(controller.undoManager.levelsOfUndo == 4, "Never shorter than a few steps")
-    // The history keeps its newest four steps; exactly the oldest leave the count.
+    #expect(controller.undoManager.levelsOfUndo == 0, "The history's length is left alone")
+    // The history keeps its newest four text edits; exactly the oldest leave the count.
     #expect(controller.textUndoBytes == 2 + 4 + 8 + 16)
     add(32)
     #expect(controller.textUndoBytes == 4 + 8 + 16 + 32)
     add(64)
     #expect(controller.textUndoBytes == 8 + 16 + 32 + 64)
+    // Four text edits and the older step are left to undo.
+    var undone = 0
+    while controller.undoManager.canUndo, undone < 10 {
+      controller.undoManager.undo()
+      undone += 1
+    }
+    #expect(undone == 5, "\(undone) steps undone")
   }
 }
 

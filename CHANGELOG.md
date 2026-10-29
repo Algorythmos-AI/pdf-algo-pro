@@ -61,6 +61,9 @@ Store notes (see the changelog strategy).
   steps to save memory, the pages those steps changed stay whole. Before, such a page, or one Undo
   brought back, still showed its text, but the text could no longer be picked to edit, and
   extracting the page or saving the document without its password left the page empty.
+- Editing text (internal builds): after many large text edits, earlier changes to annotations,
+  pages and bookmarks can still be undone. Before, to save memory, the undo history let go of them
+  together with the oldest text edits; now it lets go of only those text edits.
 - When a document is saved but the library can't note the change, the app no longer says the save
   failed, and Share and Print work.
 - Share and Print say so when the document's file can't be found, for example after it was moved in

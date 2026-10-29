@@ -118,7 +118,7 @@ struct TextEditingUndoTrimTests {
     #expect(controller.unlock(password: "w1-343"))
     controller.textFindLimit = .seconds(600)
     controller.textEditLimit = .seconds(600)
-    // Every edit passes a limit of nothing, so each halves the history: 32, 16, 8, then 4 steps.
+    // Every edit passes a limit of nothing, so the history keeps only the newest four text edits.
     controller.textUndoMemoryLimit = 0
     // In the app each edit is its own event, so its own undo step; the test says so explicitly.
     controller.undoManager.groupsByEvent = false
@@ -141,11 +141,14 @@ struct TextEditingUndoTrimTests {
       controller.undoManager.beginUndoGrouping()
       let outcome = await controller.applyTextEdits([TextEdit(region: region, replacement: replacement)], onPage: page)
       controller.undoManager.endUndoGrouping()
+      // The history lets go of the oldest edits once the edit's undo group has closed.
+      await controller.undoMemoryRelease?.value
       #expect(outcome == [.edited(.contentStream)])
       states.append(looks())
     }
     #expect(Set(states.map { $0.map(\.text) }).count == states.count, "Every edit changed something")
-    #expect(controller.undoManager.levelsOfUndo == 4, "The history was shortened")
+    #expect(controller.textUndoSteps.count == 4, "The history let go of the oldest text edits")
+    #expect(controller.undoManager.levelsOfUndo == 0, "and nothing else (#339)")
     try await expectWhole(controller, as: states[edits.count], "after the history was shortened")
 
     var undone = 0
@@ -153,7 +156,7 @@ struct TextEditingUndoTrimTests {
       controller.undoManager.undo()
       undone += 1
     }
-    #expect(undone == 4, "The history holds its newest four edits")
+    #expect(undone == 4, "The history holds its newest four edits; \(undone) undone")
     let expected = states[edits.count - undone]
     try await expectWhole(controller, as: expected, "after undoing back to the oldest edit held")
     // Redo brings back a page an edit made; then undo again, so what is saved is the state above.
@@ -236,6 +239,8 @@ struct TextEditingUndoTrimTests {
       controller.undoManager.beginUndoGrouping()
       let outcome = await controller.applyTextEdits([TextEdit(region: region, replacement: replacement)], onPage: page)
       controller.undoManager.endUndoGrouping()
+      // The history lets go of the oldest edits once the edit's undo group has closed.
+      await controller.undoMemoryRelease?.value
       #expect(outcome == [.edited(.contentStream)])
     }
     controller.setEditingText(false)
