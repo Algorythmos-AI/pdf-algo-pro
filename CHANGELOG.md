@@ -67,6 +67,8 @@ Store notes (see the changelog strategy).
   the Files app, instead of doing nothing.
 - "Reduce size" no longer makes a "(smaller)" copy, with a nonsense size, when the document's size
   can't be read.
+- A document you just saved no longer reloads saying it was changed in another app, or asks which
+  version to keep, when its file's details couldn't be read straight after the save.
 - Text recognition replaces the file in a way other apps can see safely, as a save does, and never
   writes over a version another app saved meanwhile.
 - Dark mode: the App Lock's "Unlock with Face ID" button and the selection bar's Delete are easy to
