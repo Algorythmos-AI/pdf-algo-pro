@@ -738,6 +738,8 @@ public enum AccessibilityID {
     public static let privacyPolicy = "settings.privacyPolicy"
     /// The identifier `settings.privacyReport`.
     public static let privacyReport = "settings.privacyReport"
+    /// The identifier `settings.rate`.
+    public static let rate = "settings.rate"
     /// The identifier `settings.report`.
     public static let report = "settings.report"
     /// The identifier `settings.share`.

@@ -62,7 +62,8 @@ struct FixedStoreAccessTests {
   func fixed(isAvailable: Bool) async {
     let store = FixedStoreAccess(isAvailable: isAvailable)
     #expect(await store.productsAreAvailable(["a", "b"]) == isAvailable)
-    #expect(await store.restorePurchases() == isAvailable)
+    #expect(await store.restorePurchases() == (isAvailable ? .synced : .failed))
+    #expect(await FixedStoreAccess(isAvailable: true, restore: .cancelled).restorePurchases() == .cancelled)
   }
 }
 
@@ -183,6 +184,38 @@ struct UsageAllowanceTests {
       for _ in 0..<50 { group.addTask { await allowance.recordSuccess(.scan) } }
     }
     #expect(await allowance.usedToday(.scan) == 50)
+  }
+
+  @Test("A unit held for an action counts against the limit until it is committed or given back (#265)")
+  func reservations() async throws {
+    let allowance = allowance()
+    let first = try #require(await allowance.reserve(.scan, entitlement: .none))
+    let second = try #require(await allowance.reserve(.scan, entitlement: .none))
+    #expect(await allowance.reserve(.scan, entitlement: .none) == nil, "Both of the day's scans are held")
+    #expect(await !allowance.isAllowed(.scan, entitlement: .none), "Nothing more can start while both are held")
+    #expect(await allowance.reserve(.intelligenceRequest, entitlement: .none) != nil, "The other meter is apart")
+    let pro = try #require(await allowance.reserve(.scan, entitlement: .subscribed), "Pro has no limit")
+    allowance.release(pro)
+    allowance.release(second)
+    allowance.release(second)
+    await allowance.commit(first)
+    await allowance.commit(first)
+    #expect(await allowance.usedToday(.scan) == 1, "Committed once, whatever is asked twice")
+    let third = try #require(await allowance.reserve(.scan, entitlement: .none), "A unit given back can be held again")
+    allowance.release(third)
+    await allowance.commit(third)
+    #expect(await allowance.usedToday(.scan) == 1, "A unit given back is never counted")
+    #expect(await allowance.reserve(.scan, entitlement: .none) != nil)
+  }
+
+  @Test("An unlimited allowance holds a unit for anything, and counts nothing")
+  func unlimitedReservations() async throws {
+    let store = MemoryAllowanceStore()
+    let allowance = allowance(store: store, isUnlimited: true)
+    for _ in 0..<5 {
+      await allowance.commit(try #require(await allowance.reserve(.scan, entitlement: .none)))
+    }
+    #expect(store.load() == nil)
   }
 
   @Test("An unlimited allowance never refuses and never counts")

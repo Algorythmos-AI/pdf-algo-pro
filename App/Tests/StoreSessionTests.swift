@@ -9,13 +9,96 @@ import Testing
 /// StoreKit's local test environment, as this test run finds it.
 @MainActor
 enum StoreTestEnvironment {
-  /// Whether a session can be made and the test products load through it.
+  /// What the environment did when it was tried.
+  struct Probe: CustomStringConvertible {
+    var sessionMade = false
+    var productsLoaded = false
+    var purchase = "not tried"
+    var entitlement: Entitlement?
+
+    /// Whether a test purchase reached the app as a verified entitlement.
+    var answers: Bool { entitlement == .subscribed }
+
+    var description: String {
+      guard sessionMade else { return "no test session could be made" }
+      let entitled = entitlement.map { "\($0)" } ?? "none read"
+      return "products loaded: \(productsLoaded); test purchase: \(purchase); entitlement: \(entitled)"
+    }
+  }
+
+  /// Whether a test purchase works from start to end: a session is made, the test products load,
+  /// buying the weekly plan completes, and the app reads it back as a verified subscription.
+  ///
+  /// Loading the products is not enough: on a CI runner the environment can load them and still
+  /// refuse every purchase (#352). What was found is written to the log.
   static func answers() async -> Bool {
-    guard let session = try? SKTestSession(configurationFileNamed: "Products") else { return false }
+    let probe = await probe()
+    print("StoreKit test environment: \(probe); store session tests \(probe.answers ? "run" : "skipped")")
+    return probe.answers
+  }
+
+  /// Tries the environment, each step bounded so a half-working one cannot hold the test run.
+  static func probe() async -> Probe {
+    var probe = Probe()
+    guard let session = try? SKTestSession(configurationFileNamed: "Products") else { return probe }
+    probe.sessionMade = true
     session.resetToDefaultState()
     session.clearTransactions()
-    let products = ProductCatalog(bundleIdentifier: Bundle.main.bundleIdentifier ?? "").ordered
-    return await StoreKitAccess().productsAreAvailable(products)
+    session.disableDialogs = true
+    defer { session.clearTransactions() }
+    let catalog = ProductCatalog(bundleIdentifier: Bundle.main.bundleIdentifier ?? "")
+
+    probe.productsLoaded =
+      await bounded(.seconds(15)) { await StoreKitAccess().productsAreAvailable(catalog.ordered) } ?? false
+    guard probe.productsLoaded else { return probe }
+
+    let bought = await bounded(.seconds(15)) { () -> String in
+      do {
+        _ = try await session.buyProduct(identifier: catalog.weekly)
+        return "completed"
+      } catch {
+        return "failed (\(error))"
+      }
+    }
+    probe.purchase = bought ?? "no answer within 15 seconds"
+    guard bought == "completed" else { return probe }
+
+    let provider = StoreKitEntitlements(productIDs: catalog.productIDs)
+    probe.entitlement = await bounded(.seconds(10)) { () -> Entitlement in
+      for _ in 0..<50 {
+        let entitlement = await provider.currentEntitlement()
+        if entitlement == .subscribed { return entitlement }
+        try? await Task.sleep(for: .milliseconds(200))
+      }
+      return await provider.currentEntitlement()
+    }
+    return probe
+  }
+
+  /// The result of `work`, or `nil` when it has not finished within `limit`; it is then cancelled.
+  static func bounded<T>(_ limit: Duration, _ work: @escaping @MainActor () async -> T) async -> T? {
+    let outcome = Outcome<T>()
+    let task = Task { @MainActor in
+      outcome.value = await work()
+      outcome.isDone = true
+    }
+    let clock = ContinuousClock()
+    let deadline = clock.now + limit
+    while !outcome.isDone, clock.now < deadline {
+      try? await Task.sleep(for: .milliseconds(100))
+    }
+    guard outcome.isDone else {
+      task.cancel()
+      return nil
+    }
+    return outcome.value
+  }
+
+  /// Where bounded work leaves its result.
+  @MainActor
+  private final class Outcome<T> {
+    var value: T?
+    var isDone = false
   }
 }
 
@@ -25,13 +108,15 @@ enum StoreTestEnvironment {
 /// One session at a time: the test environment is shared by the whole process.
 ///
 /// It runs where StoreKit's test environment can be reached, which today is a test run started from
-/// Xcode. Under `xcodebuild test`, as in CI, the environment refuses every call ("Error saving
-/// configuration file", `SKInternalErrorDomain` 3; a known limit of the tools), so the suite is
-/// skipped there and the log says so. Buying is then covered by the device smoke test.
+/// Xcode. Under `xcodebuild test`, as in CI, the environment refuses calls ("Error saving
+/// configuration file", `SKInternalErrorDomain` 3; a known limit of the tools), sometimes after
+/// loading the products (#352), so the suite runs only once a test purchase has worked, and the log
+/// line "StoreKit test environment:" says what was found. Buying is then covered by the device smoke
+/// test. Each test has a minute: a purchase that never answers fails it, without holding the shard.
 @MainActor
 @Suite(
-  "The store, against a StoreKit test session", .serialized,
-  .enabled("StoreKit's test environment answers only in a test run started from Xcode") {
+  "The store, against a StoreKit test session", .serialized, .timeLimit(.minutes(1)),
+  .enabled("StoreKit's test environment does not complete a test purchase in this run") {
     await StoreTestEnvironment.answers()
   })
 struct StoreSessionTests {

@@ -201,16 +201,6 @@
         }
       }
     },
-    "Nothing could be restored. Check that you are signed in to the App Store with the account that bought Pro." : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rien n’a pu être restauré. Vérifiez que vous êtes connecté à l’App Store avec le compte qui a acheté Pro."
-          }
-        }
-      }
-    },
     "Nothing has been charged. You can try again." : {
       "localizations" : {
         "fr" : {
@@ -461,6 +451,16 @@
         }
       }
     },
+    "The App Store couldn’t be reached. Check your connection and try again." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible de joindre l’App Store. Vérifiez votre connexion et réessayez."
+          }
+        }
+      }
+    },
     "The App Store reported the purchase as made, but this device couldn’t verify it, so Pro isn’t on yet. Before buying again, tap Restore purchases, or check your purchase history in the App Store." : {
       "localizations" : {
         "fr" : {
@@ -537,6 +537,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ce compte Apple a déjà Pro."
+          }
+        }
+      }
+    },
+    "This Apple Account has no Pro purchase to restore. If you bought Pro with another account, sign in to the App Store with it and try again." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce compte Apple n’a aucun achat de Pro à restaurer. Si vous avez acheté Pro avec un autre compte, connectez-vous à l’App Store avec ce compte et réessayez."
           }
         }
       }
@@ -627,6 +637,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Vos documents restent les vôtres : les ouvrir, les lire, les signer, les partager et les exporter ne demande jamais Pro."
+          }
+        }
+      }
+    },
+    "Your purchases are restored, and Pro is on." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vos achats sont restaurés, et Pro est activé."
           }
         }
       }

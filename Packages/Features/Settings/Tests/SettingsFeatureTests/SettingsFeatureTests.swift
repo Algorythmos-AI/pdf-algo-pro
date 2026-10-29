@@ -165,6 +165,13 @@ struct SettingsModelTests {
     }
   }
 
+  @Test("Rate PDF Algo Pro opens the App Store's review page for the app")
+  func rateLink() {
+    #expect(AppLinks.appStoreID == "6817672472")
+    #expect(AppLinks.writeReview.absoluteString == "https://apps.apple.com/app/id6817672472?action=write-review")
+    #expect(AppLinks.writeReview.host() == "apps.apple.com" && AppLinks.writeReview.scheme == "https")
+  }
+
   @Test("About draws in English and French, at the default and the largest text size")
   func aboutRenders() {
     for language in ["en", "fr"] {

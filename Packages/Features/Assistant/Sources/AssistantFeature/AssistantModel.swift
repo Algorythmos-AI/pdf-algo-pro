@@ -66,12 +66,17 @@ public final class AssistantModel {
 
   /// Starts the task: summaries, extraction and explanations run at once; Ask waits for a question.
   ///
-  /// A request still running is cancelled, and its result, if it arrives anyway, is ignored.
+  /// A request still running is cancelled, and its result, if it arrives anyway, is ignored. Cancelled
+  /// or started again while it asks whether intelligence can run, it runs nothing (#271).
   public func start() async {
     supersede()
+    let token = generation
     answeredQuestion = nil
     earlier = []
-    if case .unavailable(let reason) = await intelligence.availability() {
+    let availability = await intelligence.availability()
+    // Closed, or started again, while availability was asked: nothing more runs for this start (#271).
+    guard token == generation else { return }
+    if case .unavailable(let reason) = availability {
       phase = .unavailable(reason)
       return
     }
