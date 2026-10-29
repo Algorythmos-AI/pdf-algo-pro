@@ -8,6 +8,7 @@ import LibraryFeature
 import ReaderFeature
 import SwiftUI
 import Testing
+import UIKit
 
 @testable import PDFAlgoPro
 
@@ -379,6 +380,22 @@ struct AppLockTests {
     await lock.scenePhaseChanged(to: .inactive)
     let covered = LockScreen(lock: lock, method: method).frame(width: 390, height: 800)
     #expect(ImageRenderer(content: covered).uiImage != nil)
+  }
+
+  @Test("Hiding the lock gives the keyboard back to the window that had it, not to the scene's first window (#258)")
+  func focusReturnsToTheWindowThatHadIt() throws {
+    let scene = try #require(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+    // Another of the scene's windows has the keyboard, as a text field in an alert's window can.
+    let typing = UIWindow(windowScene: scene)
+    typing.makeKeyAndVisible()
+    defer { typing.isHidden = true }
+    #expect(scene.windows.first !== typing, "The scene's first window is another one")
+    let presenter = LockWindowPresenter.Coordinator()
+    let lock = AppLock(authenticator: FakeAuthenticator()) { true }
+    presenter.update(scene: scene, lock: lock, method: .faceID, shows: true)
+    #expect(!typing.isKeyWindow, "The lock takes the keyboard while it shows")
+    presenter.update(scene: scene, lock: lock, method: .faceID, shows: false)
+    #expect(typing.isKeyWindow)
   }
 
   @Test("Without a device passcode nothing can confirm the owner, so App Lock never locks them out (#221)")
