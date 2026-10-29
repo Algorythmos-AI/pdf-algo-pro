@@ -308,12 +308,14 @@ struct ReaderModelTests {
     await harness.index.seed(document.id, pages: [PageText(pageIndex: 0, text: "private words")])
     let reader = harness.reader(for: document)
     await reader.load()
-    // The file is written, then recording it fails, as when the app is stopped straight after.
+    // The file is written, then recording it fails, as when the app is stopped straight after. The
+    // save still counts (#234), so the refresh that follows catches up, or leaves it owed if it can't.
     await harness.library.failNextRecordModified()
 
     await reader.setPassword("secret")
 
-    #expect(await harness.pending.all == [document.id], "Written down before the save")
+    #expect(reader.errorMessage == nil, "The file was written, so the save is no failure (#234)")
+    #expect(try await harness.index.pages(of: document.id).isEmpty, "The words left search at once")
     _ = await harness.intake.refreshPending()
     #expect(try await harness.index.pages(of: document.id).isEmpty)
     #expect(await harness.pending.all.isEmpty)
@@ -1858,13 +1860,18 @@ struct ReaderTextEditingTests {
     #expect(await harness.pending.all.isEmpty)
   }
 
-  @Test("An edit saved whose change never reached the library is written down as owing a refresh (#236)")
+  @Test("An edit saved whose change never reached the library still reaches search (#236, #234)")
   func editSavedButNotRecorded() async throws {
     let harness = Harness()
     let (reader, document) = try await editing(try TextEditFixtures.invoice(), in: harness, picking: "John Smith")
     await harness.library.failNextRecordModified()
     _ = await reader.commitTextEdit("Customer: David Smith")
-    #expect(await harness.pending.all == [document.id], "Written down before the save")
+    // The file was written, so the save counts (#234); the refresh after it, or the next load, catches up.
+    #expect(reader.errorMessage == nil)
+    _ = await harness.intake.refreshPending()
+    let pages = try await harness.index.pages(of: document.id)
+    #expect(pages.contains { $0.text.contains("David") })
+    #expect(await harness.pending.all.isEmpty)
   }
 
   @Test("Cancelling, or pressing Done without changing anything, leaves the file as it was")
