@@ -1,4 +1,5 @@
 import Core
+import CoreSpotlight
 import CoreTestSupport
 import Foundation
 import Testing
@@ -189,21 +190,27 @@ struct SpotlightItemTests {
     #expect(SpotlightIndexer.item(for: value, text: nil).attributeSet.title == "Contract")
   }
 
-  @Test func indexingAndRemovalNeverThrow() async {
+  @Test("Indexing and removal pass on Core Spotlight's error instead of dropping it (#360)")
+  func indexingAndRemovalReportFailure() async {
     let indexer = SpotlightIndexer(indexName: "tests-\(UUID())")
     var value = document("Temporary")
-    await indexer.index(value, text: "text")
-    value.deletedAt = .now
-    await indexer.index(value, text: "text")
-    await indexer.remove(value.id)
+    // A test process may not reach Spotlight at all (on macOS, CSIndexErrorDomain -1000); where it
+    // can, every call works. Either way any error is Core Spotlight's own, passed on.
+    do {
+      try await indexer.index(value, text: "text")
+      value.deletedAt = .now
+      try await indexer.index(value, text: "text")
+      try await indexer.remove(value.id)
+    } catch {
+      #expect((error as NSError).domain == CSIndexErrorDomain)
+    }
   }
 }
 
 /// A Spotlight whose writes or removals fail, as with a full disk or an index that can't be reached.
-///
-/// Until #360 the seam had no way to report a failure, so a failing call is dropped here as the real
-/// indexer's `try?` dropped it.
 private actor FailingSpotlight: SpotlightIndexing {
+  struct Failure: Error {}
+
   var indexed: [DocumentID: String] = [:]
   private var failsIndexing = false
   private var failsRemoving = false
@@ -211,13 +218,13 @@ private actor FailingSpotlight: SpotlightIndexing {
   func failIndexing(_ fails: Bool) { failsIndexing = fails }
   func failRemoving(_ fails: Bool) { failsRemoving = fails }
 
-  func index(_ document: Document, text: String) async {
-    guard !failsIndexing else { return }
+  func index(_ document: Document, text: String) async throws {
+    guard !failsIndexing else { throw Failure() }
     indexed[document.id] = text
   }
 
-  func remove(_ id: DocumentID) async {
-    guard !failsRemoving else { return }
+  func remove(_ id: DocumentID) async throws {
+    guard !failsRemoving else { throw Failure() }
     indexed[id] = nil
   }
 }
@@ -299,5 +306,23 @@ struct SpotlightFailureTests {
     _ = await intake.refreshPending()
     #expect(await spotlight.indexed[seeded.id] == nil, "Out of Spotlight")
     #expect(await pending.all.isEmpty, "Once the words are out, the rest may be given up")
+  }
+
+  @Test("Pruning and rebuilding Spotlight say when Spotlight failed, so they are tried again (#360)")
+  func pruneAndRebuildReportFailure() async throws {
+    let spotlight = FailingSpotlight()
+    let index = try makeIndex(spotlight: spotlight)
+    let stale = document("Stale")
+    try await index.index(stale, pages: [PageText(pageIndex: 0, text: "stale words")])
+    await spotlight.failRemoving(true)
+    await spotlight.failIndexing(true)
+
+    #expect(await index.prune(keeping: []).isEmpty, "Not removed: Spotlight still has it")
+    #expect(await index.reindexSpotlight([stale]) == false)
+    await spotlight.failRemoving(false)
+    await spotlight.failIndexing(false)
+    #expect(await index.prune(keeping: []) == [stale.id], "Found again at the next prune")
+    #expect(await spotlight.indexed[stale.id] == nil)
+    #expect(await index.reindexSpotlight([]))
   }
 }
