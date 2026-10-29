@@ -198,6 +198,31 @@ final class TextEditingUITests: UITestCase {
     }
   }
 
+  /// The tip's text grows with the text size.
+  ///
+  /// The audit's "partially unsupported" finding came and went here, measured before the tip redrew
+  /// (issue #182), so the audit no longer judges it; this compares the tip at the default size with the
+  /// tip at an accessibility size (AX3) instead.
+  func testTheEditTipGrowsWithTheTextSize() throws {
+    let arguments = ["-skip-onboarding", "-seed-library", "sample", "-text-editing", "available", "-show-tips"]
+    let regular = launch(arguments)
+    XCTAssertTrue(regular.staticTexts[ID.Reader.pageIndicator].waitForExistence(timeout: Self.settleTimeout))
+    let regularTip = editTip(in: regular)
+    XCTAssertTrue(regularTip.waitForExistence(timeout: Self.settleTimeout), "A first open points at Edit")
+    let regularHeight = waitUntilSteady(regularTip).height
+    regular.terminate()
+
+    let large = launch(arguments + ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXL"])
+    XCTAssertTrue(large.staticTexts[ID.Reader.pageIndicator].waitForExistence(timeout: Self.settleTimeout))
+    let largeTip = editTip(in: large)
+    XCTAssertTrue(largeTip.waitForExistence(timeout: Self.settleTimeout), "The tip shows at a large text size")
+    let largeHeight = waitUntilSteady(largeTip).height
+    if largeHeight < regularHeight * 1.3 {
+      keepEvidence(large, named: "tip size", notes: "Tip \(regularHeight) pt tall by default, \(largeHeight) pt large")
+      XCTFail("The tip grows with the text size: \(regularHeight) pt by default, \(largeHeight) pt at AX3")
+    }
+  }
+
   /// An edit the engine cannot prove used to end in "This text can't be changed" with a Done
   /// button that could only refuse again.
   func testAnEditThatCannotBeProvenIsFinishedByCoveringAndSaysSo() throws {

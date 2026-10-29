@@ -347,7 +347,7 @@ class UITestCase: XCTestCase {
 
   /// The accessibility audit on the current screen.
   ///
-  /// Five kinds of finding are excluded narrowly everywhere, and a sixth on sheets (below):
+  /// Five kinds of finding are excluded narrowly everywhere, and a sixth is judged elsewhere (below):
   /// - issues on PDFKit's page view and the nodes it exposes for the text on a page, which are not ours
   ///   to change. On iOS 26 those nodes are `UICGPDFNode`s. On iOS 27 PDFKit exposes the page's
   ///   structure instead (headings, lists, list items) under other names, and the audit reports its
@@ -371,11 +371,15 @@ class UITestCase: XCTestCase {
   /// Every other finding fails the test. All findings on the screen are collected and
   /// reported together, with the element each one is about, instead of stopping at the first.
   ///
-  /// On a sheet (`onSheet`), "Dynamic Type font sizes are partially unsupported" findings are excluded
-  /// (issue #44). The audit changes the text size and measures at once, and a sheet redraws a moment
-  /// later, so the finding came and went on text that uses standard styles. The large-text journeys
-  /// (`LargeTextUITests`) and the large-text snapshots check every sheet at an accessibility size
-  /// instead. Text that doesn't scale at all still fails, on sheets too.
+  /// "Dynamic Type font sizes are partially unsupported" findings are excluded everywhere. The audit
+  /// changes the text size and measures at once, so the finding came and went on text in standard
+  /// styles that hadn't redrawn yet: first on sheets (issue #44), then off them, on the selection bar,
+  /// the edit tip and the lock screen, which has a window of its own (issues #182, #344). A second
+  /// audit after the screen settled didn't tell the two apart: on a loaded runner it measured too soon
+  /// again and found the same (run 40848570178). Whether text grows is checked where it can be measured
+  /// instead: the large-text journeys (`LargeTextUITests`), the large-text snapshots, and journeys that
+  /// compare a screen at the default size with the same screen at a large one. Text that doesn't scale
+  /// at all still fails everywhere.
   ///
   /// Quarantined (issue #76, flaky): contrast findings on buttons inside a navigation bar, measured while a
   /// sheet's glass bar buttons are still appearing (the accent colour is about 7:1 once drawn), and
@@ -421,9 +425,8 @@ class UITestCase: XCTestCase {
     }
     if !findings.isEmpty, findings.allSatisfy(Self.isMeasuredTooSoon) {
       // Contrast measured while a sheet still slides in fails on text drawn in the primary label colour
-      // (issue #105), and text measured right after the audit changed its size, before it redrew, reads
-      // as not scaling (issue #182). A real problem is still there once the screen has settled, so these
-      // findings count only when a second audit, after another wait, finds them again.
+      // (issue #105). A real problem is still there once the screen has settled, so these findings count
+      // only when a second audit, after another wait, finds them again.
       waitUntilStill(app)
       var again: [String] = []
       var ignored: [String] = []
@@ -433,7 +436,7 @@ class UITestCase: XCTestCase {
       let passing = findings.filter { !again.contains($0) }
       if !passing.isEmpty {
         recordQuarantined(
-          "Measured while the screen was moving, gone on a second audit (issues #105, #182)",
+          "Measured while the screen was moving, gone on a second audit (issue #105)",
           details: passing.joined(separator: "\n"), file: file, line: line)
       }
       findings = findings.filter { again.contains($0) }
@@ -498,10 +501,9 @@ class UITestCase: XCTestCase {
     return "\(label)|\(rounded)"
   }
 
-  /// Whether a finding is one the audit can make while the screen is still redrawing: contrast
-  /// (issue #105), or text that seems not to scale with Dynamic Type (issue #182).
+  /// Whether a finding is one the audit can make while the screen is still moving: contrast (issue #105).
   private static func isMeasuredTooSoon(_ finding: String) -> Bool {
-    finding.hasPrefix("- Contrast failed") || finding.hasPrefix("- Dynamic Type font sizes are partially unsupported")
+    finding.hasPrefix("- Contrast failed")
   }
 
   private func runAudit(
@@ -553,9 +555,8 @@ class UITestCase: XCTestCase {
         settling.append(Self.describe(issue))
         return true
       }
-      if onSheet, issue.auditType == .dynamicType,
-        issue.compactDescription.localizedCaseInsensitiveContains("partially")
-      {
+      // Judged by comparing sizes instead (see `audit`, issues #44, #182).
+      if issue.auditType == .dynamicType, issue.compactDescription.localizedCaseInsensitiveContains("partially") {
         return true
       }
       collected.append(Self.describe(issue))
