@@ -626,6 +626,20 @@ struct DocumentIntakeTests {
     for _ in 0..<3 { _ = await intake.refreshPending() }
     #expect(await pending.all.isEmpty)
   }
+
+  @Test("A cancelled refresh stays owed, and isn't counted as a failure (#236)")
+  func cancelledRefreshStaysOwed() async throws {
+    let library = FakeDocumentLibrary()
+    let pending = PendingRefreshes(url: nil)
+    let seeded = await library.seed(Document(title: "Lease", fileName: "lease.pdf", addedAt: .distantPast))
+    let intake = DocumentIntake(
+      library: library, inspector: CancelledInspector(), index: FakeIndex(), pending: pending)
+    await #expect(throws: CancellationError.self) { try await intake.refresh(seeded.id) }
+    #expect(await pending.owed(seeded.id)?.failures == 0, "Owed, with no failure counted")
+    #expect(await intake.refreshPending() == 0)
+    #expect(await pending.owed(seeded.id)?.failures == 0, "Still owed after a cancelled pass")
+    #expect(try await library.document(withID: seeded.id)?.modifiedAt == seeded.modifiedAt, "Not recorded as done")
+  }
 }
 
 /// An inspector that returns its results in turn, the first held at a gate.
