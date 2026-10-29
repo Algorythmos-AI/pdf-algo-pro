@@ -341,17 +341,14 @@ struct PDFStructureRepairTests {
   @Test("An outline written with its titles and pages but without a web address or zoom is put back (#356)")
   func outlineWithoutActionsIsMended() throws {
     let source = try documentWithOutlineActions()
-    // The same titles and pages, written without the web address and the zoom.
-    let bare = try document()
-    let root = PDFOutline()
-    for (index, title) in ["Terms", "Two"].enumerated() {
-      let item = PDFOutline()
-      item.label = title
-      if index == 1 { item.destination = PDFDestination(page: try #require(bare.page(at: 1)), at: .zero) }
-      root.insertChild(item, at: index)
-    }
-    bare.outlineRoot = root
-    let written = try #require(bare.dataRepresentation())
+    // The same titles and pages, written without the web address and the zoom. Written by the repair
+    // itself: PDFKit on iOS 27 would write the outline the document was opened with, none here.
+    let bare = [
+      PDFStructureRepair.OutlineItem(title: "Terms", target: nil, point: nil, isOpen: true, children: []),
+      PDFStructureRepair.OutlineItem(title: "Two", target: 1, point: .zero, isOpen: true, children: []),
+    ]
+    let pages = try #require(try document().dataRepresentation())
+    let written = try #require(PDFStructureRepair.repaired(pages, links: [], outline: bare)?.data)
     let check = try #require(PDFDocument(data: written))
     try #require(outlineActions(check) == ["Terms - - -", "Two - 1 -"])
 
