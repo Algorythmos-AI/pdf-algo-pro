@@ -338,6 +338,50 @@ struct PDFStructureRepairTests {
     #expect(outlineActions(reopened) == ["Terms https://example.com/terms?a=1&b=(2) - -", "Two - 1 2"])
   }
 
+  @Test("An outline written with its titles and pages but without a web address or zoom is put back (#356)")
+  func outlineWithoutActionsIsMended() throws {
+    let source = try documentWithOutlineActions()
+    // The same titles and pages, written without the web address and the zoom.
+    let bare = try document()
+    let root = PDFOutline()
+    for (index, title) in ["Terms", "Two"].enumerated() {
+      let item = PDFOutline()
+      item.label = title
+      if index == 1 { item.destination = PDFDestination(page: try #require(bare.page(at: 1)), at: .zero) }
+      root.insertChild(item, at: index)
+    }
+    bare.outlineRoot = root
+    let written = try #require(bare.dataRepresentation())
+    let check = try #require(PDFDocument(data: written))
+    try #require(outlineActions(check) == ["Terms - - -", "Two - 1 -"])
+
+    let mend = PDFDocumentController.mendStructure(of: check, writtenFrom: source, password: nil, bytes: { written })
+    guard case .mended(let result) = mend else {
+      Issue.record("the outline was not mended: \(mend)")
+      return
+    }
+    #expect(
+      outlineActions(PDFDocument(data: result.data)) == ["Terms https://example.com/terms?a=1&b=(2) - -", "Two - 1 2"])
+  }
+
+  @Test("In a file encrypted the way iOS 27 writes one, an outline entry's web address is written with RC4 (#356)")
+  func iOS27EncryptedOutlineActions() throws {
+    let outline = [
+      PDFStructureRepair.OutlineItem(
+        title: "Terms", target: nil, point: nil, isOpen: true, children: [],
+        url: URL(string: "https://example.com/terms")),
+      PDFStructureRepair.OutlineItem(
+        title: "Two", target: 1, point: CGPoint(x: 72, y: 700), isOpen: true, children: [], zoom: 1.5),
+    ]
+    let result = try #require(
+      PDFStructureRepair.repaired(iOS27EncryptedFile(), links: [], outline: outline, password: "fixture"))
+    let reopened = try #require(PDFDocument(data: result.data))
+    #expect(reopened.isLocked && reopened.unlock(withPassword: "fixture"), "the file stays protected")
+    #expect(outlineActions(reopened) == ["Terms https://example.com/terms - -", "Two - 1 1.5"])
+    #expect(
+      !String(decoding: result.data, as: UTF8.self).contains("example.com"), "the web address is written encrypted")
+  }
+
   @Test("A file this can't read is left alone")
   func unreadableFiles() {
     #expect(PDFStructureRepair.repaired(Data("not a PDF".utf8), links: [], outline: []) == nil)
