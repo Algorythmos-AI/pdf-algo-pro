@@ -183,4 +183,88 @@ struct TextEditingUndoTrimTests {
     try controller.save(to: url)
     try expectSaved(as: expected, password: nil, "saved without the password and reopened")
   }
+
+  @Test("Past the memory limit, undo still reaches annotation, page and bookmark changes made before text edits (#339)")
+  func otherUndoStepsOutliveTheTextEditLimit() async throws {
+    let data = try TextEditFixtures.make(
+      pages: (1...2).map { number in
+        [
+          Line("Heading of page \(number)", at: CGPoint(x: 72, y: 700)),
+          Line("Body of page \(number)", at: CGPoint(x: 72, y: 680)),
+        ]
+      })
+    let url = FileManager.default.temporaryDirectory.appendingPathComponent("w1-339-\(UUID().uuidString).pdf")
+    defer { try? FileManager.default.removeItem(at: url) }
+    // A rectangle saved with the document, so undoing everything leaves it on the page.
+    let first = try PDFDocumentController(data: data)
+    #expect(first.addShape(.rectangle, from: CGPoint(x: 300, y: 300), to: CGPoint(x: 400, y: 360), onPage: 0))
+    try first.save(to: url)
+    let controller = try PDFDocumentController(url: url)
+    controller.textFindLimit = .seconds(600)
+    controller.textEditLimit = .seconds(600)
+    // In the app each change is its own event, so its own undo step; the test says so explicitly.
+    controller.undoManager.groupsByEvent = false
+    func step(_ change: () -> Void) {
+      controller.undoManager.beginUndoGrouping()
+      change()
+      controller.undoManager.endUndoGrouping()
+    }
+    func rectangle(_ document: PDFDocument?) -> PDFAnnotation? {
+      document?.page(at: 0)?.annotations.first { $0.type == "Square" }
+    }
+    let placed = try #require(rectangle(controller.document)).bounds
+
+    // Changes that each keep the page they were made on: a move, a turned page and a bookmark.
+    #expect(controller.selectAnnotation(at: CGPoint(x: placed.midX, y: placed.midY), onPage: 0))
+    step { #expect(controller.moveSelection(by: CGSize(width: 40, height: -60))) }
+    controller.clearSelection()
+    step { #expect(controller.rotatePages([1], by: 90)) }
+    step { #expect(controller.toggleBookmark(onPage: 0)) }
+    #expect(rectangle(controller.document)?.bounds != placed && controller.bookmarkedPages == [0])
+
+    // Then text edits on both pages, each past a memory limit of nothing.
+    controller.textUndoMemoryLimit = 0
+    controller.setEditingText(true)
+    let edits = [
+      (0, "Heading of page 1", "Title of page 1"), (1, "Heading of page 2", "Title of page 2"),
+      (0, "Body of page 1", "Words of page 1"), (1, "Body of page 2", "Words of page 2"),
+      (0, "Title of page 1", "Name of page 1"), (1, "Title of page 2", "Name of page 2"),
+    ]
+    for (page, text, replacement) in edits {
+      let regions = await controller.pageText(onPage: page).regions
+      let region = try #require(regions.first { $0.text.contains(text) }, "no region contains \(text)")
+      controller.undoManager.beginUndoGrouping()
+      let outcome = await controller.applyTextEdits([TextEdit(region: region, replacement: replacement)], onPage: page)
+      controller.undoManager.endUndoGrouping()
+      #expect(outcome == [.edited(.contentStream)])
+    }
+    controller.setEditingText(false)
+
+    var undone = 0
+    while controller.undoManager.canUndo, undone < 40 {
+      controller.undoManager.undo()
+      undone += 1
+    }
+    // The text edits the history let go of stay made; every other change is undone, on the pages
+    // in the document.
+    let livePage = try #require(controller.document.page(at: 0))
+    let moved = try #require(rectangle(controller.document), "The rectangle is on the page in the document")
+    #expect(moved.page === livePage)
+    #expect(moved.bounds == placed, "The move is undone: \(moved.bounds), placed at \(placed)")
+    #expect(controller.document.page(at: 1)?.rotation == 0, "The turn is undone")
+    #expect(controller.bookmarkedPages.isEmpty, "The bookmark is undone")
+    #expect(controller.document.page(at: 0)?.string?.contains("Title of page 1") == true)
+
+    try controller.save(to: url)
+    let reopened = try #require(PDFDocument(url: url))
+    #expect(reopened.pageCount == 2)
+    #expect(reopened.page(at: 1)?.rotation == 0)
+    let saved = try #require(rectangle(reopened), "The rectangle is saved")
+    #expect(
+      abs(saved.bounds.minX - placed.minX) < 0.5 && abs(saved.bounds.minY - placed.minY) < 0.5,
+      "saved at \(saved.bounds), placed at \(placed)")
+    #expect(reopened.page(at: 0)?.string?.contains("Title of page 1") == true)
+    #expect(reopened.page(at: 1)?.string?.contains("Title of page 2") == true)
+    #expect(try PDFDocumentController(url: url).bookmarkedPages.isEmpty)
+  }
 }
