@@ -282,16 +282,27 @@ final class TextEditingUITests: UITestCase {
     // Down into the empty lower half of the page: held until the line lifts, dragged slowly, and held
     // again before the finger goes, once the line's frame has settled (issue #215: a drag begun on a
     // frame still moving, at the default speed, left the line short of where it was dropped).
-    let before = dragSlowly(heading, by: CGVector(dx: 30, dy: 220), holding: 0.9, in: app)
+    var before = dragSlowly(heading, by: CGVector(dx: 30, dy: 220), holding: 0.9, in: app)
 
+    // A press lifts a line only once the page's lines have been read, which entering text editing starts
+    // and nothing on screen shows. On two runs (40295256439, 40563439396) the press came first: the line
+    // stayed exactly where it was, at (38.9, 223.9), and nothing was moved. Undo is enabled by a move
+    // and by nothing else here, so while it stays disabled the drag did nothing and is made again.
     let undo = app.buttons[ID.Reader.TextEdit.undo]
     XCTAssertTrue(undo.waitForExistence(timeout: 5))
+    let undoable = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isEnabled == true"), object: undo)
+    if XCTWaiter.wait(for: [undoable], timeout: 5) != .completed {
+      before = dragSlowly(heading, by: CGVector(dx: 30, dy: 220), holding: 0.9, in: app)
+    }
     let moved = NSPredicate { _, _ in
       abs(self.line(containing: "Try these", in: app).frame.minY - before.minY - 220) < 30
     }
-    XCTAssertEqual(
-      XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: moved, object: nil)], timeout: 20), .completed,
-      "The line is where it was dropped, not at \(line(containing: "Try these", in: app).frame)")
+    if XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: moved, object: nil)], timeout: 20) != .completed {
+      let state =
+        "Held at \(before), now at \(line(containing: "Try these", in: app).frame); undo enabled: \(undo.isEnabled)."
+      keepEvidence(app, named: "line move", notes: state)
+      XCTFail("The line is where it was dropped. \(state)")
+    }
     XCTAssertFalse(app.textViews[ID.Reader.TextEdit.field].exists, "Moving opens no editor")
     XCTAssertTrue(undo.isEnabled, "The move can be undone")
 
