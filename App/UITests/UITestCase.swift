@@ -416,6 +416,18 @@ class UITestCase: XCTestCase {
       // reports without its element is quarantined (issue #76), and on run 37939544303 the paywall's
       // two such findings came with their elements, one of them the offer's explanation.
       if ProcessInfo.processInfo.environment["UI_EVIDENCE"] == "all" {
+        // A quarantined contrast finding that names its element is measured on the screen, as #294 does on
+        // iOS 27, so the evidence says whether the colour or the audit is wrong (issue #76).
+        let screen = app.screenshot()
+        appearing = appearing.map { finding in
+          guard finding.hasPrefix("- Contrast failed"), let frame = ScreenContrast.frame(in: finding) else {
+            return finding
+          }
+          guard let ratio = ScreenContrast.ratio(of: frame, in: screen) else {
+            return finding + "\n    Not measurable on the screen"
+          }
+          return finding + String(format: "\n    Measured on the screen: %.2f:1", ratio)
+        }
         keepEvidence(app, named: "audit \(line) quarantined", notes: appearing.joined(separator: "\n"))
       }
       recordQuarantined(
