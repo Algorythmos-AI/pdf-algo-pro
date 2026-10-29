@@ -628,11 +628,12 @@ struct DocumentIntakeTests {
   }
 
   @Test(
-    "A file replaced outside the app keeps its tags and favourite; its page and search text start again (#242)",
-    arguments: [-3_600.0, 3_600.0])
-  func replacedFileStartsAgain(changedBy offset: TimeInterval) async throws {
-    // The owner's decision on #242, "Keep tags", for a replacement older than the document (found by
-    // its file identity) and one newer (found by its date): both are read again with a date.
+    "A file changed outside the app keeps its tags and favourite and takes the new text; its page resets only if the page count changed (#242)",
+    arguments: [-3_600.0, 3_600.0], [8, 10])
+  func replacedFileStartsAgain(changedBy offset: TimeInterval, pages: Int) async throws {
+    // The owner's decisions on #242, "Keep tags" and "Reset if pages change", for a replacement older
+    // than the document (found by its file identity) and one newer (found by its date): both are read
+    // again with a date. The entry had 8 pages and was being read on page 6.
     let library = FakeDocumentLibrary()
     let index = FakeIndex()
     let recorded = Date(timeIntervalSince1970: 1_000_000)
@@ -642,7 +643,7 @@ struct DocumentIntakeTests {
         isFavorite: true, tags: ["Paid"]))
     await index.seed(seeded.id, pages: [PageText(pageIndex: 0, text: "old words")])
     let replacement = [PageText(pageIndex: 0, text: "new words")]
-    let inspector = FakeInspector(result: PDFInspection(pageCount: 10, isEncrypted: false, pages: replacement))
+    let inspector = FakeInspector(result: PDFInspection(pageCount: pages, isEncrypted: false, pages: replacement))
     let intake = DocumentIntake(library: library, inspector: inspector, index: index)
 
     _ = try await intake.refresh(seeded.id, changedAt: recorded.addingTimeInterval(offset))
@@ -650,8 +651,9 @@ struct DocumentIntakeTests {
     let after = try #require(try await library.document(withID: seeded.id))
     #expect(after.tags == ["Paid"], "Tags kept")
     #expect(after.isFavorite, "Favourite kept")
-    #expect(after.lastPageIndex == 0, "Reading starts again on the first page, not page \(after.lastPageIndex + 1)")
-    #expect(after.pageCount == 10)
+    let expected = pages == 8 ? 5 : 0
+    #expect(after.lastPageIndex == expected, "Page \(after.lastPageIndex + 1), not page \(expected + 1)")
+    #expect(after.pageCount == pages)
     #expect(await index.stored[seeded.id] == replacement, "Only the new file's words are searchable")
   }
 

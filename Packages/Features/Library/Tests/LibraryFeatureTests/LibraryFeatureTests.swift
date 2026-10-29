@@ -736,22 +736,29 @@ struct LibraryModelTests {
     #expect(attempts <= DocumentIntake.attempts, "\(attempts) attempts")
   }
 
-  @Test("A file replaced under its name is read again when the library looks at its files, whatever its date (#242)")
-  func replacedFileIsReadAgain() async throws {
-    let harness = Harness()
+  @Test(
+    "A file replaced under its name is read again whatever its date; its page resets only if the page count changed (#242)",
+    arguments: [8, 10])
+  func replacedFileIsReadAgain(pages: Int) async throws {
+    let replacement = [PageText(pageIndex: 0, text: "new words")]
+    let inspector = FakeInspector(result: PDFInspection(pageCount: pages, isEncrypted: false, pages: replacement))
+    let harness = Harness(inspector: inspector)
     let later = Date.now.addingTimeInterval(3_600)
     let document = await harness.library.seed(
-      Document(title: "Invoice", fileName: "i.pdf", addedAt: later, lastPageIndex: 5, isFavorite: true, tags: ["Paid"]))
+      Document(
+        title: "Invoice", fileName: "i.pdf", addedAt: later, lastPageIndex: 5, pageCount: 8, isFavorite: true,
+        tags: ["Paid"]))
+    await harness.index.seed(document.id, pages: [PageText(pageIndex: 0, text: "old words")])
     await harness.model.load()
-    #expect(await harness.index.stored[document.id] == nil, "Its date says it hasn't changed")
+    #expect(await harness.index.stored[document.id]?.first?.text == "old words", "Its date says it hasn't changed")
     await harness.library.reportNextReconciliation(Reconciliation(changed: [document.id]))
     await harness.model.filesMayHaveChanged()
-    #expect(await harness.index.stored[document.id] != nil, "Read again: its search text follows the file")
+    #expect(await harness.index.stored[document.id] == replacement, "Read again: only the new file's words")
     let after = try #require(try await harness.library.document(withID: document.id))
-    #expect(after.pageCount == 1)
-    // The owner's decision, "Keep tags": tags and favourite stay, reading starts again.
+    #expect(after.pageCount == pages)
+    // The owner's decisions, "Keep tags" and "Reset if pages change".
     #expect(after.tags == ["Paid"] && after.isFavorite)
-    #expect(after.lastPageIndex == 0)
+    #expect(after.lastPageIndex == (pages == 8 ? 5 : 0))
   }
 
   @Test("Sharing says how many chosen documents can't be found and are left out, once for each (#239)")
