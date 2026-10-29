@@ -351,12 +351,12 @@
         }
       }
     },
-    "Renews automatically until cancelled. Cancel at any time in Settings, under your Apple Account, at least a day before it renews." : {
+    "Renews automatically until cancelled. Cancel at any time, at least a day before it renews: open the Settings app, tap your name (Apple Account), then Subscriptions." : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Renouvellement automatique jusqu’à résiliation. Résiliez à tout moment dans Réglages, sous votre compte Apple, au moins un jour avant le renouvellement."
+            "value" : "Renouvellement automatique jusqu’à résiliation. Résiliez à tout moment, au moins un jour avant le renouvellement : ouvrez l’app Réglages, touchez votre nom (compte Apple), puis Abonnements."
           }
         }
       }
@@ -621,12 +621,12 @@
         }
       }
     },
-    "You can cancel at any time in Settings, under Subscription." : {
+    "You can cancel at any time: open the Settings app, tap your name (Apple Account), then Subscriptions. Or tap Manage subscription in PDF Algo Pro’s Settings." : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vous pouvez annuler à tout moment dans Réglages, sous Abonnement."
+            "value" : "Vous pouvez résilier à tout moment : ouvrez l’app Réglages, touchez votre nom (compte Apple), puis Abonnements. Ou touchez Gérer l’abonnement dans les Réglages de PDF Algo Pro."
           }
         }
       }

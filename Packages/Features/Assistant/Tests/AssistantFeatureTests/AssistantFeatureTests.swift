@@ -273,6 +273,28 @@ struct AssistantModelTests {
     #expect(footerCount(in: text) == 1, "The shared text is \(text.debugDescription)")
   }
 
+  @Test(
+    "A copied or shared contract explanation starts with the not-legal-advice notice the screen shows",
+    arguments: [AssistantTask.summarize, .ask, .extract, .explainContract])
+  func contractNotice(task: AssistantTask) async throws {
+    let notice = "Explains the document. Not legal advice."
+    let (model, _) = makeModel(task: task)
+    await model.start()
+    if task == .ask {
+      model.question = "What is tested?"
+      await model.ask()
+    }
+    // Copy and the toolbar's Share both hand out `shareableText`.
+    let text = try #require(model.shareableText, "Nothing to share in phase \(model.phase)")
+    let count = text.components(separatedBy: notice).count - 1
+    if task == .explainContract {
+      #expect(text.hasPrefix(notice + "\n\n"), "The shared text is \(text.debugDescription)")
+      #expect(count == 1, "The notice appears \(count) times in \(text.debugDescription)")
+    } else {
+      #expect(count == 0, "A \(task) share carries the contract notice: \(text.debugDescription)")
+    }
+  }
+
   @Test("Copied and shared CSV ends with the footer as one last row and stays valid CSV (Art 50(2), L3)")
   func csvFooter() async throws {
     let extraction = Extraction(

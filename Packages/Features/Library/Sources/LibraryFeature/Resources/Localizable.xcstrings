@@ -597,12 +597,12 @@
         }
       }
     },
-    "Explain a contract" : {
+    "Explain contract" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Expliquer un contrat"
+            "value" : "Expliquer le contrat"
           }
         }
       }
@@ -1273,16 +1273,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Essayer un exemple"
-          }
-        }
-      }
-    },
-    "Understand a contract" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Comprendre un contrat"
           }
         }
       }
