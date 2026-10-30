@@ -57,6 +57,52 @@
         }
       }
     },
+    "%lld chosen document(s) can't be found, so sharing leaves them out." : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld chosen document can't be found, so sharing leaves it out."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld chosen documents can't be found, so sharing leaves them out."
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld document choisi est introuvable : il ne sera pas partagé."
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld documents choisis sont introuvables : ils ne seront pas partagés."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld documents choisis sont introuvables : ils ne seront pas partagés."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%lld documents" : {
       "localizations" : {
         "en" : {
@@ -103,6 +149,52 @@
         }
       }
     },
+    "%lld file(s) couldn't be imported because they aren't readable PDFs." : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld file couldn't be imported because it isn't a readable PDF."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld files couldn't be imported because they aren't readable PDFs."
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld fichier n’a pas pu être importé, car ce n’est pas un PDF lisible."
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld fichiers n’ont pas pu être importés, car ce ne sont pas des PDF lisibles."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld fichiers n’ont pas pu être importés, car ce ne sont pas des PDF lisibles."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%lld file(s) couldn't be imported because they aren't readable PDFs. Nothing else changed." : {
       "localizations" : {
         "en" : {
@@ -142,6 +234,98 @@
                 "stringUnit" : {
                   "state" : "translated",
                   "value" : "%lld fichiers n’ont pas pu être importés, car ce ne sont pas des PDF lisibles. Rien d’autre n’a changé."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld file(s) couldn't be imported." : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld file couldn't be imported."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld files couldn't be imported."
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld fichier n’a pas pu être importé."
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld fichiers n’ont pas pu être importés."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld fichiers n’ont pas pu être importés."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld file(s) were added." : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld file was added."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld files were added."
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld fichier a été ajouté."
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld fichiers ont été ajoutés."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld fichiers ont été ajoutés."
                 }
               }
             }

@@ -16,6 +16,8 @@ public actor FileDocumentLibrary: DocumentLibrary {
   private let now: @Sendable () -> Date
   private let fileManager = FileManager.default
   private var isChanging = false
+  /// Whether build 1's single earlier versions have been looked for since the library was created.
+  private var movedSingleVersions = false
   private var waiting: [CheckedContinuation<Void, Never>] = []
 
   /// Creates a library.
@@ -42,7 +44,8 @@ public actor FileDocumentLibrary: DocumentLibrary {
     for folder in [documentsFolder, deletedFolder] + [previousVersionsFolder].compactMap(\.self) {
       try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
     }
-    if let previousVersionsFolder { Self.migrateSingleVersions(in: previousVersionsFolder, now: now()) }
+    // Build 1's single earlier versions are moved by the first call, on this actor, not here: the app
+    // creates the library on the main thread at launch (#244).
   }
 
   // MARK: - Reading
@@ -60,6 +63,35 @@ public actor FileDocumentLibrary: DocumentLibrary {
   /// Every tag in use, sorted.
   public func allTags() async throws -> [String] {
     Document.normalizedTags(try await index.all().filter { !$0.isDeleted }.flatMap(\.tags))
+  }
+
+  /// The documents whose file changed after the library last recorded a change, with when it did
+  /// (#242): one listing of the folder, off the main thread.
+  ///
+  /// The app records each change it makes after writing the file, so only changes made elsewhere
+  /// are found; two seconds allow for the moment between writing and recording.
+  public func changedSinceRecorded() async throws -> [DocumentID: Date] {
+    let keys: [URLResourceKey] = [.contentModificationDateKey]
+    let files = (try? fileManager.contentsOfDirectory(at: documentsFolder, includingPropertiesForKeys: keys)) ?? []
+    var dates: [String: Date] = [:]
+    for file in files {
+      dates[file.lastPathComponent] = try? file.resourceValues(forKeys: Set(keys)).contentModificationDate
+    }
+    var changed: [DocumentID: Date] = [:]
+    for document in try await index.all() where !document.isDeleted {
+      guard let date = dates[document.fileName], date > document.modifiedAt.addingTimeInterval(2) else { continue }
+      changed[document.id] = date
+    }
+    return changed
+  }
+
+  /// Records that the file's contents changed at `date`.
+  public func recordModified(_ id: DocumentID, at date: Date) async throws {
+    try await exclusively {
+      var document = try await existing(id)
+      document.modifiedAt = date
+      try await index.upsert(document)
+    }
   }
 
   /// The file URL of a document, for reading and coordinated writing.
@@ -161,6 +193,9 @@ public actor FileDocumentLibrary: DocumentLibrary {
       document.pageCount = inspection.pageCount
       document.isEncrypted = inspection.isEncrypted
       document.hasTextLayer = inspection.hasTextLayer
+      // A file replaced or changed outside the app may have fewer pages now (#242); a locked one's
+      // count is unknown, so its position stays.
+      if inspection.pageCount > 0 { document.lastPageIndex = min(document.lastPageIndex, inspection.pageCount - 1) }
       try await index.upsert(document)
     }
   }
@@ -179,9 +214,13 @@ public actor FileDocumentLibrary: DocumentLibrary {
       var moved: Move?
       if !document.isDeleted, cleanTitle != document.title {
         let current = location(of: document)
-        let newName = uniqueFileName(for: cleanTitle, in: current.deletingLastPathComponent())
-        moved = try move(current, to: current.deletingLastPathComponent().appendingPathComponent(newName))
-        document.fileName = Self.replacingLastComponent(of: document.fileName, with: newName)
+        let folder = current.deletingLastPathComponent()
+        let newName = uniqueFileName(for: cleanTitle, in: folder, besides: current)
+        let newFileName = Self.replacingLastComponent(of: document.fileName, with: newName)
+        if newFileName != document.fileName {
+          moved = try move(current, to: folder.appendingPathComponent(newName))
+        }
+        document.fileName = newFileName
       }
       document.title = cleanTitle
       try await upsert(document, undoing: moved)
@@ -213,6 +252,16 @@ public actor FileDocumentLibrary: DocumentLibrary {
       var document = try await existing(id)
       document.lastOpenedAt = now()
       document.lastPageIndex = max(0, pageIndex)
+      try await index.upsert(document)
+    }
+  }
+
+  /// Puts the reading position back on the first page, without counting as an opening (#242).
+  public func resetReadingPosition(_ id: DocumentID) async throws {
+    try await exclusively {
+      var document = try await existing(id)
+      guard document.lastPageIndex != 0 else { return }
+      document.lastPageIndex = 0
       try await index.upsert(document)
     }
   }
@@ -329,8 +378,9 @@ public actor FileDocumentLibrary: DocumentLibrary {
   /// An entry's earlier versions stay when its file is gone, until their 30 days or the quota ends
   /// them.
   ///
-  /// Returns the documents added, which still need inspecting and indexing, and the entries removed,
-  /// whose derived data must be removed too.
+  /// Returns the documents added, which still need inspecting and indexing, the entries removed,
+  /// whose derived data must be removed too, and the entries kept with another file at their name,
+  /// which need reading again (#242).
   public func reconcileWithFiles() async throws -> Reconciliation {
     try await exclusively {
       let entries = try await index.all()
@@ -340,6 +390,7 @@ public actor FileDocumentLibrary: DocumentLibrary {
       }
       var removed: [DocumentID] = []
       var added: [Document] = []
+      var changed: [DocumentID] = []
       var files = pdfFiles(in: documentsFolder)
       // Entries whose file isn't at its name, or whose name has another file.
       var unsettled: [Document] = []
@@ -366,6 +417,16 @@ public actor FileDocumentLibrary: DocumentLibrary {
         }
         files[document.fileName] = nil
         if let current, identities[document.id] != current.stored {
+          // The same document identifier on a new file: a file put at its name since the app last
+          // recorded it, by another app's save or by the Files app's Replace, which the system treats
+          // alike. The app records the identity after each save it makes, so this is a change made
+          // elsewhere, and its date may be older than the entry's (#242).
+          // An identity recorded on another volume (a backup restored) says nothing about this file.
+          if let recorded = recordedIdentity(of: document.id), recorded.isOnSameVolume(as: current),
+            let was = recorded.file, let now = current.file, was != now
+          {
+            changed.append(document.id)
+          }
           try await index.setFileIdentity(current.stored, for: document.id)
         }
       }
@@ -409,8 +470,10 @@ public actor FileDocumentLibrary: DocumentLibrary {
       files = files.filter { !taken.contains($0.key) }
       for document in unfound {
         if files.removeValue(forKey: document.fileName) != nil {
-          // Its name still has a file, and no other file is its own: it keeps that one.
+          // Its name still has a file, and no other file is its own: it keeps that one. That file isn't
+          // the one recorded, so it is read again, whatever its date (#242).
           await recordIdentity(of: document)
+          changed.append(document.id)
         } else {
           try await index.setGone(now(), for: document.id)
           removed.append(document.id)
@@ -440,7 +503,7 @@ public actor FileDocumentLibrary: DocumentLibrary {
         try await index.upsert(document)
         await recordIdentity(of: document)
       }
-      return Reconciliation(added: added, removed: removed)
+      return Reconciliation(added: added, removed: removed, changed: changed)
     }
   }
 
@@ -482,6 +545,7 @@ public actor FileDocumentLibrary: DocumentLibrary {
   /// Each call gives a new place in the document's history. Versions past the retention, and the
   /// oldest ones over the quota, are removed first.
   public func previousVersionURL(for id: DocumentID) async throws -> URL? {
+    moveSingleVersionsOnce()
     _ = try await existing(id)
     guard let folder = versionsFolder(of: id) else { return nil }
     try? fileManager.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -502,12 +566,14 @@ public actor FileDocumentLibrary: DocumentLibrary {
 
   /// Whether an earlier version is kept.
   public func hasPreviousVersion(of id: DocumentID) async -> Bool {
-    !versionFiles(of: id).isEmpty
+    moveSingleVersionsOnce()
+    return !versionFiles(of: id).isEmpty
   }
 
   /// The kept earlier versions of a document, newest first.
   public func versions(of id: DocumentID) async -> [DocumentVersion] {
-    versionFiles(of: id).map { url in
+    moveSingleVersionsOnce()
+    return versionFiles(of: id).map { url in
       let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
       return DocumentVersion(id: url.lastPathComponent, savedAt: Self.savedAt(url), size: size)
     }
@@ -561,13 +627,15 @@ public actor FileDocumentLibrary: DocumentLibrary {
 
   /// The space every kept version takes, in bytes.
   public func versionsSize() async -> Int64 {
-    allVersionFiles().reduce(0) { total, url in
+    moveSingleVersionsOnce()
+    return allVersionFiles().reduce(0) { total, url in
       total + Int64((try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
     }
   }
 
   /// Deletes every kept version of every document.
   public func deleteAllVersions() async throws {
+    moveSingleVersionsOnce()
     guard let root = previousVersionsFolder else { return }
     for item in (try? fileManager.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)) ?? [] {
       try fileManager.removeItem(at: item)
@@ -623,6 +691,14 @@ public actor FileDocumentLibrary: DocumentLibrary {
     }
   }
 
+  /// Moves build 1's single earlier versions into their histories, the first time the library is used
+  /// after it was created.
+  private func moveSingleVersionsOnce() {
+    guard !movedSingleVersions else { return }
+    movedSingleVersions = true
+    if let previousVersionsFolder { Self.migrateSingleVersions(in: previousVersionsFolder, now: now()) }
+  }
+
   /// Moves the single earlier version the first release kept (`<id>.pdf`) into the document's history
   /// (bar item B11): nothing kept before is lost.
   private static func migrateSingleVersions(in root: URL, now: Date) {
@@ -652,6 +728,7 @@ public actor FileDocumentLibrary: DocumentLibrary {
   /// entry back, and each index call is a suspension point. Without this, a second change could read
   /// the same entry in between and later write back its stale copy, undoing a deletion or a rename.
   private func exclusively<T>(_ change: () async throws -> T) async rethrows -> T {
+    moveSingleVersionsOnce()
     if isChanging {
       // The finishing change hands over directly, so `isChanging` stays true.
       await withCheckedContinuation { waiting.append($0) }
@@ -804,15 +881,27 @@ public actor FileDocumentLibrary: DocumentLibrary {
     return String(fileName[...slash]) + name
   }
 
-  private func uniqueFileName(for title: String, in folder: URL) -> String {
+  /// A file name for a title that no other file in the folder has.
+  ///
+  /// `own` is the file being renamed: on a volume that ignores capitals, "Report.pdf" is the same file
+  /// as "report.pdf", and not a clash (#263).
+  private func uniqueFileName(for title: String, in folder: URL, besides own: URL? = nil) -> String {
     let base = Self.safeFileName(title)
+    let ownID = own.flatMap(Self.fileIdentifier)
     var candidate = "\(base).pdf"
     var counter = 2
-    while fileManager.fileExists(atPath: folder.appendingPathComponent(candidate).path) {
+    while true {
+      let url = folder.appendingPathComponent(candidate)
+      guard fileManager.fileExists(atPath: url.path) else { break }
+      if let ownID, Self.fileIdentifier(of: url) == ownID { break }
       candidate = "\(base) \(counter).pdf"
       counter += 1
     }
     return candidate
+  }
+
+  private static func fileIdentifier(of url: URL) -> UInt64? {
+    try? url.resourceValues(forKeys: [.fileIdentifierKey]).fileIdentifier
   }
 
   /// A title with surrounding whitespace removed; an empty title becomes "Untitled".

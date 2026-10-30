@@ -19,10 +19,14 @@ private struct Harness {
   let telemetry = RecordingTelemetry()
   let model: LibraryModel
 
-  init(inspector: FakeInspector = FakeInspector(), intents: [OnboardingIntent] = []) {
+  init(
+    inspector: any PDFInspecting = FakeInspector(), intents: [OnboardingIntent] = [],
+    pending: PendingRefreshes? = nil
+  ) {
     settings.save(AppSettings(hasCompletedOnboarding: true, intents: intents))
     model = LibraryModel(
-      library: library, intake: DocumentIntake(library: library, inspector: inspector, index: index), index: index,
+      library: library,
+      intake: DocumentIntake(library: library, inspector: inspector, index: index, pending: pending), index: index,
       settings: settings, telemetry: telemetry)
   }
 
@@ -289,6 +293,96 @@ struct LibraryModelTests {
     #expect(harness.model.documents.isEmpty)
   }
 
+  @Test("When only Spotlight fails, moving to Recently Deleted shows no error and is retried (#360)")
+  func binningWithSpotlightFailing() async throws {
+    let pending = PendingRefreshes(url: nil)
+    let harness = Harness(pending: pending)
+    let document = await harness.library.seed(Document(title: "Old", fileName: "o.pdf", addedAt: .now))
+    try await harness.index.index(document, pages: [PageText(pageIndex: 0, text: "text")])
+    await harness.model.load()
+    await harness.index.failSpotlightRemoval(true)
+
+    await harness.model.delete(document.id)
+
+    #expect(harness.model.errorMessage == nil, "The move worked")
+    #expect(try await harness.library.document(withID: document.id)?.isDeleted == true)
+    #expect(await pending.all == [document.id], "Taking it out of Spotlight is owed")
+    #expect(await harness.index.inSpotlight.contains(document.id))
+    await harness.index.failSpotlightRemoval(false)
+    await harness.model.filesMayHaveChanged()
+    #expect(await !harness.index.inSpotlight.contains(document.id), "Tried again: out of Spotlight")
+    #expect(await pending.all.isEmpty)
+  }
+
+  @Test("When only Spotlight fails, restoring shows no error and is retried (#360)")
+  func restoringWithSpotlightFailing() async throws {
+    let pending = PendingRefreshes(url: nil)
+    let harness = Harness(pending: pending)
+    var binned = Document(title: "Old", fileName: "o.pdf", addedAt: .now)
+    binned.deletedAt = .now
+    let document = await harness.library.seed(binned)
+    await harness.index.seed(document.id, pages: [PageText(pageIndex: 0, text: "text")])
+    await harness.model.load()
+    await harness.index.failIndexing(true)
+
+    await harness.model.restore(document.id)
+
+    #expect(harness.model.errorMessage == nil, "The restore worked")
+    #expect(try await harness.library.document(withID: document.id)?.isDeleted == false)
+    #expect(await pending.all == [document.id], "Putting it back in Spotlight is owed")
+    await harness.index.failIndexing(false)
+    await harness.model.filesMayHaveChanged()
+    #expect(await harness.index.inSpotlight.contains(document.id), "Tried again: back in Spotlight")
+    #expect(await pending.all.isEmpty)
+  }
+
+  @Test("When only Spotlight fails, Delete Now shows no error, and removal is retried until it works (#360)")
+  func deletingNowWithSpotlightFailing() async throws {
+    let pending = PendingRefreshes(url: nil)
+    let harness = Harness(pending: pending)
+    let document = await harness.library.seed(Document(title: "Old", fileName: "o.pdf", addedAt: .now))
+    try await harness.index.index(document, pages: [PageText(pageIndex: 0, text: "text")])
+    await harness.model.load()
+    await harness.index.failSpotlightRemoval(true)
+
+    await harness.model.deletePermanently(document.id)
+
+    #expect(harness.model.errorMessage == nil, "The deletion worked")
+    #expect(try await harness.library.document(withID: document.id) == nil)
+    #expect(await pending.all == [document.id], "Taking it out of Spotlight is owed")
+    await harness.index.failSpotlightRemoval(false)
+    await harness.model.filesMayHaveChanged()
+    #expect(await !harness.index.inSpotlight.contains(document.id), "Tried again: out of Spotlight")
+    #expect(await pending.all.isEmpty)
+  }
+
+  @Test("A protected document's Spotlight entry is retried until it is gone, binned or deleted for good (#360)")
+  func protectedEntryIsRetriedUntilGone() async throws {
+    let pending = PendingRefreshes(url: nil)
+    let locked = FakeInspector(result: PDFInspection(pageCount: 0, isEncrypted: true, pages: []))
+    let harness = Harness(inspector: locked, pending: pending)
+    var protected = Document(title: "Payslip", fileName: "p.pdf", addedAt: .now)
+    protected.isEncrypted = true
+    var other = Document(title: "Bank", fileName: "b.pdf", addedAt: .now)
+    other.isEncrypted = true
+    let binned = await harness.library.seed(protected)
+    let gone = await harness.library.seed(other)
+    for document in [binned, gone] { try await harness.index.index(document, pages: []) }
+    await harness.model.load()
+    await harness.index.failSpotlightRemoval(true)
+
+    await harness.model.delete(binned.id)
+    await harness.model.deletePermanently(gone.id)
+    for _ in 0..<5 { await harness.model.filesMayHaveChanged() }
+
+    #expect(harness.model.errorMessage == nil)
+    #expect(Set(await pending.all) == [binned.id, gone.id], "Never given up while Spotlight has them")
+    await harness.index.failSpotlightRemoval(false)
+    await harness.model.filesMayHaveChanged()
+    #expect(await harness.index.inSpotlight.isEmpty, "Out of Spotlight")
+    #expect(await pending.all.isEmpty)
+  }
+
   @Test("Opening the library removes the search text of purged and vanished documents (FR-LIB-006)")
   func housekeepingRemovesDerivedData() async throws {
     let harness = Harness()
@@ -543,6 +637,310 @@ struct LibraryModelTests {
     for task in AssistantTask.allCases {
       _ = LibraryView<EmptyView>.assistantTitle(for: task)
     }
+  }
+
+  // MARK: - R1 review findings
+
+  @Test("Renaming a document or changing its tags reaches Spotlight (#241)")
+  func renameAndTagsReachSpotlight() async throws {
+    let harness = Harness()
+    let document = await harness.library.seed(Document(title: "Draft", fileName: "d.pdf", addedAt: .now))
+    await harness.index.seed(document.id, pages: [PageText(pageIndex: 0, text: "text")])
+    await harness.model.load()
+    await harness.model.rename(document.id, to: "Contract signed")
+    #expect(await harness.index.indexed.last?.title == "Contract signed")
+    await harness.model.setTags(["Tax"], for: document.id)
+    let last = try #require(await harness.index.indexed.last)
+    #expect(last.title == "Contract signed" && last.tags == ["Tax"])
+    #expect(await harness.index.stored[document.id] == [PageText(pageIndex: 0, text: "text")], "Its text stays")
+  }
+
+  @Test("An import that fails for a reason other than a bad file says so, not that the file isn't a PDF (#243)")
+  func importFailureSaysWhy() async throws {
+    let harness = Harness()
+    await harness.model.load()
+    let good = try harness.file("Lease.pdf", data: Data("%PDF-1.7 lease".utf8))
+    await harness.library.failNext(with: .fileAccessFailed)
+    await harness.model.importFiles([good])
+    let message = try #require(harness.model.errorMessage)
+    #expect(!message.contains("readable"), "\(message)")
+    #expect(message == LibraryModel.message(for: LibraryError.fileAccessFailed))
+  }
+
+  @Test("Merging refuses, and says so, when a selected document's file can't be found (#239)")
+  func mergeRefusesWhenAFileIsMissing() async throws {
+    let harness = Harness()
+    var ids: [DocumentID] = []
+    for (index, title) in ["A", "B", "C"].enumerated() {
+      let document = await harness.library.seed(
+        Document(title: title, fileName: "\(title).pdf", addedAt: Date(timeIntervalSince1970: Double(index))),
+        data: try SyntheticPDF.make(pages: [title]))
+      ids.append(document.id)
+    }
+    await harness.model.load()
+    await harness.library.failNext(with: .notFound)
+    await harness.model.merge(ids)
+    #expect(harness.model.errorMessage != nil)
+    #expect(harness.model.documents.count == 3, "No merged document was added")
+    #expect(harness.model.selection == nil)
+  }
+
+  @Test("A second deletion keeps its Undo when the first one's wait is cancelled (#240)")
+  func secondDeleteKeepsItsUndo() async throws {
+    let harness = Harness()
+    let first = await harness.library.seed(Document(title: "A", fileName: "a.pdf", addedAt: .now))
+    let second = await harness.library.seed(Document(title: "B", fileName: "b.pdf", addedAt: .now))
+    await harness.model.load()
+    await harness.model.delete([first.id])
+    let firstWait = Task { await harness.model.expireUndo(after: .seconds(60)) }
+    await harness.model.delete([second.id])
+    // The view's task for the first deletion is cancelled when the second one changes `lastDeleted`.
+    firstWait.cancel()
+    await firstWait.value
+    #expect(harness.model.lastDeleted == [second.id])
+    await harness.model.expireUndo(after: .zero)
+    #expect(harness.model.lastDeleted.isEmpty, "A wait that runs out forgets the deletion")
+  }
+
+  @Test("Photos that didn't load are counted, and when none loaded the library says so (#238)")
+  func unloadablePhotosAreCounted() async throws {
+    let harness = Harness()
+    await harness.model.load()
+    let image = try #require(SyntheticPDF.makeTextImage("Receipt", size: CGSize(width: 400, height: 600)))
+    let encoded = NSMutableData()
+    let destination = try #require(CGImageDestinationCreateWithData(encoded, "public.png" as CFString, 1, nil))
+    CGImageDestinationAddImage(destination, image, nil)
+    #expect(CGImageDestinationFinalize(destination))
+    await harness.model.addPhotos([encoded as Data, encoded as Data], unreadable: 1)
+    let document = try #require(harness.model.documents.first)
+    #expect(try PDFDocumentController(url: try await harness.library.fileURL(for: document.id)).pageCount == 2)
+    #expect(harness.model.errorMessage?.contains("1") == true, "\(harness.model.errorMessage ?? "no message")")
+    harness.model.errorMessage = nil
+    await harness.model.addPhotos([], unreadable: 2)
+    #expect(harness.model.errorMessage != nil, "Nothing loaded: the person is told, nothing is added")
+    #expect(harness.model.documents.count == 1)
+  }
+
+  @Test("A partial import says how many files failed and that the others were added (#243)")
+  func partialImportSaysWhatHappened() async throws {
+    let harness = Harness()
+    await harness.model.load()
+    let first = try harness.file("Lease.pdf", data: Data("%PDF-1.7 lease".utf8))
+    let second = try harness.file("Deed.pdf", data: Data("%PDF-1.7 deed".utf8))
+    await harness.library.failNext(with: .fileAccessFailed)
+    await harness.model.importFiles([first, second])
+    #expect(harness.model.documents.count == 1)
+    let message = try #require(harness.model.errorMessage)
+    #expect(!message.contains("haven't changed") && !message.contains("readable"), "\(message)")
+    #expect(message.contains("1"), "\(message)")
+  }
+
+  @Test("Opening the library does the refreshes still owed, so a protected document's words leave search (#236)")
+  func loadDoesPendingRefreshes() async throws {
+    let locked = FakeInspector(result: PDFInspection(pageCount: 0, isEncrypted: true, pages: []))
+    let pending = PendingRefreshes(url: nil)
+    let harness = Harness(inspector: locked, pending: pending)
+    let document = await harness.library.seed(Document(title: "Lease", fileName: "l.pdf", addedAt: .now))
+    await harness.index.seed(document.id, pages: [PageText(pageIndex: 0, text: "private words")])
+    try await pending.add(document.id)
+    await harness.model.load()
+    #expect(await pending.all.isEmpty)
+    #expect(await harness.index.stored[document.id] == [], "The words are no longer searchable")
+    #expect(await harness.index.indexed.last?.isEncrypted == true)
+  }
+
+  @Test("Coming back to the foreground does the refreshes still owed, not only the next launch (#236)")
+  func foregroundDoesPendingRefreshes() async throws {
+    let locked = FakeInspector(result: PDFInspection(pageCount: 0, isEncrypted: true, pages: []))
+    let pending = PendingRefreshes(url: nil)
+    let harness = Harness(inspector: locked, pending: pending)
+    await harness.model.load()
+    let document = await harness.library.seed(Document(title: "Lease", fileName: "l.pdf", addedAt: .now))
+    await harness.index.seed(document.id, pages: [PageText(pageIndex: 0, text: "private words")])
+    try await pending.add(document.id)
+    await harness.model.filesMayHaveChanged()
+    #expect(await pending.all.isEmpty, "The app can stay in the background for days, so it mustn't wait for a launch")
+    #expect(await harness.index.stored[document.id] == [], "The words are no longer searchable")
+  }
+
+  @Test("Opening the library reads again a file changed since its last recorded change (#242)")
+  func changedFileIsReadAgainOnLoad() async throws {
+    let harness = Harness()
+    let document = await harness.library.seed(Document(title: "Invoice", fileName: "i.pdf", addedAt: .distantPast))
+    await harness.model.load()
+    #expect(await harness.index.stored[document.id] != nil, "Its file is newer than its last recorded change")
+    #expect(try await harness.library.document(withID: document.id)?.pageCount == 1)
+    let later = Date.now.addingTimeInterval(3_600)
+    let unchanged = await harness.library.seed(Document(title: "Kept", fileName: "k.pdf", addedAt: later))
+    await harness.model.load()
+    #expect(await harness.index.stored[unchanged.id] == nil, "A file not changed since is left alone")
+  }
+
+  // MARK: - Second R1 review
+
+  @Test("The list shows before the refreshes still owed are done (#236)")
+  func listShowsBeforeOwedRefreshes() async throws {
+    let gate = InspectionGate()
+    let pending = PendingRefreshes(url: nil)
+    let harness = Harness(inspector: GatedInspector(gate: gate), pending: pending)
+    let document = await harness.library.seed(Document(title: "Lease", fileName: "l.pdf", addedAt: .now))
+    try await pending.add(document.id)
+    let loading = Task { await harness.model.load() }
+    await gate.waitForArrival()
+    #expect(harness.model.phase == .loaded, "The library is usable while the refresh runs")
+    #expect(harness.model.documents.map(\.id) == [document.id])
+    await gate.open()
+    await loading.value
+    #expect(await pending.all.isEmpty)
+  }
+
+  @Test("A file changed in another app keeps the time it was changed (#242)")
+  func changedFileKeepsItsDate() async throws {
+    let harness = Harness()
+    let document = await harness.library.seed(Document(title: "Invoice", fileName: "i.pdf", addedAt: .distantPast))
+    let url = try await harness.library.fileURL(for: document.id)
+    let changed = try #require(url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate)
+    await harness.model.load()
+    let after = try #require(try await harness.library.document(withID: document.id))
+    #expect(abs(after.modifiedAt.timeIntervalSince(changed)) < 1, "\(after.modifiedAt) is not \(changed)")
+  }
+
+  @Test("A file replaced by something that isn't a PDF is looked at once, not at every launch (#242)")
+  func unreadableReplacementIsReadOnce() async throws {
+    let counter = InspectionCounter()
+    let harness = Harness(inspector: CountingInspector(counter: counter), pending: PendingRefreshes(url: nil))
+    await harness.library.seed(Document(title: "Invoice", fileName: "i.pdf", addedAt: .distantPast))
+    await harness.model.load()
+    await harness.model.load()
+    #expect(await counter.count == 1)
+  }
+
+  @Test("A changed file that can never be read is tried at most three times across launches (#242)")
+  func failingChangedFileIsTriedThreeTimes() async throws {
+    let counter = InspectionCounter()
+    let inspector = CountingInspector(counter: counter, error: .fileAccessFailed)
+    let harness = Harness(inspector: inspector, pending: PendingRefreshes(url: nil))
+    await harness.library.seed(Document(title: "Invoice", fileName: "i.pdf", addedAt: .distantPast))
+    for _ in 0..<5 { await harness.model.load() }
+    let attempts = await counter.count
+    #expect(attempts <= DocumentIntake.attempts, "\(attempts) attempts")
+  }
+
+  @Test(
+    "A file replaced under its name is read again whatever its date; its page resets only if the page count changed (#242)",
+    arguments: [8, 10])
+  func replacedFileIsReadAgain(pages: Int) async throws {
+    let replacement = [PageText(pageIndex: 0, text: "new words")]
+    let inspector = FakeInspector(result: PDFInspection(pageCount: pages, isEncrypted: false, pages: replacement))
+    let harness = Harness(inspector: inspector)
+    let later = Date.now.addingTimeInterval(3_600)
+    let document = await harness.library.seed(
+      Document(
+        title: "Invoice", fileName: "i.pdf", addedAt: later, lastPageIndex: 5, pageCount: 8, isFavorite: true,
+        tags: ["Paid"]))
+    await harness.index.seed(document.id, pages: [PageText(pageIndex: 0, text: "old words")])
+    await harness.model.load()
+    #expect(await harness.index.stored[document.id]?.first?.text == "old words", "Its date says it hasn't changed")
+    await harness.library.reportNextReconciliation(Reconciliation(changed: [document.id]))
+    await harness.model.filesMayHaveChanged()
+    #expect(await harness.index.stored[document.id] == replacement, "Read again: only the new file's words")
+    let after = try #require(try await harness.library.document(withID: document.id))
+    #expect(after.pageCount == pages)
+    // The owner's decisions, "Keep tags" and "Reset if pages change".
+    #expect(after.tags == ["Paid"] && after.isFavorite)
+    #expect(after.lastPageIndex == (pages == 8 ? 5 : 0))
+  }
+
+  @Test("Sharing says how many chosen documents can't be found and are left out, once for each (#239)")
+  func shareSaysWhatIsLeftOut() async throws {
+    let harness = Harness()
+    let first = await harness.library.seed(Document(title: "A", fileName: "a.pdf", addedAt: .now))
+    let second = await harness.library.seed(Document(title: "B", fileName: "b.pdf", addedAt: .now))
+    await harness.model.load()
+    // The first file was removed in the Files app since the list loaded.
+    await harness.library.failNext(with: .notFound)
+    let urls = await harness.model.fileURLs(for: [first.id, second.id])
+    #expect(urls.count == 1)
+    let message = try #require(harness.model.errorMessage, "The person is told one is left out")
+    #expect(message.contains("1"), "\(message)")
+    harness.model.errorMessage = nil
+    await harness.library.failNext(with: .notFound)
+    _ = await harness.model.fileURLs(for: [first.id, second.id])
+    #expect(harness.model.errorMessage == nil, "Choosing again doesn't say it again")
+  }
+
+  @Test("A search waits for typing to pause; a wait cut short by more typing searches nothing (#240)")
+  func searchWaitsForTypingToPause() async throws {
+    let harness = Harness()
+    await harness.model.load()
+    // A search that runs shows search as unavailable here, so it can be seen.
+    await harness.index.failSearches(true)
+    harness.model.query = "inv"
+    // The field's task for "inv" is cancelled when "invoice" is typed.
+    let wait = Task { await harness.model.searchAfterPause(.seconds(60)) }
+    wait.cancel()
+    await wait.value
+    #expect(!harness.model.isSearchUnavailable, "The wait cut short searched nothing")
+    await harness.model.searchAfterPause(.zero)
+    #expect(harness.model.isSearchUnavailable, "A wait that runs out searches")
+  }
+
+  @Test("A search cancelled by more typing is not reported as search being unavailable (#240)")
+  func cancelledSearchIsQuiet() async {
+    let harness = Harness()
+    await harness.model.load()
+    await harness.index.cancelSearches(true)
+    harness.model.query = "invoice"
+    await harness.model.search()
+    #expect(!harness.model.isSearchUnavailable)
+    #expect(await !harness.telemetry.events.contains("quality.operation.failed"))
+  }
+
+  @Test("Renaming or tagging updates Spotlight without writing the stored text again (#241)")
+  func detailsDoNotRewriteText() async throws {
+    let harness = Harness()
+    let document = await harness.library.seed(Document(title: "Draft", fileName: "d.pdf", addedAt: .now))
+    await harness.index.seed(document.id, pages: [PageText(pageIndex: 0, text: "text")])
+    await harness.model.load()
+    let writes = await harness.index.pageWrites
+    await harness.model.rename(document.id, to: "Final")
+    await harness.model.setTags(["Tax"], for: document.id)
+    #expect(await harness.index.pageWrites == writes, "A refresh landing meanwhile is never overwritten")
+    #expect(await harness.index.indexed.last?.title == "Final")
+  }
+
+  @Test("A partial import counts what was added, and doesn't say nothing changed (#243)")
+  func partialImportCounts() async throws {
+    let harness = Harness()
+    await harness.model.load()
+    let files = try ["A", "B", "C"].map { try harness.file("\($0).pdf", data: Data("%PDF-1.7 \($0)".utf8)) }
+    await harness.library.failNext(with: .fileAccessFailed)
+    await harness.model.importFiles(files)
+    let message = try #require(harness.model.errorMessage)
+    #expect(message.contains("2") && !message.contains("others"), "\(message)")
+    harness.model.errorMessage = nil
+    let good = try harness.file("D.pdf", data: Data("%PDF-1.7 D".utf8))
+    let bad = try harness.file("notes.pdf", data: Data("not a pdf".utf8))
+    await harness.model.importFiles([good, bad])
+    let mixed = try #require(harness.model.errorMessage)
+    #expect(!mixed.contains("Nothing else changed") && mixed.contains("1"), "\(mixed)")
+  }
+}
+
+/// Counts inspections.
+private actor InspectionCounter {
+  private(set) var count = 0
+  func increment() { count += 1 }
+}
+
+/// An inspector that counts what it is asked to read, and finds that it isn't a PDF.
+private struct CountingInspector: PDFInspecting {
+  let counter: InspectionCounter
+  /// What every inspection throws.
+  var error: LibraryError = .notAPDF
+  func inspect(_ url: URL) async throws -> PDFInspection {
+    await counter.increment()
+    throw error
   }
 }
 
