@@ -459,7 +459,7 @@ final class AppModel {
     container.settings.save(current)
     let textSettingChanged = current.indexesTextInSpotlight != settings.indexesTextInSpotlight
     settings = current
-    if textSettingChanged { Task { await container.reindexSpotlight() } }
+    if textSettingChanged { Task { await container.textSettingChanged() } }
   }
 
   func makeSettings() -> SettingsModel {
@@ -471,7 +471,7 @@ final class AppModel {
         let textSettingChanged = settings.indexesTextInSpotlight != self.settings.indexesTextInSpotlight
         self.settings = settings
         self.lock.settingChanged()
-        if textSettingChanged { Task { await self.container.reindexSpotlight() } }
+        if textSettingChanged { Task { await self.container.textSettingChanged() } }
       }, versionsSize: { [container] in await container.library.versionsSize() },
       deleteVersions: { [container] in try await container.library.deleteAllVersions() }, lockMethod: lockMethod,
       authenticate: { [container] reason in await container.authenticator.authenticate(reason: reason) })

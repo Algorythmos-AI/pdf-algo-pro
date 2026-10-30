@@ -375,7 +375,7 @@ public final class ReaderModel {
     controller.undoManager.undo()
     updateUndoState()
     // Only undoing or redoing a text edit changes the words that search finds.
-    if controller.hasUnsavedTextEdits { textChangedSinceIndexing = true }
+    if controller.hasUnsavedTextEdits { await wordsChanged() }
     await save()
   }
 
@@ -385,7 +385,7 @@ public final class ReaderModel {
     controller.undoManager.redo()
     updateUndoState()
     // Only undoing or redoing a text edit changes the words that search finds.
-    if controller.hasUnsavedTextEdits { textChangedSinceIndexing = true }
+    if controller.hasUnsavedTextEdits { await wordsChanged() }
     await save()
   }
 
@@ -674,6 +674,18 @@ public final class ReaderModel {
   private var hasConfirmedEditingSigned = false
   /// Whether the document's words changed since the search text was last brought up to date.
   private var textChangedSinceIndexing = false
+
+  /// Notes that the document's words changed, and writes down that search owes it a refresh, before
+  /// the change is saved: a stop between the save and the refresh is caught up at the next load (#236).
+  private func wordsChanged() async {
+    textChangedSinceIndexing = true
+    await willSave(protecting: nil)
+  }
+
+  /// Writes down that the next save makes a change search must catch up with (#236).
+  private func willSave(protecting: Bool?) async {
+    if let change = await intake.willChange(documentID, protecting: protecting) { changesBeingSaved.append(change) }
+  }
   /// Whether, in this reader, the person has been told a font will be matched, and that text
   /// will be covered, and has picked any text at all.
   private var hasExplainedFontMatching = false
@@ -844,7 +856,7 @@ public final class ReaderModel {
       textEditMessage = nil
       updateUndoState()
       // Covered text is still what the page reads as, so the search text is unchanged by it.
-      if mode != .visualReplacement { textChangedSinceIndexing = true }
+      if mode != .visualReplacement { await wordsChanged() }
       await save()
       await textEditingPageChanged()
       return true
@@ -941,7 +953,7 @@ public final class ReaderModel {
     case .edited(let mode):
       textEditMessage = nil
       // Covered text is still in the file where it was, and the person must know.
-      if mode == .visualReplacement { textEditNotice = .coveredInstead } else { textChangedSinceIndexing = true }
+      if mode == .visualReplacement { textEditNotice = .coveredInstead } else { await wordsChanged() }
       textMoves += 1
       updateUndoState()
       await save()
@@ -985,8 +997,10 @@ public final class ReaderModel {
   /// Brings the search text and Spotlight up to date with edited words, once, not after every edit.
   private func refreshSearchTextIfNeeded() async {
     guard textChangedSinceIndexing, await save() else { return }
+    // Done only once the refresh worked, so the next chance tries again (#236).
+    guard let refreshed = await refreshLibraryRecord() else { return }
     textChangedSinceIndexing = false
-    document = (try? await intake.refresh(documentID)) ?? document
+    document = refreshed
   }
 
   // MARK: - Signing
@@ -1105,13 +1119,23 @@ public final class ReaderModel {
         _ = await earlier.value
         savesWaiting -= 1
       }
-      return await saveNow()
+      // The changes written down before this save starts are in what it writes. Whether it works or
+      // not, once it ends they are no longer being saved: the next refresh reads the file as it is. A
+      // change written down while it runs waits for the save after it (#236).
+      let changes = changesBeingSaved
+      changesBeingSaved = []
+      let saved = await saveNow()
+      for change in changes { await intake.saveFinished(documentID, change: change) }
+      return saved
     }
     saving = current
     let saved = await current.value
     if saving == current { saving = nil }
     return saved
   }
+
+  /// Changes written down as owing a refresh whose save hasn't ended yet (#236).
+  private var changesBeingSaved: [Int] = []
 
   private func saveNow() async -> Bool {
     guard let controller else { return false }
@@ -1481,11 +1505,19 @@ public final class ReaderModel {
     speech.stop()
     controller = nil
     phase = .loading
+    // Owed from before the swap, so a stop after it still brings search up to date (#236).
+    let change = await intake.willChange(documentID)
     do {
-      try await swap()
+      do {
+        try await swap()
+      } catch {
+        await intake.saveFinished(documentID, change: change)
+        throw error
+      }
+      await intake.saveFinished(documentID, change: change)
       // The two versions can differ in their text (a restore across text recognition), so the search
       // text and Spotlight follow the restored file.
-      _ = try? await intake.refresh(documentID)
+      _ = await refreshLibraryRecord()
     } catch {
       errorMessage = String(
         localized: "Couldn't restore the earlier version. The document hasn't changed.", bundle: .module)
@@ -1607,9 +1639,21 @@ public final class ReaderModel {
         localized: "This document's author doesn't allow its password to be changed.", bundle: .module)
       return
     }
+    // Owed from before the save: whatever stops after it, the words still leave search (#236).
+    await willSave(protecting: true)
     if await save() {
-      // The library's record follows the file: its lock, its page count and its search text.
-      _ = try? await intake.refresh(documentID)
+      // The library's record follows the file: its lock, its page count and its search text. If that
+      // fails, the words still leave search and Spotlight now: removing them needs no space, so it
+      // works on the full disk that made the refresh fail; then the title goes back if it can (#236).
+      if await refreshLibraryRecord() == nil, var locked = document {
+        locked.isEncrypted = true
+        do {
+          try await index.remove(documentID)
+          try await index.index(locked, pages: [])
+        } catch {
+          await telemetry.record("quality.operation.failed")
+        }
+      }
       notice = String(localized: "The document now needs its password to open.", bundle: .module)
     }
   }
@@ -1621,10 +1665,24 @@ public final class ReaderModel {
         localized: "Only the document's owner password can remove its protection.", bundle: .module)
       return
     }
+    await willSave(protecting: false)
     if await save() {
       // The library's record follows the file: its lock, its page count and its search text.
-      _ = try? await intake.refresh(documentID)
+      _ = await refreshLibraryRecord()
       notice = String(localized: "The document no longer needs a password.", bundle: .module)
+    }
+  }
+
+  /// Brings the library's record, search text and Spotlight up to date with the saved file.
+  ///
+  /// A failure is counted, not shown: the save worked. The entry is left older than its file, so the
+  /// next library load tries again (#236). Returns the refreshed document, or `nil` when it failed.
+  private func refreshLibraryRecord() async -> Document? {
+    do {
+      return try await intake.refresh(documentID)
+    } catch {
+      await telemetry.record("quality.operation.failed")
+      return nil
     }
   }
 

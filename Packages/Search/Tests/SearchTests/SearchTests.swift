@@ -1,4 +1,6 @@
 import Core
+import CoreSpotlight
+import CoreTestSupport
 import Foundation
 import Testing
 
@@ -188,12 +190,139 @@ struct SpotlightItemTests {
     #expect(SpotlightIndexer.item(for: value, text: nil).attributeSet.title == "Contract")
   }
 
-  @Test func indexingAndRemovalNeverThrow() async {
+  @Test("Indexing and removal pass on Core Spotlight's error instead of dropping it (#360)")
+  func indexingAndRemovalReportFailure() async {
     let indexer = SpotlightIndexer(indexName: "tests-\(UUID())")
     var value = document("Temporary")
-    await indexer.index(value, text: "text")
-    value.deletedAt = .now
-    await indexer.index(value, text: "text")
-    await indexer.remove(value.id)
+    // A test process may not reach Spotlight at all (on macOS, CSIndexErrorDomain -1000); where it
+    // can, every call works. Either way any error is Core Spotlight's own, passed on.
+    do {
+      try await indexer.index(value, text: "text")
+      value.deletedAt = .now
+      try await indexer.index(value, text: "text")
+      try await indexer.remove(value.id)
+    } catch {
+      #expect((error as NSError).domain == CSIndexErrorDomain)
+    }
+  }
+}
+
+/// A Spotlight whose writes or removals fail, as with a full disk or an index that can't be reached.
+private actor FailingSpotlight: SpotlightIndexing {
+  struct Failure: Error {}
+
+  var indexed: [DocumentID: String] = [:]
+  private var failsIndexing = false
+  private var failsRemoving = false
+
+  func failIndexing(_ fails: Bool) { failsIndexing = fails }
+  func failRemoving(_ fails: Bool) { failsRemoving = fails }
+
+  func index(_ document: Document, text: String) async throws {
+    guard !failsIndexing else { throw Failure() }
+    indexed[document.id] = text
+  }
+
+  func remove(_ id: DocumentID) async throws {
+    guard !failsRemoving else { throw Failure() }
+    indexed[id] = nil
+  }
+}
+
+@Suite("Spotlight failures (#360)")
+struct SpotlightFailureTests {
+  private let locked = PDFInspection(pageCount: 0, isEncrypted: true, pages: [])
+
+  private func lease(in library: FakeDocumentLibrary) async -> Document {
+    await library.seed(Document(title: "Lease", fileName: "lease.pdf", addedAt: .distantPast))
+  }
+
+  @Test("A refresh whose Spotlight write failed stays owed and is tried again (#360)")
+  func failedSpotlightWriteStaysOwed() async throws {
+    let library = FakeDocumentLibrary()
+    let spotlight = FailingSpotlight()
+    let pending = PendingRefreshes(url: nil)
+    let seeded = await lease(in: library)
+    let intake = DocumentIntake(
+      library: library, inspector: FakeInspector(), index: try makeIndex(spotlight: spotlight), pending: pending)
+    await spotlight.failIndexing(true)
+
+    await #expect(throws: (any Error).self) { try await intake.refresh(seeded.id) }
+
+    #expect(await pending.all == [seeded.id], "Still owed: Spotlight doesn't have the new text")
+    #expect(await intake.refreshPending() == 1, "Tried again at the next load, and failed again")
+    #expect(await pending.all == [seeded.id])
+    await spotlight.failIndexing(false)
+    #expect(await intake.refreshPending() == 0)
+    #expect(await pending.all.isEmpty)
+    #expect(await spotlight.indexed[seeded.id] == "Hello", "Spotlight caught up")
+  }
+
+  @Test("Old words that can't be taken out of Spotlight keep the refresh owed until they are (#360)")
+  func failedSpotlightRemovalStaysOwed() async throws {
+    let library = FakeDocumentLibrary()
+    let spotlight = FailingSpotlight()
+    let pending = PendingRefreshes(url: nil)
+    let index = try makeIndex(spotlight: spotlight)
+    let seeded = await lease(in: library)
+    try await index.index(seeded, pages: [PageText(pageIndex: 0, text: "old words")])
+    try await pending.add(seeded.id)
+    let intake = DocumentIntake(
+      library: library, inspector: FakeInspector(fails: true), index: index, pending: pending)
+    await spotlight.failRemoving(true)
+
+    _ = await intake.refreshPending()
+
+    #expect(await pending.all == [seeded.id], "Not crossed off while Spotlight still has the old words")
+    #expect(try await index.pages(of: seeded.id).isEmpty, "Out of the in-app search already")
+    await spotlight.failRemoving(false)
+    _ = await intake.refreshPending()
+    #expect(await spotlight.indexed[seeded.id] == nil)
+    #expect(await pending.all.isEmpty)
+  }
+
+  @Test("A protected document isn't crossed off or given up until its words are out of Spotlight (#360)")
+  func protectedWordsStayOwedUntilOutOfSpotlight() async throws {
+    let library = FakeDocumentLibrary()
+    let spotlight = FailingSpotlight()
+    let pending = PendingRefreshes(url: nil)
+    let index = try makeIndex(spotlight: spotlight)
+    let seeded = await lease(in: library)
+    try await index.index(seeded, pages: [PageText(pageIndex: 0, text: "private words")])
+    let intake = DocumentIntake(
+      library: library, inspector: FakeInspector(result: locked), index: index, pending: pending)
+    let change = await intake.willChange(seeded.id, protecting: true)
+    await intake.saveFinished(seeded.id, change: change)
+    await spotlight.failIndexing(true)
+    await spotlight.failRemoving(true)
+
+    for _ in 0..<5 { _ = await intake.refreshPending() }
+
+    #expect(await pending.all == [seeded.id], "Neither crossed off nor given up while Spotlight has the words")
+    #expect(await pending.owed(seeded.id)?.protects == true)
+    #expect(await spotlight.indexed[seeded.id] == "private words")
+    #expect(try await index.pages(of: seeded.id).isEmpty, "Out of the in-app search already")
+    await spotlight.failRemoving(false)
+    _ = await intake.refreshPending()
+    #expect(await spotlight.indexed[seeded.id] == nil, "Out of Spotlight")
+    #expect(await pending.all.isEmpty, "Once the words are out, the rest may be given up")
+  }
+
+  @Test("Pruning and rebuilding Spotlight say when Spotlight failed, so they are tried again (#360)")
+  func pruneAndRebuildReportFailure() async throws {
+    let spotlight = FailingSpotlight()
+    let index = try makeIndex(spotlight: spotlight)
+    let stale = document("Stale")
+    try await index.index(stale, pages: [PageText(pageIndex: 0, text: "stale words")])
+    await spotlight.failRemoving(true)
+    await spotlight.failIndexing(true)
+
+    #expect(await index.prune(keeping: []).isEmpty, "Not removed: Spotlight still has it")
+    #expect(await index.reindexSpotlight([stale]) == false)
+    await spotlight.failRemoving(false)
+    await spotlight.failIndexing(false)
+    #expect(await index.prune(keeping: []) == [stale.id], "Found again at the next prune")
+    #expect(await spotlight.indexed[stale.id] == nil)
+    #expect(await index.reindexSpotlight([]))
   }
 }

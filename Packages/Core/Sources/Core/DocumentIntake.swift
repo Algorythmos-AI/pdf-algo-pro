@@ -10,12 +10,149 @@ public struct DocumentIntake: Sendable {
   private let library: any DocumentLibrary
   private let inspector: any PDFInspecting
   private let index: any DocumentIndexing
+  private let pending: PendingRefreshes?
+  private let lanes: RefreshLanes
 
   /// Creates an intake over the library, an inspector and the search index.
-  public init(library: any DocumentLibrary, inspector: any PDFInspecting, index: any DocumentIndexing) {
+  ///
+  /// `pending` keeps the documents whose refresh hasn't worked yet, so they are refreshed at the next
+  /// library load; without it, a failed refresh waits for the next change to the document. `lanes`
+  /// keeps refreshes of one document from overlapping; intakes over one library share them.
+  public init(
+    library: any DocumentLibrary, inspector: any PDFInspecting, index: any DocumentIndexing,
+    pending: PendingRefreshes? = nil, lanes: RefreshLanes = .shared
+  ) {
     self.library = library
     self.inspector = inspector
     self.index = index
+    self.pending = pending
+    self.lanes = lanes
+  }
+
+  /// Writes down, before a change is saved, that the document will need a refresh (#236).
+  ///
+  /// - Parameters:
+  ///   - id: The document about to change.
+  ///   - protecting: Whether the change protects the document, whose words must then leave search
+  ///     and Spotlight whatever else fails.
+  /// - Returns: the change's number, to pass to `saveFinished(_:change:)`.
+  @discardableResult
+  public func willChange(_ id: DocumentID, protecting: Bool? = nil) async -> Int? {
+    // If the list can't be written, the change still goes ahead; only its retry is lost.
+    try? await pending?.add(id, protecting: protecting, saved: false)
+  }
+
+  /// Tells the intake the save of a change has ended, whether it worked or not.
+  ///
+  /// Until then no refresh crosses the change off: what it reads may be the file from before the
+  /// save. After it, the next refresh reads the file as it is, saved or not.
+  public func saveFinished(_ id: DocumentID, change: Int?) async {
+    guard let change else { return }
+    await pending?.saveFinished(id, change: change)
+  }
+
+  /// How many refreshes of one change are tried before it is given up.
+  public static let attempts = 3
+
+  /// Whether a refresh is still owed to the document.
+  public func owes(_ id: DocumentID) async -> Bool {
+    await pending?.owed(id) != nil
+  }
+
+  /// Refreshes every document a refresh is still owed to (#236).
+  ///
+  /// A document no longer in the library is crossed off once its text and Spotlight entry are gone
+  /// too (#360). One whose file isn't a readable PDF any
+  /// more is crossed off at once, its old text taken out of search. One that has failed
+  /// `attempts` times is given up, except that a protected document is crossed off only once its
+  /// words are out of search and Spotlight: that is tried every time until it works. A cancelled
+  /// pass stops, and counts nothing.
+  ///
+  /// - Returns: how many failed again.
+  @discardableResult
+  public func refreshPending() async -> Int {
+    guard let pending else { return 0 }
+    var failed = 0
+    for id in await pending.all {
+      guard let owed = await pending.owed(id) else { continue }
+      do {
+        _ = try await run(id, recordsChange: false, changedAt: nil)
+      } catch LibraryError.notFound {
+        // Gone from the library: crossed off once search and Spotlight have let it go too (#360).
+        if (try? await index.remove(id)) != nil {
+          try? await pending.remove(id)
+        } else {
+          failed += 1
+          let failures = (try? await pending.failed(id)) ?? Self.attempts
+          if failures >= Self.attempts, !owed.protects { try? await pending.remove(id) }
+        }
+      } catch is CancellationError {
+        return failed
+      } catch LibraryError.notAPDF {
+        // Final, and crossed off by the refresh itself once its old text is out. When that removal
+        // keeps failing, it is given up like any other, unless it protects the document.
+        if let now = await pending.owed(id), now.failures >= Self.attempts, !now.protects {
+          try? await pending.remove(id)
+          try? await library.recordModified(id)
+        }
+      } catch {
+        failed += 1
+        // As the refresh left it: protection is cleared once the file was read and isn't locked.
+        let now = await pending.owed(id) ?? owed
+        var mayGiveUp = true
+        if now.protects {
+          // The words must be out of search before anything is given up; tried every time.
+          mayGiveUp = (try? await index.remove(id)) != nil
+          if mayGiveUp { try? await pending.wordsRemoved(id) }
+        } else if now.wordsRemoved == true {
+          // Taken out while it seemed protected, and it isn't: kept until a refresh puts them back.
+          mayGiveUp = false
+        }
+        if now.failures >= Self.attempts, mayGiveUp {
+          try? await pending.remove(id)
+          // Given up: the file's change counts as seen, so the next launch doesn't find it again
+          // and start over (#242).
+          if !now.protects { try? await library.recordModified(id) }
+        }
+      }
+    }
+    return failed
+  }
+
+  /// Brings search and Spotlight up to date with a library change that has already worked: a move to
+  /// Recently Deleted, a restore, a deletion for good, a new name or new tags (#360).
+  ///
+  /// The change worked, so a failure here isn't one to show: it is written down as owed, like a failed
+  /// refresh, and done again at the next library load or return to the foreground.
+  ///
+  /// - Parameters:
+  ///   - id: The document that changed; one no longer in the library leaves search and Spotlight.
+  ///   - protecting: `true` for a protected document, whose entry is then tried until it is gone and
+  ///     never given up; `nil` leaves what is owed as it was.
+  /// - Returns: whether search and Spotlight are up to date now.
+  @discardableResult
+  public func catchUp(_ id: DocumentID, protecting: Bool? = nil) async -> Bool {
+    do {
+      try await inLane(id) {
+        if let document = try await library.document(withID: id) {
+          // The stored text isn't written, so a refresh landing meanwhile keeps its own (#241).
+          try await index.updateDetails(of: document)
+        } else {
+          try await index.remove(id)
+        }
+      }
+      return true
+    } catch {
+      await owe(id, protecting: protecting, after: error)
+      return false
+    }
+  }
+
+  /// Writes a refresh down as owed after search or Spotlight failed; a cancelled one isn't counted
+  /// as a failure.
+  private func owe(_ id: DocumentID, protecting: Bool?, after error: any Error) async {
+    _ = try? await pending?.add(id, protecting: protecting)
+    if !(error is CancellationError) { _ = try? await pending?.failed(id) }
   }
 
   /// Imports a file from outside the library.
@@ -24,7 +161,8 @@ public struct DocumentIntake: Sendable {
   /// being copied again. One added there since the last launch is inspected and indexed first.
   public func importFile(at url: URL) async throws -> Document {
     if let existing = try await library.document(at: url) {
-      return existing.pageCount == 0 ? try await finish(existing, isNew: false) : existing
+      guard existing.pageCount == 0 else { return existing }
+      return try await inLane(existing.id) { try await finish(existing, isNew: false) }
     }
     let document = try await library.importDocument(from: url)
     return try await finish(document, isNew: true)
@@ -38,14 +176,85 @@ public struct DocumentIntake: Sendable {
 
   /// Re-reads a document after its file changed (for example after recognition added text).
   ///
+  /// The refresh is written down as owed before it starts and crossed off once search and Spotlight
+  /// are up to date, so one that fails, or that the app is stopped in the middle of, is done at the
+  /// next library load (#236). The change is recorded last, for the same reason.
+  ///
   /// - Throws: the inspection error when the file cannot be read; the document is kept.
   public func refresh(_ id: DocumentID) async throws -> Document {
-    guard let document = try await library.document(withID: id) else { throw LibraryError.notFound }
-    try await library.recordModified(id)
-    return try await finish(document, isNew: false)
+    try await run(id, recordsChange: true, changedAt: nil)
   }
 
-  private func finish(_ document: Document, isNew: Bool) async throws -> Document {
+  /// Re-reads a document whose file was changed or replaced outside the app at `date`, which is
+  /// recorded as its change.
+  ///
+  /// The owner's decisions on #242, "Keep tags" and "Reset if pages change": its tags and favourite
+  /// stay, its search text becomes the new file's, and its reading position stays when the page count
+  /// is the same and goes back to the first page when it isn't. A replacement can't be told apart from
+  /// another app's save of the same document, so both are treated alike.
+  public func refresh(_ id: DocumentID, changedAt date: Date) async throws -> Document {
+    try await run(id, recordsChange: true, changedAt: date)
+  }
+
+  /// Runs `body` in the document's lane: refreshes of one document never overlap (#236).
+  private func inLane<T: Sendable>(_ id: DocumentID, _ body: () async throws -> T) async throws -> T {
+    await lanes.enter(id)
+    do {
+      let result = try await body()
+      await lanes.leave(id)
+      return result
+    } catch {
+      await lanes.leave(id)
+      throw error
+    }
+  }
+
+  /// Runs a refresh in the document's lane.
+  ///
+  /// It crosses off only changes whose save had ended before it read the file, so a change made, or
+  /// still being saved, while it runs still gets its own refresh (#236).
+  private func run(_ id: DocumentID, recordsChange: Bool, changedAt: Date?) async throws -> Document {
+    try await inLane(id) { try await runInLane(id, recordsChange: recordsChange, changedAt: changedAt) }
+  }
+
+  private func runInLane(_ id: DocumentID, recordsChange: Bool, changedAt: Date?) async throws -> Document {
+    guard let document = try await library.document(withID: id) else { throw LibraryError.notFound }
+    // The caller has written the file. If the list can't be written, the refresh still runs; only a
+    // retry of a failure is lost.
+    if recordsChange { _ = try? await pending?.add(id) }
+    let covers = await pending?.coverage(id)
+    do {
+      let refreshed = try await finish(document, isNew: false, changedAt: changedAt ?? Date())
+      // Changed outside the app with another number of pages: the old position may be on a page of
+      // another document, so reading starts again on the first page (#242).
+      if changedAt != nil, refreshed.pageCount != document.pageCount { try await library.resetReadingPosition(id) }
+      if let changedAt {
+        try await library.recordModified(id, at: changedAt)
+      } else {
+        try await library.recordModified(id)
+      }
+      if let covers { try? await pending?.finished(id, upTo: covers) }
+      return try await library.document(withID: id) ?? refreshed
+    } catch LibraryError.notAPDF {
+      // Final: reading it again won't help. Its old text goes, and then nothing more is owed.
+      if (try? await index.remove(id)) != nil {
+        try? await pending?.remove(id)
+      } else {
+        _ = try? await pending?.failed(id)
+      }
+      throw LibraryError.notAPDF
+    } catch {
+      if !(error is CancellationError) { _ = try? await pending?.failed(id) }
+      throw error
+    }
+  }
+
+  /// Inspects, records and indexes a document; `changedAt` is the change search and Spotlight are
+  /// told about, when it isn't recorded yet.
+  ///
+  /// A new document whose search text or Spotlight entry fails is still returned: it is in the
+  /// library, so the failure isn't reported, and search and Spotlight are owed a refresh (#360).
+  private func finish(_ document: Document, isNew: Bool, changedAt: Date? = nil) async throws -> Document {
     let inspection: PDFInspection
     do {
       inspection = try await inspector.inspect(library.fileURL(for: document.id))
@@ -55,9 +264,47 @@ public struct DocumentIntake: Sendable {
       if error is CancellationError { throw error }
       throw LibraryError.notAPDF
     }
+    var owed: (any Error)?
+    // A protected document's words leave search and Spotlight first. Removing needs no space, so
+    // this works on a full disk, where everything after it may fail (#236).
+    if inspection.isLocked {
+      owed = try await indexing(isNew: isNew) { try await index.remove(document.id) }
+    } else {
+      // The file as it is isn't locked, so no change protects it any more (unless one is still being
+      // saved): a failure from here on doesn't take its words out of search.
+      try? await pending?.readUnlocked(document.id)
+    }
     try await library.updateInspection(inspection, for: document.id)
-    guard let updated = try await library.document(withID: document.id) else { throw LibraryError.notFound }
-    try await index.index(updated, pages: inspection.pages)
-    return updated
+    guard var updated = try await library.document(withID: document.id) else { throw LibraryError.notFound }
+    if let changedAt { updated.modifiedAt = changedAt }
+    let recorded = updated
+    owed = try await indexing(isNew: isNew) { try await index.index(recorded, pages: inspection.pages) } ?? owed
+    // Deleted for good while this ran: it must not come back in search or Spotlight.
+    guard let current = try await library.document(withID: document.id) else {
+      try await index.remove(document.id)
+      throw LibraryError.notFound
+    }
+    var result = updated
+    // Moved to Recently Deleted while this ran: indexed as it is now, which takes it out of Spotlight.
+    if current.isDeleted, !updated.isDeleted {
+      owed = try await indexing(isNew: isNew) { try await index.index(current, pages: inspection.pages) } ?? owed
+      result = current
+    }
+    if let owed { await owe(document.id, protecting: inspection.isLocked ? true : nil, after: owed) }
+    return result
+  }
+
+  /// Runs a search or Spotlight step of `finish`.
+  ///
+  /// For a new document a failure is returned, to be owed once the document is recorded, instead of
+  /// thrown; a cancellation is always thrown (#360).
+  private func indexing(isNew: Bool, _ step: () async throws -> Void) async throws -> (any Error)? {
+    do {
+      try await step()
+      return nil
+    } catch {
+      guard isNew, !(error is CancellationError) else { throw error }
+      return error
+    }
   }
 }
