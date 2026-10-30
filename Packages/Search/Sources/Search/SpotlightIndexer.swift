@@ -4,11 +4,14 @@ import Foundation
 import UniformTypeIdentifiers
 
 /// Where documents are mirrored for system search.
+///
+/// Both calls throw when Spotlight did not take the change, so the caller keeps the refresh owed
+/// instead of leaving Spotlight with what it had before: for a protected document, its words (#360).
 public protocol SpotlightIndexing: Sendable {
   /// Adds or replaces a document.
-  func index(_ document: Document, text: String) async
+  func index(_ document: Document, text: String) async throws
   /// Removes a document.
-  func remove(_ id: DocumentID) async
+  func remove(_ id: DocumentID) async throws
 }
 
 /// Indexes titles, tags and text in Core Spotlight, on device, so documents appear in system search
@@ -49,18 +52,22 @@ public actor SpotlightIndexer: SpotlightIndexing {
     try? await CSSearchableIndex(name: legacyIndexName).deleteAllSearchableItems()
   }
 
-  /// Adds or replaces a document; failures are ignored because Spotlight is a mirror, not a store.
-  public func index(_ document: Document, text: String) async {
+  /// Adds or replaces a document; a document in Recently Deleted is removed instead.
+  ///
+  /// - Throws: Core Spotlight's error when the item wasn't written (#360).
+  public func index(_ document: Document, text: String) async throws {
     guard !document.isDeleted else {
-      await remove(document.id)
+      try await remove(document.id)
       return
     }
-    try? await index.indexSearchableItems([Self.item(for: document, text: includesText() ? text : nil)])
+    try await index.indexSearchableItems([Self.item(for: document, text: includesText() ? text : nil)])
   }
 
-  /// Removes a document; failures are ignored.
-  public func remove(_ id: DocumentID) async {
-    try? await index.deleteSearchableItems(withIdentifiers: [id.description])
+  /// Removes a document.
+  ///
+  /// - Throws: Core Spotlight's error when the item wasn't removed (#360).
+  public func remove(_ id: DocumentID) async throws {
+    try await index.deleteSearchableItems(withIdentifiers: [id.description])
   }
 
   /// The Spotlight item for a document.

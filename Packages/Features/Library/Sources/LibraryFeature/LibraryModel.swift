@@ -87,6 +87,9 @@ public final class LibraryModel {
   public private(set) var phase: Phase = .loading
   /// A message for the last failed action; the library itself is unchanged.
   public var errorMessage: String?
+  /// The chosen documents found missing when their files were last gathered for sharing, so each is
+  /// reported once (#239).
+  @ObservationIgnored private var missingFromSharing: Set<DocumentID> = []
   /// The document shown next to the list.
   public var selection: DocumentSelection?
   /// Whether the last search failed (rather than finding nothing).
@@ -139,16 +142,26 @@ public final class LibraryModel {
     await pruneDerivedData()
     await reload()
     phase = .loaded
+    // With the list showing: refreshes that failed, or were cut short, since the last launch (after
+    // a password, an edit or a restore, search and Spotlight still hold the old text until this runs,
+    // #236), and files changed in other apps (#242).
+    for _ in 0..<(await intake.refreshPending()) { await telemetry.record("quality.operation.failed") }
+    if await refreshChangedFiles() { await reload() }
   }
 
   /// Picks up what changed in the Files app while the app was away, as the app comes back to the
   /// foreground: a file renamed or moved there is followed, so a save never misses it (#224).
   ///
   /// Does nothing until the library has loaded, which does this itself.
+  ///
+  /// The refreshes still owed run too: the app can stay in the background for days, and a protected
+  /// document's words must not wait for the next launch to leave search (#236). Files changed in other
+  /// apps wait for that launch, so coming back stays quick.
   public func filesMayHaveChanged() async {
     guard phase == .loaded else { return }
     await reconcile()
     await reload()
+    for _ in 0..<(await intake.refreshPending()) { await telemetry.record("quality.operation.failed") }
   }
 
   private func reconcile() async {
@@ -162,17 +175,73 @@ public final class LibraryModel {
           await telemetry.record("quality.operation.failed")
         }
       }
+      // Files put in place of a document's own under its name, whose date may be older than the
+      // document's last change: read now as changed outside the app, so the entry keeps its tags and
+      // favourite, and starts again on the first page if the page count changed (#242).
+      for id in reconciliation.changed {
+        do {
+          _ = try await intake.refresh(id, changedAt: now())
+        } catch {
+          await telemetry.record("quality.operation.failed")
+        }
+      }
     } catch {
       await telemetry.record("quality.operation.failed")
     }
   }
 
-  private func removeDerivedData(of id: DocumentID) async {
+  /// Reads again each document whose file changed since the library last recorded a change, as when
+  /// another app edits it or the Files app replaces it with another PDF of the same name (#242), so
+  /// its page count, reading position, search text and Spotlight entry follow the file.
+  ///
+  /// The app records every change it makes after writing the file, so only changes made elsewhere are
+  /// found. Its tags and favourite stay, whether the file was edited in another app or replaced under
+  /// the same name, and reading starts again on the first page only if the page count changed: the
+  /// owner's decisions on #242.
+  ///
+  /// The library lists its folder once, off the main actor. Each change is recorded at the time the
+  /// other app made it. A file that isn't a readable PDF any more is recorded as seen, so it isn't
+  /// read again at every launch. Returns whether anything was read again.
+  private func refreshChangedFiles() async -> Bool {
+    let changed: [DocumentID: Date]
     do {
-      try await index.remove(id)
+      changed = try await library.changedSinceRecorded()
     } catch {
       await telemetry.record("quality.operation.failed")
+      return false
     }
+    // A document already owed a refresh had its try in the pass before this; it isn't tried twice.
+    for (id, date) in changed where !(await intake.owes(id)) {
+      do {
+        _ = try await intake.refresh(id, changedAt: date)
+      } catch LibraryError.notAPDF {
+        try? await library.recordModified(id, at: date)
+      } catch is CancellationError {
+        return true
+      } catch {
+        await telemetry.record("quality.operation.failed")
+      }
+    }
+    return !changed.isEmpty
+  }
+
+  private func removeDerivedData(of id: DocumentID) async {
+    await catchUp(id)
+  }
+
+  /// Brings search and Spotlight up to date with a library change that worked (#360).
+  ///
+  /// A failure is counted, not shown: the change itself worked, and what search and Spotlight are
+  /// owed is done again at the next library load or return to the foreground. A protected document's
+  /// entry is tried until it is gone.
+  private func catchUp(_ id: DocumentID, protecting: Bool? = nil) async {
+    if await !intake.catchUp(id, protecting: protecting) { await telemetry.record("quality.operation.failed") }
+  }
+
+  /// `true` when a document is protected, so its Spotlight entry must go whatever else fails; `nil`
+  /// otherwise, or when it can't be read.
+  private func protection(of id: DocumentID) async -> Bool? {
+    (try? await library.document(withID: id))?.isEncrypted == true ? true : nil
   }
 
   /// Removes derived data the library no longer has documents for.
@@ -237,6 +306,19 @@ public final class LibraryModel {
     listRequests += 1
   }
 
+  /// Searches once typing has paused for `delay`, as the search field asks at each change.
+  ///
+  /// A wait cut short, because more typing replaced it, searches nothing: only the last query is
+  /// searched (#240).
+  public func searchAfterPause(_ delay: Duration) async {
+    do {
+      try await Task.sleep(for: delay)
+    } catch {
+      return
+    }
+    await search()
+  }
+
   /// Searches the whole library, whichever section is showing (FR-LIB-003).
   ///
   /// A document is found wherever it is filed; in Recently Deleted, the search covers the deleted
@@ -253,6 +335,9 @@ public final class LibraryModel {
       searched = try await library.documents(in: scope, sortedBy: sort)
       results = try await index.search(trimmed, in: searched)
       isSearchUnavailable = false
+    } catch is CancellationError {
+      // More typing replaced this search; the next one shows its results (#240).
+      return
     } catch {
       // Not "no results": the search itself failed, and saying so is honest.
       results = []
@@ -310,18 +395,35 @@ public final class LibraryModel {
     isImporting = true
     defer { isImporting = false }
     var failures = 0
+    // A failure that isn't a bad file, such as a full disk, is reported as what it is (#243).
+    var otherFailure: (any Error)?
     var last: Core.Document?
     for url in urls {
       do {
         last = try await intake.importFile(at: url)
       } catch {
         failures += 1
+        if error as? LibraryError != .notAPDF, otherFailure == nil { otherFailure = error }
       }
     }
     if failures > 0 {
-      errorMessage = String(
-        localized: "\(failures) file(s) couldn't be imported because they aren't readable PDFs. Nothing else changed.",
-        bundle: .module)
+      let added = urls.count - failures
+      if added > 0 {
+        // Some were added, so "nothing changed" would not be true: say how many, each way.
+        let failed =
+          otherFailure == nil
+          ? String(
+            localized: "\(failures) file(s) couldn't be imported because they aren't readable PDFs.", bundle: .module)
+          : String(localized: "\(failures) file(s) couldn't be imported.", bundle: .module)
+        errorMessage = failed + " " + String(localized: "\(added) file(s) were added.", bundle: .module)
+      } else {
+        errorMessage =
+          otherFailure.map(Self.message(for:))
+          ?? String(
+            localized:
+              "\(failures) file(s) couldn't be imported because they aren't readable PDFs. Nothing else changed.",
+            bundle: .module)
+      }
       await telemetry.record("quality.operation.failed")
     }
     await reload()
@@ -345,11 +447,17 @@ public final class LibraryModel {
   /// Each photo is decoded with its orientation applied and its longest side at most 3,000 pixels,
   /// so a batch of large photos can't exhaust memory. Photos that can't be read are left out and
   /// counted.
-  public func addPhotos(_ photos: [Data]) async {
-    guard !photos.isEmpty else { return }
+  ///
+  /// - Parameters:
+  ///   - photos: The chosen photos that loaded.
+  ///   - unreadable: How many chosen photos didn't load at all.
+  public func addPhotos(_ photos: [Data], unreadable: Int = 0) async {
+    // When none loaded, the person is told rather than nothing happening (#238).
+    guard !photos.isEmpty || unreadable > 0 else { return }
     isImporting = true
     defer { isImporting = false }
     let images = await Task.detached(priority: .userInitiated) { photos.compactMap(Self.image) }.value
+    let leftOut = photos.count - images.count + unreadable
     do {
       guard !images.isEmpty else { throw LibraryError.notAPDF }
       let title = String(
@@ -357,9 +465,8 @@ public final class LibraryModel {
       let document = try await intake.add(data: ImagePDF.make(from: images), title: title)
       await reload()
       selection = DocumentSelection(id: document.id)
-      if images.count < photos.count {
-        errorMessage = String(
-          localized: "\(photos.count - images.count) photo(s) couldn't be read and were left out.", bundle: .module)
+      if leftOut > 0 {
+        errorMessage = String(localized: "\(leftOut) photo(s) couldn't be read and were left out.", bundle: .module)
       }
     } catch {
       errorMessage = String(localized: "Couldn't make a PDF from those photos. Nothing changed.", bundle: .module)
@@ -385,7 +492,10 @@ public final class LibraryModel {
 
   /// Renames a document.
   public func rename(_ id: DocumentID, to title: String) async {
-    await perform { _ = try await self.library.rename(id, to: title) }
+    await perform {
+      let renamed = try await self.library.rename(id, to: title)
+      await self.reindex(renamed)
+    }
   }
 
   /// Marks or unmarks a favourite.
@@ -395,16 +505,27 @@ public final class LibraryModel {
 
   /// Replaces a document's tags.
   public func setTags(_ tags: [String], for id: DocumentID) async {
-    await perform { try await self.library.setTags(tags, for: id) }
+    await perform {
+      try await self.library.setTags(tags, for: id)
+      if let tagged = try await self.library.document(withID: id) { await self.reindex(tagged) }
+    }
+  }
+
+  /// Gives search and Spotlight a document's new title or tags, with its stored text (#241).
+  ///
+  /// A failure is counted, not shown: the change itself worked, and it is owed and done again (#360).
+  private func reindex(_ document: Core.Document) async {
+    await catchUp(document.id)
   }
 
   /// Moves a document to Recently Deleted and out of Spotlight.
+  ///
+  /// Only a failure of the move is shown; Spotlight's part is owed when it fails (#360).
   public func delete(_ id: DocumentID) async {
     await perform {
+      let protecting = await self.protection(of: id)
       try await self.library.moveToRecentlyDeleted(id)
-      if let deleted = try await self.library.document(withID: id) {
-        try await self.index.index(deleted, pages: try await self.index.pages(of: id))
-      }
+      await self.catchUp(id, protecting: protecting)
     }
     if selection?.id == id { selection = nil }
   }
@@ -431,6 +552,20 @@ public final class LibraryModel {
     lastDeleted = []
   }
 
+  /// Waits out the chance to undo the last deletion, then forgets it (FR-LIB-009).
+  ///
+  /// A wait that is cancelled, because a newer deletion replaced it, forgets nothing, and a wait only
+  /// forgets the deletion it began with (#240).
+  public func expireUndo(after delay: Duration) async {
+    let deleted = lastDeleted
+    do {
+      try await Task.sleep(for: delay)
+    } catch {
+      return
+    }
+    if lastDeleted == deleted { forgetLastDeleted() }
+  }
+
   /// Marks or unmarks several documents as favourites.
   public func setFavorite(_ isFavorite: Bool, for ids: [DocumentID]) async {
     await perform {
@@ -439,11 +574,24 @@ public final class LibraryModel {
   }
 
   /// The files of several documents, for sharing.
+  ///
+  /// A document whose file can't be found, as when it was removed in the Files app, is left out, and
+  /// the person is told how many were, once for each such document while it stays chosen (#239).
   public func fileURLs(for ids: [DocumentID]) async -> [URL] {
     var urls: [URL] = []
+    var missing: Set<DocumentID> = []
     for id in ids {
-      if let url = try? await library.fileURL(for: id) { urls.append(url) }
+      if let url = try? await library.fileURL(for: id) {
+        urls.append(url)
+      } else {
+        missing.insert(id)
+      }
     }
+    if !missing.subtracting(missingFromSharing).isEmpty {
+      errorMessage = String(
+        localized: "\(missing.count) chosen document(s) can't be found, so sharing leaves them out.", bundle: .module)
+    }
+    missingFromSharing = missing
     return urls
   }
 
@@ -452,7 +600,9 @@ public final class LibraryModel {
     let ordered = documents.filter { ids.contains($0.id) }
     guard ordered.count > 1 else { return }
     do {
-      let urls = await fileURLs(for: ordered.map(\.id))
+      // Every file or none: a document whose file can't be found stops the merge, which says so (#239).
+      var urls: [URL] = []
+      for document in ordered { urls.append(try await library.fileURL(for: document.id)) }
       let data = try await Task.detached(priority: .userInitiated) { try PDFMerge.merge(urls) }.value
       let title = String(localized: "\(ordered[0].title) and \(ordered.count - 1) more", bundle: .module)
       let document = try await intake.add(data: data, title: title)
@@ -468,20 +618,24 @@ public final class LibraryModel {
   }
 
   /// Restores a document from Recently Deleted.
+  ///
+  /// Only a failure of the restore is shown; Spotlight's part is owed when it fails (#360).
   public func restore(_ id: DocumentID) async {
     await perform {
       try await self.library.restore(id)
-      if let restored = try await self.library.document(withID: id) {
-        try await self.index.index(restored, pages: try await self.index.pages(of: id))
-      }
+      await self.catchUp(id)
     }
   }
 
   /// Deletes a document now, with its derived data (FR-LIB-006).
+  ///
+  /// Only a failure of the deletion is shown; removing its text and Spotlight entry is owed when it
+  /// fails, and for a protected document never given up (#360).
   public func deletePermanently(_ id: DocumentID) async {
     await perform {
+      let protecting = await self.protection(of: id)
       try await self.library.deletePermanently(id)
-      try await self.index.remove(id)
+      await self.catchUp(id, protecting: protecting)
     }
   }
 

@@ -30,27 +30,50 @@ public actor LocalSearchIndex: DocumentIndexing {
   }
 
   /// Adds or replaces a document in the index (and in Spotlight, FR-LIB-005).
+  ///
+  /// Memory changes only once the text is written, so a write that fails (a full disk) leaves memory,
+  /// the file and Spotlight agreeing on what was there before.
+  ///
+  /// - Throws: also when Spotlight didn't take the document, so the refresh stays owed and is tried
+  ///   again rather than crossed off with Spotlight behind (#360).
   public func index(_ document: Document, pages: [PageText]) async throws {
-    cache[document.id] = pages
     let data = try JSONEncoder().encode(pages)
     try data.write(to: file(for: document.id), options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
-    await spotlight?.index(document, text: pages.map(\.text).joined(separator: "\n"))
+    cache[document.id] = pages
+    try await spotlight?.index(document, text: pages.map(\.text).joined(separator: "\n"))
+  }
+
+  /// Gives Spotlight a document's new title or tags, with the text already stored (#241).
+  ///
+  /// The stored text isn't written, so a refresh that lands meanwhile is never overwritten with what
+  /// was read before it.
+  public func updateDetails(of document: Document) async throws {
+    guard let spotlight else { return }
+    let text = try await pages(of: document.id).map(\.text).joined(separator: "\n")
+    try await spotlight.index(document, text: text)
   }
 
   /// Removes a document and its derived text (FR-LIB-006).
   ///
   /// The Spotlight entry goes first, so a file that cannot be removed never leaves the document
-  /// findable in Spotlight.
+  /// findable in Spotlight. When Spotlight is what fails, the text still leaves the in-app search, and
+  /// Spotlight's error is thrown so the caller keeps the removal owed (#360).
   public func remove(_ id: DocumentID) async throws {
     cache[id] = nil
-    await spotlight?.remove(id)
-    let url = file(for: id)
-    if FileManager.default.fileExists(atPath: url.path) {
-      try FileManager.default.removeItem(at: url)
+    var spotlightFailure: (any Error)?
+    do {
+      try await spotlight?.remove(id)
+    } catch {
+      spotlightFailure = error
     }
+    try removeText(of: id)
+    if let spotlightFailure { throw spotlightFailure }
   }
 
   /// Removes the derived text and Spotlight entries of every document not in `ids`.
+  ///
+  /// A document whose Spotlight entry can't be removed keeps its text file, so the next prune finds it
+  /// and tries again instead of leaving the entry in Spotlight for good (#360).
   public func prune(keeping ids: Set<DocumentID>) async -> [DocumentID] {
     let files = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? []
     var removed: [DocumentID] = []
@@ -58,22 +81,46 @@ public actor LocalSearchIndex: DocumentIndexing {
       guard let id = DocumentID(string: file.deletingPathExtension().lastPathComponent), !ids.contains(id) else {
         continue
       }
-      try? await remove(id)
+      do {
+        try await spotlight?.remove(id)
+      } catch {
+        continue
+      }
+      cache[id] = nil
+      try? removeText(of: id)
       removed.append(id)
     }
     return removed
   }
 
+  /// Deletes a document's stored text, if there is any.
+  private func removeText(of id: DocumentID) throws {
+    let url = file(for: id)
+    if FileManager.default.fileExists(atPath: url.path) {
+      try FileManager.default.removeItem(at: url)
+    }
+  }
+
   /// Writes every document to Spotlight again from the stored text (defect D11).
   ///
   /// Used after the Spotlight index or the text setting changed. Documents in Recently Deleted are
-  /// removed from Spotlight.
-  public func reindexSpotlight(_ documents: [Document]) async {
-    guard let spotlight else { return }
+  /// removed from Spotlight. A document Spotlight doesn't take is passed over and the rest are still
+  /// written.
+  ///
+  /// - Returns: whether Spotlight took every document, so a caller can try again (#360).
+  @discardableResult
+  public func reindexSpotlight(_ documents: [Document]) async -> Bool {
+    guard let spotlight else { return true }
+    var tookAll = true
     for document in documents {
       let text = ((try? await pages(of: document.id)) ?? []).map(\.text).joined(separator: "\n")
-      await spotlight.index(document, text: text)
+      do {
+        try await spotlight.index(document, text: text)
+      } catch {
+        tookAll = false
+      }
     }
+    return tookAll
   }
 
   /// The stored page texts of a document, for intelligence and reading aloud.
