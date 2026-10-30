@@ -28,9 +28,18 @@ enum ScreenContrast {
     return CGRect(x: numbers[0], y: numbers[1], width: numbers[2], height: numbers[3])
   }
 
-  /// The contrast ratio between the text and the background inside `frame` on `screenshot`, or `nil`
-  /// when the frame is off the screen.
-  static func ratio(of frame: CGRect, in screenshot: XCUIScreenshot) -> Double? {
+  /// What a measurement took for the text and the background, so that a reading can be checked.
+  struct Reading {
+    let text: String
+    let background: String
+    let ratio: Double
+
+    var description: String { String(format: "%.2f:1, text %@ on %@", ratio, text, background) }
+  }
+
+  /// The contrast between the text and the background inside `frame` on `screenshot`, or `nil` when the
+  /// frame is off the screen.
+  static func reading(of frame: CGRect, in screenshot: XCUIScreenshot) -> Reading? {
     let image = screenshot.image
     guard let picture = image.cgImage, image.size.width > 0 else { return nil }
     let scale = CGFloat(picture.width) / image.size.width
@@ -39,16 +48,34 @@ enum ScreenContrast {
       x: frame.minX * scale, y: frame.minY * scale, width: frame.width * scale, height: frame.height * scale
     ).integral.intersection(bounds)
     guard !pixels.isEmpty, let crop = picture.cropping(to: pixels) else { return nil }
-    let luminances = luminances(of: crop)
-    guard !luminances.isEmpty else { return nil }
-    let background = mostCommon(luminances)
-    let furthest = luminances.sorted { abs($0 - background) > abs($1 - background) }
-    let text = furthest[min(furthest.count - 1, furthest.count / 50)]
-    return (max(background, text) + 0.05) / (min(background, text) + 0.05)
+    return reading(of: crop)
   }
 
-  /// The relative luminance of every pixel of `image`, as WCAG defines it, in sRGB.
-  private static func luminances(of image: CGImage) -> [Double] {
+  /// The contrast between the text and the background of `image`.
+  static func reading(of image: CGImage) -> Reading? {
+    let pixels = pixels(of: image)
+    guard !pixels.isEmpty else { return nil }
+    let common = mostCommon(pixels.map(\.luminance))
+    let furthest = pixels.sorted { abs($0.luminance - common) > abs($1.luminance - common) }
+    let text = furthest[min(furthest.count - 1, furthest.count / 50)]
+    let background = pixels.min { abs($0.luminance - common) < abs($1.luminance - common) } ?? text
+    return Reading(
+      text: text.hex, background: background.hex,
+      ratio: (max(common, text.luminance) + 0.05) / (min(common, text.luminance) + 0.05))
+  }
+
+  /// One pixel, in sRGB, with its relative luminance as WCAG defines it.
+  private struct Pixel {
+    let red: UInt8
+    let green: UInt8
+    let blue: UInt8
+    let luminance: Double
+
+    var hex: String { String(format: "#%02X%02X%02X", red, green, blue) }
+  }
+
+  /// Every pixel of `image`, in sRGB.
+  private static func pixels(of image: CGImage) -> [Pixel] {
     let width = image.width
     let height = image.height
     guard let space = CGColorSpace(name: CGColorSpace.sRGB) else { return [] }
@@ -68,7 +95,10 @@ enum ScreenContrast {
       return value <= 0.04045 ? value / 12.92 : pow((value + 0.055) / 1.055, 2.4)
     }
     return stride(from: 0, to: bytes.count, by: 4).map { index in
-      0.2126 * linear(bytes[index]) + 0.7152 * linear(bytes[index + 1]) + 0.0722 * linear(bytes[index + 2])
+      Pixel(
+        red: bytes[index], green: bytes[index + 1], blue: bytes[index + 2],
+        luminance: 0.2126 * linear(bytes[index]) + 0.7152 * linear(bytes[index + 1]) + 0.0722
+          * linear(bytes[index + 2]))
     }
   }
 

@@ -69,7 +69,16 @@ final class LibraryUITests: UITestCase {
   func testADocumentOpensAgainAfterGoingBack() throws {
     let app = launch(["-skip-onboarding", "-seed-library", "sample"])
     let page = app.staticTexts[ID.Reader.pageIndicator]
-    XCTAssertTrue(page.waitForExistence(timeout: 15))
+    // The sample opens at launch. On two runs (40176510211, 40252420849) a 15-second wait gave up: on
+    // the second, one look for the reader took 14 seconds and the next 28, so the limit passed between
+    // two looks. The wait is as long as any screen gets; if the reader still isn't there, the screen
+    // says why.
+    let started = Date()
+    if !page.waitForExistence(timeout: Self.settleTimeout) {
+      let seconds = Int(Date().timeIntervalSince(started))
+      keepEvidence(app, named: "no reader", notes: "The sample was not open \(seconds) s after launch")
+      XCTFail("The sample opens at launch (waited \(seconds) s)")
+    }
     let row = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "library.document.")).firstMatch
     for _ in 0..<2 {
       goBack(in: app, leaving: page, to: row)
