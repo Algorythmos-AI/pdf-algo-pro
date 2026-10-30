@@ -203,6 +203,9 @@ Store notes (see the changelog strategy).
 - Removing a document's password keeps what its contents entries do: one that opens a web page
   still opens it, and one that opens a page at a zoom still uses that zoom. Before, the first did
   nothing and the second opened at the default zoom.
+- On iOS 27, a document's contents entries keep what they do when it is saved, with or without a
+  password: one that opens a web page still opens it, and one that opens a page at a zoom still uses
+  that zoom. Before, on iOS 27, the first did nothing and the second opened at the default zoom.
 
 ### Added
 - Annotations: a shape, stamp, signature or text box you drag to the top or bottom of the screen
