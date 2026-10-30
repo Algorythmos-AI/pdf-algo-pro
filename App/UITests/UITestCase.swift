@@ -422,11 +422,12 @@ class UITestCase: XCTestCase {
         guard finding.hasPrefix("- Contrast failed"), let frame = ScreenContrast.frame(in: finding) else {
           return true
         }
-        guard let ratio = ScreenContrast.ratio(of: frame, in: screen), ratio >= ScreenContrast.minimum else {
+        guard let reading = ScreenContrast.reading(of: frame, in: screen), reading.ratio >= ScreenContrast.minimum
+        else {
           findings.append(finding)
           return false
         }
-        measured.append(finding + String(format: "\n    Measured on the screen: %.2f:1", ratio))
+        measured.append(finding + "\n    Measured on the screen: \(reading.description)")
         return false
       }
       if !measured.isEmpty {
@@ -482,10 +483,11 @@ class UITestCase: XCTestCase {
           measured.append(finding + note)
           return false
         }
-        guard let ratio = ScreenContrast.ratio(of: frame, in: screen), ratio >= ScreenContrast.minimum else {
+        guard let reading = ScreenContrast.reading(of: frame, in: screen), reading.ratio >= ScreenContrast.minimum
+        else {
           return true
         }
-        measured.append(finding + String(format: "\n    Measured on the screen: %.1f:1", ratio))
+        measured.append(finding + "\n    Measured on the screen: \(reading.description)")
         return false
       }
       if !measured.isEmpty {
