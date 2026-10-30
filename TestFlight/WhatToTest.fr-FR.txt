@@ -1,47 +1,37 @@
-Version interne de PDF Algo Pro (Staging). Utilisez des documents de test, pas des vrais. À essayer :
+Version candidate de PDF Algo Pro 1.0. C’est la version que nous prévoyons d’envoyer sur l’App Store. Utilisez des documents de test, pas des vrais. À essayer :
 
-Nouveautés de cette version
-- Nouveau : sélectionnez une forme, un tampon, une signature ou une zone de texte, faites-la glisser en haut ou en bas de l'écran et maintenez. La page défile avec, plus vite près du bord.
-- Copier, Couper ou Dupliquer un tampon, une forme ou un dessin depuis sa barre, puis touchez où va chaque copie ; OK termine. Un tampon choisi dans Annotation > Tampon va où vous touchez.
-- Modifier : collez dans une ligne un nom copié d'une page web. Il change. Si une modification ne peut pas être enregistrée sans risque, l'app remet la ligne, enregistre le reste et le dit.
-- Reconnaître le texte pendant que vous remplissez un formulaire : ce que vous avez tapé est conservé.
-- Réglages > Exiger Face ID sur un téléphone sans code : l'app le désactive et dit pourquoi, au lieu de vous bloquer.
-- Abonnements : quand l'essai devient un abonnement, Pro reste actif.
+Commencer comme un nouveau client
+- Installez l’app à neuf. Parcourez les trois pages d’introduction, puis les formules. Touchez Fermer : rien ne vous est vendu et l’app s’ouvre.
+- Sur l’accueil, touchez Essayer un exemple. Tout ce qui suit fonctionne sur ce document.
+- Réglages > Abonnement > Voir les formules : touchez l’hebdomadaire puis l’annuelle. Le prix et le bouton suivent.
+- Démarrez l’essai annuel (rien n’est facturé dans TestFlight) : la feuille d’Apple, puis « Bienvenue dans Pro ». Activez le rappel si vous le souhaitez.
+- Supprimez l’app, réinstallez-la, puis Réglages > Abonnement > Restaurer les achats : Pro revient.
 
-Premier lancement et formules
-- Chaque nouvelle version s’ouvre d’elle-même sur l’introduction, puis sur les formules.
-- Sur les formules, touchez l’hebdomadaire puis l’annuelle : le prix et le bouton suivent.
-- Démarrez l’essai annuel (rien n’est facturé dans TestFlight) : la feuille d’Apple, puis « Bienvenue dans Pro ». Essayez aussi de fermer la feuille d’Apple, et Restaurer les achats.
-- Si les formules indiquent que ce compte Apple a déjà Pro, c’est exact : touchez Continuer.
-
-Modifier le texte
-- Changez une ligne, touchez OK, fermez puis rouvrez : le changement est toujours là. Partagez vers une autre app PDF : les nouveaux mots y sont.
-- Annulez et rétablissez pendant la modification. Essayez un texte bien plus long : il tient, ou l’app explique pourquoi et ne change rien.
-- Ouvrez un document numérisé et touchez Modifier : l’app indique que la page est une image et propose de reconnaître le texte.
-
-Votre fichier est en sécurité
-- Modifiez un document, enregistrez deux fois, puis Plus > Historique des versions : rétablissez la première.
-- Faites une modification et fermez aussitôt l’app. Rouvrez-la : le document s’ouvre, ancien ou nouveau, jamais endommagé.
-
-Outils du quotidien
-- Plus : organiser les pages, réduire la taille, définir ou retirer un mot de passe, aplatir, enregistrer les pages en images.
-- Annotation : tamponnez une page, faites glisser une forme, pincez une signature pour la redimensionner. Chaque action s’annule en une fois.
+Lire, annoter et signer
+- Rechercher : trouvez un mot, surlignez une phrase, dessinez, ajoutez une note, un tampon et une forme. Chaque action s’annule en une fois.
+- Annotation > Signature : signez, puis pincez pour redimensionner et faites glisser pour déplacer.
 - Touchez un lien web dans un PDF : l’adresse complète s’affiche avant toute ouverture.
 
-Bibliothèque et numérisation
-- Sélectionnez plusieurs documents, puis fusionnez-les, partagez-les ou supprimez-les. Faites-en glisser un vers Mail ou Fichiers.
-- Numérisez deux pages : faites-les pivoter, réordonnez-les et nommez-les avant d’enregistrer.
+Pages et fichiers
+- Plus > Pages : faites pivoter, réordonnez et supprimez des pages.
+- Plus > Exporter et protéger : réduisez la taille, ajoutez puis retirez un mot de passe, partagez une copie aplatie.
+- Modifiez un document, enregistrez deux fois, puis Plus > Historique des versions : rétablissez la première.
+- Dans Tous les documents, touchez Sélectionner, choisissez deux documents et fusionnez-les. Faites-en glisser un vers Mail ou Fichiers.
+
+Numériser
+- Numérisez deux pages : faites-les pivoter, réordonnez-les et nommez-les avant d’enregistrer. Puis cherchez un mot de la numérisation.
 
 Assistant et confidentialité
-- Posez une question, puis une question de suivi comme « Quelle est l’échéance ? ». Les deux réponses citent des pages.
+- Demander > Résumer, puis Poser une question et une question de suivi comme « Quelle est l’échéance ? ». Les réponses citent des pages.
+- Demander > Expliquer le contrat : le résultat précise que ce n’est pas un conseil juridique.
+- Sur un téléphone sans Apple Intelligence, Demander explique pourquoi et le reste fonctionne.
 - Réglages > Exiger Face ID : le sélecteur d’apps ne montre aucun document.
-- Mode Avion : tout ce qui précède fonctionne encore.
+- Mode Avion : tout ce qui précède fonctionne encore, sauf l’achat et la restauration.
 
 Problèmes connus
 - Un glissement commencé juste après un toucher peut ne pas déplacer la page. Levez le doigt, attendez un instant et recommencez.
-- Un PDF renommé dans l'app Fichiers revient sans ses étiquettes, son favori ni sa position de lecture.
 
 Envoyer un retour
 - Faites une capture d’écran dans l’app, ouvrez-la, touchez X ou OK en haut, puis Partager un avis bêta, et décrivez le problème.
-- Ou ouvrez l’app TestFlight, touchez PDF Algo β, puis Envoyer un avis bêta.
+- Ou ouvrez l’app TestFlight, touchez PDF Algo Pro, puis Envoyer un avis bêta.
 - Ou dans l’app : Réglages > Signaler un problème.

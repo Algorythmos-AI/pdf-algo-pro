@@ -26,10 +26,11 @@ Owner: Product · Reviewed: before each App Store submission, and each milestone
 
 ## Positioning summary
 
-PDF Algo Pro is a native iPhone and iPad PDF app for reading, editing, scanning and signing, whose
-difference is document intelligence (answers with page citations, summaries, data extraction,
-contract explanations) that runs on the device by default on supported devices and uses the cloud
-only when the user chooses. On-device intelligence needs a device that supports Apple Intelligence,
+PDF Algo Pro is a native PDF app for reading, editing, scanning and signing, whose difference is
+document intelligence (answers with page citations, summaries, data extraction, contract
+explanations) that runs on the device by default on supported devices and uses the cloud only when
+the user chooses. 1.0 is an iPhone app (PAP-067) with no cloud processing at all (PAP-065); iPad
+comes with V2 and the opt-in cloud tiers after 1.0, so the 1.0 product page describes neither. On-device intelligence needs a device that supports Apple Intelligence,
 with Apple Intelligence turned on: iPhone 15 Pro and iPhone 15 Pro Max, iPhone 16 and later, iPad and
 Mac with M1 or later, and iPad mini (A17 Pro)
 ([Apple Newsroom, 8 June 2026](https://www.apple.com/newsroom/2026/06/apple-intelligence-brings-powerful-ai-capabilities-into-everyday-experiences/);
@@ -44,15 +45,16 @@ The product page has to answer three questions in its first three screenshots an
 |---|---|---|
 | **Why switch?** | Answers that cite the page they came from, without creating an account and, on supported devices, without uploading the document | The main competitors' AI features are cloud-based and most require an account ([competitive moat](competitive-moat.md)); PDF Algo Pro's on-device tier needs neither ([ADR-0009](adr/0009-tiered-ai-and-consent.md)) |
 | **Why pay?** | Editing existing text, OCR, extraction and longer AI work, on top of a free app that already reads, annotates and signs | Apple's free Preview app already fills, signs, scans and marks up PDFs on iOS 26 and later ([Preview on the App Store](https://apps.apple.com/us/app/preview/id536344167)), so basic tasks cannot be the reason to pay ([pricing strategy](pricing-strategy.md)) |
-| **Why stay?** | Files stay in the user's own iCloud Drive; no lock-in; a privacy label with nothing collected | Files as the source of truth ([ADR-0005](adr/0005-document-storage-and-identity.md)) |
+| **Why stay?** | Files stay ordinary PDFs on the iPhone, in the app's folder in the Files app; no lock-in; a privacy label with nothing collected | Files as the source of truth ([ADR-0005](adr/0005-document-storage-and-identity.md)); in 1.0 the library is the app's Documents folder, shown in Files (`UIFileSharingEnabled` and `LSSupportsOpeningDocumentsInPlace` in `App/PDFAlgoPro/Info.plist`). The iCloud Drive library is V1.1 (PAP-065), so 1.0 copy does not say "iCloud" |
 
 Substitute risk the page must respect: Siri in iOS 27 (in beta, English first) can answer questions
 about what is on screen
 ([Apple Newsroom, 14 September 2026](https://www.apple.com/newsroom/2026/09/major-updates-for-apples-software-platforms-are-now-available/)),
 so basic "ask this PDF" is becoming a free system feature and is not a moat. The page positions on
-depth: answers that cite the exact page, structured extraction into tables, questions and search
-across the whole library rather than one screen, editing the document itself, and private by
-default. It never leads with basic chat.
+depth: answers that cite the exact page, structured extraction into tables, search across the
+whole library rather than one screen, editing the document itself, and private by default. It never
+leads with basic chat. In 1.0 a question is asked of one document at a time; questions across the
+library are a later capability (the in-app event candidate below), so 1.0 copy does not claim them.
 
 ## App Store optimisation
 
@@ -136,6 +138,63 @@ Rules applied:
   the build (PAP-065); everything it describes runs on the device.
 - No prices in the description (same source), no superlatives that cannot be proven ("best",
   "fastest"), and "Built by Algorythmos" at the end.
+- Promotional text for 1.0, in English (all three English localisations) and French (both French
+  localisations), each within the 170 characters; it names Apple Intelligence because answers need
+  it, and nothing the build does not have:
+
+  ```text
+  Ask a PDF a question and see the page each answer comes from, with Apple Intelligence. Scan, sign, mark up and merge on your iPhone, with no account.
+  ```
+
+  ```text
+  Posez une question à un PDF et voyez la page d’où vient chaque réponse, avec Apple Intelligence. Numérisez, signez, annotez et fusionnez sur votre iPhone, sans compte.
+  ```
+
+### What's New in 1.0
+
+The "What's New in This Version" text for 1.0, in English and French, each well under the 4,000
+characters Apple allows ([Platform version information](https://developer.apple.com/help/app-store-connect/reference/app-information/platform-version-information)).
+`Assumption:` App Store Connect asks for this field only on updates, so for the first version it may
+not appear; the same text then serves the GitHub Release introduction and the promotional text's
+first idea. It names only what the Release build has: no text editing (unless PAP-066 turns it on,
+when the bracketed line is added), no iCloud, no iPad, no cloud and no conversion. The English text is
+used for all three English localisations, since it has no word spelt differently between them; the
+French text is used for French (France) and French (Canada).
+
+English (one line per bullet; the lines are long on purpose, so the text pastes as written):
+
+```text
+The first release of PDF Algo Pro.
+
+- Ask a PDF a question and get an answer that shows the page it came from. Summaries, answers, data extraction and contract explanations run on your iPhone with Apple Intelligence, on supported devices.
+- Scan paper into searchable PDFs, then rotate, reorder and name the pages before saving.
+- Highlight, draw, add notes, stamps and shapes, fill in forms and sign.
+- Merge documents, reorder pages, reduce file size, and add or remove a password.
+- Find any word across your library, and keep it in order with tags and bookmarks.
+- Version history brings back an earlier version of a document.
+- No account. Your documents stay on this iPhone.
+[- Change the words already in a PDF, with Pro.]
+```
+
+French:
+
+```text
+La première version de PDF Algo Pro.
+
+- Posez une question à un PDF et obtenez une réponse qui montre la page d’où elle vient. Résumés, réponses, extraction de données et explication de contrats fonctionnent sur votre iPhone avec Apple Intelligence, sur les appareils compatibles.
+- Numérisez le papier en PDF consultables, puis faites pivoter, réordonnez et nommez les pages avant d’enregistrer.
+- Surlignez, dessinez, ajoutez des notes, des tampons et des formes, remplissez des formulaires et signez.
+- Fusionnez des documents, réorganisez les pages, réduisez la taille et ajoutez ou retirez un mot de passe.
+- Trouvez n’importe quel mot dans votre bibliothèque, et rangez-la avec des étiquettes et des signets.
+- L’historique des versions rétablit une version antérieure d’un document.
+- Sans compte. Vos documents restent sur cet iPhone.
+[- Modifiez le texte déjà présent dans un PDF, avec Pro.]
+```
+
+Each line is checked against the build like the review notes: the feature list of PAP-065, the scan
+review and version history in the [PRD](prd.md), and the French wording against the app's own strings
+(Plus › Historique des versions, Numériser) before pasting. The French text is reviewed by the French
+reviewer with the rest of the listing ([localisation](process/localization.md)).
 
 ### Categories
 
@@ -260,7 +319,11 @@ impressions, downloads, conversion, retention and proceeds per page
 | Edit | People who need to change a PDF | Edit existing text | editor, merge (no "convert" in 1.0, PAP-065) | `pdfalgopro://start?intent=edit` |
 
 Deep links preselect the matching onboarding intent and go through the single deep-link router,
-which only navigates ([ADR-0004](adr/0004-navigation-and-multi-window.md)). Each page's link is used
+which only navigates ([ADR-0004](adr/0004-navigation-and-multi-window.md)). **Not in 1.0:** the
+1.0 router knows `document`, `library`, `scan` and `settings` and nothing else
+(`Packages/Core/Sources/Core/Route.swift`), so a `start?intent=` link opens nothing. For 1.0 the
+pages either have no deep link, or the Scan page uses `pdfalgopro://scan`; the `start` route is added
+in the release that turns these pages on. The Edit page also waits for text editing (PAP-066). Each page's link is used
 where that intent is the reason someone is looking: support articles, social posts, and later Apple
 Ads ad variations.
 
@@ -315,8 +378,10 @@ Events must describe something genuinely happening in the app. Candidates:
   version. `Assumption:` these thresholds; tuned with ratings volume after launch.
 - **No review gating.** No "Do you like the app?" pre-question that sends only happy users to the
   prompt, no incentives (Guideline 5.6.1).
-- A permanent "Rate PDF Algo Pro" row in Settings opens the product page with `action=write-review`
-  (same RequestReviewAction page).
+- A permanent "Rate PDF Algo Pro" row in Settings › About opens the product page with
+  `action=write-review` (same RequestReviewAction page). On `integration` since #351, with the
+  production App Store ID; the page loads only once the app is released, so in TestFlight and in App
+  Review it is expected not to load, as the 1.0 review notes say.
 - Replies to reviews in App Store Connect are factual and courteous; bug reports in reviews become
   issues without copying any personal details ([operations](operations.md)).
 
@@ -327,62 +392,129 @@ Guideline text from the [App Review Guidelines](https://developer.apple.com/app-
 
 | Guideline | What it requires | How PDF Algo Pro complies |
 |---|---|---|
-| **2.1** App Completeness | A final build with complete metadata and working URLs; demo access or a demo mode; back-end services live during review | No account exists, so no demo account is needed. Review notes explain the AI tiers, how to reach the consent screen, and where the bundled synthetic sample documents are. The privacy policy, support and terms URLs are live before submission (readiness item). Once the cloud relay exists, it is live and monitored during review. Subscriptions are submitted with the build |
+| **2.1** App Completeness | A final build with complete metadata and working URLs; demo access or a demo mode; back-end services live during review | No account exists, so no demo account is needed. The [review notes for 1.0](#review-notes-for-10) explain how to reach every feature from "Try a sample" and that intelligence is on-device only; 1.0 has no consent screen because it has no cloud tier (PAP-065). The privacy policy, support and terms URLs are live before submission (readiness item M1). The app has no back end in 1.0; once the cloud relay exists, it is live and monitored during review. Subscriptions are submitted with the build |
 | **2.3** Accurate Metadata | Metadata, privacy information, screenshots and previews reflect the app; no hidden features (2.3.1); screenshots show the app in use (2.3.3); names and keywords not packed or misleading (2.3.7); metadata suitable for 4+ (2.3.8) | Every caption checked against the build; privacy label reviewed each release; remote configuration can only **switch features off**, never switch on unreviewed functionality ([process/runbooks/kill-switch.md](process/runbooks/kill-switch.md)); new features described specifically in review notes |
 | **3.1.1** In-App Purchase | Unlocking features or content uses in-app purchase | Pro and AI allowances are sold only through StoreKit 2 ([ADR-0011](adr/0011-storekit-2-monetisation.md)); no licence keys or external purchase links |
-| **3.1.2** Subscriptions | Ongoing value, a period of at least seven days, available on all the user's devices, no removal of paid functionality (3.1.2(a)); describe clearly what the subscriber gets before asking (3.1.2(c)) | Weekly and annual plans (the shortest period is seven days); ongoing value from continuing updates and cloud AI capacity; universal purchase across iPhone and iPad (and Mac later); the paywall states what Pro includes before the purchase button |
+| **3.1.2** Subscriptions | Ongoing value, a period of at least seven days, available on all the user's devices, no removal of paid functionality (3.1.2(a)); describe clearly what the subscriber gets before asking (3.1.2(c)) | Weekly and annual plans (the shortest period is seven days); ongoing value from continuing updates and unlimited on-device use (1.0 has no cloud AI capacity to sell, PAP-065); in 1.0 the app runs on iPhone only (PAP-067), and universal purchase across iPhone, iPad and Mac comes with those apps; the paywall states what Pro includes before the purchase button |
 | **4.2** Minimum Functionality | More than a repackaged website; lasting utility | A native SwiftUI app with no web views standing in for screens ([ADR-0022](adr/0022-apple-first-capability-baseline.md)) |
-| **5.1.1** Data Collection and Storage | (i) a privacy policy linked in App Store Connect and in the app; (ii) consent for data collection, even anonymous, with an easy way to withdraw, and paid functionality not dependent on granting data access | Privacy policy linked in both places. Any telemetry is opt-in and can be switched off in Settings. Pro works fully without telemetry or cloud AI consent; cloud tiers ask for consent only because they send document text by nature ([privacy architecture](privacy-architecture.md)) |
+| **5.1.1** Data Collection and Storage | (i) a privacy policy linked in App Store Connect and in the app; (ii) consent for data collection, even anonymous, with an easy way to withdraw, and paid functionality not dependent on granting data access | Privacy policy linked in both places. 1.0 collects nothing and has no telemetry that leaves the device (`NSPrivacyCollectedDataTypes` is empty in `App/PDFAlgoPro/Resources/PrivacyInfo.xcprivacy`). Later: any telemetry is opt-in and can be switched off in Settings; Pro works fully without telemetry or cloud AI consent; cloud tiers ask for consent only because they send document text by nature ([privacy architecture](privacy-architecture.md)) |
 | **5.1.1(v)** Account Sign-In | Apps that support account creation must offer in-app account deletion; do not require personal information unless relevant | No accounts in V1. If accounts are ever introduced, in-app deletion ships with them ([compliance roadmap](compliance-roadmap.md)) |
-| **5.1.2(i)** Data Use and Sharing | Clearly disclose where personal data is shared with third parties, including third-party AI, and obtain explicit permission first | A consent screen before the first cloud request names the provider (Apple Private Cloud Compute; Claude by Anthropic), the data sent (the question and the relevant passages), and retention; revocable in Settings ([ADR-0009](adr/0009-tiered-ai-and-consent.md), [AI governance](ai-governance.md)). Treated as required for Private Cloud Compute too, because Apple does not say whether it counts as third-party AI |
+| **5.1.2(i)** Data Use and Sharing | Clearly disclose where personal data is shared with third parties, including third-party AI, and obtain explicit permission first | A consent screen before the first cloud request names the provider (Apple Private Cloud Compute; Claude by Anthropic), the data sent (the question and the relevant passages), and retention; revocable in Settings ([ADR-0009](adr/0009-tiered-ai-and-consent.md), [AI governance](ai-governance.md)). Treated as required for Private Cloud Compute too, because Apple does not say whether it counts as third-party AI. Not applicable to 1.0: no document text leaves the device (PAP-065, V1-03 in the [compliance roadmap](compliance-roadmap.md)) |
 | **5.6** Developer Code of Conduct | Honest dealings; no manipulation of reviews or rankings; 5.6.1 use the provided API for review prompts | The ratings rules above; no paid or incentivised reviews; honest paywall and cancellation |
 
 ## Review notes for 1.0
 
 The text for App Store Connect's "Notes" field (App Review Information) and for Beta App Review,
 to paste for the first submission (plan step L5). It describes the 1.0 scope (PAP-065 to PAP-067)
-and must stay true of the build submitted: before each submission, check every line against that
-build, and change the two marked lines if text editing ships (PAP-066). The French storefronts are
-reviewed with the same English notes.
+and was checked against the code on `integration` on 2026-10-29, after #351, with the background
+check of #336 (in review on `fix/trial-reminder-after-payment`) read from its branch; before each
+submission, check every line again against the build submitted (the table after it). Text editing
+is off in the Release configuration today (`textEditing` in [`ReleaseFlags.swift`](../Packages/Core/Sources/Core/ReleaseFlags.swift)),
+so the notes leave it out; if its device test is signed off and the flag goes on (PAP-066), add the
+bracketed sentence. The French storefronts are reviewed with the same English notes; the
+background sentence is also given in French after the notes, for a reply to App Review in French
+and for the French tester notes. `Assumption:` the Notes field holds 4,000 characters, like the
+other long text fields in App Store Connect. Pasted with each wrapped line joined to its paragraph,
+the text below is 3,837 characters, or 3,934 with the text-editing sentence.
 
-> PDF Algo Pro has no account and no server: nothing to sign in to, and no demo account is needed.
+> PDF Algo Pro needs no account and has no server of its own, so no demo account is needed.
 >
-> To reach every feature: open the app, skip the three introduction pages, and tap "Try a sample" on
-> Home. The sample is a three-page synthetic document; from it you can mark up, sign (Markup >
-> Signature), find, organise pages (More > Pages) and ask questions.
+> How to reach every feature
+> 1. On first launch, go through the three introduction pages (Continue, or Skip), then tap Close on
+> the subscription offer.
+> 2. Home opens with an empty library. Tap "Try a sample": it adds a three-page synthetic document (a
+> guide, an invoice and a privacy page) and opens it.
+> 3. In the document, Ask (the sparkles button) holds Summarise, Ask a question, Extract data and
+> Explain contract; ask "What is the total due?" and tap the page cited. Markup holds highlight,
+> draw, shapes, text box, Signature, notes and stamps. More holds Find, Share and Print, Pages
+> (rotate, reorder, delete), Contents, bookmarks, Export and protect (reduce file size, add or remove
+> a password, share a flattened copy or a page as an image) and Read aloud. Version history appears
+> there once a change is saved, Recognise text for pages with no text (a PDF made from photos).
+> 4. Back leads to All documents: its search field finds words inside documents (try "invoice"), and
+> Select chooses documents to share, favourite, merge or delete.
+> 5. Scan: on Home, tap Scan (camera, Photos or Files). Pages can be rotated, moved or deleted, and the
+> scan named, before saving.
+> 6. Merge: with two documents (a scan, or a PDF from Import), in All documents tap Select, choose
+> both, then Merge.
+> 7. Settings is the gear button on Home.
 >
-> Document intelligence (Ask: Summarise, Ask a question, Extract data, Explain contract) runs on the
-> device with Apple's Foundation Models framework. It needs Apple Intelligence: on a device without
-> it, or with it turned off, the Ask menu explains why, and every other feature works. No document
-> text leaves the device, and there is no cloud AI in this version.
+> On-device intelligence
+> Summaries, answers, extraction and contract explanations run on the device with Apple's Foundation
+> Models framework, and every answer cites its pages. They need Apple Intelligence; where it is not
+> available, Ask explains why (device not supported, turned off, or the model getting ready), and
+> everything else works. Settings > Hide AI features removes Ask. Explain contract always shows
+> "Explains the document. Not legal advice."
 >
-> Explain contract shows "Explains the document. Not legal advice." on every result.
+> Nothing leaves the device
+> Documents, questions and answers stay on the iPhone. There is no cloud AI and no analytics. The only
+> network traffic is the App Store's, for plans and purchases, and links the person taps, which open
+> in Safari or the App Store.
 >
-> Subscriptions: one group with a weekly plan and an annual plan; the annual plan has a free trial
-> for eligible accounts and Family Sharing. The offer appears once, at the end of the introduction,
-> with Close from the first moment, and from Settings > Subscription. It shows StoreKit's own prices
-> and periods, the trial's length and what follows, that the plan renews until cancelled, Restore
-> Purchases, Redeem a code, and the Terms of Use and Privacy Policy. Opening, reading, signing,
-> sharing and exporting documents never need a subscription; Pro removes the daily limits on scans
-> saved and on-device answers. [If text editing ships: "and adds editing of the existing text of a
-> PDF, with the Edit button in the reader's bar".]
+> Background
+> The app declares the background fetch mode for one purpose: shortly before a free trial's reminder
+> is due, it checks the subscription on the device and removes the reminder if the person has already
+> subscribed or been refunded; it makes no network request of its own. Text recognition a person
+> starts may also finish in the background.
 >
-> Permissions: the camera, to scan documents, asked when you first scan; Face ID, only if you turn
-> on App Lock in Settings; notifications, only if you turn on the trial reminder after subscribing.
+> Subscriptions
+> One group, Pro Weekly and Pro Yearly. The free trial is on Pro Yearly only, shown only when the App
+> Store says the account is eligible; Family Sharing is on Pro Yearly. The offer appears once after
+> the introduction, with Close from the start, and any time from Settings > Subscription > See plans.
+> It shows the App Store's prices and periods, the trial's length, what is due today and after, that
+> the plan renews until cancelled, Restore purchases, Redeem a code, Terms and Privacy. Settings >
+> Subscription also has Manage subscription. To test: start the Pro Yearly trial with a Sandbox
+> account, reinstall the app, then tap Settings > Subscription > Restore purchases. Reading, signing,
+> sharing and exporting never need a subscription; Pro removes the daily limits on saved scans and
+> on-device answers. [If text editing ships: "Pro also adds editing of the existing text
+> of a PDF, with the Edit button in the document's bar."]
 >
-> Nothing is turned on remotely: every feature described is in the build.
+> Settings > About: Privacy Policy, Terms of Use, Support, and Rate PDF Algo Pro (the App Store's
+> review page, which loads once the app is released).
+>
+> Permissions
+> - Camera: only to scan, asked the first time the document camera opens.
+> - Face ID: only if you turn on Settings > Require Face ID (App Lock).
+> - Notifications: only if, after starting the trial, you turn on "Remind me the day before" on the
+> Welcome to Pro screen.
+>
+> Privacy label: Data Not Collected. Nothing is switched on remotely: the app has no remote
+> configuration in this version.
+
+The background sentence in French:
+
+> L’app déclare le mode de récupération en arrière-plan pour une seule raison : peu avant l’échéance
+> du rappel d’un essai gratuit, elle vérifie l’abonnement sur l’appareil et retire le rappel si la
+> personne s’est déjà abonnée ou a été remboursée ; elle ne fait aucune requête réseau de son côté.
+
+If #336 does not ship in 1.0, the Background paragraph keeps only its last sentence, on text
+recognition.
 
 Before pasting, check each claim against the build and its evidence:
 
-| Claim | Evidence |
+| Claim | Evidence in the code or the repository |
 |---|---|
-| "Try a sample" on Home | Home's empty state (`library.home.sample`) and the empty list (`library.empty.sample`); `LibraryUITests` |
-| Ask explains when Apple Intelligence is unavailable | `AssistantView.explanation(for:)`; `AssistantUITests` with `-intelligence-unavailable` |
-| No cloud AI, no server | PAP-065 (the Private Cloud Compute tier is V1.1); the App Privacy Report row in the [device smoke test](process/device-smoke-test.md) |
-| The contract disclosure | `ContractDisclosure` in the design system ([AI governance](ai-governance.md)) |
-| The offer's contents and Close | [Subscription disclosure](#subscription-disclosure) below; `PaywallUITests` |
-| Permissions and when they are asked | `Info.plist` (camera, Face ID); `TrialReminderScheduler` asks for notifications only from the reminder switch |
-| Text editing | Off in 1.0 unless its device test is signed off (PAP-066 in the [decision register](decision-register.md)) |
+| No account, no server | No account code; no `URLSession` or other networking code in `App/` or `Packages/`; no entitlements file, so no iCloud or CloudKit; [compliance roadmap](compliance-roadmap.md) V1-09 |
+| Three introduction pages, Skip and Continue; Close on the offer | `OnboardingModel.pages` and `OnboardingView`; `PaywallFlowView` (Close); `OnboardingUITests`, `PaywallUITests` |
+| "Try a sample" on Home while the library is empty; three synthetic pages; the sample opens | `LibraryView.home` shows `homeStart` while `counts[.all] == 0` (`library.home.sample`; the empty All documents list has `library.empty.sample`); `LibraryModel.addSample(task:)` adds and opens it, with no assistant task unless one was chosen in What you do most (none by default, `HomeAction.primary(for:)`); `SyntheticPDF.makeSample()` and `SampleContent` (its first page suggests "What is the total due?"); `LibraryUITests` |
+| The reader's menus as named | `ReaderToolbar.swift`: Ask with its four tasks; Markup; More with Find, Share and Print in one row, Pages, Contents, the bookmark, Export and protect, Read aloud; Version history only when `canRestorePreviousVersion` (after a save), Recognise text only when `canRecognizeText` (no text layer) |
+| Back leads to All documents; search and Select there | `LibraryView.startAtAllDocuments()`; `.searchable` ("Titles, tags and text") and Select on the document list; the selection bar's Share, Favourite, Merge and Delete |
+| Scan from the camera, Photos or Files; rotate, move, delete and name before saving | `ScanView` |
+| Merge from Select in All documents | `LibraryView` (Select, Merge, enabled from two documents) |
+| Settings from Home | The gear button in `LibraryView`'s sidebar toolbar (`library.sidebar.settings`) |
+| On-device only, with Foundation Models; citations | `OnDeviceModel` (`SystemLanguageModel`); citations required in [AI governance](ai-governance.md); PAP-065 (the Private Cloud Compute tier is V1.1) |
+| Ask explains when intelligence is unavailable | `OnboardingModel.load()`; `AssistantView.explanation(for:)`; `AssistantUITests` with `-intelligence-unavailable` |
+| Hide AI features | `SettingsView` (`isIntelligenceHidden`); `ReaderModel.showsIntelligence` |
+| The contract disclosure | `ContractDisclosure` in `DesignSystem/Components.swift`, shown by `AssistantView` for Explain contract; V1-06 in the [compliance roadmap](compliance-roadmap.md) |
+| Background fetch for the trial reminder only, no request of the app's own | On `fix/trial-reminder-after-payment` ([#336](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/336)) until it merges: `UIBackgroundModes: [fetch]` and the `trial-reminder-check` identifier in `project.yml`; `SystemBackgroundChecks` submits one `BGAppRefreshTaskRequest`; `TrialReminderCheck.run()` refreshes the entitlement through StoreKit and removes the reminder when the trial no longer runs |
+| Recognition may finish in the background | `ContinuedProcessing` (`BGContinuedProcessingTask`) in `ContinuedWork.swift`; the `recognition.*` identifiers in `project.yml` |
+| Plans, trial on Pro Yearly, Family Sharing | PAP-049, PAP-050; `PaywallOfferView`; plan names in the [subscriptions runbook](process/runbooks/app-store-connect-subscriptions.md) |
+| Restore purchases, Redeem a code, Terms, Privacy, Manage subscription | `PaywallOfferView`, `SubscriptionSection`; what a restore ends in, in `RestoreOutcome` (#351); [subscription disclosure](#subscription-disclosure) below |
+| Free use and the daily limits Pro removes | `PaywallContent` ("Unlimited scans", "Unlimited answers"); `UsageAllowance` |
+| About: Privacy Policy, Terms of Use, Support, Rate PDF Algo Pro | `AboutView`; `AppLinks.writeReview` opens `apps.apple.com` with `action=write-review`, handed to the system as a `Link` (#351) |
+| Permissions and when they are asked | `NSCameraUsageDescription` and `NSFaceIDUsageDescription` in `project.yml` and the generated `App/PDFAlgoPro/Info.plist`; `AppLock.swift`; `TrialReminderScheduler` asks for notifications only from the reminder switch in `WelcomeProView` |
+| Data Not Collected | [Privacy labels](#privacy-labels) below; `PrivacyInfo.xcprivacy`; PAP-017 |
+| Nothing switched on remotely | `RemoteConfig` is linked but imported by no app or feature code; release flags are compiled in ([release flags](process/release-flags.md)) |
+| Text editing | Off in Release unless its device test is signed off (`ReleaseFlag.textEditing.compiledDefault` is `false`; PAP-066 in the [decision register](decision-register.md)) |
 
 ## Subscription disclosure
 
@@ -417,7 +549,8 @@ all of Apple's criteria are met ([App privacy details](https://developer.apple.c
 
 | Configuration | What leaves the device, and to whom | Label |
 |---|---|---|
-| **Launch (V1, V1.1): on device plus opt-in Private Cloud Compute** | Nothing to us. Documents sync through the user's own iCloud Drive and library metadata through the user's CloudKit private database, which we cannot read. The app reads remote configuration from the CloudKit public database without sending user data. Apple's own App Analytics and crash reports are Apple's collection. When the user opts in, Private Cloud Compute requests go to Apple, which processes them and does not store them (the Private Cloud Compute row below) | **Data Not Collected** for V1 and V1.1 (decision PAP-017 in the [decision register](decision-register.md)), on the Private Cloud Compute assumption below |
+| **1.0: on device only** | Nothing to us, and no document content to anyone. The app has no networking code of its own, no iCloud or CloudKit entitlement, and its remote-configuration package is not used by any screen (PAP-065; no `URLSession` and no entitlements file in the app target). StoreKit talks to the App Store to load plans and purchases, which is Apple's processing; links the person taps open in Safari; Report a problem opens Mail with what the person chooses to send. Apple's own App Analytics and crash reports are Apple's collection | **Data Not Collected** (PAP-017); the privacy manifest declares no collected data types and no tracking (`App/PDFAlgoPro/Resources/PrivacyInfo.xcprivacy`) |
+| **V1.1: on device plus opt-in Private Cloud Compute** | Nothing to us. Documents sync through the user's own iCloud Drive and library metadata through the user's CloudKit private database, which we cannot read. The app reads remote configuration from the CloudKit public database without sending user data. Apple's own App Analytics and crash reports are Apple's collection. When the user opts in, Private Cloud Compute requests go to Apple, which processes them and does not store them (the Private Cloud Compute row below) | **Data Not Collected** for V1 and V1.1 (decision PAP-017 in the [decision register](decision-register.md)), on the Private Cloud Compute assumption below |
 | **Opt-in telemetry ships (V2)** | Daily aggregated feature counters and performance buckets, no identifiers ([analytics strategy](analytics-strategy.md)) | Usage Data (Product Interaction) and Diagnostics (Performance Data, Other Diagnostic Data), **Not Linked to You**, purpose Analytics. The label changes when the code ships, even though sharing is opt-in, because telemetry does not meet the optional-disclosure criteria |
 | **Private Cloud Compute tier** | The question and relevant document passages, processed by Apple and not stored, as Apple states ([What's new in the Foundation Models framework, WWDC26](https://developer.apple.com/videos/play/wwdc2026/241/)) | `Assumption:` no disclosure, because nothing is retained; confirmed with the entitlement terms |
 | **Claude tier through our relay (V2)** | The question and relevant passages, sent through `pdf-algo-pro-backend` to Anthropic | If the relay or provider keeps content beyond servicing the request: User Content (Other User Content), purpose App Functionality. If the relay keeps a subscriber identifier for quotas: Identifiers (User ID) or Purchases, **Linked to You**. The final answer depends on the provider's retention terms (readiness blocker C4) |
@@ -456,7 +589,7 @@ it; the labels are voluntary today and will become required
 - **Common tasks** for the declaration: open a document, read and search it, annotate, fill and sign,
   scan to a searchable PDF, ask a question and open a citation, organise pages, export and share,
   subscribe and restore.
-- **Target declarations on iPhone and iPad:** VoiceOver, Voice Control, Larger Text, Dark Interface,
+- **Target declarations on iPhone** (iPad from V2, PAP-067): VoiceOver, Voice Control, Larger Text, Dark Interface,
   Differentiate Without Color Alone, Sufficient Contrast, Reduced Motion. Each is declared only after
   the release's accessibility pass shows every common task can be completed with it
   ([design system](design-system.md)).
@@ -499,6 +632,38 @@ containment). **Risks.** A defect that appears only at scale; mitigated by kill 
   displays trader contact details on the product page
   ([Manage European Union Digital Services Act trader requirements](https://developer.apple.com/help/app-store-connect/manage-compliance-information/manage-european-union-digital-services-act-trader-requirements/));
   tracked in the [compliance roadmap](compliance-roadmap.md).
+
+## 1.0 metadata check
+
+Every claim this document makes for the product page, the review and the listing, read against the
+1.0 scope (PAP-065 to PAP-067, PAP-070) and the code on `integration` on 2026-10-28; the Rate row
+rechecked on 2026-10-29, after #351. "Changed" means
+the text above now says what 1.0 does; "Flagged" means the owner decides before the listing is
+filled in; "Holds" means the claim is true of the 1.0 build as it stands.
+
+| Claim | Where | Result |
+|---|---|---|
+| An iPhone and iPad app | Positioning summary | Changed: 1.0 is iPhone-only (PAP-067); iPad is V2 |
+| Uses the cloud when the user chooses | Positioning summary; Guidelines 2.1, 3.1.2, 5.1.1, 5.1.2(i) | Changed: 1.0 has no cloud tier and no consent screen (PAP-065); the cloud wording is kept only for later releases |
+| Files stay in the user's iCloud Drive | "Why stay?" | Changed: files stay in the app's folder on the iPhone, shown in Files; the iCloud library is V1.1 (PAP-065) |
+| Questions across the whole library | Substitute risk | Changed: 1.0 searches the whole library and asks one document at a time |
+| Universal purchase across iPhone and iPad | Guideline 3.1.2 | Changed: iPhone only in 1.0 |
+| Documents sync through iCloud Drive and CloudKit; remote configuration read from CloudKit | Privacy labels | Changed: a 1.0 row says neither happens; the old row now reads V1.1 |
+| "Convert", "convertir" and the Office file extensions as keywords | Keyword field | Holds: already left out for 1.0 (PAP-065) |
+| "Redact" or "compress" as keywords | Keyword field rules | Holds: neither is in the fields. Compress ships in 1.0 (PAP-065) as "Reduce file size"; adding "compress" is an owner choice |
+| iPad 13-inch screenshots | Screenshots | Holds: not provided for 1.0 (PAP-067) |
+| Frame 4, "Fix text in the PDF itself" | Storyboard | Holds as written: the frame is shot only if text editing ships (PAP-066), else the set has nine frames |
+| Frame 9, "Merge and reorder pages" | Storyboard | Holds: merge and page reordering are in 1.0 (PAP-065) |
+| Frame 10, "Read, edit and scan offline. No account." | Storyboard | Holds: markup, forms and pages are editing even with text editing off; nothing in 1.0 needs a network |
+| The word "Edit" in the name, and "editor" as a keyword | Name and subtitle, keyword field | Flagged: true of markup, forms and page editing in 1.0; the owner decides whether "Edit" in the name reads as text editing while PAP-066 keeps text editing off |
+| Custom product page deep links, `pdfalgopro://start?intent=` | Custom product pages | Changed: the 1.0 router has no `start` route; the pages ship without a deep link, or the Scan page uses `pdfalgopro://scan` |
+| The Edit custom product page, "Edit existing text" first | Custom product pages | Flagged: only if text editing ships (PAP-066) |
+| A "Rate PDF Algo Pro" row in Settings | Ratings and reviews; review notes | Holds: in Settings › About since #351; the review notes say its page loads once the app is released |
+| "Target declarations on iPhone and iPad" | Accessibility Nutrition Labels | Changed: iPhone only in 1.0 |
+| iPad edition, multi-document questions | In-app events | Holds: listed as later events, not 1.0 |
+| Redaction, Office conversion, image editing, split and extract, widgets, the iCloud library, the cloud tier | Anywhere in the listing | Holds: none is claimed for 1.0 in this document after these changes |
+| The visual refresh | Screenshots | Holds: the frames come from the release candidate as it looks now (PAP-070) |
+| Description: "Built by Algorythmos" at the end | Promotional text and description | Holds: the same line is in Settings › About (`AboutView`) |
 
 ## Open questions
 
