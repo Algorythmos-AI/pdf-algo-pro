@@ -14,7 +14,7 @@ Owner: Release · Reviewed: each release, and each milestone
 | Train | Source | Cadence | Destination |
 |---|---|---|---|
 | Staging | `integration`, at its newest commit when the build is started | By hand, on the maintainer's go for each build ([Staging build runbook](process/runbooks/staging-build.md), PAP-063) | Xcode Cloud Staging workflow → TestFlight internal, and a small external group on the maintainer's word (the `.staging` app) |
-| App Store | The release pull request `integration` → `main` | Roughly monthly | Xcode Cloud Release workflow → TestFlight external → App Store, phased release |
+| App Store | The release pull request `integration` → `main` | Roughly monthly | Local Release archive for 1.0 (PAP-072) → TestFlight external → App Store, phased release |
 | Hotfix | `hotfix/*` → `main` | When an incident needs it | As the App Store train, with an expedited review |
 
 The roughly monthly App Store cadence is an intent, not a promise. Assumption: a monthly train balances
@@ -34,7 +34,9 @@ Environments and build configurations are described in [environments](process/en
     minimum OS.
   - MINOR: new capabilities.
   - PATCH: fixes only; every hotfix is a PATCH.
-- **Build number** (`CFBundleVersion`): Xcode Cloud's `CI_BUILD_NUMBER`, the number of the current
+- **Build number** (`CFBundleVersion`): for 1.0's Release builds, the number passed to
+  `scripts/dev/release_archive.sh`, higher than any uploaded for the production app (PAP-072).
+  Otherwise Xcode Cloud's `CI_BUILD_NUMBER`, the number of the current
   build ([Environment variable reference](https://developer.apple.com/documentation/xcode/environment-variable-reference)).
   Nobody edits it. App Store Connect needs each version to use a unique combination of version and
   build number; Xcode Cloud starts at 1 for a new app, and an App Store Connect admin can set the next
@@ -166,7 +168,7 @@ gh run watch
 Two cautions:
 
 - The tag goes on `main`'s head at the moment of dispatch. Dispatch before anything else merges into
-  `main`, and check that the head is the commit Xcode Cloud built.
+  `main`, and check that the head is the commit the Release archive was built from.
 - The workflow's `GITHUB_TOKEN` cannot push to the wiki, so publishing needs a `WIKI_TOKEN` secret in the
   `release` environment: a token that can push to this repository's wiki, scoped as narrowly as GitHub
   allows and set to expire. Without it the workflow prints a warning and skips the wiki, and the release still succeeds.
