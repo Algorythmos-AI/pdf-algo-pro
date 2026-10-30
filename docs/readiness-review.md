@@ -87,7 +87,7 @@ C4 and C6 keep their original IDs after reclassification, so earlier references 
 | M5 | Xcode Cloud workflows for `integration` and `main` | Release pull request | Staging and Release workflows green | Staging runs by hand on the owner's go, 27 builds so far (PAP-063); the Release workflow is the owner's to create, and one manual Release-configuration build from `integration` gives the parity smoke test before the release pull request |
 | M6 | Wiki bootstrap | 1.0 | Wiki published from `docs/wiki` | Open (#11); the release workflow warns without its token |
 | M7 | Dormant Swift gates proven | First code pull request | `ios`, coverage and CodeQL Swift jobs run green | Closed 2026-09-29: `ios`, coverage and CodeQL Swift green on `integration` |
-| M8 | Legal review of the V1 items in the compliance roadmap | 1.0 submission | LR-15, LR-17 and LR-19 answered before submission; the rest before the release that needs them | Open; the brief is drafted in the private companion repository and sent by the owner |
+| M8 | Legal review of the V1 items in the compliance roadmap | 1.0 submission | LR-15, LR-17 and LR-19 answered before submission; the rest before the release that needs them | Done for 1.0: LR-15, LR-17 and LR-19 answered on 2026-10-30, and the answers are held privately. The rest stay open for the release that needs them |
 | M9 | Rulesets applied | Before the second pull request merges | `integration`, `main` and tag rulesets active with the checks that report | Closed 2026-09-29: all three rulesets active |
 | M10 | Production subscription products | 1.0 submission | Both plans on the production app, Ready to Submit, with a review screenshot from the Release build, Family Sharing on the annual plan and the grace period on ([subscriptions runbook](process/runbooks/app-store-connect-subscriptions.md)) | Open; the Staging products exist and work (PAP-050); the owner creates production's after a sandbox purchase on a device |
 | M11 | App Store listing | 1.0 submission | The production app record with its metadata in five localisations, screenshots shot from the submitted build, review notes, age rating, privacy answers and the trader declaration ([App Store strategy](app-store-strategy.md), [#30](https://github.com/Algorythmos-AI/pdf-algo-pro/issues/30)) | Open; the copy decisions are made (PAP-065, PAP-067); the record, products and screenshots follow in that order |
@@ -111,7 +111,7 @@ The order of the 1.0 plan ([working memory](working-memory.md)):
 2. Fix the open defects first and prove the save path under sanitizers and fault injection.
 3. Run the lighter design pass (C5, PAP-070) as previews, a snapshot gallery and a checklist, and have
    the owner walk a Release-configuration build against it. The visual refresh is 1.1 work.
-4. Send the legal brief (M8) now; LR-15, LR-17 and LR-19 have the longest lead time.
+4. Legal brief (M8): done; LR-15, LR-17 and LR-19 were answered on 2026-10-30.
 5. Create the production app record, its products and the listing in that order (M1, M10, M11), so
    the Rate link, the review screenshot and the screenshots come from the build being submitted.
 6. Record every device run in the sign-off tables; the release pull request links them.
