@@ -56,10 +56,16 @@ public struct ScanView: View {
           photos = []
           Task {
             var data: [Data] = []
+            // A photo that doesn't load, such as an iCloud original offline, is counted, not dropped (#238).
+            var unreadable = 0
             for item in items {
-              if let photo = try? await item.loadTransferable(type: Data.self) { data.append(photo) }
+              if let photo = try? await item.loadTransferable(type: Data.self) {
+                data.append(photo)
+              } else {
+                unreadable += 1
+              }
             }
-            await model.process(photos: data)
+            await model.process(photos: data, unreadable: unreadable)
           }
         }
         .fileImporter(isPresented: $isChoosingImages, allowedContentTypes: [.image], allowsMultipleSelection: true) {
