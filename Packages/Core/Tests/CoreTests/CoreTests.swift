@@ -389,11 +389,412 @@ struct DocumentIntakeTests {
     }
     #expect(try await library.documents(in: .all, sortedBy: .title).isEmpty)
   }
+
+  @Test("A refresh that fails is written down and done at the next library load (#236)")
+  func failedRefreshIsRetried() async throws {
+    let library = FakeDocumentLibrary()
+    let index = FakeIndex()
+    let pending = PendingRefreshes(url: nil)
+    let seeded = await library.seed(Document(title: "Lease", fileName: "lease.pdf", addedAt: .distantPast))
+    let intake = DocumentIntake(library: library, inspector: FakeInspector(), index: index, pending: pending)
+    await index.failNextIndex()
+    await #expect(throws: (any Error).self) { try await intake.refresh(seeded.id) }
+    #expect(await pending.all == [seeded.id], "Still owed a refresh")
+    #expect(try await library.document(withID: seeded.id)?.modifiedAt == seeded.modifiedAt, "Not recorded as done")
+
+    #expect(await intake.refreshPending() == 0)
+
+    #expect(await pending.all.isEmpty)
+    #expect(await index.stored[seeded.id] != nil, "Search and Spotlight caught up")
+    _ = try await intake.refresh(seeded.id)
+    #expect(await pending.all.isEmpty, "A refresh that works leaves nothing owed")
+  }
+
+  @Test("A document no longer in the library is crossed off the refreshes still owed (#236)")
+  func goneDocumentIsCrossedOff() async throws {
+    let pending = PendingRefreshes(url: nil)
+    let gone = DocumentID()
+    try await pending.add(gone)
+    let intake = DocumentIntake(
+      library: FakeDocumentLibrary(), inspector: FakeInspector(), index: FakeIndex(), pending: pending)
+    #expect(await intake.refreshPending() == 0)
+    #expect(await pending.all.isEmpty)
+  }
+
+  @Test("A document deleted for good stays owed until it is out of search and Spotlight (#360)")
+  func goneDocumentStaysOwedUntilRemoved() async throws {
+    let pending = PendingRefreshes(url: nil)
+    let index = FakeIndex()
+    let gone = DocumentID()
+    let protected = DocumentID()
+    try await pending.add(gone)
+    try await pending.add(protected, protecting: true)
+    await index.failSpotlightRemoval(true)
+    let intake = DocumentIntake(
+      library: FakeDocumentLibrary(), inspector: FakeInspector(), index: index, pending: pending)
+
+    _ = await intake.refreshPending()
+
+    #expect(Set(await pending.all) == [gone, protected], "Not crossed off while Spotlight still has them")
+    for _ in 0..<4 { _ = await intake.refreshPending() }
+    #expect(await pending.all == [protected], "Given up after three tries, unless it is protected")
+    await index.failSpotlightRemoval(false)
+    _ = await intake.refreshPending()
+    #expect(await pending.all.isEmpty)
+    #expect(await index.removed == [protected])
+  }
+
+  @Test("A new document whose search or Spotlight entry fails is kept and not reported; it catches up later (#360)")
+  func newDocumentIndexFailureIsOwed() async throws {
+    let library = FakeDocumentLibrary()
+    let index = FakeIndex()
+    let pending = PendingRefreshes(url: nil)
+    let intake = DocumentIntake(library: library, inspector: FakeInspector(), index: index, pending: pending)
+    await index.failIndexing(true)
+
+    let added = try await intake.add(data: Data("%PDF-1.7\n".utf8), title: "Scan")
+
+    #expect(try await library.document(withID: added.id) != nil)
+    #expect(added.pageCount == 1, "Recorded as read")
+    #expect(await pending.all == [added.id], "Search and Spotlight are owed")
+    await index.failIndexing(false)
+    #expect(await intake.refreshPending() == 0)
+    #expect(await pending.all.isEmpty)
+    #expect(await index.inSpotlight.contains(added.id))
+  }
+
+  @Test("A library change whose Spotlight part fails is owed; a protected entry is tried until it is gone (#360)")
+  func catchUpIsOwed() async throws {
+    let library = FakeDocumentLibrary()
+    let index = FakeIndex()
+    let pending = PendingRefreshes(url: nil)
+    var payslip = Document(title: "Payslip", fileName: "p.pdf", addedAt: .distantPast)
+    payslip.isEncrypted = true
+    let binned = await library.seed(payslip)
+    try await index.index(binned, pages: [])
+    let intake = DocumentIntake(
+      library: library, inspector: FakeInspector(result: PDFInspection(pageCount: 0, isEncrypted: true, pages: [])),
+      index: index, pending: pending)
+    try await library.moveToRecentlyDeleted(binned.id)
+    await index.failSpotlightRemoval(true)
+
+    #expect(await intake.catchUp(binned.id, protecting: true) == false)
+    for _ in 0..<5 { _ = await intake.refreshPending() }
+
+    #expect(await pending.all == [binned.id], "Never given up while Spotlight has it")
+    #expect(await index.inSpotlight.contains(binned.id))
+    await index.failSpotlightRemoval(false)
+    _ = await intake.refreshPending()
+    #expect(await !index.inSpotlight.contains(binned.id))
+    #expect(await pending.all.isEmpty)
+    #expect(await intake.catchUp(binned.id), "Nothing owed when it works")
+    #expect(await pending.all.isEmpty)
+  }
+
+  @Test("The refreshes still owed survive a relaunch (#236)")
+  func pendingRefreshesPersist() async throws {
+    let url = FileManager.default.temporaryDirectory.appendingPathComponent("pending-\(UUID().uuidString).json")
+    let id = DocumentID()
+    try await PendingRefreshes(url: url).add(id)
+    let relaunched = PendingRefreshes(url: url)
+    #expect(await relaunched.all == [id])
+    try await relaunched.remove(id)
+    #expect(await PendingRefreshes(url: url).all.isEmpty)
+  }
+
+  @Test("A document deleted while its refresh runs doesn't come back in search or Spotlight")
+  func deletedDuringRefreshIsNotIndexed() async throws {
+    let library = FakeDocumentLibrary()
+    let seeded = await library.seed(Document(title: "Lease", fileName: "lease.pdf", addedAt: .distantPast))
+    let index = DeletingIndex(library: library, deleting: seeded.id)
+    let intake = DocumentIntake(library: library, inspector: FakeInspector(), index: index)
+    await #expect(throws: LibraryError.notFound) { try await intake.refresh(seeded.id) }
+    #expect(await index.fake.stored[seeded.id] == nil)
+  }
+
+  // MARK: - Second R1 review
+
+  private let locked = PDFInspection(pageCount: 0, isEncrypted: true, pages: [])
+
+  @Test("A protected document's words leave search and Spotlight even when the disk stays full (#236)")
+  func protectedWordsLeaveOnAFullDisk() async throws {
+    let library = FakeDocumentLibrary()
+    let index = FakeIndex()
+    let seeded = await library.seed(Document(title: "Lease", fileName: "lease.pdf", addedAt: .distantPast))
+    await index.seed(seeded.id, pages: [PageText(pageIndex: 0, text: "private words")])
+    await index.failIndexing(true)
+    let intake = DocumentIntake(
+      library: library, inspector: FakeInspector(result: locked), index: index, pending: PendingRefreshes(url: nil))
+    await #expect(throws: (any Error).self) { try await intake.refresh(seeded.id) }
+    #expect(await index.stored[seeded.id] == nil, "Removing needs no space")
+    #expect(await index.removed == [seeded.id], "Spotlight's entry goes with it")
+  }
+
+  @Test("A refresh that began before a change doesn't cross off the refresh that change is owed (#236)")
+  func earlierRefreshLeavesALaterChangeOwed() async throws {
+    let library = FakeDocumentLibrary()
+    let pending = PendingRefreshes(url: nil)
+    let gate = InspectionGate()
+    let seeded = await library.seed(Document(title: "Lease", fileName: "lease.pdf", addedAt: .distantPast))
+    let intake = DocumentIntake(
+      library: library, inspector: GatedInspector(gate: gate), index: FakeIndex(), pending: pending)
+    let earlier = Task { try await intake.refresh(seeded.id) }
+    await gate.waitForArrival()
+    await intake.willChange(seeded.id)
+    await gate.open()
+    _ = try await earlier.value
+    #expect(await pending.all == [seeded.id], "The later change still needs its refresh")
+  }
+
+  @Test("A file that isn't a readable PDF any more is crossed off at once, and its old text goes (#236)")
+  func unreadableFileIsCrossedOff() async throws {
+    let library = FakeDocumentLibrary()
+    let index = FakeIndex()
+    let pending = PendingRefreshes(url: nil)
+    let seeded = await library.seed(Document(title: "Lease", fileName: "lease.pdf", addedAt: .distantPast))
+    await index.seed(seeded.id, pages: [PageText(pageIndex: 0, text: "old words")])
+    try await pending.add(seeded.id)
+    let intake = DocumentIntake(
+      library: library, inspector: FakeInspector(fails: true), index: index, pending: pending)
+    _ = await intake.refreshPending()
+    #expect(await pending.all.isEmpty)
+    #expect(await index.stored[seeded.id] == nil)
+  }
+
+  @Test("A refresh that keeps failing is given up after three tries (#236)")
+  func retriesStop() async throws {
+    let library = FakeDocumentLibrary()
+    let index = FakeIndex()
+    let pending = PendingRefreshes(url: nil)
+    let seeded = await library.seed(Document(title: "Lease", fileName: "lease.pdf", addedAt: .distantPast))
+    try await pending.add(seeded.id)
+    await index.failIndexing(true)
+    let intake = DocumentIntake(library: library, inspector: FakeInspector(), index: index, pending: pending)
+    for _ in 0..<3 { _ = await intake.refreshPending() }
+    #expect(await pending.all.isEmpty)
+  }
+
+  @Test("Taking a protected document's words out of search is never given up (#236)")
+  func protectedRemovalIsKept() async throws {
+    let library = FakeDocumentLibrary()
+    let index = FakeIndex()
+    let pending = PendingRefreshes(url: nil)
+    let seeded = await library.seed(Document(title: "Lease", fileName: "lease.pdf", addedAt: .distantPast))
+    let intake = DocumentIntake(library: library, inspector: FakeInspector(), index: index, pending: pending)
+    await intake.willChange(seeded.id, protecting: true)
+    await index.failIndexing(true)
+    await index.failRemoving(true)
+    for _ in 0..<5 { _ = await intake.refreshPending() }
+    #expect(await pending.all == [seeded.id])
+    await index.failRemoving(false)
+    _ = await intake.refreshPending()
+    #expect(await pending.all.isEmpty, "Once the words are out, the rest may be given up")
+  }
+
+  @Test("A document moved to Recently Deleted while its refresh runs is not put back in Spotlight")
+  func binnedDuringRefreshStaysOutOfSpotlight() async throws {
+    let library = FakeDocumentLibrary()
+    let seeded = await library.seed(Document(title: "Lease", fileName: "lease.pdf", addedAt: .distantPast))
+    let index = DeletingIndex(library: library, deleting: seeded.id, toRecentlyDeleted: true)
+    let intake = DocumentIntake(library: library, inspector: FakeInspector(), index: index)
+    _ = try? await intake.refresh(seeded.id)
+    #expect(await index.fake.indexed.last?.isDeleted == true, "Spotlight's last word is that it is deleted")
+  }
+
+  // MARK: - Third R1 review
+
+  @Test("A refresh while a password is being saved doesn't cross off the change; one after the save does (#236)")
+  func changeBeingSavedStaysOwed() async throws {
+    let library = FakeDocumentLibrary()
+    let pending = PendingRefreshes(url: nil)
+    let seeded = await library.seed(Document(title: "Lease", fileName: "lease.pdf", addedAt: .distantPast))
+    let intake = DocumentIntake(library: library, inspector: FakeInspector(), index: FakeIndex(), pending: pending)
+    let change = await intake.willChange(seeded.id, protecting: true)
+
+    // The launch pass reaches the document while the save is still writing: it reads the old file.
+    _ = await intake.refreshPending()
+
+    #expect(await pending.all == [seeded.id], "Still owed: what it read was from before the save")
+    #expect(await pending.owed(seeded.id)?.protects == true)
+    await intake.saveFinished(seeded.id, change: change)
+    _ = try await intake.refresh(seeded.id)
+    #expect(await pending.all.isEmpty, "A refresh after the save crosses it off")
+  }
+
+  @Test("Two refreshes of one document never overlap, so a stale one can't overwrite a newer result (#236)")
+  func refreshesOfOneDocumentRunInTurn() async throws {
+    let library = FakeDocumentLibrary()
+    let index = FakeIndex()
+    let gate = InspectionGate()
+    let seeded = await library.seed(Document(title: "Lease", fileName: "lease.pdf", addedAt: .distantPast))
+    let inspector = ScriptedInspector(
+      gate: gate,
+      results: [
+        PDFInspection(pageCount: 1, isEncrypted: false, pages: [PageText(pageIndex: 0, text: "old words")]),
+        PDFInspection(pageCount: 0, isEncrypted: true, pages: []),
+      ])
+    let intake = DocumentIntake(library: library, inspector: inspector, index: index)
+    let stale = Task { try await intake.refresh(seeded.id) }
+    await gate.waitForArrival()
+    let newer = Task { try await intake.refresh(seeded.id) }
+    try await Task.sleep(for: .milliseconds(100))
+    await gate.open()
+    _ = try await stale.value
+    _ = try await newer.value
+    #expect(await index.stored[seeded.id] == [], "The newer, locked result is the last word")
+    #expect(try await library.document(withID: seeded.id)?.isEncrypted == true)
+  }
+
+  @Test("A protecting change whose save failed doesn't take an unprotected document's words out of search")
+  func failedProtectionLeavesWordsIn() async throws {
+    let library = FakeDocumentLibrary()
+    let index = FakeIndex()
+    let pending = PendingRefreshes(url: nil)
+    let seeded = await library.seed(Document(title: "Lease", fileName: "lease.pdf", addedAt: .distantPast))
+    await index.seed(seeded.id, pages: [PageText(pageIndex: 0, text: "ordinary words")])
+    let intake = DocumentIntake(library: library, inspector: FakeInspector(), index: index, pending: pending)
+    let change = await intake.willChange(seeded.id, protecting: true)
+    await intake.saveFinished(seeded.id, change: change)  // The save failed: the file is as it was.
+    await index.failIndexing(true)
+    for _ in 0..<5 { _ = await intake.refreshPending() }
+    #expect(await index.stored[seeded.id] == [PageText(pageIndex: 0, text: "ordinary words")])
+  }
+
+  @Test("Removing a password clears the protection a change was owed")
+  func removingThePasswordClearsProtection() async throws {
+    let pending = PendingRefreshes(url: nil)
+    let id = DocumentID()
+    try await pending.add(id, protecting: true)
+    try await pending.add(id, protecting: false)
+    #expect(await pending.owed(id)?.protects == false)
+  }
+
+  @Test("A document with only an owner password stays in search when the disk is full")
+  func ownerPasswordOnlyStaysSearchable() async throws {
+    let library = FakeDocumentLibrary()
+    let index = FakeIndex()
+    let seeded = await library.seed(Document(title: "Lease", fileName: "lease.pdf", addedAt: .distantPast))
+    let words = [PageText(pageIndex: 0, text: "readable words")]
+    await index.seed(seeded.id, pages: words)
+    await index.failIndexing(true)
+    let readable = PDFInspection(pageCount: 1, isEncrypted: true, pages: words)
+    let intake = DocumentIntake(library: library, inspector: FakeInspector(result: readable), index: index)
+    await #expect(throws: (any Error).self) { try await intake.refresh(seeded.id) }
+    #expect(await index.stored[seeded.id] == words, "It opens without a password, so its words stay")
+  }
+
+  @Test("A file that isn't a PDF any more is given up after three tries even when its text can't be removed")
+  func unreadableFileIsGivenUp() async throws {
+    let library = FakeDocumentLibrary()
+    let index = FakeIndex()
+    let pending = PendingRefreshes(url: nil)
+    let seeded = await library.seed(Document(title: "Lease", fileName: "lease.pdf", addedAt: .distantPast))
+    try await pending.add(seeded.id)
+    await index.failRemoving(true)
+    let intake = DocumentIntake(
+      library: library, inspector: FakeInspector(fails: true), index: index, pending: pending)
+    for _ in 0..<3 { _ = await intake.refreshPending() }
+    #expect(await pending.all.isEmpty)
+  }
+
+  @Test(
+    "A file changed outside the app keeps its tags and favourite and takes the new text; its page resets only if the page count changed (#242)",
+    arguments: [-3_600.0, 3_600.0], [8, 10])
+  func replacedFileStartsAgain(changedBy offset: TimeInterval, pages: Int) async throws {
+    // The owner's decisions on #242, "Keep tags" and "Reset if pages change", for a replacement older
+    // than the document (found by its file identity) and one newer (found by its date): both are read
+    // again with a date. The entry had 8 pages and was being read on page 6.
+    let library = FakeDocumentLibrary()
+    let index = FakeIndex()
+    let recorded = Date(timeIntervalSince1970: 1_000_000)
+    let seeded = await library.seed(
+      Document(
+        title: "Invoice", fileName: "invoice.pdf", addedAt: recorded, lastPageIndex: 5, pageCount: 8,
+        isFavorite: true, tags: ["Paid"]))
+    await index.seed(seeded.id, pages: [PageText(pageIndex: 0, text: "old words")])
+    let replacement = [PageText(pageIndex: 0, text: "new words")]
+    let inspector = FakeInspector(result: PDFInspection(pageCount: pages, isEncrypted: false, pages: replacement))
+    let intake = DocumentIntake(library: library, inspector: inspector, index: index)
+
+    _ = try await intake.refresh(seeded.id, changedAt: recorded.addingTimeInterval(offset))
+
+    let after = try #require(try await library.document(withID: seeded.id))
+    #expect(after.tags == ["Paid"], "Tags kept")
+    #expect(after.isFavorite, "Favourite kept")
+    let expected = pages == 8 ? 5 : 0
+    #expect(after.lastPageIndex == expected, "Page \(after.lastPageIndex + 1), not page \(expected + 1)")
+    #expect(after.pageCount == pages)
+    #expect(await index.stored[seeded.id] == replacement, "Only the new file's words are searchable")
+  }
+
+  @Test("A cancelled refresh stays owed, and isn't counted as a failure (#236)")
+  func cancelledRefreshStaysOwed() async throws {
+    let library = FakeDocumentLibrary()
+    let pending = PendingRefreshes(url: nil)
+    let seeded = await library.seed(Document(title: "Lease", fileName: "lease.pdf", addedAt: .distantPast))
+    let intake = DocumentIntake(
+      library: library, inspector: CancelledInspector(), index: FakeIndex(), pending: pending)
+    await #expect(throws: CancellationError.self) { try await intake.refresh(seeded.id) }
+    #expect(await pending.owed(seeded.id)?.failures == 0, "Owed, with no failure counted")
+    #expect(await intake.refreshPending() == 0)
+    #expect(await pending.owed(seeded.id)?.failures == 0, "Still owed after a cancelled pass")
+    #expect(try await library.document(withID: seeded.id)?.modifiedAt == seeded.modifiedAt, "Not recorded as done")
+  }
+}
+
+/// An inspector that returns its results in turn, the first held at a gate.
+private actor ScriptedInspector: PDFInspecting {
+  let gate: InspectionGate
+  private var results: [PDFInspection]
+  private var calls = 0
+
+  init(gate: InspectionGate, results: [PDFInspection]) {
+    self.gate = gate
+    self.results = results
+  }
+
+  func inspect(_ url: URL) async throws -> PDFInspection {
+    calls += 1
+    let result = results.removeFirst()
+    if calls == 1 { await gate.pass() }
+    return result
+  }
 }
 
 /// An inspector whose task was cancelled.
 private struct CancelledInspector: PDFInspecting {
   func inspect(_ url: URL) async throws -> PDFInspection { throw CancellationError() }
+}
+
+/// A search index during whose write the document is deleted for good, as when the person deletes
+/// it while its refresh runs.
+private struct DeletingIndex: DocumentIndexing {
+  let library: FakeDocumentLibrary
+  let deleting: DocumentID
+  /// Moves it to Recently Deleted instead of deleting it for good.
+  var toRecentlyDeleted = false
+  let fake = FakeIndex()
+
+  func index(_ document: Document, pages: [PageText]) async throws {
+    if toRecentlyDeleted {
+      if try await library.document(withID: deleting)?.isDeleted == false {
+        try await library.moveToRecentlyDeleted(deleting)
+      }
+    } else {
+      try await library.deletePermanently(deleting)
+    }
+    try await fake.index(document, pages: pages)
+  }
+
+  func remove(_ id: DocumentID) async throws { try await fake.remove(id) }
+
+  func prune(keeping ids: Set<DocumentID>) async -> [DocumentID] { await fake.prune(keeping: ids) }
+
+  func pages(of id: DocumentID) async throws -> [PageText] { try await fake.pages(of: id) }
+
+  func search(_ query: String, in documents: [Document]) async throws -> [SearchHit] {
+    try await fake.search(query, in: documents)
+  }
 }
 
 @Suite("Signatures")

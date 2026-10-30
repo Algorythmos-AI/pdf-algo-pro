@@ -11,6 +11,7 @@ public actor FakeDocumentLibrary: DocumentLibrary {
   private let now: @Sendable () -> Date
   /// When set, the next call throws this error.
   public var nextError: LibraryError?
+  private var nextReconciliation: Reconciliation?
 
   /// Creates an empty library with its own temporary folder.
   public init(now: @escaping @Sendable () -> Date = { Date(timeIntervalSince1970: 1_800_000_000) }) {
@@ -134,10 +135,34 @@ public actor FakeDocumentLibrary: DocumentLibrary {
     documents[id]?.lastPageIndex = pageIndex
   }
 
+  /// Puts the reading position back on the first page.
+  public func resetReadingPosition(_ id: DocumentID) async throws {
+    try check()
+    documents[id]?.lastPageIndex = 0
+  }
+
   /// Records that the file's contents changed (after a save).
   public func recordModified(_ id: DocumentID) async throws {
     try check()
+    if failsNextRecordModified {
+      failsNextRecordModified = false
+      throw LibraryError.fileAccessFailed
+    }
     documents[id]?.modifiedAt = now()
+  }
+
+  /// Records that the file's contents changed at `date`.
+  public func recordModified(_ id: DocumentID, at date: Date) async throws {
+    try check()
+    documents[id]?.modifiedAt = date
+  }
+
+  private var failsNextRecordModified = false
+
+  /// Makes the next `recordModified(_:)` throw: the file was written, but the library never heard,
+  /// as when the app is stopped straight after a save.
+  public func failNextRecordModified() {
+    failsNextRecordModified = true
   }
 
   /// Moves a document to Recently Deleted, where it stays for 30 days.
@@ -209,10 +234,17 @@ public actor FakeDocumentLibrary: DocumentLibrary {
   /// Brings the index in line with the files: PDFs added outside the app (for example in the Files app) are added,
   /// entries whose file is gone are removed.
   ///
-  /// Returns what changed; this fake never finds new files.
+  /// Returns what changed: what `reportNextReconciliation(_:)` gave, once; otherwise nothing, since
+  /// this fake never finds new files.
   public func reconcileWithFiles() async throws -> Reconciliation {
     try check()
-    return Reconciliation()
+    defer { nextReconciliation = nil }
+    return nextReconciliation ?? Reconciliation()
+  }
+
+  /// Makes the next reconciliation report `reconciliation`, as when files changed in the Files app.
+  public func reportNextReconciliation(_ reconciliation: Reconciliation) {
+    nextReconciliation = reconciliation
   }
 }
 
@@ -249,6 +281,17 @@ public actor FakeIndex: DocumentIndexing {
   public private(set) var removed: [DocumentID] = []
   /// When `true`, searches throw, as a damaged index would.
   public private(set) var failsSearches = false
+  /// Every document indexed, in order, as Spotlight was given it.
+  public private(set) var indexed: [Document] = []
+  /// How many times page text was written.
+  public private(set) var pageWrites = 0
+  /// The documents Spotlight has an entry for.
+  public private(set) var inSpotlight: Set<DocumentID> = []
+  private var failsNextIndex = false
+  private var failsIndexing = false
+  private var failsRemoving = false
+  private var failsSpotlightRemoval = false
+  private var cancelsSearches = false
 
   /// Creates an empty index.
   public init() {}
@@ -258,6 +301,46 @@ public actor FakeIndex: DocumentIndexing {
     failsSearches = fails
   }
 
+  /// Makes searches throw `CancellationError`, as a search whose task was cancelled does.
+  public func cancelSearches(_ cancels: Bool) {
+    cancelsSearches = cancels
+  }
+
+  /// Makes the next `index(_:pages:)` throw, as a full disk would.
+  public func failNextIndex() {
+    failsNextIndex = true
+  }
+
+  /// Makes every `index(_:pages:)` throw while `fails` is set: a disk that stays full.
+  ///
+  /// Removing still works, as it needs no space.
+  public func failIndexing(_ fails: Bool) {
+    failsIndexing = fails
+  }
+
+  /// Makes every `remove(_:)` throw while `fails` is set.
+  public func failRemoving(_ fails: Bool) {
+    failsRemoving = fails
+  }
+
+  /// Makes Spotlight fail to remove entries while `fails` is set, as the real index reports it (#360).
+  ///
+  /// `remove(_:)` throws once the stored text is gone, and indexing a document in Recently Deleted,
+  /// which takes it out of Spotlight, throws too.
+  public func failSpotlightRemoval(_ fails: Bool) {
+    failsSpotlightRemoval = fails
+  }
+
+  /// Gives Spotlight a document: a document in Recently Deleted leaves it.
+  private func mirror(_ document: Document) throws {
+    guard document.isDeleted else {
+      inSpotlight.insert(document.id)
+      return
+    }
+    if failsSpotlightRemoval { throw LibraryError.fileAccessFailed }
+    inSpotlight.remove(document.id)
+  }
+
   /// Stores page texts directly.
   public func seed(_ id: DocumentID, pages: [PageText]) {
     stored[id] = pages
@@ -265,13 +348,30 @@ public actor FakeIndex: DocumentIndexing {
 
   /// Adds or replaces a document in the index (and in Spotlight, FR-LIB-005).
   public func index(_ document: Document, pages: [PageText]) async throws {
+    if failsNextIndex || failsIndexing {
+      failsNextIndex = false
+      throw LibraryError.fileAccessFailed
+    }
     stored[document.id] = pages
+    pageWrites += 1
+    indexed.append(document)
+    try mirror(document)
+  }
+
+  /// Gives Spotlight a document's new title or tags; the stored text is not written.
+  public func updateDetails(of document: Document) async throws {
+    if failsIndexing { throw LibraryError.fileAccessFailed }
+    indexed.append(document)
+    try mirror(document)
   }
 
   /// Removes a document and its derived text (FR-LIB-006).
   public func remove(_ id: DocumentID) async throws {
+    if failsRemoving { throw LibraryError.fileAccessFailed }
     stored[id] = nil
+    if failsSpotlightRemoval { throw LibraryError.fileAccessFailed }
     removed.append(id)
+    inSpotlight.remove(id)
   }
 
   /// Removes the stored text of every document not in `ids`.
@@ -280,6 +380,7 @@ public actor FakeIndex: DocumentIndexing {
     for id in stale {
       stored[id] = nil
       removed.append(id)
+      inSpotlight.remove(id)
     }
     return Array(stale)
   }
@@ -291,6 +392,7 @@ public actor FakeIndex: DocumentIndexing {
 
   /// Documents matching a query, best first.
   public func search(_ query: String, in documents: [Document]) async throws -> [SearchHit] {
+    if cancelsSearches { throw CancellationError() }
     if failsSearches { throw LibraryError.fileAccessFailed }
     return documents.compactMap { document in
       if document.title.localizedCaseInsensitiveContains(query) {

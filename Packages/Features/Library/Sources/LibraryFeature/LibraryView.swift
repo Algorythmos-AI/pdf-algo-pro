@@ -82,10 +82,16 @@ public struct LibraryView<Detail: View>: View {
       photos = []
       Task {
         var data: [Data] = []
+        // A photo that doesn't load, such as an iCloud original offline, is counted, not dropped (#238).
+        var unreadable = 0
         for item in items {
-          if let photo = try? await item.loadTransferable(type: Data.self) { data.append(photo) }
+          if let photo = try? await item.loadTransferable(type: Data.self) {
+            data.append(photo)
+          } else {
+            unreadable += 1
+          }
         }
-        await model.addPhotos(data)
+        await model.addPhotos(data, unreadable: unreadable)
       }
     }
     .fileImporter(isPresented: $isPickingFiles, allowedContentTypes: [.pdf], allowsMultipleSelection: true) { result in
@@ -495,8 +501,8 @@ public struct LibraryView<Detail: View>: View {
     .navigationTitle(Self.title(for: model.section))
     .searchable(text: $model.query, prompt: Text("Titles, tags and text", bundle: .module))
     .task(id: model.query) {
-      try? await Task.sleep(for: .milliseconds(200))
-      await model.search()
+      // Typing on cancels this wait; only the last query is searched (#240).
+      await model.searchAfterPause(.milliseconds(200))
     }
     .dropDestination(for: URL.self) { urls, _ in
       Task { await model.importFiles(urls.filter { $0.pathExtension.lowercased() == "pdf" }) }
@@ -601,8 +607,7 @@ public struct LibraryView<Detail: View>: View {
     }
     .task(id: model.lastDeleted) {
       guard !model.lastDeleted.isEmpty else { return }
-      try? await Task.sleep(for: .seconds(8))
-      model.forgetLastDeleted()
+      await model.expireUndo(after: .seconds(8))
     }
     .task(id: chosen) {
       shareURLs = await model.fileURLs(for: Array(chosen))

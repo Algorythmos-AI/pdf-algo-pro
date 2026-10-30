@@ -159,6 +159,7 @@ private actor HeldLibrary: DocumentLibrary {
   func recordOpened(_ id: DocumentID, pageIndex: Int) async throws {
     try await base.recordOpened(id, pageIndex: pageIndex)
   }
+  func resetReadingPosition(_ id: DocumentID) async throws { try await base.resetReadingPosition(id) }
   func recordModified(_ id: DocumentID) async throws {
     if failsRecordModified { throw LibraryError.fileAccessFailed }
     try await base.recordModified(id)

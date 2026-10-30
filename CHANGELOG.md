@@ -73,6 +73,27 @@ Store notes (see the changelog strategy).
   can't be read.
 - Text recognition replaces the file in a way other apps can see safely, as a save does, and never
   writes over a version another app saved meanwhile.
+- After a password, a text edit or a restore, search and Spotlight catch up even when the first
+  attempt to update them fails: it is done again the next time the library opens, without holding
+  up the list. A protected document's words leave search and Spotlight at once, even on a full
+  disk. Spotlight follows a document's new name and tags.
+- When Spotlight can't take a change, the app no longer counts the update as done: it tries again
+  the next time the library opens or the app comes back. A protected document's words could stay in
+  Spotlight after they had left the app's own search; now the app keeps trying until they are out of
+  Spotlight too, including after it is deleted. Moving a document to Recently Deleted, restoring it,
+  deleting it for good or adding one no longer says it didn't work when only Spotlight failed.
+- A PDF edited in another app, or replaced in Files with another of the same name, is read again
+  when the library opens, even when the new file is older, and when the app comes back to the
+  foreground. Its text follows the file and it keeps its tags and favourite; it opens on its first
+  page only if its number of pages changed.
+- Photos that fail to load are counted, and when none load the library and Scan say so. Merging
+  stops, and says so, when a document's file is missing, and sharing says how many it leaves out.
+  Deleting a second document keeps its Undo, and typing a search no longer briefly says search is
+  unavailable. An import that fails for a reason other than a bad file says why, and a partly
+  successful one says how many were added.
+- Changing only the capitals of a document's name no longer adds " 2" to its file name.
+- Launching no longer waits for the library's index to open, or to update to a new format after an
+  update: that happens in the background while the library shows it is loading.
 - Dark mode: the App Lock's "Unlock with Face ID" button and the selection bar's Delete are easy to
   read again. Both fell below the 4.5:1 contrast text needs on an iPhone in dark mode.
 - Welcome to Pro: the "Remind me the day before" switch no longer turns itself back off without a
@@ -215,6 +236,13 @@ Store notes (see the changelog strategy).
 - Removing a document's password keeps what its contents entries do: one that opens a web page
   still opens it, and one that opens a page at a zoom still uses that zoom. Before, the first did
   nothing and the second opened at the default zoom.
+- On iOS 27, a document's contents entries keep what they do when it is saved, with or without a
+  password: one that opens a web page still opens it, and one that opens a page at a zoom still uses
+  that zoom. Before, on iOS 27, the first did nothing and the second opened at the default zoom.
+
+### Known issues
+- A different PDF put in Files under a document's name, with exactly the same number of pages, opens
+  where the old one was being read (#242).
 
 ### Added
 - Annotations: a shape, stamp, signature or text box you drag to the top or bottom of the screen
