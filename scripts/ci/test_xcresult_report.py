@@ -170,7 +170,7 @@ def test_a_retry_whose_only_findings_were_quarantined_passed(tmp_path, capsys):
 def test_a_failed_tests_quarantine_notes_are_not_named_as_its_failure(tmp_path, capsys):
     # As on run 37930118069: a paywall audit failed on the explanation, and the same test also recorded
     # the Close button's finding as an expected failure, which was annotated as a second error.
-    quarantine = {"nodeType": "Failure Message", "name": "Quarantined flaky audit finding, issue #76",
+    quarantine = {"nodeType": "Failure Message", "name": "Quarantined flaky audit finding, issue #294",
                   "result": "Expected Failure"}
     unmarked = message("Measured while the screen was moving, gone on a second audit (issues #105, #182)")
     failed = case("testOffer()", "Failed", message("1 accessibility finding(s): explanation"), quarantine, unmarked)
@@ -179,10 +179,10 @@ def test_a_failed_tests_quarantine_notes_are_not_named_as_its_failure(tmp_path, 
     assert "::error title=PDFAlgoProUITests/PaywallUITests/testOffer()::1 accessibility finding(s): explanation" in out
     assert "Quarantined flaky audit finding" not in out and "Measured while the screen" not in out
     # A quarantined test still lists its reason.
-    known = case("testKnown()", "Expected Failure", message("Quarantined flaky audit finding, issue #76"))
+    known = case("testKnown()", "Expected Failure", message("Quarantined flaky audit finding, issue #294"))
     summary = tmp_path / "summary.md"
     assert xcresult_report.main([results(tmp_path, known, name="known.json"), "--summary", str(summary)]) == 0
-    assert "Quarantined flaky audit finding, issue #76" in summary.read_text()
+    assert "Quarantined flaky audit finding, issue #294" in summary.read_text()
 
 
 def test_the_flaky_tests_are_written_for_the_issue_job(tmp_path):

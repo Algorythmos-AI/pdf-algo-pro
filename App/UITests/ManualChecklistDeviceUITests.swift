@@ -92,6 +92,9 @@ final class ManualChecklistDeviceUITests: UITestCase {
     XCTAssertEqual(mail.state, .runningForeground, "Report a problem opens Mail")
     let body = mail.textViews.firstMatch
     XCTAssertTrue(body.waitForExistence(timeout: 15), "Mail shows the draft")
+    // Mail shows the draft's text view before it fills it in (#365).
+    let filled = Date().addingTimeInterval(10)
+    while Date() < filled, ((body.value as? String) ?? "").isEmpty { Thread.sleep(forTimeInterval: 0.25) }
     let text = (body.value as? String) ?? ""
     keepEvidence(mail, named: "report-in-mail", notes: "Item 9: the draft in Mail")
     XCTAssertFalse(text.isEmpty, "The draft has the summary")

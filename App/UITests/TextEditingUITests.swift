@@ -166,10 +166,21 @@ final class TextEditingUITests: UITestCase {
     XCTAssertTrue(app.staticTexts["Edit this PDF"].exists)
     try audit(app)
 
-    // The tip is not in the way: one tap on Edit enters text editing, and the tip is gone.
-    app.buttons[ID.Reader.edit].tap()
+    // The tip is not in the way: one tap on Edit enters text editing, and the tip is gone. One tap
+    // only, since a tip that took the first tap is what this checks; so Edit is tapped once nothing
+    // covers it, and a failure says what was on the screen (issue #353: on run 40736394712 the tap
+    // went in the second the audit ended, and Done never showed).
+    let edit = app.buttons[ID.Reader.edit]
+    waitUntilHittable(edit, in: app, "Nothing covers Edit while the tip shows")
+    edit.tap()
     let done = app.buttons[ID.Reader.doneEditingText]
-    XCTAssertTrue(done.waitForExistence(timeout: 10), "One tap on Edit, with the tip showing")
+    if !done.waitForExistence(timeout: Self.settleTimeout) {
+      let state =
+        "Done never showed. The tip exists: \(tip.exists); Edit exists: \(edit.exists), "
+        + "hittable: \(edit.exists && edit.isHittable)."
+      keepEvidence(app, named: "edit with tip", notes: state)
+      XCTFail("One tap on Edit, with the tip showing. \(state)")
+    }
     XCTAssertTrue(tip.waitForNonExistence(timeout: 5))
     done.tap()
     XCTAssertTrue(app.buttons[ID.Reader.edit].waitForExistence(timeout: 5))
@@ -195,6 +206,31 @@ final class TextEditingUITests: UITestCase {
       XCTAssertTrue(other.staticTexts[ID.Reader.pageIndicator].waitForExistence(timeout: 15))
       XCTAssertFalse(editTip(in: other).waitForExistence(timeout: 4), "No tip when editing is \(access)")
       other.terminate()
+    }
+  }
+
+  /// The tip's text grows with the text size.
+  ///
+  /// The audit's "partially unsupported" finding came and went here, measured before the tip redrew
+  /// (issue #182), so the audit no longer judges it; this compares the tip at the default size with the
+  /// tip at an accessibility size (AX3) instead.
+  func testTheEditTipGrowsWithTheTextSize() throws {
+    let arguments = ["-skip-onboarding", "-seed-library", "sample", "-text-editing", "available", "-show-tips"]
+    let regular = launch(arguments)
+    XCTAssertTrue(regular.staticTexts[ID.Reader.pageIndicator].waitForExistence(timeout: Self.settleTimeout))
+    let regularTip = editTip(in: regular)
+    XCTAssertTrue(regularTip.waitForExistence(timeout: Self.settleTimeout), "A first open points at Edit")
+    let regularHeight = waitUntilSteady(regularTip).height
+    regular.terminate()
+
+    let large = launch(arguments + ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXL"])
+    XCTAssertTrue(large.staticTexts[ID.Reader.pageIndicator].waitForExistence(timeout: Self.settleTimeout))
+    let largeTip = editTip(in: large)
+    XCTAssertTrue(largeTip.waitForExistence(timeout: Self.settleTimeout), "The tip shows at a large text size")
+    let largeHeight = waitUntilSteady(largeTip).height
+    if largeHeight < regularHeight * 1.3 {
+      keepEvidence(large, named: "tip size", notes: "Tip \(regularHeight) pt tall by default, \(largeHeight) pt large")
+      XCTFail("The tip grows with the text size: \(regularHeight) pt by default, \(largeHeight) pt at AX3")
     }
   }
 
@@ -246,16 +282,27 @@ final class TextEditingUITests: UITestCase {
     // Down into the empty lower half of the page: held until the line lifts, dragged slowly, and held
     // again before the finger goes, once the line's frame has settled (issue #215: a drag begun on a
     // frame still moving, at the default speed, left the line short of where it was dropped).
-    let before = dragSlowly(heading, by: CGVector(dx: 30, dy: 220), holding: 0.9, in: app)
+    var before = dragSlowly(heading, by: CGVector(dx: 30, dy: 220), holding: 0.9, in: app)
 
+    // A press lifts a line only once the page's lines have been read, which entering text editing starts
+    // and nothing on screen shows. On two runs (40295256439, 40563439396) the press came first: the line
+    // stayed exactly where it was, at (38.9, 223.9), and nothing was moved. Undo is enabled by a move
+    // and by nothing else here, so while it stays disabled the drag did nothing and is made again.
     let undo = app.buttons[ID.Reader.TextEdit.undo]
     XCTAssertTrue(undo.waitForExistence(timeout: 5))
+    let undoable = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isEnabled == true"), object: undo)
+    if XCTWaiter.wait(for: [undoable], timeout: 5) != .completed {
+      before = dragSlowly(heading, by: CGVector(dx: 30, dy: 220), holding: 0.9, in: app)
+    }
     let moved = NSPredicate { _, _ in
       abs(self.line(containing: "Try these", in: app).frame.minY - before.minY - 220) < 30
     }
-    XCTAssertEqual(
-      XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: moved, object: nil)], timeout: 20), .completed,
-      "The line is where it was dropped, not at \(line(containing: "Try these", in: app).frame)")
+    if XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: moved, object: nil)], timeout: 20) != .completed {
+      let state =
+        "Held at \(before), now at \(line(containing: "Try these", in: app).frame); undo enabled: \(undo.isEnabled)."
+      keepEvidence(app, named: "line move", notes: state)
+      XCTFail("The line is where it was dropped. \(state)")
+    }
     XCTAssertFalse(app.textViews[ID.Reader.TextEdit.field].exists, "Moving opens no editor")
     XCTAssertTrue(undo.isEnabled, "The move can be undone")
 

@@ -467,6 +467,19 @@ jobs:
           while IFS= read -r arg; do args+=("$arg"); done < "$RUNNER_TEMP/args.txt"
           echo "Selectors: ${args[*]}"
           xcrun simctl bootstatus "$SIM" -b > /dev/null
+          # A UI shard's first test launched the app on a simulator still warming up: the launch timed out
+          # (issue #126; run 40859748967, "Timed out while acquiring background assertion"). So the app is
+          # installed and launched once here, with the tests' private state, and left running: the first
+          # test ends it as it launches its own. A warm-up that fails changes nothing; the tests go on.
+          if [[ "$SHARD" == ui-* ]]; then
+            app="$(find DD/Build/Products -maxdepth 2 -path '*-iphonesimulator/PDFAlgoPro.app' | head -1)"
+            if [ -n "$app" ] && xcrun simctl install "$SIM" "$app" \
+              && xcrun simctl launch "$SIM" com.algorythmos.pdfalgopro -ui-testing -disable-animations -skip-onboarding; then
+              echo "Warmed up: the app launched once on $SIM"
+            else
+              echo "::warning title=Warm-up ($SHARD)::The app did not launch before the tests; they launch it themselves"
+            fi
+          fi
           set +e
           # Suites write their reports (OCR accuracy, AI evaluation, performance) to reports/, kept below.
           # -derivedDataPath DD finds the products and the resolved packages ios-build left; nothing is

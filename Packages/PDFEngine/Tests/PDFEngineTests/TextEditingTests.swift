@@ -935,14 +935,18 @@ struct TextEditingHostileInputTests {
   }
 
   // A CI simulator runs this several times slower than a Mac, so the edit, with its three renders,
-  // is made for a few of the damaged pages and the reading for all of them.
-  @Test("Damaged page content and fonts never crash, hang or produce an unreadable page", .timeLimit(.minutes(5)))
-  func fuzzed() async throws {
+  // is made for one damaged page in each batch and the reading for all of them. The 80 pages come in
+  // 8 batches of 10, each its own case with its own time limit: as one test, the whole corpus took a
+  // median 146 s on CI and passed its 5-minute limit at 310 s on a loaded runner (#363).
+  @Test(
+    "Damaged page content and fonts never crash, hang or produce an unreadable page", .timeLimit(.minutes(5)),
+    arguments: 0..<8)
+  func fuzzed(batch: Int) async throws {
     let editor = ContentStreamTextEditor()
     let base = try TextEditFixtures.singlePage(TextEditFixtures.invoice())
-    var generator = SplitMix(seed: 0x5EED)
-    var edited = 0
-    for _ in 0..<80 {
+    var generator = SplitMix(seed: 0x5EED &+ UInt64(batch))
+    var edited = false
+    for _ in 0..<10 {
       var bytes = [UInt8](base)
       for _ in 0..<Int.random(in: 1...6, using: &generator) {
         let index = Int.random(in: 0..<bytes.count, using: &generator)
@@ -950,8 +954,8 @@ struct TextEditingHostileInputTests {
       }
       let damaged = Data(bytes)
       let text = await editor.text(ofPage: damaged)
-      guard edited < 8, let region = text.regions.first else { continue }
-      edited += 1
+      guard !edited, let region = text.regions.first else { continue }
+      edited = true
       let result = await editor.applying([TextEdit(region: region, replacement: "Fuzzed")], toPage: damaged)
       if let page = result.page { #expect(PDFDocument(data: page)?.pageCount == 1) }
     }
