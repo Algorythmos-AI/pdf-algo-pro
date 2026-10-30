@@ -381,10 +381,11 @@ class UITestCase: XCTestCase {
   /// compare a screen at the default size with the same screen at a large one. Text that doesn't scale
   /// at all still fails everywhere.
   ///
-  /// Quarantined (issue #76, flaky): contrast findings on buttons inside a navigation bar, measured while a
-  /// sheet's glass bar buttons are still appearing (the accent colour is about 7:1 once drawn), and
-  /// "Potentially inaccessible text" findings that come without an element. Contrast anywhere else still
-  /// fails.
+  /// Contrast findings on buttons inside a navigation bar sit on glass, which the audit misreads on iOS 26
+  /// as on iOS 27 (#76, #294), so they are measured on the screen instead (`ScreenContrast`): on run
+  /// 40963114163 onboarding's Skip and the paywall's Close measured about 20:1. Below 4.5:1 they fail.
+  /// Quarantined (#294): "Potentially inaccessible text" and contrast findings that come without an
+  /// element, which leave nothing to measure. Contrast anywhere else still fails.
   ///
   /// Each audit's duration is logged as a named activity. The audit once gave up with "Audit failed to
   /// complete in time" on a loaded runner (issue #53). No run in the test history from 2026-10-21 on
@@ -411,27 +412,37 @@ class UITestCase: XCTestCase {
     try runAudit(
       app, onSheet: onSheet, bars: bars, barTitles: barTitles, actionBars: actionBars, searchFields: searchFields,
       findings: &findings, appearing: &appearing)
-    if !appearing.isEmpty {
-      // On a focused run (UI_EVIDENCE=all), quarantined findings keep the screen too: a finding the audit
-      // reports without its element is quarantined (issue #76), and on run 37939544303 the paywall's
-      // two such findings came with their elements, one of them the offer's explanation.
-      if ProcessInfo.processInfo.environment["UI_EVIDENCE"] == "all" {
-        // A quarantined contrast finding that names its element is measured on the screen, as #294 does on
-        // iOS 27, so the evidence says whether the colour or the audit is wrong (issue #76).
-        let screen = app.screenshot()
-        appearing = appearing.map { finding in
-          guard finding.hasPrefix("- Contrast failed"), let frame = ScreenContrast.frame(in: finding) else {
-            return finding
-          }
-          guard let ratio = ScreenContrast.ratio(of: frame, in: screen) else {
-            return finding + "\n    Not measurable on the screen"
-          }
-          return finding + String(format: "\n    Measured on the screen: %.2f:1", ratio)
+    // A bar button's contrast is measured on the screen (#76, #294): what passes is recorded, and what
+    // doesn't joins the findings. A finding with no element leaves nothing to measure and stays quarantined.
+    let evidence = ProcessInfo.processInfo.environment["UI_EVIDENCE"] == "all"
+    if appearing.contains(where: { ScreenContrast.frame(in: $0) != nil }) {
+      let screen = app.screenshot()
+      var measured: [String] = []
+      appearing = appearing.filter { finding in
+        guard finding.hasPrefix("- Contrast failed"), let frame = ScreenContrast.frame(in: finding) else {
+          return true
         }
-        keepEvidence(app, named: "audit \(line) quarantined", notes: appearing.joined(separator: "\n"))
+        guard let ratio = ScreenContrast.ratio(of: frame, in: screen), ratio >= ScreenContrast.minimum else {
+          findings.append(finding)
+          return false
+        }
+        measured.append(finding + String(format: "\n    Measured on the screen: %.2f:1", ratio))
+        return false
       }
+      if !measured.isEmpty {
+        if evidence {
+          keepEvidence(app, named: "audit \(line) contrast measured", notes: measured.joined(separator: "\n"))
+        }
+        recordQuarantined(
+          "Contrast the audit misreads on glass, measured on the screen instead, issue #294",
+          details: measured.joined(separator: "\n"), file: file, line: line)
+      }
+    }
+    if !appearing.isEmpty {
+      // On a focused run (UI_EVIDENCE=all), quarantined findings keep the screen too.
+      if evidence { keepEvidence(app, named: "audit \(line) quarantined", notes: appearing.joined(separator: "\n")) }
       recordQuarantined(
-        "Quarantined flaky audit finding, issue #76",
+        "Quarantined flaky audit finding, issue #294",
         details: "\(appearing.count) quarantined finding(s):\n" + appearing.joined(separator: "\n"), file: file,
         line: line)
     }
@@ -566,9 +577,9 @@ class UITestCase: XCTestCase {
           return true
         }
       } else if issue.auditType == .elementDetection || issue.auditType == .contrast {
-        // "Potentially inaccessible text", or a contrast failure, without an element (issue #76): with no
-        // element there is no frame to check again once the screen settles, and it has only ever been
-        // seen on a sheet's bar while it appears.
+        // "Potentially inaccessible text", or a contrast failure, without an element: with no element
+        // there is no frame to check again once the screen settles or to measure (#294), and it has only
+        // ever been seen on a sheet's bar while it appears.
         settling.append(Self.describe(issue))
         return true
       }
