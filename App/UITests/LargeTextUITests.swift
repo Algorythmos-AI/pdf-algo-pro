@@ -115,10 +115,8 @@ final class LargeTextUITests: UITestCase {
   func testTheAssistantAtALargeTextSize() throws {
     let app = launchLarge(["-skip-onboarding", "-seed-library", "sample"])
     XCTAssertTrue(app.staticTexts[ID.Reader.pageIndicator].waitForExistence(timeout: 15))
-    app.buttons[ID.Reader.ask].tap()
-    app.buttons[ID.Reader.Ask.question].tap()
     let question = app.descendants(matching: .any)[ID.Assistant.question].firstMatch
-    XCTAssertTrue(question.waitForExistence(timeout: Self.settleTimeout))
+    tapMenuItem(app.buttons[ID.Reader.Ask.question], in: app.buttons[ID.Reader.ask], until: question)
     question.tap()
     question.typeText("What is the total due?\n")
     XCTAssertTrue(app.staticTexts[ID.Assistant.answer].waitForExistence(timeout: Self.answerTimeout))

@@ -338,16 +338,10 @@ final class ReaderUITests: UITestCase {
     try audit(app)
 
     // A tap on a small page shows that page, and again, back to the first.
-    app.buttons[ID.Reader.pageStrip(3)].tap()
-    expectation(for: NSPredicate(format: "label CONTAINS %@", "3 of 3"), evaluatedWith: indicator)
-    waitForExpectations(timeout: Self.settleTimeout)
+    showFromTheStrip(page: 3, in: app)
     XCTAssertTrue(app.buttons[ID.Reader.pageStrip(3)].isSelected, "The strip marks the page in view")
-    app.buttons[ID.Reader.pageStrip(1)].tap()
-    expectation(for: NSPredicate(format: "label CONTAINS %@", "1 of 3"), evaluatedWith: indicator)
-    waitForExpectations(timeout: Self.settleTimeout)
-    app.buttons[ID.Reader.pageStrip(2)].tap()
-    expectation(for: NSPredicate(format: "label CONTAINS %@", "2 of 3"), evaluatedWith: indicator)
-    waitForExpectations(timeout: Self.settleTimeout)
+    showFromTheStrip(page: 1, in: app)
+    showFromTheStrip(page: 2, in: app)
 
     // The strip steps aside while text is edited, and comes back after.
     let done = app.buttons[ID.Reader.doneEditingText]
@@ -361,15 +355,35 @@ final class ReaderUITests: UITestCase {
     done.tap()
     XCTAssertTrue(strip.waitForExistence(timeout: Self.settleTimeout), "The strip is back")
 
-    // The strip can be put away.
-    app.buttons[ID.Reader.more].tap()
-    let layout = app.buttons["Layout"]
-    XCTAssertTrue(layout.waitForExistence(timeout: 5))
-    layout.tap()
+    // The strip can be put away. More is a menu, opened again if a tap on it is lost (#324).
     let stripSwitch = app.buttons["Page strip"]
-    XCTAssertTrue(stripSwitch.waitForExistence(timeout: 5))
+    tapMenuItem(app.buttons["Layout"], in: app.buttons[ID.Reader.more], until: stripSwitch)
     stripSwitch.tap()
     XCTAssertFalse(strip.waitForExistence(timeout: 2), "Switched off, the strip is gone")
+  }
+
+  /// Taps a page in the page strip and waits for the reader to show it.
+  ///
+  /// Showing a page twice shows the same page, so a tap that did nothing is made once more: on nightly
+  /// 40122866508 the tap on page 3 went in the second the audit ended and the reader stayed on page 1
+  /// for 30 seconds (issue #286). Where the page still doesn't show, the screen is kept.
+  private func showFromTheStrip(page: Int, in app: XCUIApplication, line: UInt = #line) {
+    let indicator = app.staticTexts[ID.Reader.pageIndicator]
+    let button = app.buttons[ID.Reader.pageStrip(page)]
+    let shown = NSPredicate(format: "label CONTAINS %@", "\(page) of 3")
+    func showing(within timeout: TimeInterval) -> Bool {
+      XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: shown, object: indicator)], timeout: timeout)
+        == .completed
+    }
+    button.tap()
+    if showing(within: 10) { return }
+    if button.exists, button.isHittable { button.tap() }
+    if showing(within: Self.settleTimeout) { return }
+    let state =
+      "The indicator reads '\(indicator.exists ? indicator.label : "nothing")'; page \(page) in the strip "
+      + "exists: \(button.exists), hittable: \(button.exists && button.isHittable)."
+    keepEvidence(app, named: "strip \(page)", notes: state)
+    XCTFail("A tap on page \(page) in the strip shows it. \(state)", line: line)
   }
 
   func testWithoutTheReadingControlsTheReaderIsAsItWas() throws {

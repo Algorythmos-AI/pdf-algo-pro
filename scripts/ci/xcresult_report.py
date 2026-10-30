@@ -35,7 +35,7 @@ MESSAGE = "Failure Message"
 REPETITION = re.compile(r"(\d+)")
 # The reasons UITestCase.recordQuarantined gives an expected failure (XCTExpectFailure). Inside a test
 # that failed for another reason they are not why it failed: on run 37930118069 each paywall failure was
-# annotated a second time as "Quarantined flaky audit finding, issue #76".
+# annotated a second time as "Quarantined flaky audit finding, issue #294".
 QUARANTINE = re.compile(r"^(Quarantined |Measured while the screen was moving)")
 
 
