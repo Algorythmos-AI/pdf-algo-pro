@@ -124,9 +124,14 @@ final class PaywallUITests: UITestCase {
     tap(app.buttons[ID.Library.Sidebar.settings], until: element("settings.subscription.plans", in: app))
     tap(element("settings.subscription.plans", in: app), until: element("paywall.alreadyPro", in: app))
     XCTAssertFalse(app.buttons[ID.Paywall.purchase].exists, "Nothing is sold to someone who has Pro")
+    XCTAssertFalse(app.buttons[ID.Paywall.Plan.yearly].exists, "No plan is shown, so none looks chosen")
+    XCTAssertFalse(app.buttons[ID.Paywall.Plan.weekly].exists)
+    XCTAssertFalse(app.buttons[ID.Paywall.continue].exists, "No primary button that looks like a purchase")
     XCTAssertTrue(app.buttons[ID.Paywall.manage].exists)
+    XCTAssertTrue(app.buttons[ID.Paywall.restore].exists)
+    XCTAssertTrue(app.buttons[ID.Paywall.privacy].exists || app.links[ID.Paywall.privacy].exists)
     try audit(app, onSheet: true)
-    leave(by: app.buttons[ID.Paywall.continue], for: app.buttons[ID.Library.Home.sample])
+    leave(by: app.buttons[ID.Paywall.close], for: app.buttons[ID.Library.Home.sample])
   }
 
   func testInBillingRetryTheOfferSendsToManageSubscriptionAndSellsNothing() throws {
