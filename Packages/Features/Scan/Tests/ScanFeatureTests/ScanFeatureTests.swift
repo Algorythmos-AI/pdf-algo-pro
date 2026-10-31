@@ -172,6 +172,73 @@ struct ScanModelTests {
     #expect(try await library.documents(in: .all, sortedBy: .title).isEmpty)
   }
 
+  @Test("A save that fails keeps the scan, and Try again goes back to it (#371)")
+  func failedSaveKeepsTheScan() async throws {
+    let (model, library, _, opened) = makeModel(inspector: FakeInspector(fails: true))
+    let image = try #require(SyntheticPDF.makeTextImage("Receipt"))
+    await model.review([image, image])
+    model.title = "My receipt"
+    await model.save()
+    #expect(model.phase == .failed)
+    #expect(model.pages.count == 2, "The screen offers Try again, so the pages must still be there")
+    #expect(opened.document == nil)
+    #expect(try await library.documents(in: .all, sortedBy: .title).isEmpty)
+    model.reset()
+    #expect(model.phase == .reviewing, "Try again goes back to the pages, not to an empty scanner")
+    #expect(model.title == "My receipt")
+  }
+
+  @Test("A save that is stopped keeps the scan (#371)")
+  func stoppedSaveKeepsTheScan() async throws {
+    let recognizer = GatedRecognizer()
+    let (model, library, _, opened) = makeModel(recognizer: recognizer)
+    let image = try #require(SyntheticPDF.makeTextImage("Receipt"))
+    await model.review([image, image])
+    let work = Task { await model.save() }
+    for _ in 0..<200 where await !recognizer.isWaiting { try await Task.sleep(for: .milliseconds(10)) }
+    model.cancel()
+    await recognizer.open()
+    await work.value
+    #expect(model.phase == .reviewing, "Stop goes back to the pages")
+    #expect(model.pages.count == 2)
+    #expect(opened.document == nil)
+    #expect(try await library.documents(in: .all, sortedBy: .title).isEmpty)
+    // And the scan can still be saved.
+    await model.save()
+    guard case .finished = model.phase else { throw Failure.unexpected }
+    #expect(try await library.documents(in: .all, sortedBy: .title).count == 1)
+  }
+
+  @Test("The pages stay until the save has worked, and then they go (#371)")
+  func pagesStayUntilTheSaveHasWorked() async throws {
+    let recognizer = GatedRecognizer()
+    let (model, _, _, opened) = makeModel(recognizer: recognizer)
+    await model.review([try #require(SyntheticPDF.makeTextImage("Receipt"))])
+    let work = Task { await model.save() }
+    for _ in 0..<200 where await !recognizer.isWaiting { try await Task.sleep(for: .milliseconds(10)) }
+    #expect(model.pages.count == 1, "Still needed if the save doesn't work")
+    await recognizer.open()
+    await work.value
+    #expect(model.pages.isEmpty)
+    #expect(opened.document != nil)
+  }
+
+  @Test("Tapping Save twice saves once (#371)")
+  func savingTwiceSavesOnce() async throws {
+    let recognizer = GatedRecognizer()
+    let (model, library, _, _) = makeModel(recognizer: recognizer)
+    await model.review([try #require(SyntheticPDF.makeTextImage("Receipt"))])
+    let first = Task { await model.save() }
+    for _ in 0..<200 where await !recognizer.isWaiting { try await Task.sleep(for: .milliseconds(10)) }
+    // The second tap, before the screen has changed. The pages are kept now, so it must not save them.
+    let second = Task { await model.save() }
+    for _ in 0..<5 { await Task.yield() }
+    await recognizer.open()
+    await first.value
+    await second.value
+    #expect(try await library.documents(in: .all, sortedBy: .title).count == 1)
+  }
+
   @Test("Every phase draws at a large text size")
   func everyPhaseDraws() async throws {
     func draws(_ model: ScanModel) -> Bool {
