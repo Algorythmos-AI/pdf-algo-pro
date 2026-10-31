@@ -61,12 +61,17 @@ Store notes (see the changelog strategy).
   steps to save memory, the pages those steps changed stay whole. Before, such a page, or one Undo
   brought back, still showed its text, but the text could no longer be picked to edit, and
   extracting the page or saving the document without its password left the page empty.
+- Editing text (internal builds): after many large text edits, earlier changes to annotations,
+  pages and bookmarks can still be undone. Before, to save memory, the undo history let go of them
+  together with the oldest text edits; now it lets go of only those text edits.
 - When a document is saved but the library can't note the change, the app no longer says the save
   failed, and Share and Print work.
 - Share and Print say so when the document's file can't be found, for example after it was moved in
   the Files app, instead of doing nothing.
 - "Reduce size" no longer makes a "(smaller)" copy, with a nonsense size, when the document's size
   can't be read.
+- A document you just saved no longer reloads saying it was changed in another app, or asks which
+  version to keep, when its file's details couldn't be read straight after the save.
 - Text recognition replaces the file in a way other apps can see safely, as a save does, and never
   writes over a version another app saved meanwhile.
 - After a password, a text edit or a restore, search and Spotlight catch up even when the first
@@ -229,6 +234,10 @@ Store notes (see the changelog strategy).
   that zoom. Before, on iOS 27, the first did nothing and the second opened at the default zoom.
 
 ### Known issues
+- In a document, a drag that starts right after a tap may not move the page. Wait a moment after
+  the tap, then drag.
+- On iPhone, right after you resize a shape with two fingers, the page may follow your next slow
+  drag only part of the way. Lift your finger and drag again.
 - A different PDF put in Files under a document's name, with exactly the same number of pages, opens
   where the old one was being read (#242).
 
