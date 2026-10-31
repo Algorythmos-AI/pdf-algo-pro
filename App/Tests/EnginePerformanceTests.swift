@@ -159,7 +159,8 @@ nonisolated final class EnginePerformanceTests: XCTestCase {
     XCTAssertEqual(images.count, 2)
     let folder = FileManager.default.temporaryDirectory.appendingPathComponent("perf-scan-\(UUID())")
     let library = FileDocumentLibrary(
-      documentsFolder: folder.appendingPathComponent("Documents"), deletedFolder: folder.appendingPathComponent("Deleted"),
+      documentsFolder: folder.appendingPathComponent("Documents"),
+      deletedFolder: folder.appendingPathComponent("Deleted"),
       index: OpeningLibraryIndex(storeURL: folder.appendingPathComponent("Library.store")))
     let index = LocalSearchIndex(folder: folder.appendingPathComponent("Search"))
     let intake = DocumentIntake(library: library, inspector: PDFKitInspector(), index: index)

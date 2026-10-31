@@ -147,8 +147,10 @@ struct OCRAccuracyTests {
   }
 }
 
-/// The same gates for pages the size of a camera's, brought down as `SearchablePDFBuilder` brings
-/// them down before recognition (#371). Only the recognisers the app can use are gated here.
+/// The same gates for pages the size of a camera's, brought down as scanning brings them down.
+///
+/// `SearchablePDFBuilder` does this before recognition (#371). Only the recognisers the app can use
+/// are gated here.
 @Suite("OCR accuracy after bringing a camera's pages down", .tags(.ocr))
 struct OCRCameraSizeTests {
   /// The longer side of what the document camera gives on a 12-megapixel iPhone camera, in pixels.
@@ -159,9 +161,12 @@ struct OCRCameraSizeTests {
     let counts: [OCRCorpus.Condition: Int] =
       OCRAccuracyTests.isFullSuite ? [.clean: 200, .degraded: 100] : [.clean: 3, .degraded: 2]
     let recognizers: [(key: String, recognizer: any TextRecognizing)] = [
-      ("line", VisionTextRecognizer()), ("wider", VisionTextRecognizer.wider), ("document", VisionDocumentRecognizer()),
+      ("line", VisionTextRecognizer()), ("wider", VisionTextRecognizer.wider),
+      ("document", VisionDocumentRecognizer()),
     ]
-    var report = ["# OCR accuracy, brought down from a camera's size", "", "| Case | Pages | CER | WER |", "|---|---|---|---|"]
+    var report = [
+      "# OCR accuracy, brought down from a camera's size", "", "| Case | Pages | CER | WER |", "|---|---|---|---|",
+    ]
     let chosen = OCRAccuracyTests.chosenRecognizers
     for (key, recognizer) in recognizers where chosen?.contains(key) ?? true {
       for language in OCRCorpus.Language.allCases {
