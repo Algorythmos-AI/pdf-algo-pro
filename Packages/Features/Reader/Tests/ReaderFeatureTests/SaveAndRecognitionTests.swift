@@ -77,6 +77,21 @@ struct SaveAndRecognitionTests {
     #expect(presenter.relinquished > 0, "A coordinated write asks the file's presenters first")
   }
 
+  @Test("Opening a document marks each step by name, so a device run can name the slow one (#371)")
+  func openingMarksEachStep() async throws {
+    let harness = SaveHarness()
+    let document = await harness.seed(try SyntheticPDF.makeSample(), title: "Not for a trace")
+    let reader = harness.reader(for: document)
+    let log = SpanLog()
+    await log.watching { await reader.load() }
+    #expect(reader.phase == .ready)
+    #expect(
+      log.names == [
+        "Document.FirstPage", "Reader.Load.PreviousVersion", "Reader.Load.Record", "Reader.Load.FileURL",
+        "Reader.Load.Open", "Reader.Load.Watch", "Reader.Load.Telemetry",
+      ])
+  }
+
   @Test("Between replacing the file and opening it, the reader says what it is doing (#371)")
   func waitAfterRecognitionHasWords() async throws {
     let gate = InspectionGate()

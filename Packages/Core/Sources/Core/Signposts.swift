@@ -9,9 +9,17 @@ public enum Signposts {
   /// The app's signposter, in the Points of Interest category.
   public static let signposter = OSSignposter(subsystem: "com.algorythmos.pdfalgopro", category: .pointsOfInterest)
 
+  /// Hears the name of each interval as it starts, so a test can check what a piece of work marks.
+  ///
+  /// A task local, so tests running side by side don't hear each other. Only tests set it.
+  @TaskLocal public static var onBegin: (@Sendable (String) -> Void)?
+
   /// Starts an interval; end it with `end()`, usually in a `defer`.
+  ///
+  /// The name is a `StaticString`, so nothing from a document can get into a run's trace.
   public static func begin(_ name: StaticString) -> Interval {
-    Interval(name: name, state: signposter.beginInterval(name, id: signposter.makeSignpostID()))
+    onBegin?(name.description)
+    return Interval(name: name, state: signposter.beginInterval(name, id: signposter.makeSignpostID()))
   }
 
   /// An interval that has started.

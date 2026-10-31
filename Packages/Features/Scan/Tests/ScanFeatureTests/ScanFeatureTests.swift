@@ -261,6 +261,15 @@ struct ScanModelTests {
     #expect(words(model.phase, "fr") == "Ouverture…")
   }
 
+  @Test("Adding a scan to the library is marked, so a device run can name it (#371)")
+  func intakeIsMarked() async throws {
+    let (model, _, _, _) = makeModel()
+    await model.review([try #require(SyntheticPDF.makeTextImage("Receipt"))])
+    let log = SpanLog()
+    await log.watching { await model.save() }
+    #expect(log.names.contains("Scan.Intake"), "\(log.names)")
+  }
+
   private func words(_ phase: ScanModel.Phase, _ language: String) -> String? {
     guard var words = phase.waitingWords else { return nil }
     words.locale = Locale(identifier: language)

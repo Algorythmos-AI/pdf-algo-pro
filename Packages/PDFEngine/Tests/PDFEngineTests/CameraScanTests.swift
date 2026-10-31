@@ -51,6 +51,16 @@ struct CameraScanTests {
     #expect(abs(box.height - PDFWriter.letter.width * 4 / 3) < 0.5, "\(box)")
   }
 
+  @Test("Each step of a scan is marked by name, so a device run can name the slow one (#371)")
+  func stepsAreMarked() async throws {
+    let image = try #require(SyntheticPDF.makeTextImage("Page one"))
+    let builder = SearchablePDFBuilder(recognizer: FakeRecognizer())
+    let log = SpanLog()
+    try await log.watching { _ = try await builder.makeSearchablePDF(from: [image, image]) }
+    let page = ["Scan.Downscale", "Scan.Recognize"]
+    #expect(log.names == ["Scan.Searchable"] + page + page + ["Scan.WritePDF"])
+  }
+
   /// The recogniser here finds the block in whatever image it is given, as Vision finds words, so
   /// this checks the whole way round: the text is laid where the page's picture shows the block.
   @Test(
