@@ -321,8 +321,10 @@ public struct ReaderView<Assistant: View>: View {
 
   @ViewBuilder private var content: some View {
     switch model.phase {
-    case .loading:
-      ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+    case .loading, .finishingRecognition:
+      if let words = model.phase.waitingWords {
+        ProgressView { Text(words) }.frame(maxWidth: .infinity, maxHeight: .infinity)
+      }
     case .locked(let wrongPassword):
       locked(wrongPassword: wrongPassword)
     case .failed(let message):
@@ -473,7 +475,7 @@ public struct ReaderView<Assistant: View>: View {
       }
       if let progress = model.recognitionProgress {
         HStack {
-          ProgressView(value: progress) { Text("Recognising text on this device…", bundle: .module) }
+          ProgressView(value: progress) { Text(ReaderModel.recognitionWords(progress: progress)) }
           Button {
             model.cancelRecognition()
           } label: {

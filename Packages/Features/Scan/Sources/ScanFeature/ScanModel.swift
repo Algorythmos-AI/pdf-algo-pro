@@ -17,6 +17,8 @@ public final class ScanModel {
     case reviewing
     /// Recognising text, from 0 to 1.
     case recognizing(Double)
+    /// Every page is read: writing the PDF and adding it to the library.
+    case saving
     /// Saved as a document.
     case finished(Document)
     /// Recognition failed; nothing was saved, and the pages are kept for another try.
@@ -163,11 +165,13 @@ public final class ScanModel {
       do {
         let result = try await builder.makeSearchablePDF(from: images) { progress in
           Task { @MainActor in
-            if case .recognizing = self.phase { self.phase = .recognizing(progress) }
+            guard case .recognizing = self.phase else { return }
+            self.phase = progress < 1 ? .recognizing(progress) : .saving
           }
         }
         // Cancelled during the last page: the builder has finished, but nothing is saved.
         try Task.checkCancellation()
+        phase = .saving
         let document = try await intake.add(data: result.data, title: title)
         pages = []
         phase = .finished(document)
@@ -233,5 +237,11 @@ public final class ScanModel {
 
 extension ScanModel.Phase {
   /// The words for a wait the person can only sit through; `nil` in the phases that show something else.
-  var waitingWords: LocalizedStringResource? { nil }
+  var waitingWords: LocalizedStringResource? {
+    switch self {
+    case .saving: LocalizedStringResource("Saving…", bundle: .atURL(Bundle.module.bundleURL))
+    case .finished: LocalizedStringResource("Opening…", bundle: .atURL(Bundle.module.bundleURL))
+    case .ready, .reviewing, .recognizing, .failed: nil
+    }
+  }
 }

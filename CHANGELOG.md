@@ -229,6 +229,9 @@ Store notes (see the changelog strategy).
   that zoom. Before, on iOS 27, the first did nothing and the second opened at the default zoom.
 - Scanning: a scan whose save fails or is stopped is no longer lost. You go back to your pages, with
   the name you gave them, and can save again.
+- Long waits now say what is happening. Saving a scan says "Saving…", and a document says
+  "Opening…" while it opens. When text recognition has read every page, it says it is saving the
+  searchable version instead of still recognising.
 
 ### Known issues
 - A different PDF put in Files under a document's name, with exactly the same number of pages, opens

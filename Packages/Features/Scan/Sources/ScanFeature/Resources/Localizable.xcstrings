@@ -173,6 +173,16 @@
         }
       }
     },
+    "Opening…" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouverture…"
+          }
+        }
+      }
+    },
     "Page %lld" : {
       "localizations" : {
         "fr" : {
@@ -209,6 +219,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Enregistrer"
+          }
+        }
+      }
+    },
+    "Saving…" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enregistrement…"
           }
         }
       }

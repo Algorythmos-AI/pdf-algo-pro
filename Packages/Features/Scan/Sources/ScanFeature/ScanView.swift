@@ -81,7 +81,7 @@ public struct ScanView: View {
     case .ready: ready
     case .reviewing: reviewing
     case .recognizing(let progress): recognizing(progress)
-    case .finished: ProgressView()
+    case .saving, .finished: waiting
     case .failed:
       EmptyState(Text("The scan wasn't saved", bundle: .module), systemImage: "exclamationmark.triangle") {
         Text("Text recognition didn't finish. Nothing was added to your library.", bundle: .module)
@@ -230,6 +230,15 @@ public struct ScanView: View {
         .accessibilityIdentifier(AccessibilityID.Scan.discard)
       }
       .readableWidth()
+    }
+  }
+
+  /// A wait with nothing to choose, which says what is happening (#371).
+  @ViewBuilder private var waiting: some View {
+    if let words = model.phase.waitingWords {
+      ProgressView { Text(words) }
+        .readableWidth()
+        .centeredScrolling()
     }
   }
 

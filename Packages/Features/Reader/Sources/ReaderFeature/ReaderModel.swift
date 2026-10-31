@@ -33,6 +33,8 @@ public final class ReaderModel {
   public enum Phase: Equatable {
     /// Opening the file.
     case loading
+    /// Recognition has replaced the file, and the library is catching up before it opens.
+    case finishingRecognition
     /// The document needs its password.
     case locked(wrongPassword: Bool)
     /// Pages are shown.
@@ -1754,7 +1756,7 @@ public final class ReaderModel {
     pageBeforeRecognition = controller?.currentPageIndex
     speech.stop()
     controller = nil
-    phase = .loading
+    phase = .finishingRecognition
   }
 
   /// Whether recognition may replace the file: not while there are unsaved changes, counting text
@@ -1775,6 +1777,7 @@ public final class ReaderModel {
       } else {
         await recordPosition()
       }
+      if phase == .finishingRecognition { phase = .loading }
       await load()
       updateUndoState()
     case .fileChanged:
@@ -1896,12 +1899,24 @@ public final class ReaderModel {
 
 extension ReaderModel.Phase {
   /// The words for a wait with no pages to show; `nil` in the phases that show something else.
-  var waitingWords: LocalizedStringResource? { nil }
+  var waitingWords: LocalizedStringResource? {
+    switch self {
+    case .loading: LocalizedStringResource("Opening…", bundle: .atURL(Bundle.module.bundleURL))
+    case .finishingRecognition: ReaderModel.savingSearchableVersion
+    case .locked, .ready, .failed: nil
+    }
+  }
 }
 
 extension ReaderModel {
-  /// What the recognition bar says at a point in its progress.
+  /// What the recognition bar says at a point in its progress: once every page is read, what is left
+  /// is writing the searchable version.
   static func recognitionWords(progress: Double) -> LocalizedStringResource {
-    LocalizedStringResource("Recognising text on this device…", bundle: .atURL(Bundle.module.bundleURL))
+    guard progress < 1 else { return savingSearchableVersion }
+    return LocalizedStringResource("Recognising text on this device…", bundle: .atURL(Bundle.module.bundleURL))
+  }
+
+  fileprivate static var savingSearchableVersion: LocalizedStringResource {
+    LocalizedStringResource("Saving the searchable version…", bundle: .atURL(Bundle.module.bundleURL))
   }
 }
