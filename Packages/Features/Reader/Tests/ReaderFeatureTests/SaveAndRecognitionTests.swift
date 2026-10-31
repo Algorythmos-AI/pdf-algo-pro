@@ -33,45 +33,6 @@ struct SaveAndRecognitionTests {
     #expect(try PDFDocumentController(url: url).annotationCount(onPage: 0) == 1)
   }
 
-  @Test("The reader's own save isn't taken for another app's change when the file's version can't be read (#261)")
-  func ownSaveWithAnUnreadableVersion() async throws {
-    let harness = SaveHarness()
-    let document = await harness.seed(try SyntheticPDF.makeSample())
-    let reader = harness.reader(for: document)
-    await reader.load()
-    defer { reader.stopWatching() }
-    let url = try #require(reader.fileURL)
-    let name = url.lastPathComponent
-    // Reading the file's details fails once, straight after the save replaced the file.
-    let failure = OneFailure()
-    PDFDocumentController.saveFault = { step, target in
-      if step == .keptPrevious, target.lastPathComponent == name { failure.arm() }
-    }
-    FileVersion.unreadable = { $0.lastPathComponent == name && failure.take() }
-    defer {
-      PDFDocumentController.saveFault = nil
-      FileVersion.unreadable = nil
-    }
-    reader.controller?.addNote("Saved here", onPage: 0)
-    #expect(await reader.save())
-    #expect(failure.taken, "The version after the save couldn't be read")
-
-    // The presenter's callback for the reader's own save, heard with nothing unsaved and with a change
-    // not yet saved.
-    await reader.fileChangedOnDisk()
-    #expect(reader.notice == nil && !reader.hasConflictingChange, "\(reader.notice ?? "no notice")")
-    reader.controller?.addNote("Not saved yet", onPage: 0)
-    await reader.fileChangedOnDisk()
-    #expect(!reader.hasConflictingChange, "Its own save is no conflict")
-    #expect(await reader.save())
-    #expect(try PDFDocumentController(url: url).annotationCount(onPage: 0) == 2)
-
-    // Another app's change after that is still heard.
-    try SyntheticPDF.make(pages: ["Theirs", "Two"]).write(to: url)
-    await reader.fileChangedOnDisk()
-    #expect(reader.notice != nil && reader.controller?.pageCount == 2)
-  }
-
   @Test("Share explains a document file that has gone, or that the library can't name (#260)")
   func shareExplainsAMissingFile() async throws {
     let harness = SaveHarness()
@@ -218,7 +179,7 @@ private actor HeldLibrary: DocumentLibrary {
 }
 
 /// A failure that happens once, and only after it is armed.
-nonisolated private final class OneFailure: @unchecked Sendable {
+nonisolated final class OneFailure: @unchecked Sendable {
   private let lock = NSLock()
   private var armed = false
   private var done = false
