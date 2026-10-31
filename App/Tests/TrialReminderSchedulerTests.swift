@@ -29,6 +29,18 @@ private final class RecordingNotifications: NotificationScheduling {
   func cancel(identifier: String) async { state.withLock { $0.cancelled.append(identifier) } }
 }
 
+/// Background checks that record what was asked of them.
+private final class RecordingChecks: BackgroundChecking {
+  struct State {
+    var scheduled: [(identifier: String, date: Date)] = []
+    var cancelled: [String] = []
+  }
+  let state = Mutex(State())
+
+  func schedule(identifier: String, at date: Date) { state.withLock { $0.scheduled.append((identifier, date)) } }
+  func cancel(identifier: String) { state.withLock { $0.cancelled.append(identifier) } }
+}
+
 @MainActor
 @Suite("The trial reminder's scheduling (FR-STORE-006)")
 struct TrialReminderSchedulerTests {
@@ -36,10 +48,17 @@ struct TrialReminderSchedulerTests {
   private let day: TimeInterval = 24 * 60 * 60
 
   private func make() -> (TrialReminderScheduler, RecordingNotifications) {
+    let (scheduler, notifications, _) = makeWithChecks()
+    return (scheduler, notifications)
+  }
+
+  private func makeWithChecks() -> (TrialReminderScheduler, RecordingNotifications, RecordingChecks) {
     let notifications = RecordingNotifications()
+    let checks = RecordingChecks()
     let fixed = now
     let defaults = UserDefaults(suiteName: "reminder-tests-\(UUID().uuidString)") ?? .standard
-    return (TrialReminderScheduler(notifications: notifications, defaults: defaults) { fixed }, notifications)
+    let scheduler = TrialReminderScheduler(notifications: notifications, checks: checks, defaults: defaults) { fixed }
+    return (scheduler, notifications, checks)
   }
 
   @Test("Without a notification, the app says once that the trial ends within a day (FR-STORE-006)")
@@ -155,11 +174,43 @@ struct TrialReminderSchedulerTests {
     #expect(notifications.state.withLock { $0.cancelled.count } == over.count)
   }
 
+  @Test("A scheduled reminder asks for a background check before it is due, and removing it withdraws the check (#336)")
+  func backgroundCheck() async throws {
+    let (scheduler, notifications, checks) = makeWithChecks()
+    let end = now.addingTimeInterval(3 * day)
+    #expect(await scheduler.set(true, trialEndsAt: end) == .scheduled)
+    let check = try #require(checks.state.withLock { $0.scheduled.first })
+    #expect(check.identifier == TrialReminderScheduler.checkIdentifier)
+    #expect(check.identifier.hasSuffix(".trial-reminder-check"), "Info.plist permits this identifier only")
+    #expect(check.date == TrialReminder.checkDate(trialEndsAt: end, now: now))
+    #expect(check.date < end.addingTimeInterval(-day), "The check may come before the reminder")
+
+    await scheduler.entitlementChanged(.subscribed)
+    #expect(notifications.state.withLock { $0.cancelled.last } == TrialReminderScheduler.identifier)
+    #expect(checks.state.withLock { $0.cancelled.last } == TrialReminderScheduler.checkIdentifier)
+  }
+
+  @Test("The background check removes the reminder of a trial paid or refunded meanwhile (#336)")
+  func backgroundCheckRemoves() async {
+    for entitlement: Entitlement in [.subscribed, .revoked] {
+      let (scheduler, notifications, checks) = makeWithChecks()
+      #expect(await scheduler.set(true, trialEndsAt: now.addingTimeInterval(3 * day)) == .scheduled)
+      let store = EntitlementStore(provider: FixedEntitlements(entitlement)) { [now] in now }
+      let outcome = await TrialReminderCheck(entitlements: store, reminder: scheduler) { [now] in now }.run()
+      #expect(outcome == .removed)
+      // Once on turning the reminder on, once by the check.
+      #expect(notifications.state.withLock { $0.cancelled.count } == 2, "\(entitlement)")
+      #expect(checks.state.withLock { $0.cancelled.count } == 2, "\(entitlement)")
+    }
+  }
+
   @Test("UI tests schedule nothing and are never asked")
   func silent() async {
     let silent = SilentNotifications()
     #expect(await silent.requestAuthorization())
     #expect(await silent.schedule(identifier: "x", title: "t", body: "b", after: day))
     await silent.cancel(identifier: "x")
+    NoBackgroundChecks().schedule(identifier: "x", at: now)
+    NoBackgroundChecks().cancel(identifier: "x")
   }
 }

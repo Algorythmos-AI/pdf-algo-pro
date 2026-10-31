@@ -111,16 +111,6 @@
         }
       }
     },
-    "Continue" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Continuer"
-          }
-        }
-      }
-    },
     "Do more with Pro" : {
       "localizations" : {
         "fr" : {
@@ -326,7 +316,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Lire, signer, partager et exporter vos documents ne demande jamais Pro. La formule gratuite limite chaque jour les nouvelles numérisations et les réponses."
+            "value" : "Lire, signer, partager et exporter vos documents ne demandent jamais Pro. La formule gratuite limite chaque jour les nouvelles numérisations et les réponses."
           }
         }
       }
@@ -351,12 +341,12 @@
         }
       }
     },
-    "Renews automatically until cancelled. Cancel at any time in Settings, under your Apple Account, at least a day before it renews." : {
+    "Renews automatically until cancelled. Cancel at any time, at least a day before it renews: open the Settings app, tap your name (Apple Account), then Subscriptions." : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Renouvellement automatique jusqu’à résiliation. Résiliez à tout moment dans Réglages, sous votre compte Apple, au moins un jour avant le renouvellement."
+            "value" : "Renouvellement automatique jusqu’à résiliation. Résiliez à tout moment, au moins un jour avant le renouvellement : ouvrez l’app Réglages, touchez votre nom (compte Apple), puis Abonnements."
           }
         }
       }
@@ -466,7 +456,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "L’App Store a indiqué que l’achat a été effectué, mais cet appareil n’a pas pu le vérifier : Pro n’est donc pas encore activé. Avant d’acheter à nouveau, touchez Restaurer les achats ou consultez votre historique d’achats dans l’App Store."
+            "value" : "L’App Store a indiqué que l’achat a été effectué, mais cet appareil n’a pas pu le vérifier : Pro n’est donc pas encore activé. Avant d’acheter à nouveau, touchez Restaurer les achats ou consultez votre historique d’achats dans l’App Store."
           }
         }
       }
@@ -576,7 +566,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Transformez autant de papiers que vous voulez en PDF avec recherche."
+            "value" : "Transformez autant de documents papier que vous le souhaitez en PDF interrogeables."
           }
         }
       }
@@ -621,12 +611,12 @@
         }
       }
     },
-    "You can cancel at any time in Settings, under Subscription." : {
+    "You can cancel at any time: open the Settings app, tap your name (Apple Account), then Subscriptions. Or tap Manage subscription in PDF Algo Pro’s Settings." : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vous pouvez annuler à tout moment dans Réglages, sous Abonnement."
+            "value" : "Vous pouvez résilier à tout moment : ouvrez l’app Réglages, touchez votre nom (compte Apple), puis Abonnements. Ou touchez Gérer l’abonnement dans les Réglages de PDF Algo Pro."
           }
         }
       }
@@ -636,7 +626,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vos documents restent les vôtres : les ouvrir, les lire, les signer, les partager et les exporter ne demande jamais Pro."
+            "value" : "Vos documents restent les vôtres : les ouvrir, les lire, les signer, les partager et les exporter ne demandent jamais Pro."
           }
         }
       }

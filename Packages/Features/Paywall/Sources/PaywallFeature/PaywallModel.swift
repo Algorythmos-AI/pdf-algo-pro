@@ -60,9 +60,11 @@ public final class PaywallModel {
   public private(set) var plansWaitingForApproval: Set<String> = []
   /// What to tell the person about the last purchase, if anything.
   public var notice: Notice?
-  /// Whether the person already had Pro when the offer appeared: the offer then says so, and its
-  /// button closes it and sells nothing.
+  /// Whether the person already had Pro when the offer appeared: the offer then says so and sells
+  /// nothing.
   public private(set) var alreadyHasPro = false
+  /// Whether the plans are shown: someone with Pro is sold nothing, so no plan is shown or looks chosen.
+  public var offersPlans: Bool { !alreadyHasPro }
   /// Whether the trial reminder is asked for on the confirmation.
   public var wantsReminder = false
   /// Why the reminder is off although it was asked for: notifications declined, too little of the trial

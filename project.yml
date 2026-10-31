@@ -148,8 +148,12 @@ targets:
           - com.apple.corespotlightitem
         # Text recognition a person starts continues with its progress in a Live Activity (P8b); each run
         # gets its own identifier in this family.
+        # A trial reminder is checked in the background shortly before it is due, so it can be removed
+        # for someone who paid or was refunded without opening the app (#336); app refresh needs `fetch`.
         BGTaskSchedulerPermittedIdentifiers:
           - $(PRODUCT_BUNDLE_IDENTIFIER).recognition.*
+          - $(PRODUCT_BUNDLE_IDENTIFIER).trial-reminder-check
+        UIBackgroundModes: [fetch]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.algorythmos.pdfalgopro

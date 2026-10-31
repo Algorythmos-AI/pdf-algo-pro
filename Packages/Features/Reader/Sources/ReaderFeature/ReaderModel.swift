@@ -71,7 +71,8 @@ public final class ReaderModel {
   public var hasConflictingChange = false
   /// Hears when another app changes the file.
   @ObservationIgnored private var watcher: FileWatcher?
-  /// The file as this reader last read or wrote it, to tell another app's changes from its own.
+  /// The file as this reader last read or wrote it, to tell another app's changes from its own; `nil`
+  /// when its details couldn't be read then, and the next version read is taken as its own (#261).
   @ObservationIgnored private var knownVersion: FileVersion?
   /// The assistant sheet, when open.
   public var assistantTask: AssistantTask?
@@ -1332,7 +1333,11 @@ public final class ReaderModel {
     guard phase == .ready, let fileURL, let current = FileVersion.current(at: fileURL), current != knownVersion else {
       return
     }
+    let wasKnown = knownVersion != nil
     knownVersion = current
+    // With no known version, the reader couldn't read the file's details after its own load or save,
+    // so the first version read is taken as the one it read or wrote, not another app's (#261).
+    guard wasKnown else { return }
     if controller?.needsSaving == true {
       raiseConflict()
     } else {

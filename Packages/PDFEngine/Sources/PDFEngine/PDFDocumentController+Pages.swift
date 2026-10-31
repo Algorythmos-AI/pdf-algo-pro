@@ -130,6 +130,7 @@ extension PDFDocumentController {
   }
 
   func rotate(_ pages: [PDFPage], by degrees: Int) {
+    let pages = pages.map(live)
     for page in pages { page.rotation = ((page.rotation + degrees) % 360 + 360) % 360 }
     pagesChanged()
     undoManager.registerUndo(withTarget: self) { controller in
@@ -138,6 +139,8 @@ extension PDFDocumentController {
   }
 
   func remove(pages: [(Int, PDFPage)]) {
+    // The pages at those places now, so undo puts back what was taken out (#339).
+    let pages = pages.map { ($0.0, live($0.1)) }
     for (index, _) in pages.sorted(by: { $0.0 > $1.0 }) { document.removePage(at: index) }
     pagesChanged()
     undoManager.registerUndo(withTarget: self) { controller in

@@ -426,7 +426,8 @@ struct PaywallModelTests {
   func alreadyProBuysNothing() async {
     let (model, _, _, telemetry, flags) = makeModel(.subscribed, trigger: .settings)
     await model.appeared()
-    #expect(model.alreadyHasPro && model.plans == .loaded(FixedStoreOffering.fixturePlans()))
+    #expect(model.alreadyHasPro)
+    #expect(!model.offersPlans, "Nothing is on offer, so no plan is shown or looks chosen")
     await model.purchase()
     #expect(model.phase == .offer)
     #expect(await telemetry.events == ["commerce.paywall.viewed"], "No purchase was started")
