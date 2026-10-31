@@ -19,7 +19,7 @@ public final class ScanModel {
     case recognizing(Double)
     /// Saved as a document.
     case finished(Document)
-    /// Recognition failed; nothing was saved.
+    /// Recognition failed; nothing was saved, and the pages are kept for another try.
     case failed
   }
 
@@ -28,7 +28,7 @@ public final class ScanModel {
 
   /// A note about chosen files that could not be used, shown until the next choice.
   public private(set) var notice: String?
-  /// The captured pages, in order, while reviewing (FR-SCAN-006).
+  /// The captured pages, in order, from the review until the save has worked (FR-SCAN-006).
   public private(set) var pages: [CGImage] = []
   /// The name the scan will be saved under; suggested from the first page until the person types one.
   public var title = "" {
@@ -107,11 +107,13 @@ public final class ScanModel {
   }
 
   /// Saves the reviewed pages as a searchable PDF under the chosen name.
+  ///
+  /// The pages stay until the save has worked, so a save that fails or is stopped loses nothing
+  /// (#371). A second tap on Save finds the save under way and does nothing.
   public func save() async {
+    guard phase == .reviewing else { return }
     let name = title.trimmingCharacters(in: .whitespacesAndNewlines)
-    let reviewed = pages
-    pages = []
-    await process(reviewed, title: name.isEmpty ? defaultTitle : name)
+    await process(pages, title: name.isEmpty ? defaultTitle : name)
   }
 
   /// Leaves the review without saving anything.
@@ -167,11 +169,12 @@ public final class ScanModel {
         // Cancelled during the last page: the builder has finished, but nothing is saved.
         try Task.checkCancellation()
         let document = try await intake.add(data: result.data, title: title)
+        pages = []
         phase = .finished(document)
         await telemetry.record("task.core.completed")
         onFinish(document)
       } catch is CancellationError {
-        phase = .ready
+        phase = phaseBeforeSaving
       } catch {
         phase = .failed
         await telemetry.record("quality.operation.failed")
@@ -212,13 +215,18 @@ public final class ScanModel {
     await review(images)
   }
 
-  /// Cancels recognition; nothing is saved.
+  /// Cancels recognition; nothing is saved, and pages being reviewed stay.
   public func cancel() {
     work?.cancel()
   }
 
-  /// Returns to the ready state after a failure.
+  /// Returns after a failure to the pages, if there are any, or to the start.
   public func reset() {
-    phase = .ready
+    phase = phaseBeforeSaving
+  }
+
+  /// Where a save that didn't happen comes back to.
+  private var phaseBeforeSaving: Phase {
+    pages.isEmpty ? .ready : .reviewing
   }
 }

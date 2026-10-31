@@ -227,6 +227,8 @@ Store notes (see the changelog strategy).
 - On iOS 27, a document's contents entries keep what they do when it is saved, with or without a
   password: one that opens a web page still opens it, and one that opens a page at a zoom still uses
   that zoom. Before, on iOS 27, the first did nothing and the second opened at the default zoom.
+- Scanning: a scan whose save fails or is stopped is no longer lost. You go back to your pages, with
+  the name you gave them, and can save again.
 
 ### Known issues
 - A different PDF put in Files under a document's name, with exactly the same number of pages, opens
