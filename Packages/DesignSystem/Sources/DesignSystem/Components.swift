@@ -197,6 +197,11 @@ public struct ContractDisclosure: View {
   /// Creates the disclosure.
   public init() {}
 
+  /// The disclosure's words, for text that leaves the app: a copied or shared contract explanation.
+  public static var notice: String {
+    String(localized: "Explains the document. Not legal advice.", bundle: .module)
+  }
+
   /// The disclosure.
   public var body: some View {
     Label {

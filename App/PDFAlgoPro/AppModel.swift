@@ -317,6 +317,13 @@ final class AppModel {
     trialNotice = container.reminders.noticeDue(for: entitlement)
   }
 
+  /// Looks, in a background refresh shortly before a trial reminder is due, whether the trial still
+  /// runs, and removes the reminder when it doesn't: paid, refunded or lapsed without the app being
+  /// opened (#336).
+  func checkTrialReminder() async {
+    _ = await TrialReminderCheck(entitlements: container.entitlements, reminder: container.reminders).run()
+  }
+
   /// Shows the subscription offer; it replaces a sheet that is up, such as Settings.
   func presentPaywall(_ trigger: PaywallTrigger) {
     paywallTrigger = trigger

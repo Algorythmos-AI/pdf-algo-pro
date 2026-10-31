@@ -30,6 +30,10 @@ Store notes (see the changelog strategy).
   only ever means a red annotation or Delete.
 
 ### Fixed
+- A trial reminder is less likely to arrive after you have paid, been refunded or let the
+  subscription lapse without opening the app: shortly before it is due, iOS may let the app check
+  your subscription in the background and remove it. iOS doesn't promise to run that check, so the
+  reminder still only says your trial ends within a day if it is still running.
 - When another app changes a document just as PDF Algo Pro saves it, the app no longer saves over the
   other app's version. It asks which version to keep. A change to a document's text that is still
   being made when another app changes the file is kept too, so you can keep it as a copy. If you
@@ -162,6 +166,14 @@ Store notes (see the changelog strategy).
   the approver a second request.
 - Assistant: closing it straight after opening it no longer leaves a summary, extraction or
   explanation running unseen.
+- Pro: the plans screen, Welcome to Pro, the trial reminder and the trial notice now all give the
+  same way to cancel: open the Settings app, tap your name (Apple Account), then Subscriptions. Two
+  of them used to say "Settings, under Subscription". In French they all say "résilier".
+- Explain contract: a copied or shared explanation now starts with "Explains the document. Not
+  legal advice.", as the screen does. Before, only the screen said so.
+- Explain contract: Home, its assistant tiles and Settings › What you do most now call it "Explain
+  contract", as the reader menu does. Before, they said "Understand a contract", "Explain a
+  contract" or "Analyse contract".
 - Editing text (internal builds): a name pasted from a web page with a hidden soft hyphen or
   zero-width space is now changed in the page. Before, the hidden character made the change fail,
   the line was covered instead, and every other line on that page could then only be covered.
@@ -232,6 +244,8 @@ Store notes (see the changelog strategy).
 - On iOS 27, a document's contents entries keep what they do when it is saved, with or without a
   password: one that opens a web page still opens it, and one that opens a page at a zoom still uses
   that zoom. Before, on iOS 27, the first did nothing and the second opened at the default zoom.
+- Someone who already has Pro no longer sees the plans and a Continue button that looked like a
+  purchase: the offer says they have Pro, with Manage subscription, Restore, Terms and Privacy.
 
 ### Known issues
 - In a document, a drag that starts right after a tap may not move the page. Wait a moment after

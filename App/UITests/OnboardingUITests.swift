@@ -58,7 +58,7 @@ final class OnboardingUITests: UITestCase {
     leave(by: app.buttons[ID.Onboarding.skip], for: note)
     XCTAssertFalse(app.buttons[ID.Paywall.purchase].exists, "Nothing is sold to an account that has Pro")
     XCTAssertTrue(app.buttons[ID.Paywall.manage].exists)
-    leave(by: app.buttons[ID.Paywall.continue], for: app.buttons[ID.Library.Home.sample])
+    leave(by: app.buttons[ID.Paywall.close], for: app.buttons[ID.Library.Home.sample])
   }
 
   func testSkipLeadsToHomeFromTheFirstPage() throws {
