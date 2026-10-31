@@ -366,7 +366,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "PDF Algo Pro est publié par Algorythmos Pty Ltd."
+            "value" : "PDF Algo Pro est édité par Algorythmos Pty Ltd."
           }
         }
       }
@@ -586,7 +586,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Les résumés, réponses et extractions sont faits sur cet iPhone. Une option dans le cloud ne s’exécute qu’après que vous l’avez activée."
+            "value" : "Les résumés, réponses et extractions s’exécutent sur cet iPhone. Une option cloud ne s’exécute que si vous l’activez."
           }
         }
       }
@@ -656,7 +656,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Les titres et les tags sont toujours consultables dans Spotlight. Désactivez cette option pour exclure le contenu des documents de la recherche du système. Le verrouillage de l’app masque son écran dans le sélecteur d’apps et exclut le texte des documents de Spotlight."
+            "value" : "Les titres et les tags peuvent toujours être trouvés dans Spotlight. Désactivez cette option pour exclure le contenu des documents de la recherche du système. Le verrouillage de l’app masque son écran dans le sélecteur d’apps et exclut le texte des documents de Spotlight."
           }
         }
       }

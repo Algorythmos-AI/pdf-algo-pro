@@ -276,7 +276,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Votre essai de PDF Algo Pro se termine le %@. Vous pouvez le gérer ou l’annuler dans Réglages, sous Abonnement."
+            "value" : "Votre essai de PDF Algo Pro se termine le %@. Vous pouvez le gérer ou le résilier dans Réglages, sous Abonnement."
           }
         }
       }
