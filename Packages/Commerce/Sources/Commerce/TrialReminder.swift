@@ -47,6 +47,36 @@ public enum TrialReminder {
     notificationDate(for: .trial(endsAt: trialEndsAt), now: now) != nil
   }
 
+  /// Whether a pending reminder still has something to say: the trial is running, or the entitlement
+  /// is not known yet.
+  ///
+  /// A paid period, a grace period or a billing retry, an expiry, a refund, no purchase at all, or a
+  /// trial whose end has passed leave it nothing (#264, #336).
+  public static func keepsReminder(for entitlement: Entitlement?, now: Date) -> Bool {
+    guard let entitlement else { return true }
+    guard case .trial(let endsAt) = entitlement else { return false }
+    return endsAt > now
+  }
+
+  /// How long before the reminder is due the background check may first run (#336).
+  ///
+  /// The system runs it when it sees fit after that, often hours later, so it starts early enough to
+  /// have a chance of coming before the reminder.
+  public static let checkLead: TimeInterval = 12 * 60 * 60
+
+  /// How long after one background check the next may run, while the trial still runs (#336).
+  public static let checkInterval: TimeInterval = 3 * 60 * 60
+
+  /// The earliest moment for the next background check of a trial's reminder.
+  ///
+  /// It is `checkLead` before the reminder is due, or `checkInterval` from now when that has passed;
+  /// `nil` when that would not come before the reminder, which then fires as it is.
+  public static func checkDate(trialEndsAt: Date, now: Date) -> Date? {
+    let due = reminderDate(trialEndsAt: trialEndsAt)
+    let date = max(due.addingTimeInterval(-checkLead), now.addingTimeInterval(checkInterval))
+    return date < due ? date : nil
+  }
+
   /// Whether a reminder should be shown at launch.
   ///
   /// It is due when the entitlement is a trial, the reminder date has come, the trial has not ended,

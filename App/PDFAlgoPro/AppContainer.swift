@@ -385,10 +385,10 @@ final class AppContainer {
     store = environment.isUITesting ? FixedStoreAccess(isAvailable: !environment.storeUnavailable) : StoreKitAccess()
     if environment.isUITesting {
       reminders = TrialReminderScheduler(
-        notifications: SilentNotifications(),
+        notifications: SilentNotifications(), checks: NoBackgroundChecks(),
         defaults: UserDefaults(suiteName: "ui-testing-reminder-\(UUID().uuidString)") ?? .standard)
     } else {
-      reminders = TrialReminderScheduler(notifications: SystemNotifications())
+      reminders = TrialReminderScheduler(notifications: SystemNotifications(), checks: SystemBackgroundChecks())
     }
     if environment.isUITesting {
       let counts = UserDefaults(suiteName: "ui-testing-allowance-\(UUID().uuidString)") ?? .standard
