@@ -190,9 +190,8 @@ public final class ReaderModel {
       await library.hasPreviousVersion(of: documentID)
     }
     do {
-      guard
-        let document = try await Signposts.measure("Reader.Load.Record", { try await library.document(withID: documentID) })
-      else {
+      let record = try await Signposts.measure("Reader.Load.Record") { try await library.document(withID: documentID) }
+      guard let document = record else {
         phase = .failed(String(localized: "This document is no longer in the library.", bundle: .module))
         return
       }
