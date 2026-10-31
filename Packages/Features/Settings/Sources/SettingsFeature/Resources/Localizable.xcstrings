@@ -31,16 +31,6 @@
         }
       }
     },
-    "Analyse contract" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Analyser un contrat"
-          }
-        }
-      }
-    },
     "Annotate or highlight" : {
       "localizations" : {
         "fr" : {
@@ -247,6 +237,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Modifier le texte d’un PDF"
+          }
+        }
+      }
+    },
+    "Explain contract" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Expliquer le contrat"
           }
         }
       }

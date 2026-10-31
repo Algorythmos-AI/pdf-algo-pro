@@ -324,8 +324,6 @@ public enum AccessibilityID {
     }
     /// The identifier `paywall.close`.
     public static let close = "paywall.close"
-    /// The identifier `paywall.continue`.
-    public static let `continue` = "paywall.continue"
     /// The identifier `paywall.headline.{trigger}`, for the `trigger` given.
     public static func headline(_ trigger: String) -> String {
       "paywall.headline.\(trigger)"

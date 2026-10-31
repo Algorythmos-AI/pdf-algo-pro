@@ -1000,7 +1000,7 @@ public struct LibraryView<Detail: View>: View {
     case .openAssistant(.ask): Text("Chat with a PDF", bundle: .module)
     case .openAssistant(.summarize): Text("Summarise a document", bundle: .module)
     case .openAssistant(.extract): Text("Extract data from a PDF", bundle: .module)
-    case .openAssistant(.explainContract): Text("Understand a contract", bundle: .module)
+    case .openAssistant(.explainContract): Text("Explain contract", bundle: .module)
     }
   }
 
@@ -1010,7 +1010,7 @@ public struct LibraryView<Detail: View>: View {
     case .ask: Text("Ask a PDF", bundle: .module)
     case .summarize: Text("Summarise", bundle: .module)
     case .extract: Text("Extract data", bundle: .module)
-    case .explainContract: Text("Explain a contract", bundle: .module)
+    case .explainContract: Text("Explain contract", bundle: .module)
     }
   }
 

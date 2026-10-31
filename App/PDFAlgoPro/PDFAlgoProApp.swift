@@ -48,6 +48,11 @@ struct PDFAlgoProApp: App {
     WindowGroup {
       RootView(app: app)
     }
+    // Shortly before a trial reminder is due, the system may wake the app to look whether the trial
+    // still runs; a reminder for one paid or refunded meanwhile is then removed (#336).
+    .backgroundTask(.appRefresh(TrialReminderScheduler.checkIdentifier)) { [app] in
+      await app.checkTrialReminder()
+    }
   }
 }
 
@@ -109,8 +114,9 @@ struct RootView: View {
       if sheet == nil { app.sheetClosed(closed) }
       if sheet == nil, closed != .paywall { askForReviewIfDue() }
     }
-    // A trial that has ended, been refunded or become paid has nothing left to remind of.
-    .onChange(of: app.container.entitlements.entitlement) { _, entitlement in
+    // A trial that has ended, been refunded or become paid has nothing left to remind of. Also the
+    // first answer, which can arrive before this view does (#336).
+    .onChange(of: app.container.entitlements.entitlement, initial: true) { _, entitlement in
       Task { await app.container.reminders.entitlementChanged(entitlement) }
     }
     .alert(
@@ -130,7 +136,7 @@ struct RootView: View {
       }
     } message: { endsAt in
       Text(
-        "Your PDF Algo Pro trial ends on \(endsAt, format: .dateTime.day().month(.wide)). You can manage or cancel it in Settings, under Subscription."
+        "Your PDF Algo Pro trial ends on \(endsAt, format: .dateTime.day().month(.wide)). To manage or cancel it, open the Settings app, tap your name (Apple Account), then Subscriptions. Or tap Manage subscription in PDF Algo Pro’s Settings."
       )
     }
     // App Lock turned itself off: the device has no passcode, so nothing could confirm its owner (#221).
