@@ -182,11 +182,11 @@ French:
 La première version de PDF Algo Pro.
 
 - Posez une question à un PDF et obtenez une réponse qui montre la page d’où elle vient. Résumés, réponses, extraction de données et explication de contrats fonctionnent sur votre iPhone avec Apple Intelligence, sur les appareils compatibles.
-- Numérisez le papier en PDF consultables, puis faites pivoter, réordonnez et nommez les pages avant d’enregistrer.
+- Numérisez vos papiers en PDF interrogeables, puis faites pivoter, réorganisez et nommez les pages avant d’enregistrer.
 - Surlignez, dessinez, ajoutez des notes, des tampons et des formes, remplissez des formulaires et signez.
 - Fusionnez des documents, réorganisez les pages, réduisez la taille et ajoutez ou retirez un mot de passe.
-- Trouvez n’importe quel mot dans votre bibliothèque, et rangez-la avec des étiquettes et des signets.
-- L’historique des versions rétablit une version antérieure d’un document.
+- Retrouvez n’importe quel mot dans votre bibliothèque, et organisez-la avec des tags et des signets.
+- L’historique des versions restaure une version antérieure d’un document.
 - Sans compte. Vos documents restent sur cet iPhone.
 [- Modifiez le texte déjà présent dans un PDF, avec Pro.]
 ```
@@ -236,8 +236,8 @@ results).
 | Frame | Shows | Caption (English) | Caption (French) | Claim checked against |
 |---|---|---|---|---|
 | 1 | A question and an answer with "p. 4" citation chips | Ask a PDF. See the page it came from. | Posez une question. Voyez la page source. | Citation requirement in [AI governance](ai-governance.md) |
-| 2 | Scanning a receipt, then its searchable text | Scan paper to searchable PDF. | Numérisez en PDF consultable. | OCR on device ([ADR-0008](adr/0008-ocr-and-scanning.md)) |
-| 3 | A summary with the "On device" tier badge | On-device summaries on supported iPhones. | Résumés sur l'appareil, iPhone compatibles. | Tiered AI and consent ([ADR-0009](adr/0009-tiered-ai-and-consent.md)); shot on a device that supports Apple Intelligence; the description links Apple's device list |
+| 2 | Scanning a receipt, then its searchable text | Scan paper to searchable PDF. | Numérisez en PDF interrogeable. | OCR on device ([ADR-0008](adr/0008-ocr-and-scanning.md)) |
+| 3 | A summary with the "On device" tier badge | On-device summaries on supported iPhones. | Résumés sur l’appareil, sur iPhone compatible. | Tiered AI and consent ([ADR-0009](adr/0009-tiered-ai-and-consent.md)); shot on a device that supports Apple Intelligence; the description links Apple's device list |
 | 4 | Editing a typo in existing PDF text | Fix text in the PDF itself. | Corrigez le texte du PDF. | Native text editing ([ADR-0025](adr/0025-native-text-editing-for-the-safe-subset.md)); in 1.0 only if text editing ships (PAP-066), otherwise the frame is left out and the set has nine |
 | 5 | Filling a form and placing a signature | Fill in forms and sign. | Remplissez et signez. | Signing and forms in the [PRD](prd.md) |
 | 6 | Invoice totals extracted into a table | Pull totals and dates into a table. | Extrayez montants et dates. | Structured extraction |
@@ -482,9 +482,9 @@ the text below is 3,837 characters, or 3,934 with the text-editing sentence.
 
 The background sentence in French:
 
-> L’app déclare le mode de récupération en arrière-plan pour une seule raison : peu avant l’échéance
+> L’app déclare le mode de récupération en arrière-plan pour une seule raison : peu avant l’échéance
 > du rappel d’un essai gratuit, elle vérifie l’abonnement sur l’appareil et retire le rappel si la
-> personne s’est déjà abonnée ou a été remboursée ; elle ne fait aucune requête réseau de son côté.
+> personne s’est déjà abonnée ou a été remboursée ; elle ne fait aucune requête réseau de son côté.
 
 If #336 does not ship in 1.0, the Background paragraph keeps only its last sentence, on text
 recognition.

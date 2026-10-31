@@ -326,7 +326,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Lire, signer, partager et exporter vos documents ne demande jamais Pro. La formule gratuite limite chaque jour les nouvelles numérisations et les réponses."
+            "value" : "Lire, signer, partager et exporter vos documents ne demandent jamais Pro. La formule gratuite limite chaque jour les nouvelles numérisations et les réponses."
           }
         }
       }
@@ -466,7 +466,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "L’App Store a indiqué que l’achat a été effectué, mais cet appareil n’a pas pu le vérifier : Pro n’est donc pas encore activé. Avant d’acheter à nouveau, touchez Restaurer les achats ou consultez votre historique d’achats dans l’App Store."
+            "value" : "L’App Store a indiqué que l’achat a été effectué, mais cet appareil n’a pas pu le vérifier : Pro n’est donc pas encore activé. Avant d’acheter à nouveau, touchez Restaurer les achats ou consultez votre historique d’achats dans l’App Store."
           }
         }
       }
@@ -576,7 +576,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Transformez autant de papiers que vous voulez en PDF avec recherche."
+            "value" : "Transformez autant de documents papier que vous le souhaitez en PDF interrogeables."
           }
         }
       }
@@ -636,7 +636,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vos documents restent les vôtres : les ouvrir, les lire, les signer, les partager et les exporter ne demande jamais Pro."
+            "value" : "Vos documents restent les vôtres : les ouvrir, les lire, les signer, les partager et les exporter ne demandent jamais Pro."
           }
         }
       }
