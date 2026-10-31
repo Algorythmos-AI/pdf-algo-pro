@@ -176,6 +176,8 @@ public final class ReaderModel {
   // MARK: - Opening
 
   /// Opens the file at the page asked for, or where the user left off (FR-READ-006).
+  ///
+  /// Each step has an interval of its own, so a run on a device can name a slow one (#371).
   public func load() async {
     // To the reader being ready on its first page; drawing it is PDFKit's work after this.
     let interval = Signposts.begin("Document.FirstPage")
@@ -184,16 +186,22 @@ public final class ReaderModel {
     controller?.setMarkupTool(nil)
     controller?.isPastingAnnotations = false
     watchRecognition()
-    canRestorePreviousVersion = await library.hasPreviousVersion(of: documentID)
+    canRestorePreviousVersion = await Signposts.measure("Reader.Load.PreviousVersion") {
+      await library.hasPreviousVersion(of: documentID)
+    }
     do {
-      guard let document = try await library.document(withID: documentID) else {
+      guard
+        let document = try await Signposts.measure("Reader.Load.Record", { try await library.document(withID: documentID) })
+      else {
         phase = .failed(String(localized: "This document is no longer in the library.", bundle: .module))
         return
       }
       self.document = document
-      let url = try await library.fileURL(for: documentID)
+      let url = try await Signposts.measure("Reader.Load.FileURL") { try await library.fileURL(for: documentID) }
       fileURL = url
-      let controller = try PDFDocumentController(url: url, textEditor: textEditor)
+      let controller = try Signposts.measure("Reader.Load.Open") {
+        try PDFDocumentController(url: url, textEditor: textEditor)
+      }
       knownVersion = FileVersion.current(at: url)
       // The reader shows the file as it is on disk, so no other version waits to be chosen, and the
       // next conflict gets a copy of its own (#257). The question is cleared too: hearing of the other
@@ -202,7 +210,7 @@ public final class ReaderModel {
       hasConflictingChange = false
       conflictCopy = nil
       changesKeptIn = nil
-      watch(url)
+      Signposts.measure("Reader.Load.Watch") { watch(url) }
       let stored = settings.load()
       controller.displayMode = stored.readerDisplayMode
       if offersReadingControls {
@@ -224,7 +232,9 @@ public final class ReaderModel {
       } else {
         show(controller)
       }
-      if document.lastOpenedAt == nil { await telemetry.record("activation.first_document.opened") }
+      if document.lastOpenedAt == nil {
+        await Signposts.measure("Reader.Load.Telemetry") { await telemetry.record("activation.first_document.opened") }
+      }
     } catch {
       phase = .failed(
         String(

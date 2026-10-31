@@ -22,6 +22,20 @@ public enum Signposts {
     return Interval(name: name, state: signposter.beginInterval(name, id: signposter.makeSignpostID()))
   }
 
+  /// Runs work inside an interval.
+  public static func measure<T>(_ name: StaticString, _ work: () throws -> T) rethrows -> T {
+    let interval = begin(name)
+    defer { interval.end() }
+    return try work()
+  }
+
+  /// Runs asynchronous work inside an interval.
+  public static func measure<T>(_ name: StaticString, _ work: () async throws -> T) async rethrows -> T {
+    let interval = begin(name)
+    defer { interval.end() }
+    return try await work()
+  }
+
   /// An interval that has started.
   public struct Interval: Sendable {
     let name: StaticString

@@ -172,7 +172,9 @@ public final class ScanModel {
         // Cancelled during the last page: the builder has finished, but nothing is saved.
         try Task.checkCancellation()
         phase = .saving
-        let document = try await intake.add(data: result.data, title: title)
+        let document = try await Signposts.measure("Scan.Intake") {
+          try await intake.add(data: result.data, title: title)
+        }
         pages = []
         phase = .finished(document)
         await telemetry.record("task.core.completed")

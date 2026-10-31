@@ -48,15 +48,20 @@ public actor SearchablePDFBuilder {
     var recognized: [[RecognizedLine]] = []
     for (index, image) in images.enumerated() {
       try Task.checkCancellation()
-      let page = PageImage.scaledDown(image, toLongestSide: renderPixelSize) ?? image
+      let page = Signposts.measure("Scan.Downscale") {
+        PageImage.scaledDown(image, toLongestSide: renderPixelSize) ?? image
+      }
       pages.append(page)
-      recognized.append(try await recognizer.recognizeText(in: page))
+      recognized.append(
+        try await Signposts.measure("Scan.Recognize") { try await recognizer.recognizeText(in: page) })
       progress(Double(index + 1) / Double(images.count))
     }
     let boxes = images.map { Self.pageBox(for: $0) }
-    let data = try PDFWriter.makePDF(mediaBoxes: boxes) { context, index, box in
-      context.draw(pages[index], in: box)
-      PDFWriter.drawInvisibleText(recognized[index], in: box, context: context)
+    let data = try Signposts.measure("Scan.WritePDF") {
+      try PDFWriter.makePDF(mediaBoxes: boxes) { context, index, box in
+        context.draw(pages[index], in: box)
+        PDFWriter.drawInvisibleText(recognized[index], in: box, context: context)
+      }
     }
     return RecognizedDocument(data: data, pages: Self.pageTexts(recognized))
   }
