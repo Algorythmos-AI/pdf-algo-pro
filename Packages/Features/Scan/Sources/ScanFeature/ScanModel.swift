@@ -230,3 +230,8 @@ public final class ScanModel {
     pages.isEmpty ? .ready : .reviewing
   }
 }
+
+extension ScanModel.Phase {
+  /// The words for a wait the person can only sit through; `nil` in the phases that show something else.
+  var waitingWords: LocalizedStringResource? { nil }
+}

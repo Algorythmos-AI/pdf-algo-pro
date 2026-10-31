@@ -77,6 +77,50 @@ struct SaveAndRecognitionTests {
     #expect(presenter.relinquished > 0, "A coordinated write asks the file's presenters first")
   }
 
+  @Test("Between replacing the file and opening it, the reader says what it is doing (#371)")
+  func waitAfterRecognitionHasWords() async throws {
+    let gate = InspectionGate()
+    let harness = SaveHarness(inspector: GatedInspector(gate: gate))
+    let document = await harness.seed(try SyntheticPDF.makeImageOnly(pages: ["One"]), textLayer: false)
+    let reader = harness.reader(for: document)
+    await reader.load()
+    reader.recognizeText()
+    // Held while search catches up with the new file, after the reader has let go of the old one.
+    await gate.waitForArrival()
+    #expect(reader.controller == nil)
+    #expect(words(reader.phase, "en") == "Saving the searchable version…", "It said \(reader.phase)")
+    #expect(words(reader.phase, "fr") == "Enregistrement de la version interrogeable…")
+    await gate.open()
+    await harness.coordinator.finished(document.id)
+    #expect(reader.phase == .ready && reader.controller != nil)
+  }
+
+  @Test("Opening a document says so, in English and French (#371)")
+  func openingHasWords() {
+    #expect(words(.loading, "en") == "Opening…")
+    #expect(words(.loading, "fr") == "Ouverture…")
+    #expect(words(.ready, "en") == nil)
+  }
+
+  @Test("The recognition bar stops saying it is recognising once every page is read (#371)")
+  func recognitionBarSaysWhatIsHappening() {
+    func bar(_ progress: Double, _ language: String) -> String {
+      var words = ReaderModel.recognitionWords(progress: progress)
+      words.locale = Locale(identifier: language)
+      return String(localized: words)
+    }
+    #expect(bar(0.5, "en") == "Recognising text on this device…")
+    #expect(bar(0.5, "fr") == "Reconnaissance du texte sur cet appareil…")
+    #expect(bar(1, "en") == "Saving the searchable version…")
+    #expect(bar(1, "fr") == "Enregistrement de la version interrogeable…")
+  }
+
+  private func words(_ phase: ReaderModel.Phase, _ language: String) -> String? {
+    guard var words = phase.waitingWords else { return nil }
+    words.locale = Locale(identifier: language)
+    return String(localized: words)
+  }
+
   @Test("Recognition doesn't write over a version another app finishes while recognition waits to write (#270)")
   func recognitionDoesNotOverwriteAWriteItWaitedFor() async throws {
     let harness = SaveHarness()
@@ -103,9 +147,9 @@ private struct SaveHarness {
   let checkpoints = FileManager.default.temporaryDirectory.appendingPathComponent("w1-save-checkpoints-\(UUID())")
   let coordinator: RecognitionCoordinator
 
-  init(recognizer: any TextRecognizing = FakeRecognizer()) {
+  init(recognizer: any TextRecognizing = FakeRecognizer(), inspector: any PDFInspecting = PDFKitInspector()) {
     library = HeldLibrary(base)
-    let intake = DocumentIntake(library: library, inspector: PDFKitInspector(), index: index)
+    let intake = DocumentIntake(library: library, inspector: inspector, index: index)
     coordinator = RecognitionCoordinator(
       library: library, intake: intake, builder: SearchablePDFBuilder(recognizer: recognizer, renderPixelSize: 400),
       telemetry: telemetry, folder: checkpoints, keepAlive: BackgroundLog().begin)

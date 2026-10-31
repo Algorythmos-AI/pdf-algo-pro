@@ -1893,3 +1893,15 @@ public final class ReaderModel {
     controller?.reveal(citation)
   }
 }
+
+extension ReaderModel.Phase {
+  /// The words for a wait with no pages to show; `nil` in the phases that show something else.
+  var waitingWords: LocalizedStringResource? { nil }
+}
+
+extension ReaderModel {
+  /// What the recognition bar says at a point in its progress.
+  static func recognitionWords(progress: Double) -> LocalizedStringResource {
+    LocalizedStringResource("Recognising text on this device…", bundle: .atURL(Bundle.module.bundleURL))
+  }
+}

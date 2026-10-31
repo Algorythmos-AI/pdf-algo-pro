@@ -239,6 +239,34 @@ struct ScanModelTests {
     #expect(try await library.documents(in: .all, sortedBy: .title).count == 1)
   }
 
+  @Test("Once the pages are read, the scan says it is saving, in English and French (#371)")
+  func saysItIsSaving() async throws {
+    let gate = InspectionGate()
+    let model = ScanModel(
+      intake: DocumentIntake(library: FakeDocumentLibrary(), inspector: GatedInspector(gate: gate), index: FakeIndex()),
+      builder: SearchablePDFBuilder(recognizer: FakeRecognizer()), telemetry: RecordingTelemetry(), onFinish: { _ in })
+    await model.review([try #require(SyntheticPDF.makeTextImage("Receipt"))])
+    let work = Task { await model.save() }
+    // Held while the document is added to the library, the last step of the save.
+    await gate.waitForArrival()
+    #expect(words(model.phase, "en") == "Saving…", "It said \(model.phase)")
+    #expect(words(model.phase, "fr") == "Enregistrement…")
+    let view = ScanView(model: model).content.frame(width: 390, height: 700)
+      .environment(\.dynamicTypeSize, .accessibility3)
+    #expect(ViewRendering.draws(view))
+    await gate.open()
+    await work.value
+    guard case .finished = model.phase else { throw Failure.unexpected }
+    #expect(words(model.phase, "en") == "Opening…", "Saved, and on its way to the reader")
+    #expect(words(model.phase, "fr") == "Ouverture…")
+  }
+
+  private func words(_ phase: ScanModel.Phase, _ language: String) -> String? {
+    guard var words = phase.waitingWords else { return nil }
+    words.locale = Locale(identifier: language)
+    return String(localized: words)
+  }
+
   @Test("Every phase draws at a large text size")
   func everyPhaseDraws() async throws {
     func draws(_ model: ScanModel) -> Bool {
