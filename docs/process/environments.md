@@ -86,8 +86,10 @@ The Staging workflow builds the Staging app for TestFlight (readiness M5, PAP-03
 
 ## Production (`main`)
 
-- The release pull request (merge commit) or a hotfix (squash) lands on `main` and starts the Xcode
-  Cloud Release workflow, which archives with the Release configuration.
+- The release pull request (merge commit) or a hotfix (squash) lands on `main`. For 1.0 the build is
+  then archived on the maintainer's Mac with the Release configuration, using
+  [`scripts/dev/release_archive.sh`](../../scripts/dev/release_archive.sh), and uploaded from Xcode's
+  Organizer (PAP-072): the production app has no Xcode Cloud product yet.
 - The build goes to TestFlight external testing first. Apple requires a clean build for external
   distribution from Xcode Cloud, and the first build added to an external group goes through App Review
   ([Xcode Cloud workflow reference](https://developer.apple.com/documentation/xcode/xcode-cloud-workflow-reference),
@@ -113,8 +115,8 @@ The Staging workflow builds the Staging app for TestFlight (readiness M5, PAP-03
 | `DEBUG` condition | Yes | No | No |
 | Bundle identifier suffix | See open questions | `.staging` | None |
 | Swift language mode | Swift 6, strict concurrency `complete` (ADR-0001) | Same | Same |
-| Signing | Automatic, maintainer's local identity | Xcode Cloud managed | Xcode Cloud managed |
-| Build number | Local placeholder | `CI_BUILD_NUMBER` | `CI_BUILD_NUMBER` |
+| Signing | Automatic, maintainer's local identity | Xcode Cloud managed | Automatic, maintainer's local identity, for 1.0 (PAP-072) |
+| Build number | Local placeholder | `CI_BUILD_NUMBER` | Passed to `scripts/dev/release_archive.sh`, for 1.0 (PAP-072) |
 | Logging | `OSLog`, verbose categories allowed | `OSLog` with privacy redaction | `OSLog` with privacy redaction |
 | Claude tier | When opted in | When opted in (internal TestFlight) | Off in App Store builds until V2 general availability; before then only in the external TestFlight beta, when opted in |
 

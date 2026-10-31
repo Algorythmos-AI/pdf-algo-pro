@@ -178,6 +178,28 @@ private actor HeldLibrary: DocumentLibrary {
   }
 }
 
+/// A failure that happens once, and only after it is armed.
+nonisolated final class OneFailure: @unchecked Sendable {
+  private let lock = NSLock()
+  private var armed = false
+  private var done = false
+
+  /// Whether the failure has happened.
+  var taken: Bool { lock.withLock { done } }
+
+  func arm() { lock.withLock { armed = !done } }
+
+  /// Whether to fail now: true once, after `arm()`.
+  func take() -> Bool {
+    lock.withLock {
+      guard armed else { return false }
+      armed = false
+      done = true
+      return true
+    }
+  }
+}
+
 /// A speech engine that says nothing.
 @MainActor
 private final class QuietSpeech: SpeechEngine {

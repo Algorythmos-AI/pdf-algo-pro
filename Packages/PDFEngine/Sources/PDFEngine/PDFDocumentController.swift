@@ -152,6 +152,14 @@ public final class PDFDocumentController {
   @ObservationIgnored var textUndoSteps: [WeakTextUndoStep] = []
   /// The most bytes of replaced pages the undo history may hold; see `undoMemoryLimit`.
   @ObservationIgnored var textUndoMemoryLimit = PDFDocumentController.undoMemoryLimit
+  /// Each page a text edit took out, and the page it put in, so an undo step that keeps a page acts
+  /// on the page now in the document; see `live(_:)` (#339).
+  @ObservationIgnored var pageReplacements: [PageReplacement] = []
+  /// Hears the undo manager close a group while text edits wait to leave the history.
+  @ObservationIgnored var undoGroupObserver: (any NSObjectProtocol)?
+  /// Lets text edits go from the history once the undo group open when they passed the limit has
+  /// closed; tests wait for it.
+  @ObservationIgnored var undoMemoryRelease: Task<Void, Never>?
   /// Rehearsals of an edit, one per page whose text was found, while they run and after.
   @ObservationIgnored var textRehearsals: [ObjectIdentifier: Task<Void, Never>] = [:]
   /// Searches for pages' text that are running now, so that a second ask joins the first.

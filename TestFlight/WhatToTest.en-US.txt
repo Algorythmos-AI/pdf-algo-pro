@@ -1,47 +1,37 @@
-Internal build of PDF Algo Pro (Staging). Use test documents, not real ones. Please try:
+PDF Algo Pro 1.0 release candidate. This is the build we plan to send to the App Store. Use test documents, not real ones. Please try:
 
-New in this build
-- New now: select a shape, stamp, signature or text box and drag it to the top or bottom of the screen, then hold. The page scrolls with it, faster nearer the edge.
-- Copy, Cut or Duplicate a stamp, shape or drawing from its bar, then tap where each copy goes; Done ends it. A stamp chosen from Markup > Stamp goes where you tap.
-- Edit: paste a name copied from a web page into a line. It changes. If a change can't be saved safely, the app puts that line back, saves the rest and says so.
-- Recognise text while filling in a form: what you typed is kept.
-- Settings > Require Face ID on a phone with no passcode: the app turns it off and says why, instead of locking you out.
-- Plans: when the trial turns into a subscription, Pro stays on.
+Start as a new customer
+- Install fresh. Go through the three introduction pages, then the plans. Tap Close: nothing is sold to you and the app opens.
+- On Home, tap Try a sample. Everything below works on that document.
+- Settings > Subscription > See plans: tap Weekly then Yearly. The price line and the button follow.
+- Start the yearly trial (TestFlight charges nothing): Apple's sheet, then Welcome to Pro. Turn on the reminder if you like.
+- Delete the app, install it again, then Settings > Subscription > Restore purchases: Pro comes back.
 
-First run and plans
-- Every new build opens on the introduction by itself, then the plans. Nothing to reinstall.
-- On the plans, tap Weekly then Yearly: the price line and the button follow.
-- Start the yearly trial (nothing is charged in TestFlight): Apple's sheet, then "Welcome to Pro". Also try closing Apple's sheet, and Restore purchases.
-- If the plans say this Apple Account already has Pro, that is correct: tap Continue.
-
-Edit text
-- Change a line, tap Done, close and reopen: it is still changed. Share it to another PDF app: the new words are there.
-- Undo and Redo while editing. Try a much longer replacement: it fits, or the app says why not and changes nothing.
-- Open a scan and tap Edit: the app says the page is images and offers Recognise text.
-
-Your file is safe
-- Edit a document, save twice, then More > Version history: restore the first version.
-- Make an edit and swipe the app away at once. Reopen: the document opens, old or new, never damaged.
-
-Everyday tools
-- More: organise pages, reduce size, set or remove a password, flatten, save pages as images.
-- Markup: stamp a page, drag a shape to move it, pinch a signature to resize it. Each is one Undo.
+Read, mark up and sign
+- Find a word, highlight a sentence, draw, add a note, a stamp and a shape. Each is one Undo.
+- Markup > Signature: sign, then pinch to resize and drag to move.
 - Tap a web link in a PDF: the full address shows before anything opens.
 
-Library and scanning
-- Select several documents, then merge, share or delete them. Drag one into Mail or Files.
-- Scan two pages: rotate, reorder and name them before saving.
+Pages and files
+- More > Pages: rotate, reorder and delete pages.
+- More > Export and protect: reduce the size, add then remove a password, share a flattened copy.
+- Edit a document, save twice, then More > Version history: restore the first version.
+- In All documents, tap Select, choose two documents and merge them. Drag one into Mail or Files.
+
+Scan
+- Scan two pages: rotate, reorder and name them before saving. Then search for a word from the scan.
 
 Assistant and privacy
-- Ask a question, then a follow-up such as "When is it due?". Both answers cite pages.
+- Ask > Summarise, then Ask a question and a follow-up such as "When is it due?". The answers cite pages.
+- Ask > Explain contract: the result says it is not legal advice.
+- On a phone without Apple Intelligence, Ask says why and the rest still works.
 - Settings > Require Face ID: the app switcher shows no document.
-- Airplane mode: everything above still works.
+- Airplane mode: everything above still works, except buying and restoring.
 
 Known issues
 - A drag begun straight after a tap may not move the page. Lift your finger, wait a moment and drag again.
-- A PDF renamed in the Files app comes back without its tags, favourite and reading position.
 
 Send feedback
 - Take a screenshot in the app, open it, tap the X or Done at the top, then Share Beta Feedback, and say what happened.
-- Or open the TestFlight app, tap PDF Algo β, then Send Beta Feedback.
+- Or open the TestFlight app, tap PDF Algo Pro, then Send Beta Feedback.
 - Or in the app: Settings > Report a problem.
