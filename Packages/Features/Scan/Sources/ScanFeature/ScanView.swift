@@ -84,7 +84,7 @@ public struct ScanView: View {
     case .saving, .finished: waiting
     case .failed:
       EmptyState(Text("The scan wasn't saved", bundle: .module), systemImage: "exclamationmark.triangle") {
-        Text("Text recognition didn't finish. Nothing was added to your library.", bundle: .module)
+        Text("Text recognition didn't finish. Your pages are kept, so you can try again.", bundle: .module)
       } actions: {
         Button {
           model.reset()

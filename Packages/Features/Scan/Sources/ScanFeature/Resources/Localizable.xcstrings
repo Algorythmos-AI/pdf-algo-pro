@@ -293,12 +293,12 @@
         }
       }
     },
-    "Text recognition didn't finish. Nothing was added to your library." : {
+    "Text recognition didn't finish. Your pages are kept, so you can try again." : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "La reconnaissance du texte n’a pas abouti. Rien n’a été ajouté à votre bibliothèque."
+            "value" : "La reconnaissance du texte n’a pas abouti. Vos pages sont conservées : vous pouvez réessayer."
           }
         }
       }
