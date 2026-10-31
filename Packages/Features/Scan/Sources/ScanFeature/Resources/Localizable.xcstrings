@@ -248,7 +248,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Les pages numérisées deviennent un PDF avec recherche. Le texte est reconnu sur cet appareil, en anglais et en français."
+            "value" : "Les pages numérisées deviennent un PDF interrogeable. Le texte est reconnu sur cet appareil, en anglais et en français."
           }
         }
       }

@@ -36,7 +36,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tirez plus de chaque fichier"
+            "value" : "Tirez le meilleur de chaque fichier"
           }
         }
       }
@@ -76,7 +76,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Visez un papier avec l’appareil photo et obtenez en quelques secondes un PDF net, avec recherche."
+            "value" : "Visez un document papier avec l’appareil photo et obtenez en quelques secondes un PDF net et interrogeable."
           }
         }
       }

@@ -1,32 +1,32 @@
-Version candidate de PDF Algo Pro 1.0. C’est la version que nous prévoyons d’envoyer sur l’App Store. Utilisez des documents de test, pas des vrais. À essayer :
+Version candidate de PDF Algo Pro 1.0. C’est la version que nous prévoyons d’envoyer sur l’App Store. Utilisez des documents de test, pas de vrais documents. À essayer :
 
 Commencer comme un nouveau client
-- Installez l’app à neuf. Parcourez les trois pages d’introduction, puis les formules. Touchez Fermer : rien ne vous est vendu et l’app s’ouvre.
+- Faites une nouvelle installation de l’app. Parcourez les trois pages d’introduction, puis les formules. Touchez Fermer : rien ne vous est vendu et l’app s’ouvre.
 - Sur l’accueil, touchez Essayer un exemple. Tout ce qui suit fonctionne sur ce document.
-- Réglages > Abonnement > Voir les formules : touchez l’hebdomadaire puis l’annuelle. Le prix et le bouton suivent.
-- Démarrez l’essai annuel (rien n’est facturé dans TestFlight) : la feuille d’Apple, puis « Bienvenue dans Pro ». Activez le rappel si vous le souhaitez.
-- Supprimez l’app, réinstallez-la, puis Réglages > Abonnement > Restaurer les achats : Pro revient.
+- Réglages > Abonnement > Voir les formules : touchez l’hebdomadaire puis l’annuelle. Le prix et le bouton suivent.
+- Démarrez l’essai annuel (rien n’est facturé dans TestFlight) : la feuille d’Apple, puis « Bienvenue dans Pro ». Activez le rappel si vous le souhaitez.
+- Supprimez l’app, réinstallez-la, puis Réglages > Abonnement > Restaurer les achats : Pro revient.
 
 Lire, annoter et signer
-- Rechercher : trouvez un mot, surlignez une phrase, dessinez, ajoutez une note, un tampon et une forme. Chaque action s’annule en une fois.
-- Annotation > Signature : signez, puis pincez pour redimensionner et faites glisser pour déplacer.
-- Touchez un lien web dans un PDF : l’adresse complète s’affiche avant toute ouverture.
+- Rechercher : trouvez un mot, surlignez une phrase, dessinez, ajoutez une note, un tampon et une forme. Chaque action s’annule en une fois.
+- Annotation > Signature : signez, puis pincez pour redimensionner et faites glisser pour déplacer.
+- Touchez un lien web dans un PDF : l’adresse complète s’affiche avant toute ouverture.
 
 Pages et fichiers
-- Plus > Pages : faites pivoter, réordonnez et supprimez des pages.
-- Plus > Exporter et protéger : réduisez la taille, ajoutez puis retirez un mot de passe, partagez une copie aplatie.
-- Modifiez un document, enregistrez deux fois, puis Plus > Historique des versions : rétablissez la première.
+- Plus > Pages : faites pivoter, réorganisez et supprimez des pages.
+- Plus > Exporter et protéger : réduisez la taille, ajoutez puis retirez un mot de passe, partagez une copie aplatie.
+- Modifiez un document, enregistrez deux fois, puis Plus > Historique des versions : restaurez la première.
 - Dans Tous les documents, touchez Sélectionner, choisissez deux documents et fusionnez-les. Faites-en glisser un vers Mail ou Fichiers.
 
 Numériser
-- Numérisez deux pages : faites-les pivoter, réordonnez-les et nommez-les avant d’enregistrer. Puis cherchez un mot de la numérisation.
+- Numérisez deux pages : faites-les pivoter, réorganisez-les et nommez-les avant d’enregistrer. Puis cherchez un mot de la numérisation.
 
 Assistant et confidentialité
-- Demander > Résumer, puis Poser une question et une question de suivi comme « Quelle est l’échéance ? ». Les réponses citent des pages.
-- Demander > Expliquer le contrat : le résultat précise que ce n’est pas un conseil juridique.
+- Demander > Résumer, puis Poser une question et une autre question comme « Quelle est l’échéance ? ». Les réponses citent des pages.
+- Demander > Expliquer le contrat : le résultat précise que ce n’est pas un conseil juridique.
 - Sur un téléphone sans Apple Intelligence, Demander explique pourquoi et le reste fonctionne.
-- Réglages > Exiger Face ID : le sélecteur d’apps ne montre aucun document.
-- Mode Avion : tout ce qui précède fonctionne encore, sauf l’achat et la restauration.
+- Réglages > Exiger Face ID : le sélecteur d’apps ne montre aucun document.
+- Mode Avion : tout ce qui précède fonctionne encore, sauf l’achat et la restauration.
 
 Problèmes connus
 - Un glissement commencé juste après un toucher peut ne pas déplacer la page. Levez le doigt, attendez un instant et recommencez.
@@ -34,4 +34,4 @@ Problèmes connus
 Envoyer un retour
 - Faites une capture d’écran dans l’app, ouvrez-la, touchez X ou OK en haut, puis Partager un avis bêta, et décrivez le problème.
 - Ou ouvrez l’app TestFlight, touchez PDF Algo Pro, puis Envoyer un avis bêta.
-- Ou dans l’app : Réglages > Signaler un problème.
+- Ou dans l’app : Réglages > Signaler un problème.
