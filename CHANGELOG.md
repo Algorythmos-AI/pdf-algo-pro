@@ -239,6 +239,8 @@ Store notes (see the changelog strategy).
 - On iOS 27, a document's contents entries keep what they do when it is saved, with or without a
   password: one that opens a web page still opens it, and one that opens a page at a zoom still uses
   that zoom. Before, on iOS 27, the first did nothing and the second opened at the default zoom.
+- Someone who already has Pro no longer sees the plans and a Continue button that looked like a
+  purchase: the offer says they have Pro, with Manage subscription, Restore, Terms and Privacy.
 
 ### Known issues
 - A different PDF put in Files under a document's name, with exactly the same number of pages, opens

@@ -111,16 +111,6 @@
         }
       }
     },
-    "Continue" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Continuer"
-          }
-        }
-      }
-    },
     "Do more with Pro" : {
       "localizations" : {
         "fr" : {

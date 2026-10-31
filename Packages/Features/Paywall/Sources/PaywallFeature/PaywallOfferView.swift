@@ -47,22 +47,8 @@ struct PaywallOfferView: View {
       } else if model.paymentPaused {
         PaymentPausedNote()
       }
-      switch model.plans {
-      case .loading:
-        ProgressView {
-          Text("Loading plans", bundle: .module)
-        }
-        .frame(maxWidth: .infinity, minHeight: 96)
-        .accessibilityIdentifier(AccessibilityID.Paywall.loading)
-      case .unavailable:
-        PlansUnavailable { Task { await model.retry() } }
-      case .loaded(let offers):
-        PlanPicker(
-          offers: offers, selectedID: model.selectedPlanID, saving: model.yearlySaving, isPaused: model.paymentPaused,
-          select: { id in Task { await model.select(id) } })
-        if !model.alreadyHasPro, !model.paymentPaused, let plan = model.selectedPlan {
-          PurchaseTerms(plan: plan)
-        }
+      if model.offersPlans {
+        plans
       }
       action
       PaywallLinks(
@@ -75,26 +61,38 @@ struct PaywallOfferView: View {
     .readableWidth()
   }
 
+  /// The plans, and what the selected one costs.
+  @ViewBuilder private var plans: some View {
+    switch model.plans {
+    case .loading:
+      ProgressView {
+        Text("Loading plans", bundle: .module)
+      }
+      .frame(maxWidth: .infinity, minHeight: 96)
+      .accessibilityIdentifier(AccessibilityID.Paywall.loading)
+    case .unavailable:
+      PlansUnavailable { Task { await model.retry() } }
+    case .loaded(let offers):
+      PlanPicker(
+        offers: offers, selectedID: model.selectedPlanID, saving: model.yearlySaving, isPaused: model.paymentPaused,
+        select: { id in Task { await model.select(id) } })
+      if !model.paymentPaused, let plan = model.selectedPlan {
+        PurchaseTerms(plan: plan)
+      }
+    }
+  }
+
   /// The one prominent button.
   ///
-  /// It buys the selected plan; for someone who has Pro it goes on, and for someone whose Pro is paused
-  /// over a payment it manages the subscription.
+  /// It buys the selected plan, and for someone whose Pro is paused over a payment it manages the
+  /// subscription. Someone who has Pro is sold nothing, so they get a plain link to manage it, and Close.
   @ViewBuilder private var action: some View {
     if model.alreadyHasPro {
-      VStack(spacing: Spacing.s050) {
-        Button {
-          model.close()
-        } label: {
-          Text("Continue", bundle: .module)
-        }
-        .buttonStyle(.primary)
-        .accessibilityIdentifier(AccessibilityID.Paywall.continue)
-        Button(action: onManage) {
-          Text("Manage subscription", bundle: .module).font(.subheadline.weight(.semibold)).minimumTarget()
-        }
-        .tint(Color.ds.brandTint)
-        .accessibilityIdentifier(AccessibilityID.Paywall.manage)
+      Button(action: onManage) {
+        Text("Manage subscription", bundle: .module).font(.subheadline.weight(.semibold)).minimumTarget()
       }
+      .tint(Color.ds.brandTint)
+      .accessibilityIdentifier(AccessibilityID.Paywall.manage)
     } else if model.paymentPaused {
       Button(action: onManage) {
         Text("Manage subscription", bundle: .module)
