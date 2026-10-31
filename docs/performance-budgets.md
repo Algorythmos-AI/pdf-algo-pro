@@ -41,6 +41,7 @@ artifact. Pull requests run none of it, and nothing is blocked by it.
 | Edit a line of text (500-page PDF) | `EnginePerformanceTests.testEditALineOfTextIn500Pages` | Finding the page's text, making the edit and proving it, to the new page on screen; not the save |
 | Search across a 1,000-document library | `EnginePerformanceTests.testSearchA1000DocumentLibrary` | One query on a warm index |
 | Scan → searchable PDF, 10 pages | `EnginePerformanceTests.testScanTenPagesToASearchablePDF` | Vision recognition and writing the PDF |
+| Save a 2-page camera scan to first page visible | `EnginePerformanceTests.testSaveATwoPageCameraScanToTheFirstPage` | Two generated 3024 x 4032 pages with a photograph's noise: bringing them down, recognition, writing the PDF, adding it to a library, opening it and rendering page 1 |
 | Retrieval over a 500-page PDF | `RetrievalPerformanceTests.testRetrievalOver500Pages` | Ranking every page for a question |
 | Retrieval over a 500-page PDF, words in their base forms | `RetrievalPerformanceTests.testRetrievalOver500PagesWithBaseForms` | The same, as internal builds match words (PAP-055); held to the same budget |
 
@@ -59,6 +60,18 @@ artifact. Pull requests run none of it, and nothing is blocked by it.
 - **Signposts.** The same operations are marked with `OSSignposter` intervals in the Points of
   Interest category, named as in the tables (`Document.FirstPage`, `Document.Save`, `Search.Query`,
   `Scan.Searchable`, `AI.Retrieve`, `AI.Summary`, `Library.Ready`), for Instruments on a device.
+- **The steps inside them.** So a device run can name what is slow, these are marked too, by name
+  only, with nothing from the document:
+  - in a scan: `Scan.Downscale` and `Scan.Recognize` for each page, then `Scan.WritePDF` and
+    `Scan.Intake`;
+  - in `Document.FirstPage`: `Reader.Load.PreviousVersion`, `Reader.Load.Record`,
+    `Reader.Load.FileURL`, `Reader.Load.Open`, `Reader.Load.Watch` and `Reader.Load.Telemetry`.
+
+  To read them: choose the phone in Xcode, then Product > Profile, which installs a Release build
+  signed for development (a TestFlight build can't be profiled). In Instruments choose the Time
+  Profiler template and record, make the scan, wait for the page, and stop. The intervals are on the
+  Points of Interest track, and their summary table gives each one's duration. A gap with no
+  interval, such as one after `Scan.Intake`, is work nothing marks.
 - **Not yet measured:**
   - warm launch;
   - the 1,000-document library launch;
@@ -129,6 +142,7 @@ All `Assumption:` targets.
 |---|---|---|---|---|
 | Recognition speed, printed text, baseline iPhone | 2 pages per second | 1 page per second | OCR suite timing | Release PR |
 | Scan → searchable PDF, 10 pages | 8 s | 15 s | signpost `Scan.Searchable` | Release PR |
+| Save a 2-page camera scan to first page visible | 2 s | 4 s | signposts `Scan.Searchable`, `Scan.Intake` and `Document.FirstPage` | Release PR |
 
 Accuracy targets (character and word error rates per language) are in the testing strategy
 ([testing strategy](testing-strategy.md)). All `Assumption:` targets.

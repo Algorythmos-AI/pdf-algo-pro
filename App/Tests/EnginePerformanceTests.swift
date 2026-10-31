@@ -1,4 +1,6 @@
 import Core
+import CoreGraphics
+import DocumentStore
 import Foundation
 import OCR
 import PDFEngine
@@ -146,6 +148,64 @@ nonisolated final class EnginePerformanceTests: XCTestCase {
       run { _ = try await builder.makeSearchablePDF(from: images) }
     }
   }
+
+  /// Budget: save a 2-page camera scan to the first page visible.
+  ///
+  /// What happens between tapping Save and the page on screen (#371): bringing the pages down,
+  /// recognising them, writing the PDF, adding it to a library as the app does, opening it and drawing
+  /// page 1. The reader's own steps are marked for a device run (`Reader.Load.*`).
+  @MainActor func testSaveATwoPageCameraScanToTheFirstPage() throws {
+    let images = (1...2).compactMap { Self.cameraPage("Scanned page \($0)\nInvoice total 42.00", seed: UInt64($0)) }
+    XCTAssertEqual(images.count, 2)
+    let folder = FileManager.default.temporaryDirectory.appendingPathComponent("perf-scan-\(UUID())")
+    let library = FileDocumentLibrary(
+      documentsFolder: folder.appendingPathComponent("Documents"), deletedFolder: folder.appendingPathComponent("Deleted"),
+      index: OpeningLibraryIndex(storeURL: folder.appendingPathComponent("Library.store")))
+    let index = LocalSearchIndex(folder: folder.appendingPathComponent("Search"))
+    let intake = DocumentIntake(library: library, inspector: PDFKitInspector(), index: index)
+    let builder = SearchablePDFBuilder(recognizer: VisionDocumentRecognizer())
+    let saved = SavedFile()
+    measure(metrics: [XCTClockMetric()], options: Self.options) {
+      run {
+        let result = try await builder.makeSearchablePDF(from: images)
+        let document = try await intake.add(data: result.data, title: "Scan")
+        saved.url = try await library.fileURL(for: document.id)
+      }
+      guard let url = saved.url else { return XCTFail("nothing was saved") }
+      XCTAssertNotNil(try? PDFDocumentController(url: url))
+      XCTAssertNotNil(try? PageRenderer.render(pageIndex: 0, of: url, maximumPixelSize: 1206))
+    }
+  }
+
+  /// A page the size the document camera gives, generated, with the fine noise of a photograph.
+  ///
+  /// The noise matters: a flat page compresses to almost nothing, so writing its PDF would look far
+  /// cheaper than writing a photograph's.
+  private static func cameraPage(_ text: String, seed: UInt64) -> CGImage? {
+    let (width, height) = (3024, 4032)
+    guard let page = SyntheticPDF.makeTextImage(text, size: CGSize(width: width, height: height)),
+      let context = CGContext(
+        data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
+        space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
+        bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)
+    else { return nil }
+    context.draw(page, in: CGRect(x: 0, y: 0, width: width, height: height))
+    guard let pixels = context.data?.assumingMemoryBound(to: UInt8.self) else { return nil }
+    var state = seed
+    for pixel in 0..<(width * height) {
+      state = state &* 6_364_136_223_846_793_005 &+ 1_442_695_040_888_963_407
+      let noise = Int(state >> 60) - 8
+      for channel in 0..<3 {
+        pixels[pixel * 4 + channel] = UInt8(clamping: Int(pixels[pixel * 4 + channel]) + noise)
+      }
+    }
+    return context.makeImage()
+  }
+}
+
+/// Where the saved scan's file is, handed back from asynchronous work.
+nonisolated private final class SavedFile: @unchecked Sendable {
+  var url: URL?
 }
 
 /// The error from asynchronous work, handed back to the test.

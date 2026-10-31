@@ -35,6 +35,9 @@ TESTS = {
     "EnginePerformanceTests/testEditALineOfTextIn500Pages()": "Edit a line of text (500-page PDF)",
     "EnginePerformanceTests/testSearchA1000DocumentLibrary()": "Search across a 1,000-document library (index warm)",
     "EnginePerformanceTests/testScanTenPagesToASearchablePDF()": "Scan → searchable PDF, 10 pages",
+    "EnginePerformanceTests/testSaveATwoPageCameraScanToTheFirstPage()": (
+        "Save a 2-page camera scan to first page visible"
+    ),
     "RetrievalPerformanceTests/testRetrievalOver500Pages()": "Retrieval over a 500-page PDF (chunks for an answer)",
     "RetrievalPerformanceTests/testRetrievalOver500PagesWithBaseForms()": (
         "Retrieval over a 500-page PDF (chunks for an answer)"
