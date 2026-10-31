@@ -232,6 +232,8 @@ Store notes (see the changelog strategy).
 - Long waits now say what is happening. Saving a scan says "Saving…", and a document says
   "Opening…" while it opens. When text recognition has read every page, it says it is saving the
   searchable version instead of still recognising.
+- Camera scans take up much less space. Their pages are now saved at the size reading and text
+  recognition need, not at the full size of the camera.
 
 ### Known issues
 - A different PDF put in Files under a document's name, with exactly the same number of pages, opens

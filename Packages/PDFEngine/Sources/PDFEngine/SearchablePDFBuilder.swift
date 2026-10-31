@@ -23,13 +23,18 @@ public actor SearchablePDFBuilder {
   ///
   /// - Parameters:
   ///   - recognizer: The on-device text recogniser.
-  ///   - renderPixelSize: The longest side, in pixels, of page images sent to recognition.
+  ///   - renderPixelSize: The longest side, in pixels, of page images sent to recognition, and of
+  ///     scanned images kept in the PDF.
   public init(recognizer: any TextRecognizing, renderPixelSize: Int = 2200) {
     self.recognizer = recognizer
     self.renderPixelSize = renderPixelSize
   }
 
   /// Builds a PDF from scanned page images.
+  ///
+  /// Images larger than `renderPixelSize`, as a camera's are, are brought down first: for recognition
+  /// and in the PDF. Recognition reports where text is in fractions of the image, so the text layer
+  /// lands where it did. Each page stays the size its full image would give.
   ///
   /// - Throws: `CancellationError`, `PDFEngineError.saveFailed`, or the recogniser's error.
   public func makeSearchablePDF(
@@ -39,15 +44,18 @@ public actor SearchablePDFBuilder {
   {
     let interval = Signposts.begin("Scan.Searchable")
     defer { interval.end() }
+    var pages: [CGImage] = []
     var recognized: [[RecognizedLine]] = []
     for (index, image) in images.enumerated() {
       try Task.checkCancellation()
-      recognized.append(try await recognizer.recognizeText(in: image))
+      let page = PageImage.scaledDown(image, toLongestSide: renderPixelSize) ?? image
+      pages.append(page)
+      recognized.append(try await recognizer.recognizeText(in: page))
       progress(Double(index + 1) / Double(images.count))
     }
     let boxes = images.map { Self.pageBox(for: $0) }
     let data = try PDFWriter.makePDF(mediaBoxes: boxes) { context, index, box in
-      context.draw(images[index], in: box)
+      context.draw(pages[index], in: box)
       PDFWriter.drawInvisibleText(recognized[index], in: box, context: context)
     }
     return RecognizedDocument(data: data, pages: Self.pageTexts(recognized))

@@ -1,3 +1,4 @@
+import Core
 import CoreGraphics
 import CoreText
 import Foundation
@@ -26,14 +27,22 @@ enum OCRCorpus {
   }
 
   /// Pages for a language and condition, the same on every run for a given seed.
-  static func pages(_ language: Language, _ condition: Condition, count: Int, seed: UInt64) -> [Page] {
+  ///
+  /// With a `camera`, each page is made that many pixels tall and then brought down to `renderSize`,
+  /// as scanning brings down a camera's pages. They are the same pages, with the same text, and they
+  /// are brought down one by one because hundreds at a camera's size wouldn't fit in memory.
+  static func pages(
+    _ language: Language, _ condition: Condition, count: Int, seed: UInt64, camera: Int? = nil, renderSize: Int = 2_200
+  ) -> [Page] {
+    let scale = camera.map { CGFloat($0) / height } ?? 1
     var generator = SplitMix(seed: seed &+ (language == .english ? 0 : 1_000) &+ (condition == .clean ? 0 : 7))
     return (0..<count).compactMap { index in
       let lines = (0..<8).map { _ in sentence(language, using: &generator) }
       let font = index.isMultiple(of: 2) ? "Helvetica" : "Times New Roman"
-      guard let clean = render(lines, font: font) else { return nil }
-      let image = condition == .clean ? clean : degrade(clean, using: &generator)
-      return image.map { Page(truth: lines.joined(separator: "\n"), image: $0, font: font) }
+      guard let clean = render(lines, font: font, scale: scale) else { return nil }
+      let image = condition == .clean ? clean : degrade(clean, scale: scale, using: &generator)
+      return image.flatMap { camera == nil ? $0 : PageImage.scaledDown($0, toLongestSide: renderSize) }
+        .map { Page(truth: lines.joined(separator: "\n"), image: $0, font: font) }
     }
   }
 
@@ -78,14 +87,18 @@ enum OCRCorpus {
 
   // MARK: - Pages
 
-  /// A page at about 200 dots per inch: black text on white, as a clean scan looks.
-  private static func render(_ lines: [String], font name: String) -> CGImage? {
-    let size = CGSize(width: 1_700, height: 2_200)
+  private static let height: CGFloat = 2_200
+
+  /// A page at about 200 dots per inch, `scale` times that if asked for: black text on white, as a
+  /// clean scan looks.
+  private static func render(_ lines: [String], font name: String, scale: CGFloat) -> CGImage? {
+    let size = CGSize(width: 1_700, height: height)
     guard
       let context = CGContext(
-        data: nil, width: Int(size.width), height: Int(size.height), bitsPerComponent: 8, bytesPerRow: 0,
-        space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)
+        data: nil, width: Int(size.width * scale), height: Int(size.height * scale), bitsPerComponent: 8,
+        bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)
     else { return nil }
+    context.scaleBy(x: scale, y: scale)
     context.setFillColor(CGColor(gray: 1, alpha: 1))
     context.fill(CGRect(origin: .zero, size: size))
     let font = CTFontCreateWithName(name as CFString, 34, nil)
@@ -99,12 +112,15 @@ enum OCRCorpus {
   }
 
   /// Skews by up to 1.5 degrees, blurs by scaling down and up, lowers the contrast and adds speckles.
-  private static func degrade(_ image: CGImage, using generator: inout SplitMix) -> CGImage? {
+  ///
+  /// The blur and speckles keep their size on a larger page: `scale` says how much larger it is.
+  private static func degrade(_ image: CGImage, scale: CGFloat, using generator: inout SplitMix) -> CGImage? {
     let width = image.width
     let height = image.height
     guard
       let small = CGContext(
-        data: nil, width: width * 11 / 20, height: height * 11 / 20, bitsPerComponent: 8, bytesPerRow: 0,
+        data: nil, width: Int(CGFloat(width * 11 / 20) / scale), height: Int(CGFloat(height * 11 / 20) / scale),
+        bitsPerComponent: 8, bytesPerRow: 0,
         space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue),
       let output = CGContext(
         data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
@@ -125,12 +141,14 @@ enum OCRCorpus {
     output.draw(blurred, in: CGRect(x: 0, y: 0, width: width, height: height))
     output.setAlpha(1)
     output.setBlendMode(.normal)
+    let speckle = Int((2 * scale).rounded())
     for _ in 0..<2_500 {
       let gray = Double(generator.next() % 60) / 100
       output.setFillColor(CGColor(gray: gray, alpha: 0.5))
       output.fill(
-        CGRect(x: Int(generator.next() % UInt64(width)), y: Int(generator.next() % UInt64(height)), width: 2, height: 2)
-      )
+        CGRect(
+          x: Int(generator.next() % UInt64(width)), y: Int(generator.next() % UInt64(height)), width: speckle,
+          height: speckle))
     }
     return output.makeImage()
   }
