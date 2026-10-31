@@ -43,7 +43,8 @@ Owner: Release · Reviewed: after each release
    checklist from [release management](../../release-management.md#the-release-pull-request).
 4. **Merge with a merge commit** once every required check, including `promotion-guard`, is green and
    the checklist's pre-merge part is ticked. Do not delete the head branch.
-5. **Confirm the Release build.** The merge starts the Xcode Cloud Release workflow (a clean build).
+5. **Confirm the Release build.** For 1.0, archive the merge commit on this Mac and upload it from the
+   Organizer (PAP-072, `scripts/dev/release_archive.sh`; a clean build).
    Check that the build's commit is the merge commit on `main` and note its build number.
 6. **Distribute to external TestFlight.** Add the build to the external groups with What to Test notes.
    The first build in a group goes to Beta App Review; later builds may not need a full review
