@@ -294,7 +294,7 @@ jobs:
           echo "Test products: $(du -h products.tar* | cut -f1) ($(ls products.tar*)); of which packages:" \
             "$(du -sh DD/SourcePackages | cut -f1) before compression" | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Keep the test products for the shards
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ios-products
           path: products.tar*
@@ -430,7 +430,7 @@ jobs:
         run: |
           xcodegen generate
           python3 scripts/ci/write_testplan.py
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ios-products
           path: products
@@ -610,7 +610,7 @@ jobs:
       - name: Keep the shard's results
         # Always, not only on failure: ios-report merges every shard's bundle for coverage.
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ios-shard-${{ matrix.shard }}
           path: |
@@ -630,7 +630,7 @@ jobs:
         run: find . -type d -name __Snapshots__ -not -path './DD/*' -print0 | xargs -0 tar -cf snapshots.tar
       - name: Keep the recorded snapshot references
         if: ${{ !cancelled() && inputs.record_snapshots && matrix.shard == 'unit' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: snapshots
           path: snapshots.tar
@@ -672,7 +672,7 @@ jobs:
             echo "::error::$XCODE_APP is not build $XCODE_BUILD; update the pin (PAP-029)"
             exit 1
           fi
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: ios-shard-*
           path: shards
@@ -736,7 +736,7 @@ jobs:
       - name: Keep the flaky tests for the flaky-issues job
         if: ${{ !cancelled() && hashFiles('flaky.json') != '' }}
         continue-on-error: true
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ios-flaky
           path: flaky.json
@@ -771,7 +771,7 @@ jobs:
         # Diagnostic uploads never decide the check (a network error failed one on run 37894865876).
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: reports
           path: reports/
@@ -780,7 +780,7 @@ jobs:
       - name: Keep the coverage reports (merged and per shard)
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ios-coverage
           path: coverage/
@@ -876,7 +876,7 @@ jobs:
         if: ${{ failure() }}
         run: |
           [ -d ios-27.xcresult ] && tar -czf ios-27-xcresult.tgz ios-27.xcresult || true
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ failure() }}
         with:
           name: ios-27-xcresult
@@ -951,7 +951,7 @@ jobs:
             -derivedDataPath "$RUNNER_TEMP/DD" -only-testing:OCRTests/OCRAccuracyTests -parallel-testing-enabled NO \
             -default-test-execution-time-allowance 6000 -maximum-test-execution-time-allowance 6000 \
             CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ always() }}
         with:
           name: ocr-full-suite-ios${{ matrix.ios }}-${{ matrix.recognizer }}
@@ -1014,7 +1014,7 @@ jobs:
               xcodebuild test-without-building -scheme "$SCHEME" -testPlan StoreScreenshots -destination "id=$SIM" \
               -derivedDataPath DD -resultBundlePath "shots-$language.xcresult" -parallel-testing-enabled NO
           done
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ always() }}
         with:
           name: store-screenshots
@@ -1041,7 +1041,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           sparse-checkout: scripts/ci
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         # Missing when the run had no flaky test, or ios-report stopped before keeping it.
         continue-on-error: true
         with:
@@ -1084,7 +1084,7 @@ jobs:
             --out ci-timings.json --summary "$GITHUB_STEP_SUMMARY"
       - name: Keep the timings
         continue-on-error: true
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ci-timings
           path: ci-timings.json
@@ -1105,7 +1105,7 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: snapshots
           path: ${{ runner.temp }}/snapshots
@@ -1175,7 +1175,7 @@ jobs:
           swift test --package-path Packages/PDFEngine --sanitize=thread --no-parallel \
             --filter "SaveFaultTests|SaveFaultInjectionTests|ControllerTests|ToolkitTests" \
             --skip "TextEditingControllerTests/longDocument"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: saved-pdfs
           path: ${{ runner.temp }}/saved
@@ -1200,7 +1200,7 @@ jobs:
           echo "${QPDF_SHA256}  qpdf.zip" | sha256sum -c -
           unzip -q qpdf.zip -d "$RUNNER_TEMP/qpdf"
           dirname "$(find "$RUNNER_TEMP/qpdf" -type f -name qpdf -path '*/bin/*' | head -1)" >> "$GITHUB_PATH"
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: saved-pdfs
           path: saved
@@ -1320,7 +1320,7 @@ jobs:
           [ "$code" = 0 ] && [ "$findings" = 0 ]
       - name: Keep the sanitizer results
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ci-sanitizers
           path: |
@@ -1388,7 +1388,7 @@ jobs:
           cat reports/performance.md >> "$GITHUB_STEP_SUMMARY"
       - name: Keep the performance report
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: performance
           path: |
