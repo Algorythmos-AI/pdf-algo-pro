@@ -129,7 +129,14 @@ When that class passed, they are done; check them by hand only when it failed.
 2. **Camera scan.** Scan two pages with the real camera: one searchable PDF with both pages.
 3. **Buy and restore.** With a sandbox account, buy the plan with the trial, delete the app, install it
    again, Restore purchases: the plan is back.
-4. **Siri summary.** "Summarise [document] with PDF Algo Pro" on the locked phone asks to unlock first.
+4. **Siri and Shortcuts (FR-AI-018).** Open the app once after installing, so that Siri learns the names.
+   Staging: say "PDF Algo Staging" where these say PDF Algo Pro. Phone locked: "Summarise [document] with
+   PDF Algo Pro" asks to unlock first, and "Open [document] in PDF Algo Pro" shows no title before that.
+   Unlocked: "Summarize my [document] in PDF Algo Pro" gives the summary, its pages and the on-device
+   line; "Summarise a document with PDF Algo Pro" asks which; two documents with one title show their
+   dates; "Scan with PDF Algo Pro" opens the scanner. French device: "Résume [document] avec PDF Algo
+   Pro", "Ouvre [document] dans PDF Algo Pro", "Numérise un document avec PDF Algo Pro". With App Lock
+   locked, Siri says so and names no document. With AI hidden in Settings, it says how to turn it on.
 5. **Privacy and airplane mode.** The App Privacy Report lists no network domains for the app. Turn on
    Airplane Mode and repeat steps 2 and 4: everything works.
 6. **Kill in the middle of a save.** Edit, swipe the app away at once, open it again: the document is as

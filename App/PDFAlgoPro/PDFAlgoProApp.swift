@@ -100,6 +100,13 @@ struct RootView: View {
         Task { await app.library.filesMayHaveChanged() }
       }
     }
+    // Siri learns document names only when told, and forgets them while App Lock is locked.
+    .onChange(of: app.library.documents.map(\.title)) {
+      Task { await IntentRouter.shared.vocabularyMayHaveChanged() }
+    }
+    .onChange(of: app.lock.isLocked) {
+      Task { await IntentRouter.shared.vocabularyMayHaveChanged() }
+    }
     // A calm moment to ask for a rating: a document or a sheet has just closed (plan §6).
     .onChange(of: app.library.selection == nil) { _, closed in
       guard closed else { return }
