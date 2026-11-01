@@ -156,6 +156,9 @@ The sections below give each flow in detail.
   Items are removed when a document is deleted or leaves Recently Deleted (FR-LIB-006). A setting
   excludes document text from system Spotlight, and turning on the app lock (FR-SET-002) excludes
   it automatically.
+- **Siri's document titles:** up to 50 document titles are given to iOS on the device so Siri can match
+  them, the same class of data Spotlight already holds. Nothing leaves the device through the app, and
+  the list is cleared while App Lock is locked.
 - **App Intents and Siri:** intents return results to the system; they never modify documents
   ([AI governance](ai-governance.md)). What the system does with a result shown in Siri or Shortcuts
   is governed by Apple's terms.

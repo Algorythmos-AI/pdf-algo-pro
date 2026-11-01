@@ -36,6 +36,9 @@ Store notes (see the changelog strategy).
 - Recognise text on an image-only PDF now puts the text where it is on the page, so search
   highlights and text selection line up, and reads the page at full size. Recognise text again on
   a document already recognised this way to correct it.
+- Siri and Shortcuts now know your documents by name, however a title is written, in English and
+  French, and more ways of asking work. Siri asks which document when it can't tell, says why when
+  it can't summarise, and needs your iPhone unlocked before it opens a document.
 - A trial reminder is less likely to arrive after you have paid, been refunded or let the
   subscription lapse without opening the app: shortly before it is due, iOS may let the app check
   your subscription in the background and remove it. iOS doesn't promise to run that check, so the

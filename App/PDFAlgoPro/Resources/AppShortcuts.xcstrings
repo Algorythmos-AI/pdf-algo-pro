@@ -8,14 +8,27 @@
           "stringSet" : {
             "state" : "new",
             "values" : [
-              "Open ${target} in ${applicationName}"
+              "Open ${target} in ${applicationName}",
+              "Open ${target} with ${applicationName}",
+              "Open my ${target} in ${applicationName}",
+              "Show ${target} in ${applicationName}",
+              "Open a document in ${applicationName}"
             ]
           }
         },
         "fr" : {
-          "stringUnit" : {
+          "stringSet" : {
             "state" : "translated",
-            "value" : "Ouvrir ${target} dans ${applicationName}"
+            "values" : [
+              "Ouvrir ${target} dans ${applicationName}",
+              "Ouvre ${target} dans ${applicationName}",
+              "Ouvrir ${target} avec ${applicationName}",
+              "Ouvre ${target} avec ${applicationName}",
+              "Affiche ${target} dans ${applicationName}",
+              "Ouvre mon ${target} dans ${applicationName}",
+              "Ouvrir un document dans ${applicationName}",
+              "Ouvre un document dans ${applicationName}"
+            ]
           }
         }
       }
@@ -28,14 +41,21 @@
             "state" : "new",
             "values" : [
               "Scan a document with ${applicationName}",
-              "Scan with ${applicationName}"
+              "Scan with ${applicationName}",
+              "Scan in ${applicationName}"
             ]
           }
         },
         "fr" : {
-          "stringUnit" : {
+          "stringSet" : {
             "state" : "translated",
-            "value" : "Numériser un document avec ${applicationName}"
+            "values" : [
+              "Numériser un document avec ${applicationName}",
+              "Numérise un document avec ${applicationName}",
+              "Numériser avec ${applicationName}",
+              "Numérise dans ${applicationName}",
+              "Scanne un document avec ${applicationName}"
+            ]
           }
         }
       }
@@ -48,14 +68,28 @@
             "state" : "new",
             "values" : [
               "Summarise ${target} with ${applicationName}",
-              "Summarize ${target} with ${applicationName}"
+              "Summarize ${target} with ${applicationName}",
+              "Summarise ${target} in ${applicationName}",
+              "Summarize ${target} in ${applicationName}",
+              "Summarise my ${target} in ${applicationName}",
+              "Summarize my ${target} in ${applicationName}",
+              "Summarise a document with ${applicationName}",
+              "Summarize a document with ${applicationName}"
             ]
           }
         },
         "fr" : {
-          "stringUnit" : {
+          "stringSet" : {
             "state" : "translated",
-            "value" : "Résumer ${target} avec ${applicationName}"
+            "values" : [
+              "Résumer ${target} avec ${applicationName}",
+              "Résume ${target} avec ${applicationName}",
+              "Résumer ${target} dans ${applicationName}",
+              "Résume ${target} dans ${applicationName}",
+              "Résume mon ${target} dans ${applicationName}",
+              "Résumer un document avec ${applicationName}",
+              "Résume un document avec ${applicationName}"
+            ]
           }
         }
       }

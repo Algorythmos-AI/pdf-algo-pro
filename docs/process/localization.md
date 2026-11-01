@@ -14,7 +14,8 @@ Owner: Product and Design · Reviewed: each milestone, and whenever a language i
   VoiceOver label and the name of a bookmark).
 - The app has two catalogs in `App/PDFAlgoPro/Resources/`:
   - `Localizable.xcstrings`, for the app's own text;
-  - `AppShortcuts.xcstrings`, the Siri and Shortcuts phrases.
+  - `AppShortcuts.xcstrings`, the Siri and Shortcuts phrases: one `stringSet` per shortcut in each
+    language, every phrase with `${applicationName}` (`invariants.py`).
 - Info.plist text (the camera prompt) is translated in `App/PDFAlgoPro/<language>.lproj/InfoPlist.strings`,
   next to `Info.plist`, never in an `InfoPlist.xcstrings`. Xcode syncs the app's names into such a
   catalog on every export and build. The names come from build settings per configuration (Staging

@@ -11,12 +11,32 @@
         }
       }
     },
+    "AI features are turned off in PDF Algo Pro. Turn them on in its Settings." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les fonctionnalités d’IA sont désactivées dans PDF Algo Pro. Activez-les dans ses réglages."
+          }
+        }
+      }
+    },
     "App Lock is off" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Le verrouillage de l’app est désactivé"
+          }
+        }
+      }
+    },
+    "Apple Intelligence is still getting ready on this device. Try again later." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Intelligence est encore en préparation sur cet appareil. Réessayez plus tard."
           }
         }
       }
@@ -41,12 +61,32 @@
         }
       }
     },
+    "If your PDF Algo Pro trial is still running, it ends within a day. To manage or cancel it, open the Settings app, tap your name (Apple Account), then Subscriptions." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Si votre essai de PDF Algo Pro est toujours en cours, il se termine dans un jour au plus. Pour le gérer ou le résilier, ouvrez l’app Réglages, touchez votre nom (compte Apple), puis Abonnements."
+          }
+        }
+      }
+    },
     "OK" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "OK"
+          }
+        }
+      }
+    },
+    "Open ${target}" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouvrir ${target}"
           }
         }
       }
@@ -141,6 +181,26 @@
         }
       }
     },
+    "Summaries need Apple Intelligence. Turn it on in Settings." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les résumés nécessitent Apple Intelligence. Activez-le dans Réglages."
+          }
+        }
+      }
+    },
+    "Summarise ${target}" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Résumer ${target}"
+          }
+        }
+      }
+    },
     "Summarise Document" : {
       "localizations" : {
         "fr" : {
@@ -181,6 +241,16 @@
         }
       }
     },
+    "That document is too long to summarise here." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce document est trop long pour être résumé ici."
+          }
+        }
+      }
+    },
     "The summary couldn't be made. Try again in the app." : {
       "localizations" : {
         "fr" : {
@@ -197,6 +267,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cet appareil n’a pas de code, donc le verrouillage de l’app ne peut pas confirmer votre identité. Pour l’utiliser de nouveau, définissez un code dans l’app Réglages, puis activez le verrouillage de l’app dans PDF Algo Pro."
+          }
+        }
+      }
+    },
+    "Trial reminder" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rappel d’essai"
           }
         }
       }
@@ -251,22 +331,22 @@
         }
       }
     },
+    "Which document?" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quel document ?"
+          }
+        }
+      }
+    },
     "Your documents are locked" : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Vos documents sont verrouillés"
-          }
-        }
-      }
-    },
-    "If your PDF Algo Pro trial is still running, it ends within a day. To manage or cancel it, open the Settings app, tap your name (Apple Account), then Subscriptions." : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Si votre essai de PDF Algo Pro est toujours en cours, il se termine dans un jour au plus. Pour le gérer ou le résilier, ouvrez l’app Réglages, touchez votre nom (compte Apple), puis Abonnements."
           }
         }
       }
@@ -287,16 +367,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Votre essai se termine bientôt"
-          }
-        }
-      }
-    },
-    "Trial reminder" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rappel d’essai"
           }
         }
       }
