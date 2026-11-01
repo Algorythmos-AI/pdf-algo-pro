@@ -621,6 +621,16 @@
         }
       }
     },
+    "You have Pro" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vous avez Pro"
+          }
+        }
+      }
+    },
     "Your documents are always yours: opening, reading, signing, sharing and exporting never need Pro." : {
       "localizations" : {
         "fr" : {

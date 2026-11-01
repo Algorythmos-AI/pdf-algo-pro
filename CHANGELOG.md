@@ -30,6 +30,8 @@ Store notes (see the changelog strategy).
   only ever means a red annotation or Delete.
 
 ### Fixed
+- Opening the plans with Pro now says "You have Pro" and lists what you have, instead of selling Pro
+  to you.
 - A trial reminder is less likely to arrive after you have paid, been refunded or let the
   subscription lapse without opening the app: shortly before it is due, iOS may let the app check
   your subscription in the background and remove it. iOS doesn't promise to run that check, so the

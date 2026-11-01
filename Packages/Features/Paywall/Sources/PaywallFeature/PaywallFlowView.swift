@@ -94,44 +94,58 @@ public struct PaywallFlowView: View {
 }
 
 /// What the offer says above the plans: why it is here, a picture of the app at work, what Pro adds,
-/// and what never needs it.
+/// and what never needs it. Someone who has Pro reads a status in its place, and the list is what they have.
 struct PaywallHeader: View {
   let trigger: PaywallTrigger
   let benefits: [PaywallBenefit]
+  var showsPitch = true
   @Environment(\.dynamicTypeSize) private var typeSize
+
+  /// Names the headline for tests: the trigger's, or the status.
+  private var headlineKey: String { showsPitch ? trigger.rawValue : "hasPro" }
 
   var body: some View {
     VStack(spacing: Spacing.s300) {
       VStack(spacing: Spacing.s100) {
-        trigger.headline
-          .font(.largeTitle.weight(.heavy))
-          .foregroundStyle(Color.ds.brandTint)
-          .multilineTextAlignment(.center)
-          .fixedSize(horizontal: false, vertical: true)
-          .accessibilityAddTraits(.isHeader)
-          .accessibilityIdentifier(AccessibilityID.Paywall.headline(trigger.rawValue))
+        Group {
+          if showsPitch {
+            trigger.headline
+          } else {
+            Text("You have Pro", bundle: .module)
+          }
+        }
+        .font(.largeTitle.weight(.heavy))
+        .foregroundStyle(Color.ds.brandTint)
+        .multilineTextAlignment(.center)
+        .fixedSize(horizontal: false, vertical: true)
+        .accessibilityAddTraits(.isHeader)
+        .accessibilityIdentifier(AccessibilityID.Paywall.headline(headlineKey))
         // The primary label, not the secondary: over the brand glow the secondary grey falls below
         // the contrast minimum, which the accessibility audit found on the offer.
-        trigger.explanation
-          .font(.body)
-          .foregroundStyle(Color.ds.labelPrimary)
-          .multilineTextAlignment(.center)
-          .fixedSize(horizontal: false, vertical: true)
+        if showsPitch {
+          trigger.explanation
+            .font(.body)
+            .foregroundStyle(Color.ds.labelPrimary)
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
+        }
       }
       // At the largest text sizes the words need the room; the picture says nothing they do not.
       if !typeSize.isAccessibilitySize {
         DeviceMockup(width: 216) { ScanMockupScreen() }.fadingBottom(height: 236)
       }
       BenefitList(benefits: benefits).cardStyle()
-      Label {
-        Text(
-          "Your documents are always yours: opening, reading, signing, sharing and exporting never need Pro.",
-          bundle: .module)
-      } icon: {
-        Image(systemName: "lock.open")
+      if showsPitch {
+        Label {
+          Text(
+            "Your documents are always yours: opening, reading, signing, sharing and exporting never need Pro.",
+            bundle: .module)
+        } icon: {
+          Image(systemName: "lock.open")
+        }
+        .font(.footnote)
+        .foregroundStyle(Color.ds.labelSecondary)
       }
-      .font(.footnote)
-      .foregroundStyle(Color.ds.labelSecondary)
     }
     .padding(Spacing.s300)
     .readableWidth()

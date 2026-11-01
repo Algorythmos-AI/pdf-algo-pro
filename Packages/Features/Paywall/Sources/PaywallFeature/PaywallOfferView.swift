@@ -19,13 +19,13 @@ struct PaywallOfferView: View {
     if typeSize.isAccessibilitySize {
       ScrollView {
         VStack(spacing: 0) {
-          PaywallHeader(trigger: model.trigger, benefits: model.benefits)
+          PaywallHeader(trigger: model.trigger, benefits: model.benefits, showsPitch: model.showsPitch)
           purchasePanel
         }
       }
     } else {
       ScrollView {
-        PaywallHeader(trigger: model.trigger, benefits: model.benefits)
+        PaywallHeader(trigger: model.trigger, benefits: model.benefits, showsPitch: model.showsPitch)
       }
       .safeAreaInset(edge: .bottom, spacing: 0) {
         // Opaque, with a hairline above: prices and terms are never read through what scrolls
