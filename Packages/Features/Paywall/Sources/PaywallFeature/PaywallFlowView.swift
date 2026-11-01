@@ -64,6 +64,10 @@ public struct PaywallFlowView: View {
     // 37972849110); a rasterised glow was failed the same.
     .background(alignment: .top) { BrandGlow().frame(height: 72).ignoresSafeArea() }
     .background(Color.ds.backgroundPrimary)
+    // The bar has no title and no background of its own, so the heavy headline scrolled up behind Close and
+    // stayed readable through the soft scroll edge. An opaque bar hides what scrolls under it, at every text size.
+    .toolbarBackground(Color.ds.backgroundPrimary, for: .navigationBar)
+    .toolbarBackgroundVisibility(.visible, for: .navigationBar)
     .offerCodeRedemption(isPresented: $redeemsCode)
     .manageSubscriptionsSheet(isPresented: $managesSubscription)
     .restoreAlert($model.restoreOutcome) { model.alertsAbout($0) }

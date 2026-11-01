@@ -30,6 +30,7 @@ Store notes (see the changelog strategy).
   only ever means a red annotation or Delete.
 
 ### Fixed
+- On the plans screen, the title no longer runs into the Close button when you scroll.
 - Opening the plans with Pro now says "You have Pro" and lists what you have, instead of selling Pro
   to you.
 - A trial reminder is less likely to arrive after you have paid, been refunded or let the
