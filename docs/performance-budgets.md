@@ -41,7 +41,7 @@ artifact. Pull requests run none of it, and nothing is blocked by it.
 | Edit a line of text (500-page PDF) | `EnginePerformanceTests.testEditALineOfTextIn500Pages` | Finding the page's text, making the edit and proving it, to the new page on screen; not the save |
 | Search across a 1,000-document library | `EnginePerformanceTests.testSearchA1000DocumentLibrary` | One query on a warm index |
 | Scan → searchable PDF, 10 pages | `EnginePerformanceTests.testScanTenPagesToASearchablePDF` | Vision recognition and writing the PDF |
-| Save a 2-page camera scan to first page visible | `EnginePerformanceTests.testSaveATwoPageCameraScanToTheFirstPage` | Two generated 3024 x 4032 pages with a photograph's noise: bringing them down, recognition, writing the PDF, adding it to a library, opening it and rendering page 1 |
+| Save a 2-page camera scan to first page visible | `EnginePerformanceTests.testSaveATwoPageCameraScanToTheFirstPage` | Two generated 3024 x 4032 pages with a photograph's noise: bringing them down, writing the PDF, adding it to a library, opening it and rendering page 1. Recognition runs behind the open document (#371) and is timed by the row above |
 | Retrieval over a 500-page PDF | `RetrievalPerformanceTests.testRetrievalOver500Pages` | Ranking every page for a question |
 | Retrieval over a 500-page PDF, words in their base forms | `RetrievalPerformanceTests.testRetrievalOver500PagesWithBaseForms` | The same, as internal builds match words (PAP-055); held to the same budget |
 
@@ -142,7 +142,7 @@ All `Assumption:` targets.
 |---|---|---|---|---|
 | Recognition speed, printed text, baseline iPhone | 2 pages per second | 1 page per second | OCR suite timing | Release PR |
 | Scan → searchable PDF, 10 pages | 8 s | 15 s | signpost `Scan.Searchable` | Release PR |
-| Save a 2-page camera scan to first page visible | 2 s | 4 s | signposts `Scan.Searchable`, `Scan.Intake` and `Document.FirstPage` | Release PR |
+| Save a 2-page camera scan to first page visible | 2 s | 4 s | signposts `Scan.ImagePDF`, `Scan.Intake` and `Document.FirstPage` | Release PR |
 
 Accuracy targets (character and word error rates per language) are in the testing strategy
 ([testing strategy](testing-strategy.md)). All `Assumption:` targets.

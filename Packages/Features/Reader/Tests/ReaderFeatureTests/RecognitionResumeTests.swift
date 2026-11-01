@@ -125,6 +125,108 @@ struct RecognitionResumeTests {
     #expect(!coordinator.isStopped(document.id))
   }
 
+  @Test("A saved scan opens at once with recognition running behind it, and search has the text when it ends (#371)")
+  func newScanOpensBeforeRecognitionEnds() async throws {
+    let document = try await seedImageOnly(pages: ["One", "Two"])
+    let recognizer = HeldOnSecondPage()
+    let coordinator = makeCoordinator(recognizer: recognizer)
+    await coordinator.recognizeNewScan(document.id, title: nil)
+    let reader = makeReader(for: document.id, recognition: coordinator)
+    for _ in 0..<500 where await !recognizer.isWaiting { try await Task.sleep(for: .milliseconds(10)) }
+    try #require(await recognizer.isWaiting, "Recognition is under way")
+    await reader.load()
+    #expect(reader.phase == .ready, "Open and readable, with recognition held on a page: \(reader.phase)")
+    #expect(reader.recognitionProgress != nil, "and saying so")
+    await recognizer.open()
+    await coordinator.finished(document.id)
+    for _ in 0..<500 where reader.phase != .ready || reader.document?.hasTextLayer != true {
+      try await Task.sleep(for: .milliseconds(10))
+    }
+    #expect(reader.phase == .ready)
+    #expect(reader.document?.hasTextLayer == true, "The reader shows the searchable file")
+    #expect(reader.recognitionProgress == nil)
+    #expect(reader.errorMessage == nil)
+    let url = try await library.fileURL(for: document.id)
+    #expect(try await PDFKitInspector().inspect(url).hasTextLayer)
+    #expect(await index.stored[document.id] != nil, "Search has it")
+    #expect(await RecognitionCheckpoints(folder: folder).pending().isEmpty)
+  }
+
+  @Test("Recognition of a scan that fails leaves the file and the reader as they were, and says so (#371)")
+  func newScanRecognitionFails() async throws {
+    let document = try await seedImageOnly(pages: ["One"])
+    let url = try await library.fileURL(for: document.id)
+    let original = try Data(contentsOf: url)
+    let coordinator = makeCoordinator(recognizer: NeverReads())
+    let reader = makeReader(for: document.id, recognition: coordinator)
+    await reader.load()
+    await coordinator.recognizeNewScan(document.id, title: nil)
+    await coordinator.finished(document.id)
+    #expect(try Data(contentsOf: url) == original)
+    #expect(reader.phase == .ready)
+    #expect(reader.errorMessage != nil)
+    #expect(reader.canRecognizeText, "and it can be tried again")
+    #expect(await RecognitionCheckpoints(folder: folder).pending().isEmpty)
+  }
+
+  @Test("A scan whose app stops before a page is read is recognised at the next launch (#371)")
+  func newScanStoppedAtOnceResumes() async throws {
+    let document = try await seedImageOnly(pages: ["One", "Two", "Three"])
+    let recognizer = HeldOnSecondPage()
+    let first = makeCoordinator(recognizer: recognizer)
+    await first.recognizeNewScan(document.id, title: nil)
+    // The checkpoint is on disk as soon as the scan's reader can open.
+    #expect(await RecognitionCheckpoints(folder: folder).pending() == [document.id], "\(checkpointFiles())")
+    for _ in 0..<500 where await !recognizer.isWaiting { try await Task.sleep(for: .milliseconds(10)) }
+    try #require(await recognizer.isWaiting)
+    // Stopped by the system: nothing further runs. The next launch has only the folder and the file.
+    let counting = CountingPages()
+    let second = makeCoordinator(recognizer: counting)
+    await second.resumePending()
+    await second.finished(document.id)
+    #expect(await counting.count == 2, "The page already read isn't read again")
+    let url = try await library.fileURL(for: document.id)
+    let inspection = try await PDFKitInspector().inspect(url)
+    #expect(inspection.hasTextLayer && inspection.pageCount == 3)
+    await recognizer.open()
+    await first.finished(document.id)
+    #expect(try await PDFKitInspector().inspect(url).pageCount == 3, "The stale job changed nothing")
+  }
+
+  @Test("A note added while a scan is read isn't lost or reported; recognition runs again after saving it (#371)")
+  func newScanRecognitionMeetsAnEdit() async throws {
+    let document = try await seedImageOnly(pages: ["One", "Two"])
+    let recognizer = HeldOnSecondPage()
+    let coordinator = makeCoordinator(recognizer: recognizer)
+    let reader = makeReader(for: document.id, recognition: coordinator)
+    await reader.load()
+    await coordinator.recognizeNewScan(document.id, title: nil)
+    for _ in 0..<500 where await !recognizer.isWaiting { try await Task.sleep(for: .milliseconds(10)) }
+    reader.controller?.addNote("Kept", onPage: 0)
+    await recognizer.open()
+    await coordinator.finished(document.id)
+    for _ in 0..<1000 where reader.document?.hasTextLayer != true || reader.phase != .ready {
+      try await Task.sleep(for: .milliseconds(10))
+    }
+    #expect(reader.errorMessage == nil, "\(reader.errorMessage ?? "")")
+    #expect(reader.document?.hasTextLayer == true)
+    let url = try await library.fileURL(for: document.id)
+    #expect(try PDFDocumentController(url: url).annotationCount(onPage: 0) == 1, "The note is in the searchable file")
+  }
+
+  @Test("A saved scan's completion is counted once, not again when its text is ready (#371)")
+  func newScanIsCountedOnce() async throws {
+    let document = try await seedImageOnly(pages: ["One"])
+    let telemetry = RecordingTelemetry()
+    let coordinator = RecognitionCoordinator(
+      library: library, intake: intake,
+      builder: SearchablePDFBuilder(recognizer: FakeRecognizer(), renderPixelSize: 400),
+      telemetry: telemetry, folder: folder, keepAlive: BackgroundLog().begin)
+    await coordinator.recognizeNewScan(document.id, title: nil)
+    await coordinator.finished(document.id)
+    #expect(await telemetry.events.isEmpty)
+  }
+
   @Test("A file replaced just before the app stopped is not recognised again at the next launch (#256)")
   func resumeSkipsAFileThatAlreadyHasText() async throws {
     let document = try await seedImageOnly(pages: ["One", "Two"])
@@ -176,6 +278,11 @@ private actor HeldOnSecondPage: TextRecognizing {
     }
     return FakeRecognizer().lines
   }
+}
+
+/// Fails on every page.
+private struct NeverReads: TextRecognizing {
+  func recognizeText(in image: CGImage) async throws -> [RecognizedLine] { throw CocoaError(.fileReadUnknown) }
 }
 
 /// Counts the pages it is asked to recognise.

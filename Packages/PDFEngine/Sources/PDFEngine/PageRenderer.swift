@@ -36,7 +36,11 @@ public enum PageRenderer {
     else { throw PDFEngineError.renderFailed }
     context.setFillColor(CGColor(gray: 1, alpha: 1))
     context.fill(CGRect(x: 0, y: 0, width: width, height: height))
-    let target = CGRect(x: 0, y: 0, width: width, height: height)
+    // `getDrawingTransform` only ever scales down, so a page smaller than the bitmap would sit 1:1 in
+    // its middle, and what recognition finds there wouldn't map back to the page (#373). The scale is
+    // applied first, and the page mapped onto a rectangle of its own size.
+    context.scaleBy(x: CGFloat(width) / size.width, y: CGFloat(height) / size.height)
+    let target = CGRect(origin: .zero, size: size)
     context.concatenate(page.getDrawingTransform(.cropBox, rect: target, rotate: 0, preserveAspectRatio: true))
     context.drawPDFPage(page)
     guard let image = context.makeImage() else { throw PDFEngineError.renderFailed }

@@ -124,6 +124,52 @@ struct CameraScanTests {
     }
   }
 
+  @Test("A camera scan is written with no recognition, and fast enough to open at once (#371)")
+  func imagePDFOfCameraPages() async throws {
+    let size = CGSize(width: 3024, height: 4032)
+    let block = CGRect(x: 0.2, y: 0.7, width: 0.5, height: 0.05)
+    let pictures = try (0..<2).map { _ in try #require(Self.image(size: size, block: block)) }
+    let clock = ContinuousClock()
+    let builder = SearchablePDFBuilder(recognizer: BlockFinder())
+    var data = Data()
+    let took = try await clock.measure { data = try await builder.makeImagePDF(from: pictures) }
+    // Assumption: a shared Mac or simulator stays under this; real timings are the device run's.
+    #expect(took < .seconds(5), "Two camera pages took \(took)")
+    let document = try #require(PDFDocument(data: data))
+    #expect(document.pageCount == 2)
+    #expect(document.string?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false, "No text yet")
+    #expect(try Self.imageSizes(inPageOf: data).map { max($0.width, $0.height) } == [2200])
+  }
+
+  @Test("Cancelled before it starts, the image PDF is not written (#371)")
+  func imagePDFCancelled() async throws {
+    let builder = SearchablePDFBuilder(recognizer: BlockFinder())
+    let image = try #require(Self.image(size: CGSize(width: 40, height: 40), block: .zero))
+    let task = Task {
+      withUnsafeCurrentTask { $0?.cancel() }
+      return try await builder.makeImagePDF(from: [image])
+    }
+    await #expect(throws: CancellationError.self) { try await task.value }
+  }
+
+  @Test("A scan saved as images gets its text layer where the words are, as a scan read first does (#371)")
+  func textLayerAddedToASavedScan() async throws {
+    let size = CGSize(width: 3024, height: 4032)
+    let block = CGRect(x: 0.2, y: 0.7, width: 0.5, height: 0.05)
+    let builder = SearchablePDFBuilder(recognizer: BlockFinder())
+    let data = try await builder.makeImagePDF(from: [try #require(Self.image(size: size, block: block))])
+    let url = FileManager.default.temporaryDirectory.appendingPathComponent("scan-\(UUID()).pdf")
+    try data.write(to: url)
+    defer { try? FileManager.default.removeItem(at: url) }
+    let result = try await builder.addTextLayer(toPDFAt: url)
+    let document = try #require(PDFDocument(data: result.data))
+    let page = try #require(document.page(at: 0))
+    let box = page.bounds(for: .mediaBox)
+    let text = try #require(document.findString("Total", withOptions: []).first).bounds(for: page)
+    #expect(abs(text.minX / box.width - block.minX) < 0.005, "\(text) on \(box)")
+    #expect(abs(text.minY / box.height - block.minY) < 0.005, "\(text) on \(box)")
+  }
+
   /// A white page with a black block, given in fractions of the page from its bottom left.
   private static func image(size: CGSize, block: CGRect) -> CGImage? {
     let context = CGContext(

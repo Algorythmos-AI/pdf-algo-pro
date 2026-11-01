@@ -17,6 +17,9 @@ Store notes (see the changelog strategy).
   last row, so the file still opens as a table.
 
 ### Changed
+- A scan now opens as soon as it is saved, usually within a second or two. Its text is recognised
+  behind the open document, with a quiet progress bar, and search finds it when that ends. If the
+  app is stopped first, recognition carries on at the next launch; the pages are already safe.
 - The App Store version now has what TestFlight builds have had: the page strip and keyboard
   commands in the reader, recognition in more languages and in reading order, search that finds a
   word in its other forms, and dragging a document into another app. Editing existing text stays in

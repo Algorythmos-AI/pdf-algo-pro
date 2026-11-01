@@ -151,9 +151,10 @@ nonisolated final class EnginePerformanceTests: XCTestCase {
 
   /// Budget: save a 2-page camera scan to the first page visible.
   ///
-  /// What happens between tapping Save and the page on screen (#371): bringing the pages down,
-  /// recognising them, writing the PDF, adding it to a library as the app does, opening it and drawing
-  /// page 1. The reader's own steps are marked for a device run (`Reader.Load.*`).
+  /// What happens between tapping Save and the page on screen (#371): bringing the pages down, writing
+  /// the PDF, adding it to a library as the app does, opening it and drawing page 1. Recognition runs
+  /// behind the open document, and has its own row. The reader's own steps are marked for a device run
+  /// (`Reader.Load.*`).
   @MainActor func testSaveATwoPageCameraScanToTheFirstPage() throws {
     let images = (1...2).compactMap { Self.cameraPage("Scanned page \($0)\nInvoice total 42.00", seed: UInt64($0)) }
     XCTAssertEqual(images.count, 2)
@@ -168,8 +169,8 @@ nonisolated final class EnginePerformanceTests: XCTestCase {
     let saved = SavedFile()
     measure(metrics: [XCTClockMetric()], options: Self.options) {
       run {
-        let result = try await builder.makeSearchablePDF(from: images)
-        let document = try await intake.add(data: result.data, title: "Scan")
+        let data = try await builder.makeImagePDF(from: images)
+        let document = try await intake.add(data: data, title: "Scan")
         saved.url = try await library.fileURL(for: document.id)
       }
       guard let url = saved.url else { return XCTFail("nothing was saved") }

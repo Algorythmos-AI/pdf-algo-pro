@@ -15,13 +15,11 @@ public final class ScanModel {
     case ready
     /// Checking the pages and the name before saving (FR-SCAN-006).
     case reviewing
-    /// Recognising text, from 0 to 1.
-    case recognizing(Double)
-    /// Every page is read: writing the PDF and adding it to the library.
+    /// Writing the PDF and adding it to the library.
     case saving
     /// Saved as a document.
     case finished(Document)
-    /// Recognition failed; nothing was saved, and the pages are kept for another try.
+    /// The save failed; nothing was saved, and the pages are kept for another try.
     case failed
   }
 
@@ -75,13 +73,18 @@ public final class ScanModel {
     setTitle(defaultTitle)
     isTitleEdited = false
     phase = .reviewing
-    guard let recognizer, let first = images.first,
-      let lines = try? await recognizer.recognizeText(in: first),
+    guard let recognizer, let first = images.first else { return }
+    // A title needs far fewer pixels than a camera gives, and Vision takes far longer over them.
+    let page = await Task.detached { PageImage.scaledDown(first, toLongestSide: Self.titlePixelSize) ?? first }.value
+    guard let lines = try? await recognizer.recognizeText(in: page),
       let suggestion = Self.suggestedTitle(from: lines),
       phase == .reviewing, !isTitleEdited
     else { return }
     setTitle(suggestion)
   }
+
+  /// The longest side, in pixels, of the page read for a suggested title.
+  nonisolated static let titlePixelSize = 1600
 
   private func setTitle(_ suggestion: String) {
     isSuggesting = true
@@ -108,7 +111,7 @@ public final class ScanModel {
     pages.swapAt(index, target)
   }
 
-  /// Saves the reviewed pages as a searchable PDF under the chosen name.
+  /// Saves the reviewed pages as a PDF under the chosen name; `onFinish` has its text recognised.
   ///
   /// The pages stay until the save has worked, so a save that fails or is stopped loses nothing
   /// (#371). A second tap on Save finds the save under way and does nothing.
@@ -156,25 +159,20 @@ public final class ScanModel {
 
   // MARK: - Saving
 
-  /// Recognises the pages and saves them as a searchable PDF.
+  /// Saves the pages as a PDF, without waiting for their text.
+  ///
+  /// Recognition is what takes the time, so it isn't waited for here: the person sees their pages at
+  /// once, and the app recognises the text in the background (#371).
   public func process(_ images: [CGImage], title: String? = nil) async {
     guard !images.isEmpty else { return }
     let title = title ?? defaultTitle
-    phase = .recognizing(0)
+    phase = .saving
     let work = Task {
       do {
-        let result = try await builder.makeSearchablePDF(from: images) { progress in
-          Task { @MainActor in
-            guard case .recognizing = self.phase else { return }
-            self.phase = progress < 1 ? .recognizing(progress) : .saving
-          }
-        }
-        // Cancelled during the last page: the builder has finished, but nothing is saved.
+        let data = try await builder.makeImagePDF(from: images)
+        // Cancelled as the PDF was finished: nothing is saved.
         try Task.checkCancellation()
-        phase = .saving
-        let document = try await Signposts.measure("Scan.Intake") {
-          try await intake.add(data: result.data, title: title)
-        }
+        let document = try await Signposts.measure("Scan.Intake") { try await intake.add(data: data, title: title) }
         pages = []
         phase = .finished(document)
         await telemetry.record("task.core.completed")
@@ -221,7 +219,7 @@ public final class ScanModel {
     await review(images)
   }
 
-  /// Cancels recognition; nothing is saved, and pages being reviewed stay.
+  /// Cancels the save; nothing is saved, and pages being reviewed stay.
   public func cancel() {
     work?.cancel()
   }
@@ -243,7 +241,7 @@ extension ScanModel.Phase {
     switch self {
     case .saving: LocalizedStringResource("Saving…", bundle: .atURL(Bundle.module.bundleURL))
     case .finished: LocalizedStringResource("Opening…", bundle: .atURL(Bundle.module.bundleURL))
-    case .ready, .reviewing, .recognizing, .failed: nil
+    case .ready, .reviewing, .failed: nil
     }
   }
 }

@@ -436,6 +436,10 @@ final class AppModel {
       Task {
         // Counted once the scan is saved: a scan that was cancelled or failed costs nothing.
         await container.allowance.recordSuccess(.scan)
+        // The text is recognised behind the open document. A short scan finishes before a Live
+        // Activity would be any use, and with App Lock on one must not name the document (#254).
+        let isLong = document.pageCount > 3 && !settings.isAppLockEnabled
+        await container.recognition.recognizeNewScan(document.id, title: isLong ? document.title : nil)
         await library.reload()
         library.open(document.id)
       }

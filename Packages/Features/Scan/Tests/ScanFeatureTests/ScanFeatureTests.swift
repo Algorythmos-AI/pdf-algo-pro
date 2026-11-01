@@ -28,7 +28,33 @@ struct ScanModelTests {
     return (model, library, telemetry, opened)
   }
 
-  @Test("Scans become searchable documents in the library and open (FR-SCAN-002)")
+  @Test("A scan opens without waiting for its text: recognition has not been asked for anything (#371)")
+  func opensBeforeRecognition() async throws {
+    let recognizer = GatedRecognizer()
+    let (model, library, _, opened) = makeModel(recognizer: recognizer)
+    await model.review([try #require(SyntheticPDF.makeTextImage("Receipt"))])
+    // Never let through: a save that waited for recognition would hang here.
+    await model.save()
+    guard case .finished(let document) = model.phase else { throw Failure.unexpected }
+    #expect(opened.document?.id == document.id)
+    #expect(await !recognizer.isWaiting, "The save asked for the text")
+    #expect(try await library.documents(in: .all, sortedBy: .title).count == 1)
+  }
+
+  @Test("A title is suggested from a smaller copy of a camera page (#371)")
+  func titleReadsASmallerPage() async throws {
+    let sizes = SizeLog()
+    let model = ScanModel(
+      intake: DocumentIntake(library: FakeDocumentLibrary(), inspector: FakeInspector(), index: FakeIndex()),
+      builder: SearchablePDFBuilder(recognizer: FakeRecognizer()), telemetry: RecordingTelemetry(),
+      recognizer: sizes, onFinish: { _ in })
+    let page = try #require(SyntheticPDF.makeTextImage("Page", size: CGSize(width: 3024, height: 4032)))
+    await model.review([page])
+    let asked = await sizes.longest
+    #expect(asked == [ScanModel.titlePixelSize], "Asked for \(asked)")
+  }
+
+  @Test("Scans become documents in the library and open (FR-SCAN-002)")
   func scanning() async throws {
     let (model, library, telemetry, opened) = makeModel()
     let image = try #require(SyntheticPDF.makeTextImage("Receipt"))
@@ -157,15 +183,13 @@ struct ScanModelTests {
     #expect(ViewRendering.draws(ScanView(model: model).frame(width: 390, height: 700)))
   }
 
-  @Test("Cancelling, even on the last page, saves nothing and returns to the start")
+  @Test("Cancelling saves nothing and returns to the start")
   func cancelling() async throws {
-    let recognizer = GatedRecognizer()
-    let (model, library, _, opened) = makeModel(recognizer: recognizer)
+    let (model, library, _, opened) = makeModel()
     let image = try #require(SyntheticPDF.makeTextImage("Receipt"))
     let work = Task { await model.process([image]) }
-    for _ in 0..<200 where await !recognizer.isWaiting { try await Task.sleep(for: .milliseconds(10)) }
+    await Task.yield()
     model.cancel()
-    await recognizer.open()
     await work.value
     #expect(model.phase == .ready)
     #expect(opened.document == nil)
@@ -190,14 +214,12 @@ struct ScanModelTests {
 
   @Test("A save that is stopped keeps the scan (#371)")
   func stoppedSaveKeepsTheScan() async throws {
-    let recognizer = GatedRecognizer()
-    let (model, library, _, opened) = makeModel(recognizer: recognizer)
+    let (model, library, _, opened) = makeModel()
     let image = try #require(SyntheticPDF.makeTextImage("Receipt"))
     await model.review([image, image])
     let work = Task { await model.save() }
-    for _ in 0..<200 where await !recognizer.isWaiting { try await Task.sleep(for: .milliseconds(10)) }
+    await Task.yield()
     model.cancel()
-    await recognizer.open()
     await work.value
     #expect(model.phase == .reviewing, "Stop goes back to the pages")
     #expect(model.pages.count == 2)
@@ -211,13 +233,17 @@ struct ScanModelTests {
 
   @Test("The pages stay until the save has worked, and then they go (#371)")
   func pagesStayUntilTheSaveHasWorked() async throws {
-    let recognizer = GatedRecognizer()
-    let (model, _, _, opened) = makeModel(recognizer: recognizer)
+    let gate = InspectionGate()
+    let opened = Opened()
+    let model = ScanModel(
+      intake: DocumentIntake(library: FakeDocumentLibrary(), inspector: GatedInspector(gate: gate), index: FakeIndex()),
+      builder: SearchablePDFBuilder(recognizer: FakeRecognizer()), telemetry: RecordingTelemetry(),
+      onFinish: { opened.document = $0 })
     await model.review([try #require(SyntheticPDF.makeTextImage("Receipt"))])
     let work = Task { await model.save() }
-    for _ in 0..<200 where await !recognizer.isWaiting { try await Task.sleep(for: .milliseconds(10)) }
+    await gate.waitForArrival()
     #expect(model.pages.count == 1, "Still needed if the save doesn't work")
-    await recognizer.open()
+    await gate.open()
     await work.value
     #expect(model.pages.isEmpty)
     #expect(opened.document != nil)
@@ -225,21 +251,24 @@ struct ScanModelTests {
 
   @Test("Tapping Save twice saves once (#371)")
   func savingTwiceSavesOnce() async throws {
-    let recognizer = GatedRecognizer()
-    let (model, library, _, _) = makeModel(recognizer: recognizer)
+    let gate = InspectionGate()
+    let library = FakeDocumentLibrary()
+    let model = ScanModel(
+      intake: DocumentIntake(library: library, inspector: GatedInspector(gate: gate), index: FakeIndex()),
+      builder: SearchablePDFBuilder(recognizer: FakeRecognizer()), telemetry: RecordingTelemetry(), onFinish: { _ in })
     await model.review([try #require(SyntheticPDF.makeTextImage("Receipt"))])
     let first = Task { await model.save() }
-    for _ in 0..<200 where await !recognizer.isWaiting { try await Task.sleep(for: .milliseconds(10)) }
+    await gate.waitForArrival()
     // The second tap, before the screen has changed. The pages are kept now, so it must not save them.
     let second = Task { await model.save() }
     for _ in 0..<5 { await Task.yield() }
-    await recognizer.open()
+    await gate.open()
     await first.value
     await second.value
     #expect(try await library.documents(in: .all, sortedBy: .title).count == 1)
   }
 
-  @Test("Once the pages are read, the scan says it is saving, in English and French (#371)")
+  @Test("While it is saved, the scan says it is saving, in English and French (#371)")
   func saysItIsSaving() async throws {
     let gate = InspectionGate()
     let model = ScanModel(
@@ -284,20 +313,24 @@ struct ScanModelTests {
       return ViewRendering.draws(view)
     }
     let image = try #require(SyntheticPDF.makeTextImage("Receipt"))
-    let recognizer = GatedRecognizer()
-    let (recognizing, _, _, _) = makeModel(recognizer: recognizer)
-    #expect(draws(recognizing))
-    let work = Task { await recognizing.process([image]) }
-    for _ in 0..<200 where await !recognizer.isWaiting { try await Task.sleep(for: .milliseconds(10)) }
-    #expect(recognizing.phase == .recognizing(0))
-    #expect(draws(recognizing))
-    await recognizer.open()
-    await work.value
-    #expect(draws(recognizing))
+    let (saved, _, _, _) = makeModel()
+    #expect(draws(saved))
+    await saved.process([image])
+    #expect(draws(saved))
     let (failing, _, _, _) = makeModel(inspector: FakeInspector(fails: true))
     await failing.process([image])
     #expect(failing.phase == .failed)
     #expect(draws(failing))
+  }
+}
+
+/// Notes the longest side of each image it is given.
+private actor SizeLog: TextRecognizing {
+  private(set) var longest: [Int] = []
+
+  func recognizeText(in image: CGImage) async throws -> [RecognizedLine] {
+    longest.append(max(image.width, image.height))
+    return []
   }
 }
 

@@ -30,6 +30,28 @@ public actor SearchablePDFBuilder {
     self.renderPixelSize = renderPixelSize
   }
 
+  /// Builds a PDF of scanned page images with no text layer yet, without recognising anything, so a
+  /// scan can be saved and opened at once (#371). `addTextLayer` adds the text afterwards.
+  ///
+  /// Off the actor: a scan being saved doesn't wait for another document's recognition.
+  ///
+  /// - Throws: `CancellationError` or `PDFEngineError.saveFailed`.
+  @concurrent public nonisolated func makeImagePDF(from images: [CGImage]) async throws -> Data {
+    let interval = Signposts.begin("Scan.ImagePDF")
+    defer { interval.end() }
+    var pages: [CGImage] = []
+    for image in images {
+      try Task.checkCancellation()
+      pages.append(
+        Signposts.measure("Scan.Downscale") { PageImage.scaledDown(image, toLongestSide: renderPixelSize) ?? image })
+    }
+    try Task.checkCancellation()
+    let boxes = images.map { Self.pageBox(for: $0) }
+    return try Signposts.measure("Scan.WritePDF") {
+      try PDFWriter.makePDF(mediaBoxes: boxes) { context, index, box in context.draw(pages[index], in: box) }
+    }
+  }
+
   /// Builds a PDF from scanned page images.
   ///
   /// Images larger than `renderPixelSize`, as a camera's are, are brought down first: for recognition
@@ -99,7 +121,7 @@ public actor SearchablePDFBuilder {
       } else {
         guard let page = source.page(at: index + 1) else { throw PDFEngineError.renderFailed }
         let image = try PageRenderer.render(page, maximumPixelSize: renderPixelSize)
-        let lines = try await recognizer.recognizeText(in: image)
+        let lines = try await Signposts.measure("Scan.Recognize") { try await recognizer.recognizeText(in: image) }
         recognized.append(lines)
         await onPage(index, lines)
       }
