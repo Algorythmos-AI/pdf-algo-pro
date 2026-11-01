@@ -359,6 +359,9 @@ Each identifier has a `CHANGELOG.md` in the Keep a Changelog style used across t
 
 A change users would notice is also summarised in the app's release notes.
 
+The changelogs live in `Packages/Intelligence/Prompts/<id>/`, outside the package's sources. Prompt
+text is in `PromptCatalog.swift` today, and `PromptCatalog.previous` holds the versions just replaced.
+
 ## Rollback
 
 | Level | How | Time to effect |

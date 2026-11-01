@@ -30,6 +30,9 @@ Store notes (see the changelog strategy).
   only ever means a red annotation or Delete.
 
 ### Fixed
+
+- Summaries and contract explanations no longer ask for a minimum number of sentences, so a short
+  document such as a business card can get a short answer.
 - Recognise text on an image-only PDF now puts the text where it is on the page, so search
   highlights and text selection line up, and reads the page at full size. Recognise text again on
   a document already recognised this way to correct it.

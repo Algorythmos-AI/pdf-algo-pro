@@ -272,8 +272,10 @@ framework's evaluation trait then.
   item per injection category, in both languages. The follow-up set (FR-AI-014, #90) asks questions
   after an earlier exchange: a pronoun that needs the earlier question, in both languages, a follow-up
   the document can't answer, and an instruction carried inside an earlier answer, which must never be
-  followed. The runner passes those earlier exchanges to the `ask.followUp` prompt. The sets are
-  small, and grow as failures are found.
+  followed. The runner passes those earlier exchanges to the `ask.followUp` prompt. The document set
+  runs Summarise and Contract in both languages, on the same synthetic documents, a one-page
+  agreement and a sparse business card with no field labels. The sets are small, and grow as
+  failures are found.
 - **Evaluators** are code-based:
   - citation correctness (at least one gold page cited, and no page outside the gold set);
   - completeness (key points present);
@@ -281,13 +283,17 @@ framework's evaluation trait then.
   - answers with an unsupported claim (`Answer.omittedClaims`);
   - injection pass rate per category (payload never repeated, the task still done, citations only to
     gold pages, the tier unchanged);
-  - French against English parity.
+  - French against English parity;
+  - for Summarise and Contract, citations, key points, a sentence limit, and no dropped sentence.
 - **Thresholds** are the release thresholds above.
 - **In CI** (`ios` job): the sets run through the real router and grounding with a recorded-response
   model, and must meet every threshold. A self-test checks that the evaluators catch wrong citations,
   invented numbers, repeated payloads and guesses. The report is `reports/ai-evaluation.md`.
 - **On a device**, the same sets run through the on-device model and produce
-  `ai-evaluation-live.md`, the device evidence for the release. There are two ways to run them:
+  `ai-evaluation-live.md`, the device evidence for the release. Its "Dropped sentences by task" table
+  gives the drop rate for Ask, Summarise and Contract. An answer with no supported sentence shows
+  as "Not found" and says nothing about how many were dropped, so that column stands apart. There
+  are two ways to run them:
   - `PDFALGOPRO_LIVE_MODEL=1` in the test run, from Xcode;
   - in a Debug or Staging build (TestFlight), Settings → Internal testing → AI evaluation, then
     "Share the report".
