@@ -81,7 +81,6 @@ struct CameraScanTests {
     let url = FileManager.default.temporaryDirectory.appendingPathComponent("camera-scan-\(UUID()).pdf")
     try result.data.write(to: url)
     defer { try? FileManager.default.removeItem(at: url) }
-    // Smaller than the page, because `getDrawingTransform` only ever scales a page down.
     let picture = try PageRenderer.render(pageIndex: 0, of: url, maximumPixelSize: 600)
     let drawn = try #require(BlockFinder.block(in: picture))
     // In fractions of the page: within half a percent of the block as drawn, and as it was made. By
@@ -121,6 +120,42 @@ struct CameraScanTests {
       (text.width / size.width, block.width),
     ] {
       #expect(abs(found - expected) < 0.005, "\(text) on \(box): the block is at \(block)")
+    }
+  }
+
+  @Test(
+    "A page fills the bitmap at every rotation, with a crop box away from the origin (#373)",
+    arguments: [0, 90, 180, 270])
+  func pagesFillTheBitmap(rotation: Int) throws {
+    let box = CGRect(x: 50, y: 100, width: 300, height: 400)
+    // The block in page space, at the bottom left of the crop box.
+    let block = CGRect(x: 80, y: 140, width: 60, height: 40)
+    let data = try PDFWriter.makePDF(mediaBoxes: [box]) { context, _, _ in
+      context.setFillColor(CGColor(gray: 0, alpha: 1))
+      context.fill(block)
+    }
+    let document = try #require(PDFDocument(data: data))
+    document.page(at: 0)?.rotation = rotation
+    let url = FileManager.default.temporaryDirectory.appendingPathComponent("rotated-\(UUID()).pdf")
+    #expect(document.write(to: url))
+    defer { try? FileManager.default.removeItem(at: url) }
+    let image = try PageRenderer.render(pageIndex: 0, of: url, maximumPixelSize: 1600)
+    #expect(max(image.width, image.height) == 1600)
+    let found = try #require(BlockFinder.block(in: image))
+    let (x, y) = ((block.minX - box.minX) / box.width, (block.minY - box.minY) / box.height)
+    let (w, h) = (block.width / box.width, block.height / box.height)
+    let expected: CGRect
+    switch rotation {
+    case 90: expected = CGRect(x: y, y: 1 - x - w, width: h, height: w)
+    case 180: expected = CGRect(x: 1 - x - w, y: 1 - y - h, width: w, height: h)
+    case 270: expected = CGRect(x: 1 - y - h, y: x, width: h, height: w)
+    default: expected = CGRect(x: x, y: y, width: w, height: h)
+    }
+    for (a, b) in [
+      (found.minX, expected.minX), (found.minY, expected.minY), (found.width, expected.width),
+      (found.height, expected.height),
+    ] {
+      #expect(abs(a - b) < 0.005, "\(found), expected \(expected)")
     }
   }
 
