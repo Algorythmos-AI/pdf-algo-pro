@@ -94,6 +94,35 @@ struct CameraScanTests {
     }
   }
 
+  /// Recognise text on an image-only PDF: a page smaller than the render size has to fill the image
+  /// recognition reads, or what it reports doesn't map back to the page (#373).
+  @Test(
+    "A text layer added to an image-only PDF lies over what was read (#373)",
+    arguments: [
+      // US Letter, the case measured: x 61, y 634, width 306.
+      (CGSize(width: 612, height: 792), CGRect(x: 0.1, y: 0.8, width: 0.5, height: 0.04)),
+      // A landscape page, and one larger than the render size, which was always scaled.
+      (CGSize(width: 842, height: 595), CGRect(x: 0.55, y: 0.15, width: 0.3, height: 0.08)),
+      (CGSize(width: 3000, height: 4000), CGRect(x: 0.2, y: 0.7, width: 0.5, height: 0.05)),
+    ])
+  func addedTextLayerLiesOverWhatWasRead(size: CGSize, block: CGRect) async throws {
+    let picture = try #require(Self.image(size: CGSize(width: size.width * 2, height: size.height * 2), block: block))
+    let box = CGRect(origin: .zero, size: size)
+    let source = try PDFWriter.makePDF(mediaBoxes: [box]) { context, _, box in context.draw(picture, in: box) }
+    let url = FileManager.default.temporaryDirectory.appendingPathComponent("image-only-\(UUID()).pdf")
+    try source.write(to: url)
+    defer { try? FileManager.default.removeItem(at: url) }
+    let result = try await SearchablePDFBuilder(recognizer: BlockFinder()).addTextLayer(toPDFAt: url)
+    let document = try #require(PDFDocument(data: result.data))
+    let page = try #require(document.page(at: 0))
+    let text = try #require(document.findString("Total", withOptions: []).first).bounds(for: page)
+    for (found, expected) in [
+      (text.minX / size.width, block.minX), (text.minY / size.height, block.minY), (text.width / size.width, block.width),
+    ] {
+      #expect(abs(found - expected) < 0.005, "\(text) on \(box): the block is at \(block)")
+    }
+  }
+
   /// A white page with a black block, given in fractions of the page from its bottom left.
   private static func image(size: CGSize, block: CGRect) -> CGImage? {
     let context = CGContext(
