@@ -98,7 +98,9 @@ public struct PaywallFlowView: View {
 }
 
 /// What the offer says above the plans: why it is here, a picture of the app at work, what Pro adds,
-/// and what never needs it. Someone who has Pro reads a status in its place, and the list is what they have.
+/// and what never needs it.
+///
+/// Someone who has Pro reads a status in its place, and the list is what they have.
 struct PaywallHeader: View {
   let trigger: PaywallTrigger
   let benefits: [PaywallBenefit]
