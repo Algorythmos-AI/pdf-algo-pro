@@ -864,22 +864,31 @@ and for a future Mac or visionOS adapter. **Pillars served.** PIL-7.
 - A separate `pdf-algo-pro-design` repository is reserved and created only if a separation
   criterion is met ([ADR-0019](adr/0019-public-private-documentation-split.md)).
 
-## Figma library (readiness action)
+## Prototypes and the design pass
 
-The Figma library is part of readiness blocker C5 (UX information architecture, key flows and the
-Figma library) in the [readiness review](readiness-review.md). The action:
+There is no Figma library for 1.0. Readiness blocker C5 asked for reviewed prototypes of every key
+flow and a design pass ([readiness review](readiness-review.md)); since PAP-070 the screens as built
+are the prototypes, and C5 closes on a lighter design pass of them rather than on drawings made
+beside the code:
 
-1. Start from Apple's current iOS and iPadOS design kit in
-   [Apple Design Resources](https://developer.apple.com/design/resources/), so system components match
-   Apple's own drawings.
-2. Create Figma variables that mirror `tokens.json`, with light, dark and Increase Contrast modes.
-3. Build the components in this document, with the same names and states as the Swift components.
-4. Draw the key flows: onboarding intent picker, first document, reader with thumbnail rail,
-   annotation, signing, scan and OCR review, AI answer with citations, consent, paywall, and the
-   empty, error and loading states, at Large and AX5, in English and French.
-5. Record the file's link and version in [working memory](working-memory.md). The repository's
-   `tokens.json` stays the source of truth; drift between Figma and the tokens is checked by hand at
-   each milestone until an export is automated.
+1. **Previews.** Each feature package has a Debug-only `*Previews.swift` file with a `#Preview` for
+   each of its screen states that needs no open document, most of them also at AX5, in dark
+   appearance and right to left; App Lock's cover has one in the app target. They use small doubles
+   private to each file, never the app's services.
+2. **Snapshot gallery.** [`docs/design/gallery.md`](design/gallery.md), built by
+   `scripts/design/gallery.py` from the snapshot references (one table per screen, one column per
+   appearance). It is generated again whenever the references are recorded again; a script test fails
+   when it is stale.
+3. **Checklist.** [`docs/design/design-pass-checklist.md`](design/design-pass-checklist.md): every
+   screen state against system components, contrast in the four appearances, AX5 text, VoiceOver,
+   Voice Control, Reduce Motion, Reduce Transparency, right to left and French, each cell linking its
+   proof or marked for the owner.
+4. **Walk-through.** The owner walks a Release-configuration build through the checklist and dates
+   each row; C5 closes when every row is dated.
+
+`tokens.json` stays the source of truth for colour, spacing and size. The visual refresh of the
+foundations and screens moved to 1.1 (PAP-070); if it brings a drawing tool back, its variables
+mirror `tokens.json`, and the decision is recorded then.
 
 ## Open questions
 
