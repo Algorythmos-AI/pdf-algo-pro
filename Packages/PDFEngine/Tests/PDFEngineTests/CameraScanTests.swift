@@ -117,7 +117,8 @@ struct CameraScanTests {
     let page = try #require(document.page(at: 0))
     let text = try #require(document.findString("Total", withOptions: []).first).bounds(for: page)
     for (found, expected) in [
-      (text.minX / size.width, block.minX), (text.minY / size.height, block.minY), (text.width / size.width, block.width),
+      (text.minX / size.width, block.minX), (text.minY / size.height, block.minY),
+      (text.width / size.width, block.width),
     ] {
       #expect(abs(found - expected) < 0.005, "\(text) on \(box): the block is at \(block)")
     }
