@@ -22,8 +22,7 @@ public enum PageRenderer {
   /// Renders a Core Graphics page to an opaque bitmap on a white background.
   static func render(_ page: CGPDFPage, maximumPixelSize: Int) throws -> CGImage {
     let box = page.getBoxRect(.cropBox)
-    let rotated = page.rotationAngle % 180 != 0
-    let size = rotated ? CGSize(width: box.height, height: box.width) : box.size
+    let size = shownSize(of: box, rotation: page.rotationAngle)
     guard size.width > 0, size.height > 0 else { throw PDFEngineError.renderFailed }
     let scale = CGFloat(maximumPixelSize) / max(size.width, size.height)
     let width = max(1, Int((size.width * scale).rounded()))
@@ -43,12 +42,17 @@ public enum PageRenderer {
     return image
   }
 
+  /// A page's size as shown, with its rotation applied.
+  static func shownSize(of box: CGRect, rotation: Int32) -> CGSize {
+    rotation % 180 != 0 ? CGSize(width: box.height, height: box.width) : box.size
+  }
+
   /// Maps a page's crop box, turned by its rotation, onto a bitmap.
   ///
   /// `getDrawingTransform` can't be used here: it only ever scales down, so a page smaller than the
   /// bitmap would sit in its middle, and what recognition reads from the bitmap wouldn't map back to
   /// the page (#373). The two scales differ only by the rounding of the bitmap's size.
-  private static func pageTransform(
+  static func pageTransform(
     box: CGRect, rotation: Int32, width: CGFloat, height: CGFloat
   )
     -> CGAffineTransform

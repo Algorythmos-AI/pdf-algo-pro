@@ -159,9 +159,10 @@ struct CameraScanTests {
     }
   }
 
+  /// A rotated page's layer runs along the text as shown (#373).
+  ///
   /// The picture is drawn turned the other way, so the page shows the block where `block` says once
-  /// its rotation is applied. The layer has to run along the text as shown, or a rotated scan's
-  /// search highlights land elsewhere and selection reads sideways (#373).
+  /// its rotation is applied.
   @Test(
     "A text layer added to a rotated image-only PDF lies over what was read (#373)",
     arguments: [90, 180, 270])
