@@ -22,8 +22,7 @@ public enum PageRenderer {
   /// Renders a Core Graphics page to an opaque bitmap on a white background.
   static func render(_ page: CGPDFPage, maximumPixelSize: Int) throws -> CGImage {
     let box = page.getBoxRect(.cropBox)
-    let rotated = page.rotationAngle % 180 != 0
-    let size = rotated ? CGSize(width: box.height, height: box.width) : box.size
+    let size = shownSize(of: box, rotation: page.rotationAngle)
     guard size.width > 0, size.height > 0 else { throw PDFEngineError.renderFailed }
     let scale = CGFloat(maximumPixelSize) / max(size.width, size.height)
     let width = max(1, Int((size.width * scale).rounded()))
@@ -36,11 +35,42 @@ public enum PageRenderer {
     else { throw PDFEngineError.renderFailed }
     context.setFillColor(CGColor(gray: 1, alpha: 1))
     context.fill(CGRect(x: 0, y: 0, width: width, height: height))
-    let target = CGRect(x: 0, y: 0, width: width, height: height)
-    context.concatenate(page.getDrawingTransform(.cropBox, rect: target, rotate: 0, preserveAspectRatio: true))
+    context.concatenate(
+      pageTransform(box: box, rotation: page.rotationAngle, width: CGFloat(width), height: CGFloat(height)))
     context.drawPDFPage(page)
     guard let image = context.makeImage() else { throw PDFEngineError.renderFailed }
     return image
+  }
+
+  /// A page's size as shown, with its rotation applied.
+  static func shownSize(of box: CGRect, rotation: Int32) -> CGSize {
+    rotation % 180 != 0 ? CGSize(width: box.height, height: box.width) : box.size
+  }
+
+  /// Maps a page's crop box, turned by its rotation, onto a bitmap.
+  ///
+  /// `getDrawingTransform` can't be used here: it only ever scales down, so a page smaller than the
+  /// bitmap would sit in its middle, and what recognition reads from the bitmap wouldn't map back to
+  /// the page (#373). The two scales differ only by the rounding of the bitmap's size.
+  static func pageTransform(
+    box: CGRect, rotation: Int32, width: CGFloat, height: CGFloat
+  )
+    -> CGAffineTransform
+  {
+    switch ((rotation % 360) + 360) % 360 {
+    case 90:
+      let (x, y) = (width / box.height, height / box.width)
+      return CGAffineTransform(a: 0, b: -y, c: x, d: 0, tx: -box.minY * x, ty: box.maxX * y)
+    case 180:
+      let (x, y) = (width / box.width, height / box.height)
+      return CGAffineTransform(a: -x, b: 0, c: 0, d: -y, tx: box.maxX * x, ty: box.maxY * y)
+    case 270:
+      let (x, y) = (width / box.height, height / box.width)
+      return CGAffineTransform(a: 0, b: y, c: -x, d: 0, tx: box.maxY * x, ty: -box.minX * y)
+    default:
+      let (x, y) = (width / box.width, height / box.height)
+      return CGAffineTransform(a: x, b: 0, c: 0, d: y, tx: -box.minX * x, ty: -box.minY * y)
+    }
   }
 }
 
