@@ -30,6 +30,7 @@ Assistant et confidentialité
 
 Problèmes connus
 - Un glissement commencé juste après un toucher peut ne pas déplacer la page. Levez le doigt, attendez un instant et recommencez.
+- Les documents reconnus avant cette version gardent un texte mal placé. Relancez la reconnaissance du texte pour le corriger.
 
 Envoyer un retour
 - Faites une capture d’écran dans l’app, ouvrez-la, touchez X ou OK en haut, puis Partager un avis bêta, et décrivez le problème.
