@@ -159,6 +159,65 @@ struct CameraScanTests {
     }
   }
 
+  /// The picture is drawn turned the other way, so the page shows the block where `block` says once
+  /// its rotation is applied. The layer has to run along the text as shown, or a rotated scan's
+  /// search highlights land elsewhere and selection reads sideways (#373).
+  @Test(
+    "A text layer added to a rotated image-only PDF lies over what was read (#373)",
+    arguments: [90, 180, 270])
+  func addedTextLayerFollowsRotation(rotation: Int) async throws {
+    let block = CGRect(x: 0.1, y: 0.8, width: 0.5, height: 0.04)
+    let shown = rotation == 180 ? CGSize(width: 612, height: 792) : CGSize(width: 792, height: 612)
+    let box = CGRect(x: 0, y: 0, width: 612, height: 792)
+    // The block in the page's own space, in fractions, for each rotation.
+    let unturned: CGRect
+    switch rotation {
+    case 90:
+      unturned = CGRect(
+        x: 1 - block.minY - block.height, y: block.minX, width: block.height, height: block.width)
+    case 180:
+      unturned = CGRect(
+        x: 1 - block.minX - block.width, y: 1 - block.minY - block.height, width: block.width,
+        height: block.height)
+    default:
+      unturned = CGRect(
+        x: block.minY, y: 1 - block.minX - block.width, width: block.height, height: block.width)
+    }
+    let picture = try #require(Self.image(size: CGSize(width: 1224, height: 1584), block: unturned))
+    let source = try PDFWriter.makePDF(mediaBoxes: [box]) { context, _, box in context.draw(picture, in: box) }
+    let original = try #require(PDFDocument(data: source))
+    original.page(at: 0)?.rotation = rotation
+    let url = FileManager.default.temporaryDirectory.appendingPathComponent("rotated-layer-\(UUID()).pdf")
+    #expect(original.write(to: url))
+    defer { try? FileManager.default.removeItem(at: url) }
+    let result = try await SearchablePDFBuilder(recognizer: BlockFinder()).addTextLayer(toPDFAt: url)
+    let document = try #require(PDFDocument(data: result.data))
+    let page = try #require(document.page(at: 0))
+    #expect(page.rotation == rotation)
+    let text = try #require(document.findString("Total", withOptions: []).first).bounds(for: page)
+    // The text's box, in fractions of the page as shown. Its height comes from its font, so only
+    // the far edge across the text and the length along it are compared.
+    let (x, y) = (text.minX / box.width, text.minY / box.height)
+    let (w, h) = (text.width / box.width, text.height / box.height)
+    let across = 0.02
+    let found: (start: Double, across: Double, length: Double)
+    let wanted: (start: Double, across: Double, length: Double)
+    switch rotation {
+    case 90:
+      found = (y, x, h)
+      wanted = (unturned.minY, unturned.minX, unturned.height)
+    case 180:
+      found = (x, y, w)
+      wanted = (unturned.minX, unturned.minY, unturned.width)
+    default:
+      found = (y, x, h)
+      wanted = (unturned.minY, unturned.minX, unturned.height)
+    }
+    #expect(abs(found.start - wanted.start) < 0.005, "\(text) on \(shown), block \(unturned)")
+    #expect(abs(found.length - wanted.length) < 0.005, "\(text) on \(shown), block \(unturned)")
+    #expect(abs(found.across - wanted.across) < across, "\(text) on \(shown), block \(unturned)")
+  }
+
   /// A white page with a black block, given in fractions of the page from its bottom left.
   private static func image(size: CGSize, block: CGRect) -> CGImage? {
     let context = CGContext(
