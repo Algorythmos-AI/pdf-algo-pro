@@ -288,7 +288,7 @@ public struct SettingsView: View {
     case .chatWithPDF: Text("Chat with PDF", bundle: .module)
     case .summarizeDocument: Text("Summarise document", bundle: .module)
     case .extractData: Text("Extract data with AI", bundle: .module)
-    case .analyzeContract: Text("Analyse contract", bundle: .module)
+    case .analyzeContract: Text("Explain contract", bundle: .module)
     case .editText: Text("Edit PDF text", bundle: .module)
     case .annotate: Text("Annotate or highlight", bundle: .module)
     case .sign: Text("Sign", bundle: .module)

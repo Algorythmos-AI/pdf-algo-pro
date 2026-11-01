@@ -140,6 +140,7 @@ blocks implementation today?
 | [GitHub governance](github-governance.md) | Maintainer | each milestone, and whenever a ruleset, template or label file changes |
 | [Repository standards](repository-standards.md) | Maintainer | quarterly, and when the organisation standards change |
 | [Release management](release-management.md) | Release | each release, and each milestone |
+| [1.0 submission checklist](release/1.0-submission-checklist.md) | Release | at every change of status before the 1.0 submission, then once after release |
 | [Project management](project-management.md) | Product | each milestone |
 | [Changelog and release notes](changelog-strategy.md) | Release | each release |
 | [Wiki plan](wiki-plan.md) | Maintainer | each milestone |

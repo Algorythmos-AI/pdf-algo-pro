@@ -47,6 +47,52 @@
         }
       }
     },
+    "%lld of the chosen photos couldn't be read, so they were skipped." : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld of the chosen photos couldn't be read, so it was skipped."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld of the chosen photos couldn't be read, so they were skipped."
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld des photos choisies n’ont pas pu être lues, elles ont donc été ignorées."
+                }
+              },
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld des photos choisies n’a pas pu être lue, elle a donc été ignorée."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld des photos choisies n’ont pas pu être lues, elles ont donc été ignorées."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "Cancel" : {
       "localizations" : {
         "fr" : {
@@ -127,6 +173,16 @@
         }
       }
     },
+    "Opening…" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouverture…"
+          }
+        }
+      }
+    },
     "Page %lld" : {
       "localizations" : {
         "fr" : {
@@ -167,6 +223,16 @@
         }
       }
     },
+    "Saving…" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enregistrement…"
+          }
+        }
+      }
+    },
     "Scan" : {
       "localizations" : {
         "fr" : {
@@ -202,7 +268,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Les pages numérisées deviennent un PDF avec recherche. Le texte est reconnu sur cet appareil, en anglais et en français."
+            "value" : "Les pages numérisées deviennent un PDF interrogeable. Le texte est reconnu sur cet appareil, en anglais et en français."
           }
         }
       }
@@ -227,12 +293,12 @@
         }
       }
     },
-    "Text recognition didn't finish. Nothing was added to your library." : {
+    "Text recognition didn't finish. Your pages are kept, so you can try again." : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "La reconnaissance du texte n’a pas abouti. Rien n’a été ajouté à votre bibliothèque."
+            "value" : "La reconnaissance du texte n’a pas abouti. Vos pages sont conservées : vous pouvez réessayer."
           }
         }
       }

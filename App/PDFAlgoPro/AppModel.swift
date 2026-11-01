@@ -317,6 +317,13 @@ final class AppModel {
     trialNotice = container.reminders.noticeDue(for: entitlement)
   }
 
+  /// Looks, in a background refresh shortly before a trial reminder is due, whether the trial still
+  /// runs, and removes the reminder when it doesn't: paid, refunded or lapsed without the app being
+  /// opened (#336).
+  func checkTrialReminder() async {
+    _ = await TrialReminderCheck(entitlements: container.entitlements, reminder: container.reminders).run()
+  }
+
   /// Shows the subscription offer; it replaces a sheet that is up, such as Settings.
   func presentPaywall(_ trigger: PaywallTrigger) {
     paywallTrigger = trigger
@@ -459,7 +466,7 @@ final class AppModel {
     container.settings.save(current)
     let textSettingChanged = current.indexesTextInSpotlight != settings.indexesTextInSpotlight
     settings = current
-    if textSettingChanged { Task { await container.reindexSpotlight() } }
+    if textSettingChanged { Task { await container.textSettingChanged() } }
   }
 
   func makeSettings() -> SettingsModel {
@@ -471,7 +478,7 @@ final class AppModel {
         let textSettingChanged = settings.indexesTextInSpotlight != self.settings.indexesTextInSpotlight
         self.settings = settings
         self.lock.settingChanged()
-        if textSettingChanged { Task { await self.container.reindexSpotlight() } }
+        if textSettingChanged { Task { await self.container.textSettingChanged() } }
       }, versionsSize: { [container] in await container.library.versionsSize() },
       deleteVersions: { [container] in try await container.library.deleteAllVersions() }, lockMethod: lockMethod,
       authenticate: { [container] reason in await container.authenticator.authenticate(reason: reason) })

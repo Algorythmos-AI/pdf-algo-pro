@@ -21,6 +21,16 @@ nonisolated struct FileVersion: Equatable, Codable, Sendable {
   /// Every comparison of the file on disk with the version a reader expects reads it here, so what
   /// counts as an unknown version is decided in one place.
   static func current(at url: URL) -> FileVersion? {
-    try? FileVersion(url)
+    if unreadable?(url) == true { return nil }
+    return try? FileVersion(url)
   }
+
+  #if DEBUG
+    /// Tests set this to make the version of a file unreadable, as when its attributes can't be read
+    /// (each test matches its own file, so suites running beside it are not affected); nil in normal
+    /// runs, and absent from release builds.
+    nonisolated(unsafe) static var unreadable: (@Sendable (URL) -> Bool)?
+  #else
+    static var unreadable: (@Sendable (URL) -> Bool)? { nil }
+  #endif
 }

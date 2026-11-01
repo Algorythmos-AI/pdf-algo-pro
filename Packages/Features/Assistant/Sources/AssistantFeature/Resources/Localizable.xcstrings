@@ -46,7 +46,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Poser une question de suivi"
+            "value" : "Poser une autre question"
           }
         }
       }
@@ -375,7 +375,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Partager en fichier CSV"
+            "value" : "Partager au format CSV"
           }
         }
       }
@@ -547,7 +547,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Activez Apple Intelligence dans l’app Réglages pour l’utiliser ici. Tout le reste fonctionne sans."
+            "value" : "Activez Apple Intelligence dans l’app Réglages pour l’utiliser ici. Tout le reste fonctionne sans elle."
           }
         }
       }

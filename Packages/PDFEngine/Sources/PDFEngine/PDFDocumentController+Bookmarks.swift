@@ -33,6 +33,7 @@ extension PDFDocumentController {
   }
 
   func setBookmark(_ bookmarked: Bool, on page: PDFPage) {
+    let page = live(page)
     let root = document.outlineRoot ?? PDFOutline()
     if document.outlineRoot == nil { document.outlineRoot = root }
     let folder =

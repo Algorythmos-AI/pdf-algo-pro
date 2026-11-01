@@ -141,16 +141,24 @@ extension PDFDocumentController {
     }
   }
 
-  /// An outline compared by titles, targets and nesting: where on its page an item lands and whether it
-  /// shows open can read back a little differently from a correct file.
+  /// An outline compared by titles, targets, web addresses, zooms to the hundredth, and nesting: where
+  /// on its page an item lands and whether it shows open can read back a little differently from a
+  /// correct file.
   private struct OutlineShape: Equatable {
     let title: String
     let target: Int?
+    let url: String?
+    let zoom: Int?
     let children: [OutlineShape]
   }
 
   nonisolated private static func shape(_ items: [PDFStructureRepair.OutlineItem]) -> [OutlineShape] {
-    items.map { OutlineShape(title: $0.title, target: $0.target, children: shape($0.children)) }
+    items.map {
+      OutlineShape(
+        title: $0.title, target: $0.target, url: $0.url?.absoluteString,
+        zoom: $0.zoom.map { Int(($0 * 100).rounded()) },
+        children: shape($0.children))
+    }
   }
 
   /// Every link in a document that goes to one of its pages.
@@ -177,16 +185,19 @@ extension PDFDocumentController {
   /// the stack during a save.
   nonisolated static let outlineDepthLimit = 100
 
-  /// A document's outline, as titles, targets and children.
+  /// A document's outline, as titles, targets, web addresses, zooms and children.
   nonisolated static func outline(of document: PDFDocument) -> [PDFStructureRepair.OutlineItem] {
     func items(_ parent: PDFOutline, depth: Int) -> [PDFStructureRepair.OutlineItem] {
       guard depth < outlineDepthLimit else { return [] }
       return (0..<parent.numberOfChildren).compactMap { parent.child(at: $0) }.map { item in
         let destination = item.destination ?? (item.action as? PDFActionGoTo)?.destination
         let target = destination?.page.map { document.index(for: $0) }
+        // PDFKit reads a destination without a zoom, or with zoom 0, as kPDFDestinationUnspecifiedValue.
+        let zoom = destination.map(\.zoom).flatMap { $0.isFinite && $0 > 0 && $0 < 1_000_000 ? $0 : nil }
         return .init(
           title: item.label ?? "", target: target == NSNotFound ? nil : target, point: destination?.point,
-          isOpen: item.isOpen, children: items(item, depth: depth + 1))
+          isOpen: item.isOpen, children: items(item, depth: depth + 1), url: (item.action as? PDFActionURL)?.url,
+          zoom: zoom)
       }
     }
     return document.outlineRoot.map { items($0, depth: 0) } ?? []

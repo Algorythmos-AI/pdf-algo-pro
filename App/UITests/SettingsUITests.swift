@@ -23,6 +23,21 @@ final class SettingsUITests: UITestCase {
     }
   }
 
+  /// About: Rate PDF Algo Pro is there and can be tapped.
+  ///
+  /// It is not tapped: that would open the App Store.
+  func testAboutOffersToRateTheApp() throws {
+    let app = launch(["-skip-onboarding"])
+    tap(app.buttons[ID.Library.Sidebar.settings], until: app.descendants(matching: .any)[ID.Settings.hideAI].firstMatch)
+    let about = app.descendants(matching: .any)[ID.Settings.about].firstMatch
+    for _ in 0..<6 where !about.isHittable { app.swipeUp() }
+    tap(about, until: app.descendants(matching: .any)[ID.Settings.privacyPolicy].firstMatch)
+    let rate = app.descendants(matching: .any)[ID.Settings.rate].firstMatch
+    XCTAssertTrue(rate.waitForExistence(timeout: Self.settleTimeout))
+    for _ in 0..<4 where !rate.isHittable { app.swipeUp() }
+    XCTAssertTrue(rate.isHittable)
+  }
+
   /// The privacy report (FR-SET-005): its counts are text, and are audited like any other.
   func testThePrivacyReportOpensAndPassesTheAudit() throws {
     let app = launch(["-skip-onboarding"])

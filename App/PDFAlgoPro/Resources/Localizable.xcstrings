@@ -66,7 +66,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ouvrir les réglages"
+            "value" : "Ouvrir Réglages"
           }
         }
       }
@@ -86,7 +86,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ouvre le scanner pour créer un PDF avec recherche, sur cet appareil."
+            "value" : "Ouvre le scanner pour créer un PDF interrogeable sur cet appareil."
           }
         }
       }
@@ -96,7 +96,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Pages citées : %@"
+            "value" : "Pages citées : %@"
           }
         }
       }
@@ -136,7 +136,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Les résumés nécessitent Apple Intelligence sur cet appareil et les fonctions d’IA activées."
+            "value" : "Les résumés nécessitent Apple Intelligence sur cet appareil et les fonctionnalités d’IA activées."
           }
         }
       }
@@ -261,22 +261,22 @@
         }
       }
     },
-    "If your PDF Algo Pro trial is still running, it ends within a day. Manage it in Settings, under Subscription." : {
+    "If your PDF Algo Pro trial is still running, it ends within a day. To manage or cancel it, open the Settings app, tap your name (Apple Account), then Subscriptions." : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Si votre essai de PDF Algo Pro est toujours en cours, il se termine dans un jour au plus. Gérez-le dans Réglages, sous Abonnement."
+            "value" : "Si votre essai de PDF Algo Pro est toujours en cours, il se termine dans un jour au plus. Pour le gérer ou le résilier, ouvrez l’app Réglages, touchez votre nom (compte Apple), puis Abonnements."
           }
         }
       }
     },
-    "Your PDF Algo Pro trial ends on %@. You can manage or cancel it in Settings, under Subscription." : {
+    "Your PDF Algo Pro trial ends on %@. To manage or cancel it, open the Settings app, tap your name (Apple Account), then Subscriptions. Or tap Manage subscription in PDF Algo Pro’s Settings." : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Votre essai de PDF Algo Pro se termine le %@. Vous pouvez le gérer ou l’annuler dans Réglages, sous Abonnement."
+            "value" : "Votre essai de PDF Algo Pro se termine le %@. Pour le gérer ou le résilier, ouvrez l’app Réglages, touchez votre nom (compte Apple), puis Abonnements. Ou touchez Gérer l’abonnement dans les Réglages de PDF Algo Pro."
           }
         }
       }

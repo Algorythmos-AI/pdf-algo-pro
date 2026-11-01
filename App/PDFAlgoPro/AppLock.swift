@@ -211,6 +211,8 @@ struct LockWindowPresenter: UIViewRepresentable {
   @MainActor
   final class Coordinator {
     private var window: UIWindow?
+    /// The window that had the keyboard when the lock came up; it gets it back when the lock goes.
+    private weak var previousKeyWindow: UIWindow?
 
     func update(scene: UIWindowScene?, lock: AppLock, method: AppLockMethod?, shows: Bool) {
       guard let scene, shows || window != nil else { return }
@@ -220,8 +222,18 @@ struct LockWindowPresenter: UIViewRepresentable {
         window.rootViewController = UIHostingController(rootView: LockScreen(lock: lock, method: method))
         self.window = window
       }
-      window?.isHidden = !shows
-      if shows { window?.makeKeyAndVisible() } else { scene.windows.first { $0 !== window }?.makeKey() }
+      guard let window else { return }
+      if shows {
+        if let key = scene.keyWindow, key !== window { previousKeyWindow = key }
+        window.makeKeyAndVisible()
+      } else if !window.isHidden {
+        window.isHidden = true
+        // The scene's first window can be a keyboard or text-effects window rather than the one the
+        // person was typing in (#258).
+        let previous = previousKeyWindow.flatMap { $0.windowScene === scene && !$0.isHidden ? $0 : nil }
+        (previous ?? scene.windows.first { $0 !== window && !$0.isHidden })?.makeKey()
+        previousKeyWindow = nil
+      }
     }
   }
 }

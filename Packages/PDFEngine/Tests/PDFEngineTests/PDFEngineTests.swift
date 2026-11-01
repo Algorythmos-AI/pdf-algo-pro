@@ -1031,6 +1031,51 @@ struct ToolkitTests {
       "the saved zoomed entry goes to page \(String(describing: saved.page)) at zoom \(String(describing: saved.zoom))")
   }
 
+  @Test("A password-protected save keeps an outline entry's web address and a destination's zoom (#356)")
+  func protectedSaveKeepsOutlineActions() throws {
+    let source = try #require(PDFDocument(data: SyntheticPDF.make(pages: ["One", "Two", "Three"])))
+    let outline = PDFOutline()
+    let web = PDFOutline()
+    web.label = "Terms"
+    web.action = PDFActionURL(url: try #require(URL(string: "https://example.com/terms")))
+    outline.insertChild(web, at: 0)
+    let zoomed = PDFOutline()
+    zoomed.label = "Two"
+    let destination = PDFDestination(page: try #require(source.page(at: 1)), at: CGPoint(x: 72, y: 700))
+    destination.zoom = 2
+    zoomed.destination = destination
+    outline.insertChild(zoomed, at: 1)
+    source.outlineRoot = outline
+
+    // The first entry's web address, and the second's page index and zoom.
+    func entries(_ document: PDFDocument?) -> String {
+      guard let document, let root = document.outlineRoot, root.numberOfChildren == 2 else { return "no outline" }
+      let url = (root.child(at: 0)?.action as? PDFActionURL)?.url?.absoluteString ?? "no web address"
+      let item = root.child(at: 1)
+      let destination = item?.destination ?? (item?.action as? PDFActionGoTo)?.destination
+      let page = destination?.page.map { document.index(for: $0) }
+      return "\(url) page \(page.map(String.init) ?? "none") zoom \(destination.map { "\($0.zoom)" } ?? "none")"
+    }
+    let expected = "https://example.com/terms page 1 zoom 2.0"
+
+    let written = try #require(PDFDocumentController.dataRepresentation(of: source))
+    #expect(entries(PDFDocument(data: written)) == expected, "the document written to data")
+    let protected = try PDFDocumentController(data: written)
+    #expect(protected.setPassword("secret"))
+    let url = temporaryURL()
+    try protected.save(to: url)
+    let reopened = try PDFDocumentController(url: url)
+    #expect(reopened.document.isLocked && reopened.unlock(password: "secret"), "the saved file is protected")
+    #expect(entries(reopened.document) == expected, "the protected file")
+
+    // Saved again with its password, as opened: PDFKit on iOS 27 writes the outline the file opened with.
+    reopened.addNote("Later", onPage: 0)
+    try reopened.save(to: url)
+    let later = try #require(PDFDocument(url: url))
+    #expect(later.isLocked && later.unlock(withPassword: "secret"), "the file saved again stays protected")
+    #expect(entries(later) == expected, "the protected file saved again")
+  }
+
   @Test("A password that only opens the document can't remove the author's protection")
   func userPasswordCannotRemove() throws {
     let controller = try PDFDocumentController(

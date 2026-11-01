@@ -417,6 +417,7 @@ extension PDFDocumentController {
 
   /// Swaps annotations in one undo step.
   func exchange(removing: [(PDFAnnotation, PDFPage)], adding: [(PDFAnnotation, PDFPage)]) {
+    let (removing, adding) = (removing.map(live), adding.map(live))
     for (annotation, page) in removing { page.removeAnnotation(annotation) }
     for (annotation, page) in adding { page.addAnnotation(annotation) }
     redraw(removing + adding)
@@ -424,6 +425,11 @@ extension PDFDocumentController {
     undoManager.registerUndo(withTarget: self) { controller in
       MainActor.assumeIsolated { controller.exchange(removing: adding, adding: removing) }
     }
+  }
+
+  /// An annotation with the page now in the document in place of its page (#339).
+  private func live(_ pair: (PDFAnnotation, PDFPage)) -> (PDFAnnotation, PDFPage) {
+    (pair.0, live(pair.1))
   }
 
   /// Has the view draw the pages whose annotations just changed.
@@ -436,6 +442,7 @@ extension PDFDocumentController {
   }
 
   func add(_ annotations: [(PDFAnnotation, PDFPage)]) {
+    let annotations = annotations.map(live)
     for (annotation, page) in annotations { page.addAnnotation(annotation) }
     redraw(annotations)
     hasUnsavedChanges = true
@@ -445,6 +452,7 @@ extension PDFDocumentController {
   }
 
   func remove(_ annotations: [(PDFAnnotation, PDFPage)]) {
+    let annotations = annotations.map(live)
     for (annotation, page) in annotations { page.removeAnnotation(annotation) }
     // A removed annotation is no longer the selection: nothing is left to frame or to act on.
     if let selected, annotations.contains(where: { $0.0 === selected.annotation }) { clearSelection() }

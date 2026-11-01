@@ -294,6 +294,11 @@ French clean word-error check is marked as a known issue; the full corpus is gat
   blurred, low in contrast and speckled.
 - **Every pull request** runs 3 clean and 2 degraded pages per language, and gates them.
 - **`FULL_SUITE=1`** runs 200 clean and 100 degraded pages per language.
+- **Camera-sized pages:** `OCRCameraSizeTests` makes the same corpus 4,032 pixels tall, brings it down
+  as `SearchablePDFBuilder` does, to 2,200, and holds it to the same gates (#371). Every pull request
+  runs the subset. `FULL_SUITE=1 swift test --package-path Packages/OCR --filter OCRCameraSize` runs
+  the full corpus; the `ocr-full-suite` job doesn't. On macOS on 31 October 2026 the full corpus met
+  the gates: the worst CER was 0.51% and the worst WER 2.79%.
 - **Report:** `reports/ocr-accuracy.md` when `REPORTS_DIR` is set, as the `ios` job does.
 - **Not yet covered:** photographed pages and layouts (columns, tables, small print).
 

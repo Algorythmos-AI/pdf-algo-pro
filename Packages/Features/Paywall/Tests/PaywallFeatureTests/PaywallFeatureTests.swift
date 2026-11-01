@@ -170,7 +170,7 @@ struct PaywallModelTests {
     let (model, fake, _, _, _) = makeModel()
     fake.set(.subscribed)
     await model.restore(using: FixedStoreAccess(isAvailable: answers))
-    #expect(model.restoreFailed == !answers)
+    #expect(model.restoreOutcome == (answers ? .restored : .failed))
     #expect(model.grantsPro, "What the App Store now reports is read either way")
   }
 
@@ -192,8 +192,71 @@ struct PaywallModelTests {
     let (model, _, _, telemetry, _) = makeModel()
     await model.appeared()
     await model.restore(using: FixedStoreAccess(isAvailable: false))
-    #expect(model.restoreFailed && model.phase == .offer)
+    #expect(model.restoreOutcome == .failed && model.phase == .offer)
     #expect(await telemetry.events == ["commerce.paywall.viewed", "commerce.restore.failed"])
+  }
+
+  @Test("A restore that finds nothing to bring back says so, rather than nothing at all (#247)")
+  func restoreFindsNothing() async {
+    let (model, _, _, _, _) = makeModel()
+    await model.appeared()
+    await model.restore(using: FixedStoreAccess(isAvailable: true))
+    #expect(model.restoreOutcome == .nothingFound)
+    #expect(model.phase == .offer && !model.grantsPro)
+  }
+
+  @Test("A restore while Pro is paused in billing retry says it is paused, not that there is nothing to restore (#248)")
+  func restoreWhilePaused() async {
+    let (model, _, _, _, _) = makeModel(.inBillingRetry, trigger: .settings)
+    await model.appeared()
+    await model.restore(using: FixedStoreAccess(isAvailable: true))
+    #expect(
+      model.restoreOutcome == .paused,
+      "The subscription is the person's; the offer and Settings say it is paused over a payment")
+    #expect(model.restoreOutcome?.message != nil && model.alertsAbout(.paused))
+    #expect(RestoreOutcome.after(.synced, hasPro: false, paused: true) == .paused, "Settings asks the same way")
+  }
+
+  @Test("Restoring on the offer with Pro already on says so; one that leads to the confirmation leaves it to it (#247)")
+  func restoreWithProAlready() async {
+    let (model, _, _, _, _) = makeModel(.subscribed, trigger: .settings)
+    await model.appeared()
+    await model.restore(using: FixedStoreAccess(isAvailable: true))
+    #expect(model.restoreOutcome == .restored && model.phase == .offer)
+    #expect(model.alertsAbout(.restored), "Nothing else on screen changes, so the alert says it")
+
+    let (fresh, fake, _, _, _) = makeModel()
+    await fresh.appeared()
+    fake.set(.subscribed)
+    await fresh.restore(using: FixedStoreAccess(isAvailable: true))
+    #expect(!fresh.alertsAbout(.restored), "The confirmation follows and says it")
+    #expect(fresh.alertsAbout(.failed) && fresh.alertsAbout(.nothingFound) && !fresh.alertsAbout(.cancelled))
+  }
+
+  @Test("A restore says whether it brought Pro back or could not reach the App Store (#247)")
+  func restoreSaysWhichItWas() async {
+    let (model, fake, _, _, _) = makeModel()
+    await model.appeared()
+    await model.restore(using: FixedStoreAccess(isAvailable: false))
+    #expect(model.restoreOutcome == .failed)
+    fake.set(.subscribed)
+    await model.restore(using: FixedStoreAccess(isAvailable: true))
+    #expect(model.restoreOutcome == .restored)
+  }
+
+  @Test(
+    "A cancelled sign-in says nothing and is not blamed on the Apple Account; every other ending says something (#247)"
+  )
+  func restoreCancelled() async {
+    let (model, _, _, telemetry, _) = makeModel()
+    await model.appeared()
+    await model.restore(using: FixedStoreAccess(isAvailable: true, restore: .cancelled))
+    #expect(model.restoreOutcome == .cancelled && model.restoreOutcome?.message == nil)
+    #expect(await telemetry.events == ["commerce.paywall.viewed", "commerce.restore.failed"])
+    for outcome in [RestoreOutcome.restored, .nothingFound, .paused, .failed] {
+      #expect(outcome.message != nil)
+    }
+    #expect(!model.isRestoring)
   }
 
   @Test("The offer going away without a purchase is recorded once, and not before it appeared")
@@ -209,10 +272,11 @@ struct PaywallModelTests {
 
   @Test("Restoring from Settings is counted only when it changed something or failed")
   func settingsRestoreEvent() {
-    #expect(SubscriptionSection.event(answered: false, hadPro: false, hasPro: false) == "commerce.restore.failed")
-    #expect(SubscriptionSection.event(answered: true, hadPro: false, hasPro: true) == "commerce.purchase.restored")
-    #expect(SubscriptionSection.event(answered: true, hadPro: true, hasPro: true) == nil)
-    #expect(SubscriptionSection.event(answered: true, hadPro: false, hasPro: false) == nil)
+    #expect(SubscriptionSection.event(.failed, hadPro: false, hasPro: false) == "commerce.restore.failed")
+    #expect(SubscriptionSection.event(.cancelled, hadPro: false, hasPro: false) == "commerce.restore.failed")
+    #expect(SubscriptionSection.event(.synced, hadPro: false, hasPro: true) == "commerce.purchase.restored")
+    #expect(SubscriptionSection.event(.synced, hadPro: true, hasPro: true) == nil)
+    #expect(SubscriptionSection.event(.synced, hadPro: false, hasPro: false) == nil)
   }
 
   @Test("The plans load when the offer appears, with the annual plan selected")
@@ -302,6 +366,22 @@ struct PaywallModelTests {
     #expect(await telemetry.events == ["commerce.paywall.viewed", "commerce.purchase.started"])
   }
 
+  @Test("A purchase waiting for approval is remembered, so a second tap sends no second request (#266)")
+  func pendingIsRemembered() async {
+    let (model, _, _, telemetry, _) = makeModel(outcome: .pending)
+    await model.appeared()
+    await model.purchase()
+    model.notice = nil
+    await model.purchase()
+    #expect(model.phase == .offer && !model.grantsPro)
+    #expect(
+      await telemetry.events == ["commerce.paywall.viewed", "commerce.purchase.started"],
+      "One request went to the App Store")
+    #expect(model.selectedPlanIsWaiting && model.plansWaitingForApproval == ["yearly"])
+    await model.select("weekly")
+    #expect(!model.selectedPlanIsWaiting, "Another plan is a request of its own")
+  }
+
   @Test("A failed purchase is explained and recorded, and can be tried again")
   func failed() async {
     let (model, _, _, telemetry, _) = makeModel(outcome: .failed)
@@ -346,7 +426,8 @@ struct PaywallModelTests {
   func alreadyProBuysNothing() async {
     let (model, _, _, telemetry, flags) = makeModel(.subscribed, trigger: .settings)
     await model.appeared()
-    #expect(model.alreadyHasPro && model.plans == .loaded(FixedStoreOffering.fixturePlans()))
+    #expect(model.alreadyHasPro)
+    #expect(!model.offersPlans, "Nothing is on offer, so no plan is shown or looks chosen")
     await model.purchase()
     #expect(model.phase == .offer)
     #expect(await telemetry.events == ["commerce.paywall.viewed"], "No purchase was started")

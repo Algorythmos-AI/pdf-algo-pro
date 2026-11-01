@@ -47,26 +47,13 @@ struct PaywallOfferView: View {
       } else if model.paymentPaused {
         PaymentPausedNote()
       }
-      switch model.plans {
-      case .loading:
-        ProgressView {
-          Text("Loading plans", bundle: .module)
-        }
-        .frame(maxWidth: .infinity, minHeight: 96)
-        .accessibilityIdentifier(AccessibilityID.Paywall.loading)
-      case .unavailable:
-        PlansUnavailable { Task { await model.retry() } }
-      case .loaded(let offers):
-        PlanPicker(
-          offers: offers, selectedID: model.selectedPlanID, saving: model.yearlySaving, isPaused: model.paymentPaused,
-          select: { id in Task { await model.select(id) } })
-        if !model.alreadyHasPro, !model.paymentPaused, let plan = model.selectedPlan {
-          PurchaseTerms(plan: plan)
-        }
+      if model.offersPlans {
+        plans
       }
       action
       PaywallLinks(
-        termsOfUse: model.termsOfUse, privacyPolicy: model.privacyPolicy, onRestore: onRestore, onRedeem: onRedeem)
+        termsOfUse: model.termsOfUse, privacyPolicy: model.privacyPolicy, onRestore: onRestore, onRedeem: onRedeem,
+        isRestoring: model.isRestoring)
     }
     .padding(.horizontal, Spacing.s200)
     .padding(.top, Spacing.s150)
@@ -74,26 +61,38 @@ struct PaywallOfferView: View {
     .readableWidth()
   }
 
+  /// The plans, and what the selected one costs.
+  @ViewBuilder private var plans: some View {
+    switch model.plans {
+    case .loading:
+      ProgressView {
+        Text("Loading plans", bundle: .module)
+      }
+      .frame(maxWidth: .infinity, minHeight: 96)
+      .accessibilityIdentifier(AccessibilityID.Paywall.loading)
+    case .unavailable:
+      PlansUnavailable { Task { await model.retry() } }
+    case .loaded(let offers):
+      PlanPicker(
+        offers: offers, selectedID: model.selectedPlanID, saving: model.yearlySaving, isPaused: model.paymentPaused,
+        select: { id in Task { await model.select(id) } })
+      if !model.paymentPaused, let plan = model.selectedPlan {
+        PurchaseTerms(plan: plan)
+      }
+    }
+  }
+
   /// The one prominent button.
   ///
-  /// It buys the selected plan; for someone who has Pro it goes on, and for someone whose Pro is paused
-  /// over a payment it manages the subscription.
+  /// It buys the selected plan, and for someone whose Pro is paused over a payment it manages the
+  /// subscription. Someone who has Pro is sold nothing, so they get a plain link to manage it, and Close.
   @ViewBuilder private var action: some View {
     if model.alreadyHasPro {
-      VStack(spacing: Spacing.s050) {
-        Button {
-          model.close()
-        } label: {
-          Text("Continue", bundle: .module)
-        }
-        .buttonStyle(.primary)
-        .accessibilityIdentifier(AccessibilityID.Paywall.continue)
-        Button(action: onManage) {
-          Text("Manage subscription", bundle: .module).font(.subheadline.weight(.semibold)).minimumTarget()
-        }
-        .tint(Color.ds.brandTint)
-        .accessibilityIdentifier(AccessibilityID.Paywall.manage)
+      Button(action: onManage) {
+        Text("Manage subscription", bundle: .module).font(.subheadline.weight(.semibold)).minimumTarget()
       }
+      .tint(Color.ds.brandTint)
+      .accessibilityIdentifier(AccessibilityID.Paywall.manage)
     } else if model.paymentPaused {
       Button(action: onManage) {
         Text("Manage subscription", bundle: .module)
@@ -105,12 +104,20 @@ struct PaywallOfferView: View {
         Task { await model.purchase() }
       } label: {
         // The words keep their place while the App Store's sheet is on its way.
-        (plan.trial == nil ? Text("Subscribe", bundle: .module) : Text("Start free trial", bundle: .module))
-          .opacity(model.isPurchasing ? 0 : 1)
-          .overlay { if model.isPurchasing { ProgressView().tint(Color.ds.brandOnFill) } }
+        Group {
+          if model.selectedPlanIsWaiting {
+            Text("Waiting for approval", bundle: .module)
+          } else if plan.trial == nil {
+            Text("Subscribe", bundle: .module)
+          } else {
+            Text("Start free trial", bundle: .module)
+          }
+        }
+        .opacity(model.isPurchasing ? 0 : 1)
+        .overlay { if model.isPurchasing { ProgressView().tint(Color.ds.brandOnFill) } }
       }
       .buttonStyle(.primary)
-      .disabled(model.isPurchasing)
+      .disabled(model.isPurchasing || model.selectedPlanIsWaiting)
       .accessibilityIdentifier(AccessibilityID.Paywall.purchase)
     }
   }
@@ -244,7 +251,7 @@ struct PurchaseTerms: View {
         .font(.subheadline.weight(.semibold))
         .foregroundStyle(Color.ds.labelPrimary)
       Text(
-        "Renews automatically until cancelled. Cancel at any time in Settings, under your Apple Account, at least a day before it renews.",
+        "Renews automatically until cancelled. Cancel at any time, at least a day before it renews: open the Settings app, tap your name (Apple Account), then Subscriptions.",
         bundle: .module
       )
       .font(.caption)
@@ -362,6 +369,8 @@ struct PaywallLinks: View {
   let privacyPolicy: URL
   let onRestore: () -> Void
   let onRedeem: () -> Void
+  /// Whether a restore is under way, so Restore Purchases waits for it.
+  var isRestoring = false
 
   var body: some View {
     ViewThatFits(in: .horizontal) {
@@ -386,6 +395,7 @@ struct PaywallLinks: View {
     Button(action: onRestore) {
       Text("Restore purchases", bundle: .module).minimumTarget()
     }
+    .disabled(isRestoring)
     .accessibilityIdentifier(AccessibilityID.Paywall.restore)
     Button(action: onRedeem) {
       Text("Redeem a code", bundle: .module).minimumTarget()

@@ -160,11 +160,17 @@ struct TextEditingEdgeCaseTests {
   @Test("Past the memory limit, undoing and redoing everything keeps the count exact (#269)")
   func undoMemoryCountStaysExact() async throws {
     let controller = try controller(TextEditFixtures.invoice())
+    controller.undoManager.groupsByEvent = false
     func edit(_ name: String) async throws {
       let regions = await controller.pageText(onPage: 0).regions
       let region = try #require(regions.first { $0.text.contains("Customer:") })
+      // In the app each edit is its own event, whose undo group the run loop closes; here the test
+      // closes it. The history lets go of the edits past the limit once it has closed (#339).
+      controller.undoManager.beginUndoGrouping()
       let outcomes = await controller.applyTextEdits(
         [TextEdit(region: region, replacement: "Customer: \(name)")], onPage: 0)
+      controller.undoManager.endUndoGrouping()
+      await controller.undoMemoryRelease?.value
       #expect(outcomes.allSatisfy { $0.isEdited }, "\(outcomes)")
     }
     for round in 0..<6 {

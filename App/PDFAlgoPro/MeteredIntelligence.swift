@@ -45,13 +45,28 @@ struct MeteredIntelligence: DocumentIntelligence {
     await allowance.isAllowed(.intelligenceRequest, entitlement: await entitlement())
   }
 
+  /// Runs a request on a unit of the allowance held for it.
+  ///
+  /// Two requests can't both take the last unit (#265). A cancelled request gives its unit back at
+  /// once: the request that replaces it may need it.
   private func metered<Result: Sendable>(_ request: () async throws -> Result) async throws -> Result {
-    guard await isAllowed() else { throw IntelligenceError.unavailable(.dailyAllowanceUsed) }
-    let result = try await request()
-    // A model may finish after its request was cancelled or replaced; nobody sees that result, so it
-    // costs nothing (#259).
-    try Task.checkCancellation()
-    await allowance.recordSuccess(.intelligenceRequest)
-    return result
+    guard let unit = await allowance.reserve(.intelligenceRequest, entitlement: await entitlement()) else {
+      throw IntelligenceError.unavailable(.dailyAllowanceUsed)
+    }
+    do {
+      let result = try await withTaskCancellationHandler {
+        try await request()
+      } onCancel: { [allowance] in
+        allowance.release(unit)
+      }
+      // A model may finish after its request was cancelled or replaced; nobody sees that result, so it
+      // costs nothing (#259).
+      try Task.checkCancellation()
+      await allowance.commit(unit)
+      return result
+    } catch {
+      allowance.release(unit)
+      throw error
+    }
   }
 }

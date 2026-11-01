@@ -140,6 +140,9 @@ When that class passed, they are done; check them by hand only when it failed.
 9. **Report a problem.** Settings › Report a problem opens Mail with a summary that holds no document
    names or text.
 10. **VoiceOver.** Run the [VoiceOver script](voiceover-script.md).
+11. **Rate PDF Algo Pro (after release).** Settings › About › Rate PDF Algo Pro opens the App Store's
+    review page for the app. The page loads only once 1.0 is live on the App Store, so before then a page
+    that doesn't load is expected, not a defect.
 
 ## Runs
 
@@ -152,3 +155,7 @@ not hold: a changed tracked file, or an untracked file the build reads (under `A
 | Date | Commit | Xcode | Device | iOS | Plan and flags | Passed / failed / flaky | Result bundle | CI `ios` | Manual checklist | Issues |
 |---|---|---|---|---|---|---|---|---|---|---|
 | 2026-10-27 | aeba441 | 27.0 (27A266a) | iPhone 17 Pro Max | 27.0.1 | Device | 120 / 0 / 0 | `.build/device-tests/20261027-062152-aeba441/Device.xcresult` | success | 6, 8 and 9 done by ManualChecklistDeviceUITests; 1–5, 7 and 10 pending | none new; 24 tests quarantined: contrast on iOS 27 glass bar buttons (white text measured at 8.8:1 and 11.7:1 on screen) and 3 findings without an element (#76), 3 contrast checks measured on screen (#294) |
+| 2026-10-28 | 2f8aa9a | 27.0 (27A266a) | iPhone 17 Pro Max | 27.0.1 | Device | 127 / 0 / 0 | `.build/device-tests/20261028-103713-2f8aa9a/Device.xcresult` | success | pending | none new |
+| 2026-10-29 | 04d8fd5 | 27.0 (27A266a) | iPhone 11 Pro Max | 27.0.1 | Device | 132 / 0 / 0 | `.build/device-tests/20261029-164435-04d8fd5/Device.xcresult` | success | 6, 8 and 9 done by ManualChecklistDeviceUITests; 1–5, 7, 10 and 11 pending | none new; 23 tests quarantined as expected failures, listed in the run's Device-summary.md |
+| 2026-10-29 | 931c1c8 | 27.0 (27A266a) | iPhone 11 Pro Max | 27.0.1 | Device; PR 361 (#356) with `OutlineThroughPasswordTests` | 132 / 1 / 0 | `.build/device-tests/20261029-192923-931c1c8/Device.xcresult` | not run (branch) | 6, 8 and 9 done by ManualChecklistDeviceUITests; 9 failed in this run because Mail on the phone showed its own account-password alert over the draft (the retry never started: the phone's connection dropped), and passed when re-run alone on the same commit once Mail was signed in (`.build/device-tests/20261029-201604-931c1c8`, 1 / 0 / 0; the draft names no document); 1–5, 7, 10 and 11 pending | none new; the failure was the phone's Mail account, not the app |
+| 2026-10-30 | 464ea3d | 27.0 (27A266a) | iPhone 11 Pro Max | 27.0.1 | Device | 133 / 2 / 0 | `.build/device-tests/20261030-112721-464ea3d/Device.xcresult` | success | 6 and 8 done by ManualChecklistDeviceUITests; 9 flaked on a test timing race (#365) and passed on retry alone; 1–5, 7, 10 and 11 pending | none new in the app; over Wi-Fi; the retry could not start; re-run alone, the shape test reported its usual quarantine and the Mail test failed once then passed |

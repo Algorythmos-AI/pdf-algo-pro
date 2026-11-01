@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 
 /// Something the free tier lets a person do a limited number of times a day (FR-STORE-001, PAP-044).
 ///
@@ -95,6 +96,11 @@ public actor UsageAllowance {
   private let timeZone: TimeZone?
   private let now: @Sendable () -> Date
   private let isUnlimited: Bool
+  /// Units held for actions under way (`reserve`).
+  ///
+  /// They live in memory only, and outside the actor's isolation, so that a cancelled action gives its
+  /// unit back at once, before anything started in its place asks.
+  private nonisolated let held = Mutex<Set<Reservation>>([])
 
   /// Creates the allowance.
   ///
@@ -122,11 +128,12 @@ public actor UsageAllowance {
     isUnlimited ? .max : max(0, limits.limit(for: action) - usedToday(action))
   }
 
-  /// Whether an action may start.
+  /// Whether an action may start; units held for actions under way count as used (#265).
   public func isAllowed(_ action: MeteredAction, entitlement: Entitlement) -> Bool {
     isUnlimited
       || FeatureGate.isAllowed(
-        action, usedToday: usedToday(action), limits: limits, entitlement: entitlement, now: now())
+        action, usedToday: usedToday(action) + unitsHeld(action), limits: limits, entitlement: entitlement,
+        now: now())
   }
 
   /// Counts an action that succeeded.
@@ -174,5 +181,48 @@ public actor UsageAllowance {
       let to = calendar.date(from: DateComponents(year: end[0], month: end[1], day: end[2]))
     else { return .max }
     return calendar.dateComponents([.day], from: from, to: to).day ?? .max
+  }
+}
+
+/// Holding a unit of the allowance while an action runs (#265).
+///
+/// `isAllowed` and `recordSuccess` are separate calls, so two actions started together can both pass
+/// the check for the last unit. An action that can be started twice at once holds a unit with
+/// `reserve` instead, and ends it with `commit` once it has succeeded, or with `release`.
+extension UsageAllowance {
+  /// One unit of an action's allowance, held while the action runs.
+  public struct Reservation: Sendable, Hashable {
+    private let id = UUID()
+    /// The action the unit is held for.
+    public let action: MeteredAction
+  }
+
+  /// Holds one unit of an action's allowance before the action starts; `nil` when none is left.
+  ///
+  /// Units held count against the limit at once, in `isAllowed` too: while one holds the last unit,
+  /// nothing else is offered. A cancelled action gives its unit back at once with `release`.
+  public func reserve(_ action: MeteredAction, entitlement: Entitlement) -> Reservation? {
+    guard isAllowed(action, entitlement: entitlement) else { return nil }
+    let reservation = Reservation(action: action)
+    held.withLock { _ = $0.insert(reservation) }
+    return reservation
+  }
+
+  /// Counts the action a unit was held for, which has succeeded; nothing once the unit was given back.
+  public func commit(_ reservation: Reservation) {
+    guard held.withLock({ $0.remove(reservation) }) != nil else { return }
+    recordSuccess(reservation.action)
+  }
+
+  /// How many units are held for an action now.
+  nonisolated func unitsHeld(_ action: MeteredAction) -> Int {
+    held.withLock { units in units.count { $0.action == action } }
+  }
+
+  /// Gives back a unit held for an action that failed or was cancelled.
+  ///
+  /// It may be called from any thread, at once, and more than once.
+  public nonisolated func release(_ reservation: Reservation) {
+    held.withLock { _ = $0.remove(reservation) }
   }
 }

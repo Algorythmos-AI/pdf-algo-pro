@@ -1,4 +1,5 @@
 import Core
+import DesignSystem
 import Foundation
 import Observation
 
@@ -66,12 +67,17 @@ public final class AssistantModel {
 
   /// Starts the task: summaries, extraction and explanations run at once; Ask waits for a question.
   ///
-  /// A request still running is cancelled, and its result, if it arrives anyway, is ignored.
+  /// A request still running is cancelled, and its result, if it arrives anyway, is ignored. Cancelled
+  /// or started again while it asks whether intelligence can run, it runs nothing (#271).
   public func start() async {
     supersede()
+    let token = generation
     answeredQuestion = nil
     earlier = []
-    if case .unavailable(let reason) = await intelligence.availability() {
+    let availability = await intelligence.availability()
+    // Closed, or started again, while availability was asked: nothing more runs for this start (#271).
+    guard token == generation else { return }
+    if case .unavailable(let reason) = availability {
       phase = .unavailable(reason)
       return
     }
@@ -177,14 +183,16 @@ public final class AssistantModel {
   /// The text to copy or share: the answer, or the extraction as CSV.
   ///
   /// Both end with `generatedFooter`, once: after an answer and its sources, following a blank line;
-  /// in the CSV, as its last row, so the table stays valid CSV.
+  /// in the CSV, as its last row, so the table stays valid CSV. A contract explanation starts with
+  /// the not-legal-advice notice, as it does on screen.
   public var shareableText: String? {
     switch phase {
     case .answered(let answer) where answer.isGrounded:
       let pages = answer.citations.map { String(localized: "p. \($0.pageNumber)", bundle: .module) }.joined(
         separator: ", ")
       let sources = String(localized: "Sources: \(pages)", bundle: .module)
-      return "\(answer.text)\n\n\(sources)\n\n\(Self.generatedFooter)"
+      let notice = task == .explainContract ? "\(ContractDisclosure.notice)\n\n" : ""
+      return "\(notice)\(answer.text)\n\n\(sources)\n\n\(Self.generatedFooter)"
     case .extracted(let extraction): return extraction.csv(notice: Self.generatedFooter)
     default: return nil
     }

@@ -30,9 +30,10 @@ Four tracks; each pull request keeps `ios` green and is squash-merged into `inte
 | **L, launch** | This scope record (PAP-065 to PAP-067); Xcode 27 in CI and Xcode Cloud (C2); the release flags (PAP-066) and the AI-text footer; the quality-bar evidence on the phone; App Review notes; the production app record, products, listing and screenshots; the Release workflow, release pull request, external TestFlight and submission; the legal review | L1 scope recorded (#218); L3 release flags merged (#283); L5 App Review notes drafted (#287) |
 
 Owner actions on the critical path: free at least 8 GiB on the development Mac so the device run can
-start; create the production app record and read its App Store ID; set Xcode Cloud Staging to
-Xcode 27 and create the Release workflow; send the legal brief and book a French reviewer; then the
-device sign-offs (text editing, smoke test, VoiceOver, performance, live evaluation, MetricKit).
+start; set Xcode Cloud Staging to Xcode 27 and create the Release workflow; send the legal brief
+and book a French reviewer; then the device sign-offs (text editing, smoke test, VoiceOver,
+performance, live evaluation, MetricKit). The production app record exists, and Settings › About
+links to its App Store review page.
 
 ## In flight
 
@@ -83,9 +84,6 @@ device sign-offs (text editing, smoke test, VoiceOver, performance, live evaluat
 - Whether Private Cloud Compute counts as "third-party AI" under Guideline 5.1.2(i); consent is
   shown regardless.
 - Development language of the String Catalogs (English variant).
-- "Rate PDF Algo Pro" in Settings › About: not built, because the link needs the App Store ID,
-  which exists once the owner creates the production app record. It lands in its own pull request
-  as soon as the ID is known.
 
 ## Recent decisions
 

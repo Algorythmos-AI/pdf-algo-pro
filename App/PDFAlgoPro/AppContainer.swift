@@ -282,7 +282,8 @@ final class AppContainer {
   }
   /// Counts about the last look at a page's text, for "Report a problem"; in memory only.
   let textEditingDiagnostics = TextEditingDiagnosticsLog()
-  let indexLevel: LibraryIndex.StoreLevel
+  /// The library index, opening on a background task from launch (#244).
+  private let libraryIndex: OpeningLibraryIndex
   let environment: LaunchEnvironment
 
   init(environment: LaunchEnvironment = LaunchEnvironment()) {
@@ -309,8 +310,10 @@ final class AppContainer {
       authenticator = LocalAuthenticator()
     #endif
 
-    let libraryIndex = LibraryIndex(storeURL: folders.indexStore)
-    indexLevel = libraryIndex.level
+    // Opened off the main thread, with any schema migration: launch doesn't wait for it, and the
+    // library shows its loading state until it is open (#244).
+    let libraryIndex = OpeningLibraryIndex(storeURL: folders.indexStore)
+    self.libraryIndex = libraryIndex
     let library = FileDocumentLibrary(
       documentsFolder: folders.documents, deletedFolder: folders.recentlyDeleted,
       previousVersionsFolder: folders.previousVersions, index: libraryIndex)
@@ -320,7 +323,10 @@ final class AppContainer {
     let index = LocalSearchIndex(
       folder: folders.searchIndex, spotlight: spotlight, usesBaseForms: Self.matchesBaseForms)
     self.index = index
-    intake = DocumentIntake(library: library, inspector: PDFKitInspector(), index: index)
+    // Refreshes still owed are kept beside the index, so the next launch does them (#236).
+    let pending = PendingRefreshes(
+      url: folders.indexStore.deletingLastPathComponent().appendingPathComponent("PendingRefreshes.json"))
+    intake = DocumentIntake(library: library, inspector: PDFKitInspector(), index: index, pending: pending)
     let isHidden: @Sendable () -> Bool = { settings.load().isIntelligenceHidden }
     let activity = AIActivityLog(url: folders.diagnostics.appendingPathComponent("ai-activity.json"))
     self.activity = activity
@@ -379,10 +385,10 @@ final class AppContainer {
     store = environment.isUITesting ? FixedStoreAccess(isAvailable: !environment.storeUnavailable) : StoreKitAccess()
     if environment.isUITesting {
       reminders = TrialReminderScheduler(
-        notifications: SilentNotifications(),
+        notifications: SilentNotifications(), checks: NoBackgroundChecks(),
         defaults: UserDefaults(suiteName: "ui-testing-reminder-\(UUID().uuidString)") ?? .standard)
     } else {
-      reminders = TrialReminderScheduler(notifications: SystemNotifications())
+      reminders = TrialReminderScheduler(notifications: SystemNotifications(), checks: SystemBackgroundChecks())
     }
     if environment.isUITesting {
       let counts = UserDefaults(suiteName: "ui-testing-allowance-\(UUID().uuidString)") ?? .standard
@@ -405,28 +411,65 @@ final class AppContainer {
   func diagnostics() async -> String {
     let info = Bundle.main.infoDictionary ?? [:]
     let count = (try? await library.documents(in: .all, sortedBy: .title).count) ?? 0
+    let level = await libraryIndex.level
     return DiagnosticsSummary(
       appVersion: info["CFBundleShortVersionString"] as? String ?? "?",
       build: info["CFBundleVersion"] as? String ?? "?",
-      system: ProcessInfo.processInfo.operatingSystemVersionString, libraryIndex: "\(indexLevel)", documentCount: count,
+      system: ProcessInfo.processInfo.operatingSystemVersionString, libraryIndex: "\(level)", documentCount: count,
       events: await telemetry.todaysCounts(), problems: await diagnosticsLog.summary(),
       textEditing: textEditingDiagnostics.summary()
     ).text
   }
 
   /// Writes every document to Spotlight again, after the text setting changed (defect D11).
-  func reindexSpotlight() async {
-    await index.reindexSpotlight((try? await library.documents(in: .all, sortedBy: .title)) ?? [])
+  ///
+  /// Returns whether the library could be listed, and Spotlight took every document; when the library
+  /// couldn't be listed, Spotlight is left as it is rather than written with nothing (#237), and when
+  /// Spotlight failed, the migration tries again at the next launch (#360).
+  @discardableResult
+  func reindexSpotlight() async -> Bool {
+    guard let documents = try? await library.documents(in: .all, sortedBy: .title) else { return false }
+    return await index.reindexSpotlight(documents)
   }
+
+  /// Writes every document to Spotlight again after the text setting changed (defect D11).
+  ///
+  /// When Spotlight didn't take them all, the launch migration is marked not done, so the next launch
+  /// writes them again (#360).
+  func textSettingChanged(defaults: UserDefaults = .standard) async {
+    await Self.reindexAfterTextSetting(defaults: defaults, reindex: { await self.reindexSpotlight() })
+  }
+
+  /// The text-setting rewrite's steps, with what refills the index passed in.
+  static func reindexAfterTextSetting(defaults: UserDefaults, reindex: () async -> Bool) async {
+    guard await !reindex() else { return }
+    defaults.set(1, forKey: spotlightIndexVersionKey)
+  }
+
+  /// Where the Spotlight migration records that it is done: 2 once the protected index is filled.
+  static let spotlightIndexVersionKey = "spotlight.indexVersion"
 
   /// Moves Spotlight to the protected index once (defect D11).
   ///
   /// Empties the index earlier builds wrote to, then reindexes. Later launches do nothing.
   func migrateSpotlightIfNeeded(defaults: UserDefaults = .standard) async {
-    let key = "spotlight.indexVersion"
-    guard !environment.isUITesting, defaults.integer(forKey: key) < 2 else { return }
-    await SpotlightIndexer.retireLegacyIndex()
-    await reindexSpotlight()
+    guard !environment.isUITesting else { return }
+    await Self.migrateSpotlight(
+      defaults: defaults, retire: { await SpotlightIndexer.retireLegacyIndex() },
+      reindex: { await self.reindexSpotlight() })
+  }
+
+  /// The Spotlight migration's steps, with what empties and what refills the index passed in.
+  ///
+  /// It is marked done only when the library could be listed, so a launch where listing failed tries
+  /// again next time instead of leaving Spotlight empty for good (#237).
+  static func migrateSpotlight(
+    defaults: UserDefaults, retire: () async -> Void, reindex: () async -> Bool
+  ) async {
+    let key = spotlightIndexVersionKey
+    guard defaults.integer(forKey: key) < 2 else { return }
+    await retire()
+    guard await reindex() else { return }
     defaults.set(2, forKey: key)
   }
 

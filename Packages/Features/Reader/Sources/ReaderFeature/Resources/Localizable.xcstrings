@@ -92,7 +92,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%lld sur %lld"
+            "value" : "%1$lld sur %2$lld"
           }
         }
       }
@@ -130,7 +130,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Une modification du texte n’a pas pu être enregistrée en toute sécurité : le texte a été remis tel qu’il était. Vos autres modifications sont enregistrées."
+            "value" : "Une modification du texte n’a pas pu être enregistrée en toute sécurité : le texte a été remis tel qu’il était. Vos autres modifications sont enregistrées."
           }
         }
       }
@@ -716,7 +716,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Chaque enregistrement garde la version précédente pendant 30 jours. En restaurer une garde aussi la version actuelle, pour pouvoir revenir en arrière."
+            "value" : "Chaque enregistrement conserve la version précédente pendant 30 jours. Restaurer une version conserve aussi la version actuelle, pour que vous puissiez y revenir."
           }
         }
       }
@@ -1120,7 +1120,17 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ouvrir ce lien ?"
+            "value" : "Ouvrir ce lien ?"
+          }
+        }
+      }
+    },
+    "Opening…" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouverture…"
           }
         }
       }
@@ -1455,6 +1465,16 @@
         }
       }
     },
+    "Saving the searchable version…" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enregistrement de la version interrogeable…"
+          }
+        }
+      }
+    },
     "See plans" : {
       "localizations" : {
         "fr" : {
@@ -1510,7 +1530,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Partager en texte"
+            "value" : "Partager sous forme de texte"
           }
         }
       }
@@ -1520,7 +1540,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Partager cette page en image"
+            "value" : "Partager cette page sous forme d’image"
           }
         }
       }
@@ -1580,7 +1600,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Le plus léger, pour l’e-mail"
+            "value" : "Le plus léger, pour les e-mails"
           }
         }
       }
@@ -1590,7 +1610,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Certains de ces caractères ne peuvent pas être utilisés ici. Rien n’a été changé."
+            "value" : "Certains de ces caractères ne peuvent pas être utilisés ici. Rien n’a été modifié."
           }
         }
       }
@@ -1682,7 +1702,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Touchez un texte pour le modifier. Maintenez et faites glisser pour le déplacer."
+            "value" : "Touchez un texte pour le modifier. Maintenez-le, puis faites-le glisser pour le déplacer."
           }
         }
       }
@@ -1765,7 +1785,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ce mot de passe n’a pas ouvert le document."
+            "value" : "Ce mot de passe ne permet pas d’ouvrir le document."
           }
         }
       }
@@ -1775,7 +1795,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ce texte est trop long pour cet emplacement. Essayez plus court ; rien n’a été changé."
+            "value" : "Ce texte est trop long pour cet emplacement. Essayez un texte plus court ; rien n’a été modifié."
           }
         }
       }
@@ -1785,7 +1805,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "L’auteur de ce document n’autorise ni notes, ni annotations, ni modifications, rien n’a donc été changé."
+            "value" : "L’auteur de ce document n’autorise ni notes, ni annotations, ni modifications, rien n’a donc été modifié."
           }
         }
       }
@@ -2023,7 +2043,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ce lien mène à un fichier ou à une autre app, il ne peut donc pas être ouvert depuis un document : %@"
+            "value" : "Ce lien mène à un fichier ou à une autre app, il ne peut donc pas être ouvert depuis un document : %@"
           }
         }
       }
@@ -2033,7 +2053,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Cette page ne peut pas être modifiée. Rien n’a été changé."
+            "value" : "Cette page ne peut pas être modifiée. Rien n’a été modifié."
           }
         }
       }
@@ -2064,7 +2084,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ce texte ne peut pas être modifié. Rien n’a été changé."
+            "value" : "Ce texte ne peut pas être modifié. Rien n’a été modifié."
           }
         }
       }
@@ -2185,7 +2205,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vos modifications sont déjà conservées dans « %@ ». Gardez cette copie, ou affichez ici la version de l’autre app."
+            "value" : "Vos modifications sont déjà conservées dans « %@ ». Gardez cette copie, ou affichez ici la version de l’autre app."
           }
         }
       }
@@ -2195,7 +2215,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vos modifications sont conservées dans « %@ », à côté de l’original."
+            "value" : "Vos modifications sont conservées dans « %@ », à côté de l’original."
           }
         }
       }
@@ -2205,7 +2225,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vos modifications n’ont pas pu être conservées dans une copie. Elles sont toujours ouvertes ici ; choisissez la version à garder."
+            "value" : "Vos modifications n’ont pas pu être conservées dans une copie. Elles sont toujours ouvertes ici ; choisissez la version à garder."
           }
         }
       }
@@ -2335,7 +2355,7 @@
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Touchez là où coller"
+            "value" : "Touchez l’endroit où coller"
           }
         }
       }
@@ -2346,6 +2366,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Coller sur cette page"
+          }
+        }
+      }
+    },
+    "Couldn't find this document's file. It may have been moved or deleted in the Files app." : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible de trouver le fichier de ce document. Il a peut-être été déplacé ou supprimé dans l’app Fichiers."
           }
         }
       }

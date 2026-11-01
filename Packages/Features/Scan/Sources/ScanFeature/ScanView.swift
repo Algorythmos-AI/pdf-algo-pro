@@ -56,10 +56,16 @@ public struct ScanView: View {
           photos = []
           Task {
             var data: [Data] = []
+            // A photo that doesn't load, such as an iCloud original offline, is counted, not dropped (#238).
+            var unreadable = 0
             for item in items {
-              if let photo = try? await item.loadTransferable(type: Data.self) { data.append(photo) }
+              if let photo = try? await item.loadTransferable(type: Data.self) {
+                data.append(photo)
+              } else {
+                unreadable += 1
+              }
             }
-            await model.process(photos: data)
+            await model.process(photos: data, unreadable: unreadable)
           }
         }
         .fileImporter(isPresented: $isChoosingImages, allowedContentTypes: [.image], allowsMultipleSelection: true) {
@@ -75,10 +81,10 @@ public struct ScanView: View {
     case .ready: ready
     case .reviewing: reviewing
     case .recognizing(let progress): recognizing(progress)
-    case .finished: ProgressView()
+    case .saving, .finished: waiting
     case .failed:
       EmptyState(Text("The scan wasn't saved", bundle: .module), systemImage: "exclamationmark.triangle") {
-        Text("Text recognition didn't finish. Nothing was added to your library.", bundle: .module)
+        Text("Text recognition didn't finish. Your pages are kept, so you can try again.", bundle: .module)
       } actions: {
         Button {
           model.reset()
@@ -224,6 +230,15 @@ public struct ScanView: View {
         .accessibilityIdentifier(AccessibilityID.Scan.discard)
       }
       .readableWidth()
+    }
+  }
+
+  /// A wait with nothing to choose, which says what is happening (#371).
+  @ViewBuilder private var waiting: some View {
+    if let words = model.phase.waitingWords {
+      ProgressView { Text(words) }
+        .readableWidth()
+        .centeredScrolling()
     }
   }
 

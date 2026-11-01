@@ -10,6 +10,8 @@ Store notes (see the changelog strategy).
 ## [Unreleased]
 
 ### Added
+- Settings › About: Rate PDF Algo Pro opens the app's page in the App Store, where you can rate
+  and review it.
 - Answers, summaries and extracted fields you copy or share now end with a line saying that PDF
   Algo Pro generated them from the document and that they may contain errors. In a CSV it is the
   last row, so the file still opens as a table.
@@ -28,6 +30,10 @@ Store notes (see the changelog strategy).
   only ever means a red annotation or Delete.
 
 ### Fixed
+- A trial reminder is less likely to arrive after you have paid, been refunded or let the
+  subscription lapse without opening the app: shortly before it is due, iOS may let the app check
+  your subscription in the background and remove it. iOS doesn't promise to run that check, so the
+  reminder still only says your trial ends within a day if it is still running.
 - When another app changes a document just as PDF Algo Pro saves it, the app no longer saves over the
   other app's version. It asks which version to keep. A change to a document's text that is still
   being made when another app changes the file is kept too, so you can keep it as a copy. If you
@@ -59,6 +65,40 @@ Store notes (see the changelog strategy).
   steps to save memory, the pages those steps changed stay whole. Before, such a page, or one Undo
   brought back, still showed its text, but the text could no longer be picked to edit, and
   extracting the page or saving the document without its password left the page empty.
+- Editing text (internal builds): after many large text edits, earlier changes to annotations,
+  pages and bookmarks can still be undone. Before, to save memory, the undo history let go of them
+  together with the oldest text edits; now it lets go of only those text edits.
+- When a document is saved but the library can't note the change, the app no longer says the save
+  failed, and Share and Print work.
+- Share and Print say so when the document's file can't be found, for example after it was moved in
+  the Files app, instead of doing nothing.
+- "Reduce size" no longer makes a "(smaller)" copy, with a nonsense size, when the document's size
+  can't be read.
+- A document you just saved no longer reloads saying it was changed in another app, or asks which
+  version to keep, when its file's details couldn't be read straight after the save.
+- Text recognition replaces the file in a way other apps can see safely, as a save does, and never
+  writes over a version another app saved meanwhile.
+- After a password, a text edit or a restore, search and Spotlight catch up even when the first
+  attempt to update them fails: it is done again the next time the library opens, without holding
+  up the list. A protected document's words leave search and Spotlight at once, even on a full
+  disk. Spotlight follows a document's new name and tags.
+- When Spotlight can't take a change, the app no longer counts the update as done: it tries again
+  the next time the library opens or the app comes back. A protected document's words could stay in
+  Spotlight after they had left the app's own search; now the app keeps trying until they are out of
+  Spotlight too, including after it is deleted. Moving a document to Recently Deleted, restoring it,
+  deleting it for good or adding one no longer says it didn't work when only Spotlight failed.
+- A PDF edited in another app, or replaced in Files with another of the same name, is read again
+  when the library opens, even when the new file is older, and when the app comes back to the
+  foreground. Its text follows the file and it keeps its tags and favourite; it opens on its first
+  page only if its number of pages changed.
+- Photos that fail to load are counted, and when none load the library and Scan say so. Merging
+  stops, and says so, when a document's file is missing, and sharing says how many it leaves out.
+  Deleting a second document keeps its Undo, and typing a search no longer briefly says search is
+  unavailable. An import that fails for a reason other than a bad file says why, and a partly
+  successful one says how many were added.
+- Changing only the capitals of a document's name no longer adds " 2" to its file name.
+- Launching no longer waits for the library's index to open, or to update to a new format after an
+  update: that happens in the background while the library shows it is loading.
 - Dark mode: the App Lock's "Unlock with Face ID" button and the selection bar's Delete are easy to
   read again. Both fell below the 4.5:1 contrast text needs on an iPhone in dark mode.
 - Welcome to Pro: the "Remind me the day before" switch no longer turns itself back off without a
@@ -110,6 +150,30 @@ Store notes (see the changelog strategy).
   until the App Store's renewal reached the device.
 - Pro: a subscriber whose payment is being retried in the App Store's grace period keeps Pro when
   the subscription's state can't be read, for example offline. Before, Pro could switch off.
+- Restore purchases now says how it went: that Pro is back, that this Apple Account has nothing to
+  restore, or that the App Store couldn't be reached. Before, it said nothing when there was
+  nothing to restore, and asked you to check your Apple Account when you were offline or had
+  cancelled the sign-in. Cancelling now says nothing, and a second tap while a restore runs is
+  ignored. While Pro is paused because a payment failed, it says so and points to Manage
+  subscription, rather than that there is nothing to restore.
+- App Lock: after the cover goes away, for example when you come back from Notification Center,
+  typing goes on in the field you were typing in. Before, the keyboard could be given to another
+  of the app's windows, and typing stopped until you tapped the field again.
+- Free plan: two summaries or answers started at the same moment can no longer both use the day's
+  last free request.
+- Pro: a purchase waiting for approval, as with Ask to Buy, now shows Waiting for approval on its
+  button until the plans screen closes. Before, the button was ready again, and a second tap sent
+  the approver a second request.
+- Assistant: closing it straight after opening it no longer leaves a summary, extraction or
+  explanation running unseen.
+- Pro: the plans screen, Welcome to Pro, the trial reminder and the trial notice now all give the
+  same way to cancel: open the Settings app, tap your name (Apple Account), then Subscriptions. Two
+  of them used to say "Settings, under Subscription". In French they all say "résilier".
+- Explain contract: a copied or shared explanation now starts with "Explains the document. Not
+  legal advice.", as the screen does. Before, only the screen said so.
+- Explain contract: Home, its assistant tiles and Settings › What you do most now call it "Explain
+  contract", as the reader menu does. Before, they said "Understand a contract", "Explain a
+  contract" or "Analyse contract".
 - Editing text (internal builds): a name pasted from a web page with a hidden soft hyphen or
   zero-width space is now changed in the page. Before, the hidden character made the change fail,
   the line was covered instead, and every other line on that page could then only be covered.
@@ -177,6 +241,26 @@ Store notes (see the changelog strategy).
 - Removing a document's password keeps what its contents entries do: one that opens a web page
   still opens it, and one that opens a page at a zoom still uses that zoom. Before, the first did
   nothing and the second opened at the default zoom.
+- On iOS 27, a document's contents entries keep what they do when it is saved, with or without a
+  password: one that opens a web page still opens it, and one that opens a page at a zoom still uses
+  that zoom. Before, on iOS 27, the first did nothing and the second opened at the default zoom.
+- Someone who already has Pro no longer sees the plans and a Continue button that looked like a
+  purchase: the offer says they have Pro, with Manage subscription, Restore, Terms and Privacy.
+- Scanning: a scan whose save fails or is stopped is no longer lost. You go back to your pages, with
+  the name you gave them, and can save again.
+- Long waits now say what is happening. Saving a scan says "Saving…", and a document says
+  "Opening…" while it opens. When text recognition has read every page, it says it is saving the
+  searchable version instead of still recognising.
+- Camera scans take up much less space. Their pages are now saved at the size reading and text
+  recognition need, not at the full size of the camera.
+
+### Known issues
+- In a document, a drag that starts right after a tap may not move the page. Wait a moment after
+  the tap, then drag.
+- On iPhone, right after you resize a shape with two fingers, the page may follow your next slow
+  drag only part of the way. Lift your finger and drag again.
+- A different PDF put in Files under a document's name, with exactly the same number of pages, opens
+  where the old one was being read (#242).
 
 ### Added
 - Annotations: a shape, stamp, signature or text box you drag to the top or bottom of the screen
