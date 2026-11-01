@@ -252,6 +252,18 @@ struct PromptTests {
     }
   }
 
+  @Test("A summary and a contract explanation set a limit, not a quota, so a short document is not padded")
+  func summariesAllowFewerSentencesForShortDocuments() {
+    let expected = [(PromptCatalog.summarizeChunk, "up to 6"), (PromptCatalog.explainContract, "up to 8")]
+    for (template, limit) in expected {
+      #expect(template.version == "1.1.0", "\(template.id)")
+      #expect(template.instructions.contains(limit), "\(template.id)")
+      #expect(template.instructions.contains("write fewer for a short document"), "\(template.id)")
+    }
+    #expect(!PromptCatalog.summarizeChunk.instructions.contains("3 to 6"))
+    #expect(!PromptCatalog.explainContract.instructions.contains("4 to 8"))
+  }
+
   @Test("Document text cannot close the fence or forge a page marker")
   func injectionCannotEscapeTheFence() {
     let hostile = PageText(
