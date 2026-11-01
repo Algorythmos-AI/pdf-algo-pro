@@ -111,6 +111,22 @@ struct PaywallModelTests {
     #expect(await telemetry.events == ["commerce.paywall.viewed"])
   }
 
+  @Test("Someone with Pro reads a status, and everyone else the offer's pitch")
+  func statusOrPitch() async {
+    let (pro, _, _, _, _) = makeModel(.subscribed, trigger: .settings)
+    await pro.appeared()
+    #expect(!pro.showsPitch && !pro.offersPlans)
+    let (trial, _, _, _, _) = makeModel(.trial(endsAt: now.addingTimeInterval(day)), trigger: .settings)
+    await trial.appeared()
+    #expect(!trial.showsPitch, "A trial is Pro")
+    let (free, _, _, _, _) = makeModel(.none, trigger: .settings)
+    await free.appeared()
+    #expect(free.showsPitch && free.offersPlans)
+    let (paused, _, _, _, _) = makeModel(.inBillingRetry, trigger: .settings)
+    await paused.appeared()
+    #expect(paused.showsPitch, "Billing retry is not Pro")
+  }
+
   @Test("A change before the offer has appeared is not taken for a purchase")
   func beforeAppearing() async {
     let (model, fake, store, _, _) = makeModel()
