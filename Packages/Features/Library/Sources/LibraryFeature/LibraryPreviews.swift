@@ -36,6 +36,7 @@
     func setFavorite(_ isFavorite: Bool, for id: DocumentID) async throws { stored[id]?.isFavorite = isFavorite }
     func setTags(_ tags: [String], for id: DocumentID) async throws { stored[id]?.tags = tags }
     func recordOpened(_ id: DocumentID, pageIndex: Int) async throws {}
+    func resetReadingPosition(_ id: DocumentID) async throws {}
     func recordModified(_ id: DocumentID) async throws {}
     func moveToRecentlyDeleted(_ id: DocumentID) async throws { stored[id]?.deletedAt = Date() }
     func restore(_ id: DocumentID) async throws { stored[id]?.deletedAt = nil }
