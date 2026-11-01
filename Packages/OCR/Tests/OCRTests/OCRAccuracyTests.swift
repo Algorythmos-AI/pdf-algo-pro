@@ -147,6 +147,63 @@ struct OCRAccuracyTests {
   }
 }
 
+/// The same gates for pages the size of a camera's, brought down as scanning brings them down.
+///
+/// `SearchablePDFBuilder` does this before recognition (#371). Only the recognisers the app can use
+/// are gated here.
+@Suite("OCR accuracy after bringing a camera's pages down", .tags(.ocr))
+struct OCRCameraSizeTests {
+  /// The longer side of what the document camera gives on a 12-megapixel iPhone camera, in pixels.
+  static let cameraSize = 4_032
+
+  @Test("Pages brought down from a camera's size meet the accuracy gates (#371)")
+  func accuracy() async throws {
+    let counts: [OCRCorpus.Condition: Int] =
+      OCRAccuracyTests.isFullSuite ? [.clean: 200, .degraded: 100] : [.clean: 3, .degraded: 2]
+    let recognizers: [(key: String, recognizer: any TextRecognizing)] = [
+      ("line", VisionTextRecognizer()), ("wider", VisionTextRecognizer.wider),
+      ("document", VisionDocumentRecognizer()),
+    ]
+    var report = [
+      "# OCR accuracy, brought down from a camera's size", "", "| Case | Pages | CER | WER |", "|---|---|---|---|",
+    ]
+    let chosen = OCRAccuracyTests.chosenRecognizers
+    for (key, recognizer) in recognizers where chosen?.contains(key) ?? true {
+      for language in OCRCorpus.Language.allCases {
+        for condition in OCRCorpus.Condition.allCases {
+          let pages = OCRCorpus.pages(
+            language, condition, count: counts[condition] ?? 0, seed: 2026, camera: Self.cameraSize)
+          #expect(pages.allSatisfy { max($0.image.width, $0.image.height) <= 2_200 })
+          var score = RecognitionScore()
+          for page in pages {
+            let lines = try await recognizer.recognizeText(in: page.image)
+            score = score + RecognitionScore(recognised: lines.map(\.text).joined(separator: "\n"), truth: page.truth)
+          }
+          let label = "\(key) \(language.rawValue) \(condition.rawValue)"
+          report.append(
+            "| \(label) | \(pages.count) | "
+              + String(format: "%.2f%% | %.2f%% |", score.characterErrorRate * 100, score.wordErrorRate * 100))
+          let gate = try #require(OCRAccuracyTests.gates[condition])
+          #expect(score.characterErrorRate <= gate.cer, "\(label): CER \(score.characterErrorRate) above \(gate.cer)")
+          guard let wer = gate.wer else { continue }
+          let check = {
+            #expect(score.wordErrorRate <= wer, "\(label): WER \(score.wordErrorRate) above \(wer)")
+          }
+          // The known issue of `OCRAccuracyTests`, which on a subset this small may or may not show.
+          if language == .french, OCRAccuracyTests.readsFrenchWorse, !OCRAccuracyTests.isFullSuite {
+            withKnownIssue("iOS 27 reads French ligatures and accents worse (#308)", isIntermittent: true) { check() }
+          } else {
+            check()
+          }
+        }
+      }
+    }
+    let text = report.joined(separator: "\n") + "\n"
+    print(text)
+    SuiteReport.write(text, named: "ocr-accuracy-camera-size.md")
+  }
+}
+
 @Suite("Recognition scoring")
 struct RecognitionScoreTests {
   @Test("Error rates count insertions, deletions and substitutions over the ground truth")

@@ -4,6 +4,23 @@ import Testing
 
 @testable import Core
 
+@Suite("Signposts")
+struct SignpostTests {
+  @Test("A test hears the intervals its own work marks, and nothing else")
+  func intervalsAreHeard() async {
+    let log = SpanLog()
+    let other = SpanLog()
+    await log.watching {
+      Signposts.begin("Outer").end()
+      await other.watching { Signposts.begin("Inner").end() }
+    }
+    #expect(log.names == ["Outer"])
+    #expect(other.names == ["Inner"])
+    Signposts.begin("Heard by nobody").end()
+    #expect(log.names == ["Outer"])
+  }
+}
+
 @Suite("Document values")
 struct DocumentTests {
   @Test("Tags are trimmed, de-duplicated ignoring case, and sorted")

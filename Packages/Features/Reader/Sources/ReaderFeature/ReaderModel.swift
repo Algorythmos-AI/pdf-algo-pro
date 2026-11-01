@@ -33,6 +33,8 @@ public final class ReaderModel {
   public enum Phase: Equatable {
     /// Opening the file.
     case loading
+    /// Recognition has replaced the file, and the library is catching up before it opens.
+    case finishingRecognition
     /// The document needs its password.
     case locked(wrongPassword: Bool)
     /// Pages are shown.
@@ -175,6 +177,8 @@ public final class ReaderModel {
   // MARK: - Opening
 
   /// Opens the file at the page asked for, or where the user left off (FR-READ-006).
+  ///
+  /// Each step has an interval of its own, so a run on a device can name a slow one (#371).
   public func load() async {
     // To the reader being ready on its first page; drawing it is PDFKit's work after this.
     let interval = Signposts.begin("Document.FirstPage")
@@ -183,16 +187,21 @@ public final class ReaderModel {
     controller?.setMarkupTool(nil)
     controller?.isPastingAnnotations = false
     watchRecognition()
-    canRestorePreviousVersion = await library.hasPreviousVersion(of: documentID)
+    canRestorePreviousVersion = await Signposts.measure("Reader.Load.PreviousVersion") {
+      await library.hasPreviousVersion(of: documentID)
+    }
     do {
-      guard let document = try await library.document(withID: documentID) else {
+      let record = try await Signposts.measure("Reader.Load.Record") { try await library.document(withID: documentID) }
+      guard let document = record else {
         phase = .failed(String(localized: "This document is no longer in the library.", bundle: .module))
         return
       }
       self.document = document
-      let url = try await library.fileURL(for: documentID)
+      let url = try await Signposts.measure("Reader.Load.FileURL") { try await library.fileURL(for: documentID) }
       fileURL = url
-      let controller = try PDFDocumentController(url: url, textEditor: textEditor)
+      let controller = try Signposts.measure("Reader.Load.Open") {
+        try PDFDocumentController(url: url, textEditor: textEditor)
+      }
       knownVersion = FileVersion.current(at: url)
       // The reader shows the file as it is on disk, so no other version waits to be chosen, and the
       // next conflict gets a copy of its own (#257). The question is cleared too: hearing of the other
@@ -201,7 +210,7 @@ public final class ReaderModel {
       hasConflictingChange = false
       conflictCopy = nil
       changesKeptIn = nil
-      watch(url)
+      Signposts.measure("Reader.Load.Watch") { watch(url) }
       let stored = settings.load()
       controller.displayMode = stored.readerDisplayMode
       if offersReadingControls {
@@ -223,7 +232,9 @@ public final class ReaderModel {
       } else {
         show(controller)
       }
-      if document.lastOpenedAt == nil { await telemetry.record("activation.first_document.opened") }
+      if document.lastOpenedAt == nil {
+        await Signposts.measure("Reader.Load.Telemetry") { await telemetry.record("activation.first_document.opened") }
+      }
     } catch {
       phase = .failed(
         String(
@@ -1759,7 +1770,7 @@ public final class ReaderModel {
     pageBeforeRecognition = controller?.currentPageIndex
     speech.stop()
     controller = nil
-    phase = .loading
+    phase = .finishingRecognition
   }
 
   /// Whether recognition may replace the file: not while there are unsaved changes, counting text
@@ -1780,6 +1791,7 @@ public final class ReaderModel {
       } else {
         await recordPosition()
       }
+      if phase == .finishingRecognition { phase = .loading }
       await load()
       updateUndoState()
     case .fileChanged:
@@ -1896,5 +1908,29 @@ public final class ReaderModel {
     guard let citation = pendingReveal else { return }
     pendingReveal = nil
     controller?.reveal(citation)
+  }
+}
+
+extension ReaderModel.Phase {
+  /// The words for a wait with no pages to show; `nil` in the phases that show something else.
+  var waitingWords: LocalizedStringResource? {
+    switch self {
+    case .loading: LocalizedStringResource("Opening…", bundle: .atURL(Bundle.module.bundleURL))
+    case .finishingRecognition: ReaderModel.savingSearchableVersion
+    case .locked, .ready, .failed: nil
+    }
+  }
+}
+
+extension ReaderModel {
+  /// What the recognition bar says at a point in its progress: once every page is read, what is left
+  /// is writing the searchable version.
+  static func recognitionWords(progress: Double) -> LocalizedStringResource {
+    guard progress < 1 else { return savingSearchableVersion }
+    return LocalizedStringResource("Recognising text on this device…", bundle: .atURL(Bundle.module.bundleURL))
+  }
+
+  fileprivate static var savingSearchableVersion: LocalizedStringResource {
+    LocalizedStringResource("Saving the searchable version…", bundle: .atURL(Bundle.module.bundleURL))
   }
 }

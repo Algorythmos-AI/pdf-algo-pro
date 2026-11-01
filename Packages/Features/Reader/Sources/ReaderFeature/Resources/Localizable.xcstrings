@@ -1125,6 +1125,16 @@
         }
       }
     },
+    "Opening…" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ouverture…"
+          }
+        }
+      }
+    },
     "Or type your name" : {
       "localizations" : {
         "fr" : {
@@ -1451,6 +1461,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Signature enregistrée le %@"
+          }
+        }
+      }
+    },
+    "Saving the searchable version…" : {
+      "localizations" : {
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enregistrement de la version interrogeable…"
           }
         }
       }

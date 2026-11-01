@@ -246,6 +246,13 @@ Store notes (see the changelog strategy).
   that zoom. Before, on iOS 27, the first did nothing and the second opened at the default zoom.
 - Someone who already has Pro no longer sees the plans and a Continue button that looked like a
   purchase: the offer says they have Pro, with Manage subscription, Restore, Terms and Privacy.
+- Scanning: a scan whose save fails or is stopped is no longer lost. You go back to your pages, with
+  the name you gave them, and can save again.
+- Long waits now say what is happening. Saving a scan says "Saving…", and a document says
+  "Opening…" while it opens. When text recognition has read every page, it says it is saving the
+  searchable version instead of still recognising.
+- Camera scans take up much less space. Their pages are now saved at the size reading and text
+  recognition need, not at the full size of the camera.
 
 ### Known issues
 - In a document, a drag that starts right after a tap may not move the page. Wait a moment after
