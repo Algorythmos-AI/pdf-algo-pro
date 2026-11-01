@@ -262,6 +262,8 @@ struct PromptTests {
     }
     #expect(!PromptCatalog.summarizeChunk.instructions.contains("3 to 6"))
     #expect(!PromptCatalog.explainContract.instructions.contains("4 to 8"))
+    #expect(PromptCatalog.previous.map(\.id) == expected.map(\.0.id))
+    #expect(PromptCatalog.previous.allSatisfy { $0.version == "1.0.0" })
   }
 
   @Test("Document text cannot close the fence or forge a page marker")
