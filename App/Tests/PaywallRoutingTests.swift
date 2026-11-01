@@ -167,6 +167,21 @@ extension AppTests {
       #expect(!app.paywallBenefits.contains(.unlimitedIntelligence), "Hidden AI is not sold")
     }
 
+    // Decision D2: text editing is off in 1.0, so offering it would be a false claim. The app under test is
+    // internal, so this asks for what a Release build composes: the flag's value and nothing else.
+    @Test("A Release build's offer does not sell text editing")
+    func releaseBenefits() {
+      let flag = ReleaseFlag.textEditing.compiledDefault
+      #expect(!flag, "Text editing stays off in 1.0 (D2)")
+      for hidden in [false, true] {
+        let benefits = AppModel.paywallBenefits(intelligenceHidden: hidden, textEditingInBuild: flag)
+        #expect(!benefits.contains(.textEditing))
+        #expect(
+          AppModel.paywallBenefits(intelligenceHidden: hidden, textEditingInBuild: true).contains(.textEditing),
+          "The benefit follows the build")
+      }
+    }
+
     @Test("The reader's explanation that editing needs Pro can open the offer")
     func fromTheReader() async throws {
       let app = makeApp(["-skip-onboarding"])

@@ -346,11 +346,15 @@ final class AppModel {
 
   /// What Pro adds in this build, for the offer: only what the build does (FR-ONB-007).
   var paywallBenefits: [PaywallBenefit] {
+    Self.paywallBenefits(
+      intelligenceHidden: settings.isIntelligenceHidden, textEditingInBuild: AppTextEditingAccess.isInThisBuild)
+  }
+
+  /// The offer's benefits for what a build has, apart from the build, so a test can ask for a Release build's.
+  static func paywallBenefits(intelligenceHidden: Bool, textEditingInBuild: Bool) -> [PaywallBenefit] {
     var benefits: [PaywallBenefit] = [.unlimitedScans]
-    if !settings.isIntelligenceHidden { benefits.append(.unlimitedIntelligence) }
-    if ReleaseFlag.textEditing.compiledDefault || AppTextEditingAccess.isInternalBuild {
-      benefits.append(.textEditing)
-    }
+    if !intelligenceHidden { benefits.append(.unlimitedIntelligence) }
+    if textEditingInBuild { benefits.append(.textEditing) }
     return benefits
   }
 

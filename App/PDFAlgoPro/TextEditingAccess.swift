@@ -33,11 +33,13 @@ struct AppTextEditingAccess: TextEditingAccessProviding {
     #endif
   }
 
+  /// Whether this build has the feature: an internal build always, a Release build by the flag.
+  static var isInThisBuild: Bool { isInternalBuild || ReleaseFlag.textEditing.compiledDefault }
+
   /// The access for this build: on, and granted, in internal builds; the compiled default (off)
   /// in a Release build, which therefore shows nothing of the feature.
   static func forThisBuild(entitlements: any EntitlementProviding) -> AppTextEditingAccess {
     AppTextEditingAccess(
-      isEnabled: isInternalBuild || ReleaseFlag.textEditing.compiledDefault, isGranted: isInternalBuild,
-      entitlements: entitlements)
+      isEnabled: isInThisBuild, isGranted: isInternalBuild, entitlements: entitlements)
   }
 }
