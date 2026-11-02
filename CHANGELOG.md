@@ -33,6 +33,15 @@ Store notes (see the changelog strategy).
 - On the plans screen, the title no longer runs into the Close button when you scroll.
 - Opening the plans with Pro now says "You have Pro" and lists what you have, instead of selling Pro
   to you.
+
+- Summaries and contract explanations no longer ask for a minimum number of sentences, so a short
+  document such as a business card can get a short answer.
+- Recognise text on an image-only PDF now puts the text where it is on the page, so search
+  highlights and text selection line up, and reads the page at full size. Recognise text again on
+  a document already recognised this way to correct it.
+- Siri and Shortcuts now know your documents by name, however a title is written, in English and
+  French, and more ways of asking work. Siri asks which document when it can't tell, says why when
+  it can't summarise, and needs your iPhone unlocked before it opens a document.
 - A trial reminder is less likely to arrive after you have paid, been refunded or let the
   subscription lapse without opening the app: shortly before it is due, iOS may let the app check
   your subscription in the background and remove it. iOS doesn't promise to run that check, so the

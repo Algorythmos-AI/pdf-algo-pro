@@ -118,3 +118,9 @@ def test_without_an_export_every_catalog_is_checked(tmp_path, monkeypatch, capsy
 
 def test_the_repository_catalogs_are_translated():
     assert untranslated.main([]) == 0
+
+
+def test_a_siri_phrase_set_counts_as_translated_only_with_phrases():
+    assert untranslated.is_translated({"stringSet": {"state": "translated", "values": ["Résumer"]}})
+    assert not untranslated.is_translated({"stringSet": {"state": "translated", "values": []}})
+    assert not untranslated.is_translated({"stringSet": {"state": "new", "values": ["Résumer"]}})

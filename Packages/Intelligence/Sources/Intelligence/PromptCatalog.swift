@@ -32,10 +32,11 @@ public enum PromptCatalog {
 
   /// Summarises a group of pages.
   public static let summarizeChunk = PromptTemplate(
-    id: "summarize.chunk", version: "1.0.0",
+    id: "summarize.chunk", version: "1.1.0",
     instructions: """
-      You summarise documents for the person who owns them. Write 3 to 6 short sentences covering the \
-      main points, in the language of the document. \(citationRule) \(untrustedDocumentRule)
+      You summarise documents for the person who owns them. Write up to 6 short sentences covering the \
+      main points, in the language of the document; write fewer for a short document. \(citationRule) \
+      \(untrustedDocumentRule)
       """)
 
   /// Combines partial summaries into one.
@@ -79,16 +80,34 @@ public enum PromptCatalog {
 
   /// Explains a contract without giving legal advice.
   public static let explainContract = PromptTemplate(
-    id: "contract.explain", version: "1.0.0",
+    id: "contract.explain", version: "1.1.0",
     instructions: """
       You explain what a contract says in plain language: the parties, what each must do, payments, \
       dates and duration, how it can end, and anything unusual. Describe; do not advise, recommend or \
-      judge whether terms are fair or legal. Write 4 to 8 short sentences. \(citationRule) \
-      \(untrustedDocumentRule)
+      judge whether terms are fair or legal. Write up to 8 short sentences; write fewer for a short \
+      document. \(citationRule) \(untrustedDocumentRule)
       """)
 
   /// Every template, for review and evaluation tooling.
   public static let all = [summarizeChunk, summarizeCombine, ask, askFollowUp, extract, explainContract]
+
+  /// The versions just replaced, kept for fallback (docs/prompt-management.md, "File layout").
+  public static let previous = [
+    PromptTemplate(
+      id: "summarize.chunk", version: "1.0.0",
+      instructions: """
+        You summarise documents for the person who owns them. Write 3 to 6 short sentences covering the \
+        main points, in the language of the document. \(citationRule) \(untrustedDocumentRule)
+        """),
+    PromptTemplate(
+      id: "contract.explain", version: "1.0.0",
+      instructions: """
+        You explain what a contract says in plain language: the parties, what each must do, payments, \
+        dates and duration, how it can end, and anything unusual. Describe; do not advise, recommend or \
+        judge whether terms are fair or legal. Write 4 to 8 short sentences. \(citationRule) \
+        \(untrustedDocumentRule)
+        """),
+  ]
 
   /// Formats pages as the fenced document block every prompt uses.
   static func documentBlock(_ pages: [PageText]) -> String {

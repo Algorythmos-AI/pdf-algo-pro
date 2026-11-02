@@ -8,7 +8,9 @@ Always active:
     Icon Composer document of the same name whose layer images all exist;
   * no Info.plist localisation carries an app name, and there is no InfoPlist.xcstrings (Xcode syncs
     the names into it): the names come from build settings per configuration (Staging is
-    "PDF Algo β"), and a localised value would replace them (assumption A14).
+    "PDF Algo β"), and a localised value would replace them (assumption A14);
+  * every Siri phrase names the app, in the code and in each language of AppShortcuts.xcstrings, and
+    the two agree; the Release spoken name is the Release name, so only Staging has another.
 
 Active once Swift sources exist (dormant before the first code pull request); the rules apply to the
 app and its packages, not to developer tools under scripts/:
@@ -157,6 +159,47 @@ def infoplist_name_problems(app: Path = ROOT / APP_SOURCES) -> list[str]:
     return problems
 
 
+def phrases_in_code(text: str) -> list[str]:
+    """The phrases of an AppShortcutsProvider, spelt as in AppShortcuts.xcstrings."""
+    phrases = []
+    for block in re.findall(r"phrases: \[(.*?)\]", text, re.S):
+        for phrase in re.findall(r'"((?:[^"\\]|\\.)*)"', block):
+            phrases.append(phrase.replace(r"\(.applicationName)", "${applicationName}")
+                           .replace(r"\(\.$target)", "${target}"))
+    return phrases
+
+
+def siri_phrase_problems(code: str, catalog: dict) -> list[str]:
+    problems = []
+    written = phrases_in_code(code)
+    problems += [f"AppIntents.swift: phrase has no .applicationName: {p}" for p in written
+                 if "${applicationName}" not in p]
+    english: list[str] = []
+    for key, entry in catalog.get("strings", {}).items():
+        for language, localization in entry.get("localizations", {}).items():
+            values = localization.get("stringSet", {}).get("values")
+            if values is None:
+                problems.append(f"AppShortcuts.xcstrings: {key} ({language}) needs a stringSet, or variants are lost")
+                continue
+            problems += [f"AppShortcuts.xcstrings: {language} phrase has no ${{applicationName}}: {p}"
+                         for p in values if "${applicationName}" not in p]
+            if language == "en":
+                english += values
+    if sorted(written) != sorted(english):
+        problems.append("AppShortcuts.xcstrings: the English phrases differ from AppIntents.swift: "
+                        f"{sorted(set(written) ^ set(english))}")
+    return problems
+
+
+def spoken_name_problems(project: str) -> list[str]:
+    """The base (Release) spoken name has to be the Release name: Staging alone may differ."""
+    display = re.search(r"^ {8}APP_DISPLAY_NAME: (.+)$", project, re.M)
+    spoken = re.search(r"^ {8}APP_SPOKEN_NAME: (.+)$", project, re.M)
+    if not display or not spoken or display[1] != spoken[1]:
+        return ["project.yml: the base APP_SPOKEN_NAME must equal the base APP_DISPLAY_NAME"]
+    return []
+
+
 def print_outside_debug(text: str) -> list[int]:
     bad, depth = [], 0
     for no, line in enumerate(text.splitlines(), 1):
@@ -269,6 +312,10 @@ def main() -> int:
     errors.extend(icon_document_problems())
     errors.extend(app_mark_problems())
     errors.extend(infoplist_name_problems())
+    errors.extend(siri_phrase_problems(
+        (ROOT / APP_SOURCES / "AppIntents.swift").read_text(encoding="utf-8"),
+        json.loads((ROOT / APP_SOURCES / "Resources/AppShortcuts.xcstrings").read_text(encoding="utf-8"))))
+    errors.extend(spoken_name_problems((ROOT / "project.yml").read_text(encoding="utf-8")))
     if (ROOT / "project.yml").exists():
         errors.extend(internal_tools_config_problems((ROOT / "project.yml").read_text(encoding="utf-8")))
 

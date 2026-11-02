@@ -285,8 +285,9 @@ actor RecognitionCheckpoints {
     try JSONEncoder().encode(Self.format).write(to: folder(of: id).appendingPathComponent("format.json"))
   }
 
-  /// The shape of what a checkpoint keeps: 2 since lines can carry their words.
-  static let format = 2
+  /// The shape of what a checkpoint keeps: 2 since lines can carry their words, 3 since pages fill
+  /// the image recognition reads, so earlier lines of a small page are in the wrong place (#373).
+  static let format = 3
 
   /// Whether a document's checkpoint was written in the shape this version writes.
   func isCurrentFormat(_ id: DocumentID) -> Bool {

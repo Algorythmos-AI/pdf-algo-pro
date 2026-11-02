@@ -109,7 +109,15 @@ public actor SearchablePDFBuilder {
     let data = try PDFWriter.makePDF(mediaBoxes: boxes) { context, index, box in
       guard let page = source.page(at: index + 1) else { return }
       context.drawPDFPage(page)
-      PDFWriter.drawInvisibleText(recognized[index], in: box, context: context)
+      // Recognition read the page as shown, so the text is laid out that way and turned back onto
+      // the page's own space: on a rotated page it runs along the text in the picture (#373).
+      let rotation = page.rotationAngle
+      let shown = PageRenderer.shownSize(of: box, rotation: rotation)
+      context.saveGState()
+      context.concatenate(
+        PageRenderer.pageTransform(box: box, rotation: rotation, width: shown.width, height: shown.height).inverted())
+      PDFWriter.drawInvisibleText(recognized[index], in: CGRect(origin: .zero, size: shown), context: context)
+      context.restoreGState()
     }
     return RecognizedDocument(
       data: try Self.carryOver(from: original, onto: data), pages: Self.pageTexts(recognized))

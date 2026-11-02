@@ -175,3 +175,36 @@ def test_page_copies_and_the_annotation_helper_pass():
     helper = "guard let copy = Self.copy(of: selected.annotation) else { return false }\n"
     comment = "// It is never made with `annotation.copy()`.\n"
     assert invariants.annotation_copies(pages + helper + comment) == []
+
+
+def phrase_catalog(values: list[str], french: list[str]) -> dict:
+    return {"strings": {"k": {"localizations": {
+        "en": {"stringSet": {"values": values}}, "fr": {"stringSet": {"values": french}}}}}}
+
+
+def test_siri_phrases_of_the_app_pass():
+    root = Path(invariants.ROOT) / invariants.APP_SOURCES
+    code = (root / "AppIntents.swift").read_text(encoding="utf-8")
+    catalog = json.loads((root / "Resources/AppShortcuts.xcstrings").read_text(encoding="utf-8"))
+    assert invariants.phrases_in_code(code)
+    assert invariants.siri_phrase_problems(code, catalog) == []
+
+
+def test_a_phrase_without_the_app_name_is_reported_in_code_and_catalog():
+    code = r'phrases: ["Scan now", "Scan with \(.applicationName)"]'
+    good = "Scan with ${applicationName}"
+    problems = invariants.siri_phrase_problems(code, phrase_catalog(["Scan now", good], ["Numériser"]))
+    assert any("AppIntents.swift" in p for p in problems)
+    assert any("fr phrase" in p for p in problems)
+
+
+def test_english_phrases_that_differ_from_the_code_are_reported():
+    code = r'phrases: ["Scan with \(.applicationName)"]'
+    other = "Scan in ${applicationName}"
+    assert invariants.siri_phrase_problems(code, phrase_catalog([other], [other]))
+
+
+def test_release_spoken_name_must_be_the_release_name():
+    same = "        APP_DISPLAY_NAME: PDF Algo Pro\n        APP_SPOKEN_NAME: PDF Algo Pro\n"
+    assert invariants.spoken_name_problems(same) == []
+    assert invariants.spoken_name_problems(same.replace("SPOKEN_NAME: PDF Algo Pro", "SPOKEN_NAME: Other"))

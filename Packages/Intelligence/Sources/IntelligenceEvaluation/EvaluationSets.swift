@@ -1,6 +1,16 @@
 import Core
 import Foundation
 
+/// What an evaluation item asks of the document intelligence.
+public enum EvaluationTask: String, Sendable, CaseIterable {
+  /// A question, with or without earlier exchanges.
+  case ask = "Ask"
+  /// A summary of the whole document.
+  case summarize = "Summarise"
+  /// A plain-language explanation of a contract.
+  case explainContract = "Contract"
+}
+
 /// One evaluation item (docs/ai-evaluation-framework.md, "Evaluation sets"): a synthetic document, a
 /// question, and what a correct answer looks like.
 public struct EvaluationItem: Sendable, Identifiable {
@@ -44,6 +54,9 @@ public struct EvaluationItem: Sendable, Identifiable {
     /// An injection attempt: the task must be done on the document, and the injected payload must
     /// never appear. `goldPages` are the pages that genuinely answer the question, if any.
     case injection(InjectionCategory, payload: String, goldPages: Set<Int>)
+    /// A summary or explanation: it must cite only these pages, mention the key points, stay within
+    /// `maxSentences` and lose no sentence to grounding.
+    case document(goldPages: Set<Int>, keyPoints: [String], maxSentences: Int)
   }
 
   /// A stable identifier, for reports and recorded responses.
@@ -58,11 +71,13 @@ public struct EvaluationItem: Sendable, Identifiable {
   public let expectation: Expectation
   /// Earlier questions and answers, for a follow-up question (FR-AI-014); empty for a first question.
   public let earlier: [Exchange]
+  /// What the item asks for.
+  public let task: EvaluationTask
 
   /// Creates an item.
   public init(
     id: String, language: Language, pages: [PageText], question: String, expectation: Expectation,
-    earlier: [Exchange] = []
+    earlier: [Exchange] = [], task: EvaluationTask = .ask
   ) {
     self.id = id
     self.language = language
@@ -70,6 +85,7 @@ public struct EvaluationItem: Sendable, Identifiable {
     self.question = question
     self.expectation = expectation
     self.earlier = earlier
+    self.task = task
   }
 }
 
@@ -79,7 +95,7 @@ public struct EvaluationItem: Sendable, Identifiable {
 /// and share one rule: every document is written for the project, never a real one.
 public enum EvaluationSets {
   /// Every item.
-  public static var all: [EvaluationItem] { english + french + redTeam + followUps }
+  public static var all: [EvaluationItem] { english + french + redTeam + followUps + documents }
 
   // MARK: - Documents
 
@@ -119,6 +135,32 @@ public enum EvaluationSets {
       text: "Le loyer est de 1 180 EUR par mois, payable le cinq de chaque mois. Le dépôt de garantie est de 2 360 EUR."
     ),
     PageText(pageIndex: 2, text: "Le bail court trois ans à compter du 1er septembre 2026. Les animaux sont acceptés."),
+  ]
+
+  /// A business card with no field labels: little text, and nothing to pad a summary with.
+  ///
+  /// The name, business and address are invented; the number is in the range Australia reserves for fiction.
+  static let businessCard = [
+    PageText(
+      pageIndex: 0,
+      text: "Priya Venn\nSenior Cartographer\nHarbour Survey Works\n+61 2 5550 0142\n"
+        + "priya@harbour-survey.example\n12 Compass Lane, Sydney")
+  ]
+
+  /// The same in French; the number is in the range France reserves for fiction.
+  static let carteDeVisite = [
+    PageText(
+      pageIndex: 0,
+      text: "Noé Castel\nRelieur d’art\nAtelier de la Reliure\n+33 1 99 00 12 34\n"
+        + "noe@atelier-reliure.example\n8 rue des Compas, Lyon")
+  ]
+
+  /// A contract of one short page.
+  static let shortAgreement = [
+    PageText(
+      pageIndex: 0,
+      text: "Dog walking agreement between Ines Okafor and Rowan Pike. Rowan walks the dog each weekday for "
+        + "40 AUD per week. Either person may stop with 7 days notice.")
   ]
 
   // MARK: - Sets
@@ -217,6 +259,17 @@ public enum EvaluationSets {
       earlier: [exchange("Quel est le numéro de facture ?", "Le numéro de facture est FAC-2026-0117.", page: 1)]),
   ]
 
+  /// Summaries and contract explanations, including sparse documents that must get a short answer.
+  public static let documents: [EvaluationItem] = [
+    document("sum-en-invoice", .english, .summarize, invoice, pages: [0, 1, 2], points: ["1,240.00"], at: 6),
+    document("sum-fr-facture", .french, .summarize, facture, pages: [0, 1, 2], points: ["860,00"], at: 6),
+    document("sum-en-card", .english, .summarize, businessCard, pages: [0], points: ["Priya Venn"], at: 3),
+    document("sum-fr-card", .french, .summarize, carteDeVisite, pages: [0], points: ["Noé Castel"], at: 3),
+    document("con-en-lease", .english, .explainContract, lease, pages: [0, 1, 2, 3], points: ["2,150"], at: 8),
+    document("con-fr-bail", .french, .explainContract, bail, pages: [0, 1, 2], points: ["1 180"], at: 8),
+    document("con-en-short", .english, .explainContract, shortAgreement, pages: [0], points: ["40 AUD"], at: 4),
+  ]
+
   /// An earlier exchange whose answer cites one page.
   private static func exchange(_ question: String, _ answer: String, page: Int) -> Exchange {
     Exchange(
@@ -234,6 +287,15 @@ public enum EvaluationSets {
     EvaluationItem(
       id: id, language: language, pages: pages, question: question,
       expectation: .answerable(goldPages: gold, keyPoints: points))
+  }
+
+  private static func document(
+    _ id: String, _ language: EvaluationItem.Language, _ task: EvaluationTask, _ pages: [PageText],
+    pages gold: Set<Int>, points: [String], at maxSentences: Int
+  ) -> EvaluationItem {
+    EvaluationItem(
+      id: id, language: language, pages: pages, question: task.rawValue,
+      expectation: .document(goldPages: gold, keyPoints: points, maxSentences: maxSentences), task: task)
   }
 
   private static func unanswerable(
