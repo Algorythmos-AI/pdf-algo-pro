@@ -85,6 +85,10 @@ def _string_units(node: object) -> list[dict]:
         for key, value in node.items():
             if key == "stringUnit" and isinstance(value, dict):
                 units.append(value)
+            elif key == "stringSet" and isinstance(value, dict):
+                # A Siri phrase and its spoken variants: one unit each, in AppShortcuts.xcstrings.
+                state = value.get("state")
+                units += [{"state": state, "value": phrase} for phrase in value.get("values") or [""]]
             else:
                 units += _string_units(value)
     elif isinstance(node, list):

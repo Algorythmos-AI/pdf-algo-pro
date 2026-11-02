@@ -6,13 +6,22 @@ import Testing
 @testable import Intelligence
 @testable import IntelligenceEvaluation
 
+/// A recorded summary or explanation: the prompt it answers and text that identifies the document.
+private struct DocumentResponse: Sendable {
+  let prompt: PromptTemplate
+  let marker: String
+  let response: String
+}
+
 /// A model that answers each evaluation question with a recorded response, as a model would phrase it.
 private actor RecordedModel: LanguageModelDriving {
   nonisolated let tier: IntelligenceTier = .onDevice
   private let responses: [String: String]
+  private let documentResponses: [DocumentResponse]
 
-  init(_ responses: [String: String]) {
+  init(_ responses: [String: String], documents: [DocumentResponse] = goodDocumentResponses) {
     self.responses = responses
+    self.documentResponses = documents
   }
 
   func availability() async -> IntelligenceAvailability { .available(.onDevice) }
@@ -20,6 +29,10 @@ private actor RecordedModel: LanguageModelDriving {
   func tokenCount(_ text: String) async -> Int { max(1, text.count / 4) }
 
   func respond(instructions: String, prompt: String) async throws -> String {
+    guard prompt.contains("Question: ") else {
+      return documentResponses.first { $0.prompt.instructions == instructions && prompt.contains($0.marker) }?.response
+        ?? "NOT_FOUND"
+    }
     let question = prompt.components(separatedBy: "Question: ").last ?? ""
     return responses[question.trimmingCharacters(in: .whitespacesAndNewlines)] ?? "NOT_FOUND"
   }
@@ -66,6 +79,42 @@ private let goodResponses: [String: String] = [
   "Et quand faut-il la payer ?": "Le paiement est dû sous 45 jours [p2].",
 ]
 
+/// Summaries and explanations a well-behaved model gives: only what the document says.
+private let goodDocumentResponses = [
+  DocumentResponse(
+    prompt: PromptCatalog.summarizeChunk, marker: "Northwind Stationery",
+    response:
+      "Northwind Stationery invoiced Harbour Design Studio for office supplies [p1]. The total due is 1,240.00 AUD "
+      + "within 30 days [p2]. Late payments incur a fee of 2% per month [p3]."),
+  DocumentResponse(
+    prompt: PromptCatalog.summarizeChunk, marker: "Papeterie du Port",
+    response:
+      "Papeterie du Port a facturé des fournitures de bureau à Atelier Lumière [p1]. Le total à payer est de "
+      + "860,00 EUR sous 45 jours [p2]. La pénalité de retard est de 3 % par mois [p3]."),
+  DocumentResponse(
+    prompt: PromptCatalog.summarizeChunk, marker: "Priya Venn",
+    response: "Priya Venn is a senior cartographer at Harbour Survey Works [p1]."),
+  DocumentResponse(
+    prompt: PromptCatalog.summarizeChunk, marker: "Noé Castel",
+    response: "Noé Castel est relieur d’art à l’Atelier de la Reliure [p1]."),
+  DocumentResponse(
+    prompt: PromptCatalog.explainContract, marker: "Mara Quinn",
+    response:
+      "This is a residential lease between Mara Quinn and Theo Walsh [p1]. The rent is 2,150 AUD per month and the "
+      + "bond is 8,600 AUD [p2]. The lease runs for twelve months from 1 July 2026 [p3]. Either party may end the "
+      + "lease with 60 days written notice after the first six months [p4]."),
+  DocumentResponse(
+    prompt: PromptCatalog.explainContract, marker: "Hélène Garnier",
+    response:
+      "Ce bail d’habitation lie Hélène Garnier et Loïc Dubois [p1]. Le loyer est de 1 180 EUR par mois et le dépôt "
+      + "de garantie de 2 360 EUR [p2]. Le bail court trois ans à compter du 1er septembre 2026 [p3]."),
+  DocumentResponse(
+    prompt: PromptCatalog.explainContract, marker: "Ines Okafor",
+    response:
+      "Ines Okafor and Rowan Pike agree on dog walking [p1]. Rowan walks the dog each weekday for 40 AUD per week "
+      + "[p1]. Either person may stop with 7 days notice [p1]."),
+]
+
 @Suite("AI evaluation")
 struct EvaluationTests {
   @Test("The deterministic suite meets every release threshold through the real router and grounding (B6)")
@@ -97,6 +146,42 @@ struct EvaluationTests {
     #expect(failed.isEmpty, "\(report.markdown)")
     let unsupported = report.metrics.first { $0.name == "Answers with any unsupported claim" }
     #expect(unsupported?.value ?? 0 > 0, "The dropped sentences are counted, so the metric shows the model's behaviour")
+  }
+
+  @Test("A padded summary of a business card fails its item and is counted against its task")
+  func paddingIsMeasuredPerTask() async {
+    let card = "Priya Venn is a senior cartographer at Harbour Survey Works [p1]."
+    let padded = [
+      DocumentResponse(
+        prompt: PromptCatalog.summarizeChunk, marker: "Priya Venn",
+        response: "\(card) She brings deep expertise and a passion for precision to every client project [p1].")
+    ]
+    let model = RecordedModel(goodResponses, documents: padded)
+    let report = await EvaluationRunner(intelligence: IntelligenceRouter(models: [model])).run(EvaluationSets.documents)
+    let failures = Dictionary(uniqueKeysWithValues: report.outcomes.map { ($0.item.id, $0.failure ?? "") })
+    #expect(failures["sum-en-card"]?.contains("dropped 1") == true)
+    let summaries = report.droppedSentences.first { $0.task == .summarize }
+    #expect(summaries?.dropped == 1 && summaries?.kept == 1 && summaries?.rate == 0.5)
+    #expect(report.droppedSentences.first { $0.task == .explainContract }?.dropped == 0)
+    #expect(report.metrics.first { $0.name == "Answers with any unsupported claim: Summarise" }?.passes == false)
+    #expect(report.markdown.contains("## Dropped sentences by task"))
+    #expect(report.markdown.contains("| Summarise | 1 | 1 | 1 | 1 | 50.0% | 3 |"))
+  }
+
+  @Test("A document answer is held to its sentence limit")
+  func documentRules() async {
+    let page = PageText(pageIndex: 0, text: "Rent 10")
+    let item = EvaluationItem(
+      id: "d", language: .english, pages: [page], question: "Summarise",
+      expectation: .document(goldPages: [0], keyPoints: ["Rent"], maxSentences: 1), task: .summarize)
+    let citation = [Citation(pageIndex: 0, quote: nil)]
+    let long = Answer(text: "Rent is 10. Rent is due.", citations: citation, tier: .onDevice, isGrounded: true)
+    #expect(EvaluationRunner.failure(of: long, for: item)?.contains("wrote 2") == true)
+    #expect(EvaluationRunner.failure(of: .notFound(tier: .onDevice), for: item)?.contains("not found") == true)
+    #expect(EvaluationRunner.sentenceCount("It cost 120.00 AUD.\nPaid. Done?") == 3)
+    for card in [EvaluationSets.businessCard, EvaluationSets.carteDeVisite] {
+      #expect(!card[0].text.contains(":"), "The card has no field labels")
+    }
   }
 
   @Test("The harness catches wrong citations, invented numbers, repeated payloads and guesses")

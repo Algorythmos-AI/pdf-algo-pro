@@ -20,21 +20,41 @@ final class IntentRouter {
   private var isLocked: () -> Bool = { false }
   private var handler: ((Route) -> Void)?
   private var pending: Route?
+  /// Tells the system to read `suggestedEntities()` again: the only way Siri learns document names.
+  private var refreshPhrases: () -> Void = {}
+  /// What the system last heard, so that an unchanged library asks nothing of it.
+  private var knownVocabulary: [String]?
 
   /// Connects the running app; a route that arrived first is delivered now.
   func attach(
     library: any DocumentLibrary, intelligence: (any DocumentIntelligence)? = nil,
-    index: (any DocumentIndexing)? = nil, isLocked: @escaping () -> Bool, handler: @escaping (Route) -> Void
+    index: (any DocumentIndexing)? = nil, isLocked: @escaping () -> Bool,
+    refreshPhrases: @escaping () -> Void = { PDFAlgoProShortcuts.updateAppShortcutParameters() },
+    handler: @escaping (Route) -> Void
   ) {
     self.library = library
     self.intelligence = intelligence
     self.index = index
     self.isLocked = isLocked
     self.handler = handler
+    self.refreshPhrases = refreshPhrases
+    knownVocabulary = nil
     if let pending {
       self.pending = nil
       handler(pending)
     }
+    Task { await vocabularyMayHaveChanged() }
+  }
+
+  /// Tells Siri the document names, at launch and whenever they or App Lock change.
+  ///
+  /// Without this a phrase with a document in it can never match. While App Lock is locked the list
+  /// is empty, so the titles also leave Siri, Spotlight and the Shortcuts app until it is unlocked.
+  func vocabularyMayHaveChanged() async {
+    let vocabulary = await spokenDocuments().map(\.title)
+    guard vocabulary != knownVocabulary else { return }
+    knownVocabulary = vocabulary
+    refreshPhrases()
   }
 
   /// Navigates, or keeps the route until the app attaches.
@@ -61,10 +81,8 @@ final class IntentRouter {
       answer = try await intelligence.summarize(try await index.pages(of: id))
     } catch IntelligenceError.noText {
       throw IntentFailure.noText
-    } catch IntelligenceError.unavailable(.dailyAllowanceUsed) {
-      throw IntentFailure.allowanceUsed
-    } catch IntelligenceError.unavailable {
-      throw IntentFailure.intelligenceUnavailable
+    } catch IntelligenceError.unavailable(let reason) {
+      throw reason == .dailyAllowanceUsed ? IntentFailure.allowanceUsed : IntentFailure.unavailable(reason)
     } catch {
       throw IntentFailure.failed
     }
@@ -85,6 +103,57 @@ final class IntentRouter {
   func listedDocuments() async -> [Document] {
     isLocked() ? [] : await documents()
   }
+
+  /// The most recently opened documents, whose names Siri listens for.
+  ///
+  /// Assumption: the system takes 1,000 phrases from an app, and each document multiplies the phrases
+  /// that name one, so 50 documents stay inside that. Validate on a device with a larger library.
+  func spokenDocuments() async -> [Document] {
+    Array(await listedDocuments().prefix(50))
+  }
+
+  /// Documents whose titles fit what was said, closest first; the most recently opened wins a tie.
+  ///
+  /// Throws while App Lock is locked, so that Siri says why rather than that nothing matched.
+  func documents(matching spoken: String) async throws -> [Document] {
+    guard !isLocked() else { throw IntentFailure.locked }
+    return await documents()
+      .enumerated()
+      .compactMap { offset, document in
+        DocumentTitleMatch.rank(of: document.title, for: spoken).map { (rank: $0, offset: offset, document: document) }
+      }
+      .sorted { ($0.rank, $0.offset) < ($1.rank, $1.offset) }
+      .map(\.document)
+  }
+}
+
+/// How well a title fits a name as Siri heard it, which is rarely how the title is written.
+///
+/// A spoken "tax return 2025" has to find "Tax-Return_2025 (final)", and "resume" to find "Résumé".
+nonisolated enum DocumentTitleMatch {
+  /// Words people say before a name and that titles rarely start with, in English and French.
+  private static let leadingWords: Set<String> = [
+    "a", "an", "my", "the", "l", "la", "le", "les", "ma", "mes", "mon", "un", "une",
+  ]
+
+  /// Lower is closer; nil when the title doesn't fit.
+  static func rank(of title: String, for spoken: String) -> Int? {
+    let titleWords = words(in: title)
+    var heard = words(in: spoken)
+    while heard.count > 1, leadingWords.contains(heard[0]) { heard.removeFirst() }
+    guard !heard.isEmpty else { return nil }
+    if titleWords == heard { return 0 }
+    if titleWords.starts(with: heard) { return 1 }
+    if heard.allSatisfy({ word in titleWords.contains { $0.hasPrefix(word) } }) { return 2 }
+    // "budget 2026" for "Budget2026", and the other way round.
+    return titleWords.joined().contains(heard.joined()) ? 3 : nil
+  }
+
+  private static func words(in text: String) -> [String] {
+    text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
+      .components(separatedBy: CharacterSet.alphanumerics.inverted)
+      .filter { !$0.isEmpty }
+  }
 }
 
 /// A library document as Siri, Shortcuts and Spotlight see it (FR-LIB-005).
@@ -94,14 +163,17 @@ nonisolated struct DocumentEntity: AppEntity {
 
   let id: String
   let title: String
+  /// When it last changed, which tells apart two documents with one title when Siri asks which.
+  let modified: String
 
   var displayRepresentation: DisplayRepresentation {
-    DisplayRepresentation(title: "\(title)")
+    DisplayRepresentation(title: "\(title)", subtitle: "\(modified)", image: .init(systemName: "doc.text"))
   }
 
   init(_ document: Document) {
     id = document.id.description
     title = document.title
+    modified = document.modifiedAt.formatted(date: .abbreviated, time: .omitted)
   }
 }
 
@@ -117,12 +189,11 @@ nonisolated struct DocumentEntityQuery: EntityStringQuery {
   }
 
   func entities(matching string: String) async throws -> [DocumentEntity] {
-    await IntentRouter.shared.listedDocuments().filter { $0.title.localizedStandardContains(string) }.map(
-      DocumentEntity.init)
+    try await IntentRouter.shared.documents(matching: string).map(DocumentEntity.init)
   }
 
   func suggestedEntities() async throws -> [DocumentEntity] {
-    Array(await IntentRouter.shared.listedDocuments().prefix(10)).map(DocumentEntity.init)
+    await IntentRouter.shared.spokenDocuments().map(DocumentEntity.init)
   }
 }
 
@@ -130,9 +201,14 @@ nonisolated struct DocumentEntityQuery: EntityStringQuery {
 struct OpenDocumentIntent: OpenIntent {
   static let title: LocalizedStringResource = "Open Document"
   static let description = IntentDescription("Opens a document from your PDF Algo Pro library.")
+  static let openAppWhenRun = true
+  // Siri on a locked phone would otherwise answer with titles when it asks which document.
+  static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
 
-  @Parameter(title: "Document")
+  @Parameter(title: "Document", requestValueDialog: "Which document?")
   var target: DocumentEntity
+
+  static var parameterSummary: some ParameterSummary { Summary("Open \(\.$target)") }
 
   @MainActor
   func perform() async throws -> some IntentResult {
@@ -157,8 +233,9 @@ nonisolated struct ScanDocumentIntent: AppIntent {
 }
 
 /// Why an intent that returns a result couldn't, in words Siri can say.
-nonisolated enum IntentFailure: Error, CustomLocalizedStringResourceConvertible {
-  case notReady, locked, documentMissing, noText, intelligenceUnavailable, allowanceUsed, failed
+nonisolated enum IntentFailure: Error, Equatable, CustomLocalizedStringResourceConvertible {
+  case notReady, locked, documentMissing, noText, allowanceUsed, failed
+  case unavailable(IntelligenceUnavailableReason)
 
   var localizedStringResource: LocalizedStringResource {
     switch self {
@@ -166,7 +243,11 @@ nonisolated enum IntentFailure: Error, CustomLocalizedStringResourceConvertible 
     case .locked: "PDF Algo Pro is locked. Open it and unlock it, then try again."
     case .documentMissing: "That document is no longer in your library."
     case .noText: "That document has no text to summarise yet. Open it and recognise its text first."
-    case .intelligenceUnavailable: "Summaries need Apple Intelligence on this device, and AI features turned on."
+    case .unavailable(.hiddenBySettings): "AI features are turned off in PDF Algo Pro. Turn them on in its Settings."
+    case .unavailable(.appleIntelligenceNotEnabled): "Summaries need Apple Intelligence. Turn it on in Settings."
+    case .unavailable(.modelNotReady): "Apple Intelligence is still getting ready on this device. Try again later."
+    case .unavailable(.requestTooLarge): "That document is too long to summarise here."
+    case .unavailable: "Summaries need Apple Intelligence on this device, and AI features turned on."
     case .allowanceUsed: "You’ve used today’s free summaries. They start again tomorrow, and Pro has no daily limit."
     case .failed: "The summary couldn't be made. Try again in the app."
     }
@@ -183,8 +264,10 @@ struct SummarizeDocumentIntent: AppIntent {
     "Summarises a document from your library on this device, with the pages it draws on.")
   static let authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
 
-  @Parameter(title: "Document")
+  @Parameter(title: "Document", requestValueDialog: "Which document?")
   var target: DocumentEntity
+
+  static var parameterSummary: some ParameterSummary { Summary("Summarise \(\.$target)") }
 
   @MainActor
   func perform() async throws -> some IntentResult & ReturnsValue<String> & ProvidesDialog {
@@ -195,18 +278,34 @@ struct SummarizeDocumentIntent: AppIntent {
 }
 
 /// Phrases for Siri and Spotlight.
+///
+/// French ones are in AppShortcuts.xcstrings; `invariants.py` checks both.
+///
+/// The phrases with no document in them are how a title Siri doesn't know is reached: it asks which.
 nonisolated struct PDFAlgoProShortcuts: AppShortcutsProvider {
   static var appShortcuts: [AppShortcut] {
     AppShortcut(
       intent: ScanDocumentIntent(),
-      phrases: ["Scan a document with \(.applicationName)", "Scan with \(.applicationName)"],
+      phrases: [
+        "Scan a document with \(.applicationName)", "Scan with \(.applicationName)", "Scan in \(.applicationName)",
+      ],
       shortTitle: "Scan Document", systemImageName: "doc.viewfinder")
     AppShortcut(
-      intent: OpenDocumentIntent(), phrases: ["Open \(\.$target) in \(.applicationName)"], shortTitle: "Open Document",
-      systemImageName: "doc.text")
+      intent: OpenDocumentIntent(),
+      phrases: [
+        "Open \(\.$target) in \(.applicationName)", "Open \(\.$target) with \(.applicationName)",
+        "Open my \(\.$target) in \(.applicationName)", "Show \(\.$target) in \(.applicationName)",
+        "Open a document in \(.applicationName)",
+      ],
+      shortTitle: "Open Document", systemImageName: "doc.text")
     AppShortcut(
       intent: SummarizeDocumentIntent(),
-      phrases: ["Summarise \(\.$target) with \(.applicationName)", "Summarize \(\.$target) with \(.applicationName)"],
+      phrases: [
+        "Summarise \(\.$target) with \(.applicationName)", "Summarize \(\.$target) with \(.applicationName)",
+        "Summarise \(\.$target) in \(.applicationName)", "Summarize \(\.$target) in \(.applicationName)",
+        "Summarise my \(\.$target) in \(.applicationName)", "Summarize my \(\.$target) in \(.applicationName)",
+        "Summarise a document with \(.applicationName)", "Summarize a document with \(.applicationName)",
+      ],
       shortTitle: "Summarise Document", systemImageName: "text.append")
   }
 }

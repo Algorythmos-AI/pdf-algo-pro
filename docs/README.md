@@ -99,6 +99,8 @@ blocks implementation today?
 | [iOS architecture review](ios-architecture-review.md) | Architecture | each milestone, and whenever an ADR changes |
 | [Platform strategy](platform-strategy.md) | Product and Architecture | at each platform launch decision |
 | [Design system](design-system.md) | Design | each milestone, and whenever a token or component changes |
+| [Design-pass checklist](design/design-pass-checklist.md) | Design | before each release candidate, and whenever a screen state is added |
+| [Snapshot gallery](design/gallery.md) | Design | whenever a snapshot reference is recorded again, and at each milestone |
 | [PDF text editing architecture](pdf-text-editing-architecture.md) | Architecture and PDF engine | each milestone, and whenever the editor's supported cases change |
 | [Performance budgets](performance-budgets.md) | Architecture | each milestone, and after each MetricKit review |
 

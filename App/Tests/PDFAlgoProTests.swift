@@ -166,7 +166,9 @@ struct AppTests {
     }
     let query = DocumentEntityQuery()
     #expect(try await query.suggestedEntities().isEmpty, "The Shortcuts picker lists no titles while locked")
-    #expect(try await query.entities(matching: "welcome").isEmpty, "Nor does a search by title")
+    await #expect(throws: IntentFailure.locked, "A search by title says why it found nothing") {
+      try await query.entities(matching: "welcome")
+    }
 
     // Siri says why, and a saved shortcut still opens the app, where the lock asks first.
     await #expect(throws: IntentFailure.locked) { try await IntentRouter.shared.summary(of: id) }
@@ -191,6 +193,43 @@ struct AppTests {
     locked = false
     #expect(try await router.summary(of: id).contains("Generated on this device"))
     #expect(await router.listedDocuments().map(\.id) == [id])
+  }
+
+  @Test("A spoken name finds a title however it is written, closest first")
+  func spokenTitles() {
+    #expect(DocumentTitleMatch.rank(of: "Tax-Return_2025 (final)", for: "my tax return 2025") == 1)
+    #expect(DocumentTitleMatch.rank(of: "Résumé", for: "resume") == 0)
+    #expect(DocumentTitleMatch.rank(of: "Le bail", for: "le bail") == 2, "An article said before a name is ignored")
+    #expect(DocumentTitleMatch.rank(of: "Budget2026", for: "budget 2026") == 3)
+    #expect(DocumentTitleMatch.rank(of: "Invoice", for: "receipt") == nil)
+    #expect(DocumentTitleMatch.rank(of: "Invoice", for: "  ") == nil)
+  }
+
+  @Test("Siri hears the names at launch, on a change and when App Lock locks, and not otherwise")
+  func phraseRefreshes() async throws {
+    var locked = false
+    var refreshes = 0
+    let app = makeApp()
+    let router = IntentRouter()
+    router.attach(
+      library: app.container.library, isLocked: { locked }, refreshPhrases: { refreshes += 1 }, handler: { _ in })
+    await router.vocabularyMayHaveChanged()
+    #expect(refreshes == 1, "Launch, and nothing again while nothing changes")
+    await app.library.addSample()
+    await router.vocabularyMayHaveChanged()
+    #expect(refreshes == 2)
+    locked = true
+    await router.vocabularyMayHaveChanged()
+    #expect(refreshes == 3)
+    #expect(await router.spokenDocuments().isEmpty, "The titles leave Siri while locked")
+    await #expect(throws: IntentFailure.locked) { try await router.documents(matching: "welcome") }
+    #expect(OpenDocumentIntent.authenticationPolicy == .requiresAuthentication)
+    #expect(OpenDocumentIntent.openAppWhenRun)
+  }
+
+  @Test("Each reason there is no summary is said in its own words", arguments: IntelligenceUnavailableReason.allCases)
+  func failureWording(reason: IntelligenceUnavailableReason) {
+    #expect(!String(localized: IntentFailure.unavailable(reason).localizedStringResource).isEmpty)
   }
 
   @Test("A route that arrives before the app attaches is delivered on attach")
