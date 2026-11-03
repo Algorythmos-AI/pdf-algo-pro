@@ -43,6 +43,8 @@ public final class RecognitionCoordinator {
   @ObservationIgnored private var watchers: [DocumentID: Watcher] = [:]
   /// Documents whose running recognition the system's interface is stopping, so their pages are kept.
   @ObservationIgnored private var stoppedBySystem: Set<DocumentID> = []
+  /// Documents being recognised because a scan was just saved.
+  @ObservationIgnored private var newScans: Set<DocumentID> = []
 
   private struct Watcher {
     let canReplace: @MainActor () -> Bool
@@ -112,6 +114,24 @@ public final class RecognitionCoordinator {
     jobs[id] = Task { await run(id) }
   }
 
+  /// Starts recognising a scan that has just been saved, for the reader to open while it runs (#371).
+  ///
+  /// The checkpoint is written before this returns, so if the app is stopped from here on, the next
+  /// launch resumes recognition by itself. `title` asks for a Live Activity, as in `start`.
+  public func recognizeNewScan(_ id: DocumentID, title: String?) async {
+    newScans.insert(id)
+    if let url = try? await library.fileURL(for: id), let version = try? FileVersion(url) {
+      try? await checkpoints.begin(id, version: version)
+    }
+    start(id, startedFor: title)
+  }
+
+  /// Whether the running recognition is the one a saved scan started, which nobody asked for: if the
+  /// person's own changes get in its way, it is run again rather than reported.
+  func isNewScan(_ id: DocumentID) -> Bool {
+    newScans.contains(id)
+  }
+
   /// Stops recognising a document and discards its checkpoint; the file is left as it was.
   ///
   /// Once the file has been replaced it is too late: the library is still brought up to date, and the
@@ -174,6 +194,7 @@ public final class RecognitionCoordinator {
       progress[id] = nil
       jobs[id] = nil
       stoppedBySystem.remove(id)
+      newScans.remove(id)
     }
     let outcome: Outcome
     do {
@@ -237,7 +258,8 @@ public final class RecognitionCoordinator {
         watchers[id]?.willReplace()
         let intake = intake
         _ = try? await Task { try await intake.refresh(id) }.value
-        await telemetry.record("task.core.completed")
+        // The saved scan was the task, and has been counted.
+        if !newScans.contains(id) { await telemetry.record("task.core.completed") }
         outcome = .replaced
         succeeded = true
       } else {

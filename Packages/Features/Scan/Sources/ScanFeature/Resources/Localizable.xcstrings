@@ -193,16 +193,6 @@
         }
       }
     },
-    "Recognising text on this device…" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reconnaissance du texte sur cet appareil…"
-          }
-        }
-      }
-    },
     "Rotate" : {
       "localizations" : {
         "fr" : {
@@ -273,16 +263,6 @@
         }
       }
     },
-    "Stop" : {
-      "localizations" : {
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Arrêter"
-          }
-        }
-      }
-    },
     "Tap a page to rotate, move or delete it." : {
       "localizations" : {
         "fr" : {
@@ -293,7 +273,7 @@
         }
       }
     },
-    "Text recognition didn't finish. Your pages are kept, so you can try again." : {
+    "Your pages are kept, so you can try again." : {
       "localizations" : {
         "fr" : {
           "stringUnit" : {

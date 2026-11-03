@@ -1795,6 +1795,15 @@ public final class ReaderModel {
       await load()
       updateUndoState()
     case .fileChanged:
+      // Nobody asked for a new scan's recognition, so the person's own changes aren't reported as a
+      // problem: they are saved and it runs again, once. It is still ending as this runs.
+      if recognition.isNewScan(documentID) {
+        Task {
+          await recognition.finished(documentID)
+          recognizeText()
+        }
+        return
+      }
       errorMessage = String(
         localized: "The document changed while its text was being recognised, so it wasn't replaced. Try again.",
         bundle: .module)

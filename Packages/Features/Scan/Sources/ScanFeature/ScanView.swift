@@ -80,11 +80,10 @@ public struct ScanView: View {
     switch model.phase {
     case .ready: ready
     case .reviewing: reviewing
-    case .recognizing(let progress): recognizing(progress)
     case .saving, .finished: waiting
     case .failed:
       EmptyState(Text("The scan wasn't saved", bundle: .module), systemImage: "exclamationmark.triangle") {
-        Text("Text recognition didn't finish. Your pages are kept, so you can try again.", bundle: .module)
+        Text("Your pages are kept, so you can try again.", bundle: .module)
       } actions: {
         Button {
           model.reset()
@@ -242,17 +241,4 @@ public struct ScanView: View {
     }
   }
 
-  private func recognizing(_ progress: Double) -> some View {
-    VStack(spacing: Spacing.s200) {
-      ProgressView(value: progress) { Text("Recognising text on this device…", bundle: .module) }
-      Button {
-        model.cancel()
-      } label: {
-        Text("Stop", bundle: .module).minimumTarget()
-      }
-      .accessibilityIdentifier(AccessibilityID.Scan.stop)
-    }
-    .readableWidth()
-    .centeredScrolling()
-  }
 }
