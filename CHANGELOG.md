@@ -33,6 +33,9 @@ Store notes (see the changelog strategy).
   only ever means a red annotation or Delete.
 
 ### Fixed
+- On the plans screen, the title no longer runs into the Close button when you scroll.
+- Opening the plans with Pro now says "You have Pro" and lists what you have, instead of selling Pro
+  to you.
 
 - Summaries and contract explanations no longer ask for a minimum number of sentences, so a short
   document such as a business card can get a short answer.

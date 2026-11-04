@@ -65,6 +65,8 @@ public final class PaywallModel {
   public private(set) var alreadyHasPro = false
   /// Whether the plans are shown: someone with Pro is sold nothing, so no plan is shown or looks chosen.
   public var offersPlans: Bool { !alreadyHasPro }
+  /// Whether the header sells Pro: someone who has it reads a status instead.
+  public var showsPitch: Bool { !alreadyHasPro }
   /// Whether the trial reminder is asked for on the confirmation.
   public var wantsReminder = false
   /// Why the reminder is off although it was asked for: notifications declined, too little of the trial
