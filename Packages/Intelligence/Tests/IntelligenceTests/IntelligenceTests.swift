@@ -177,6 +177,18 @@ struct GroundingTests {
     #expect(!unsupported.isGrounded && unsupported.text.isEmpty)
   }
 
+  @Test("The prompt's page markers never reach the answer, however the model copies them")
+  func pageMarkersAreRemoved() {
+    for response in [
+      "=== Page 2 === The total due is 120.00 [p2].", "=== Page 2 ===\nThe total due is 120.00 [p2].",
+      "The total due is 120.00 [p2].\n\n== page 2 ==",
+    ] {
+      let answer = Grounding.answer(from: response, pages: invoicePages, tier: .onDevice)
+      #expect(answer.isGrounded && answer.text == "The total due is 120.00.", "\(response) → \(answer.text)")
+    }
+    #expect(Grounding.withoutPageMarkers("See Page 2 for the total.") == "See Page 2 for the total.")
+  }
+
   @Test("Every sentence is checked: unsupported ones are left out and counted (defect D10)")
   func claimLevelGrounding() {
     let mixed = Grounding.answer(
