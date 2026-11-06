@@ -121,6 +121,13 @@ enum Grounding {
     return (stripped, pages)
   }
 
+  /// The response without the page markers the prompt puts before each page.
+  ///
+  /// A model may copy them into its answer, and a person should never see them.
+  static func withoutPageMarkers(_ response: String) -> String {
+    response.replacing(/[ \t]*={2,}\s*[pP]age\s*\d{1,5}\s*={2,}[ \t]*\n?/, with: "")
+  }
+
   /// Whether a response is the model's "not in the document" answer.
   static func isNotFound(_ response: String) -> Bool {
     let trimmed = response.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -264,6 +271,7 @@ enum Grounding {
   ///
   /// With no supported sentence the answer is not-found, never an uncited claim.
   static func answer(from response: String, pages: [PageText], tier: IntelligenceTier) -> Answer {
+    let response = withoutPageMarkers(response)
     guard !isNotFound(response) else { return .notFound(tier: tier) }
     let byIndex = Dictionary(pages.map { ($0.pageIndex, $0) }, uniquingKeysWith: { first, _ in first })
     var kept: [Claim] = []
