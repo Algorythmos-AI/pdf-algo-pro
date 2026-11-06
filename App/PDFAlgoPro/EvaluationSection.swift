@@ -4,15 +4,18 @@
   import DesignSystem
   import Foundation
   import IntelligenceEvaluation
+  import StoreKit
   import SwiftUI
 
   /// The internal testing section in Settings, in Debug and Staging builds only.
   ///
   /// A switch for Pro without a purchase, rows that show first run again, show the subscription
-  /// offer and ask the App Store for the subscription again, and a row that opens the live AI
-  /// evaluation. The text is English only: App Store builds do not contain it.
+  /// offer and ask the App Store for the subscription again, a row that says which storefront and
+  /// currency StoreKit gives this account, and a row that opens the live AI evaluation. The text is English only: App Store builds do not contain it.
   struct EvaluationSection: View {
     let intelligence: any DocumentIntelligence
+    /// The plans the offer sells, so the storefront row can say which currency StoreKit prices them in.
+    let productIDs: [String]
     /// Reads the entitlement again, after the switch below changed what it is.
     let onEntitlementOverride: () -> Void
     /// Closes Settings and shows the introduction, and the offer after it, as a new install sees them.
@@ -66,6 +69,7 @@
           TileLabel(Text(verbatim: "Manage test subscription"), systemImage: "person.crop.circle", tone: .quiet)
         }
         .accessibilityIdentifier(AccessibilityID.Internal.manageSubscription)
+        StorefrontRow(productIDs: productIDs)
         NavigationLink {
           EvaluationView(intelligence: intelligence)
         } label: {
@@ -82,6 +86,51 @@
         .foregroundStyle(Color.ds.labelSecondary)
       }
       .manageSubscriptionsSheet(isPresented: $managesSubscription)
+    }
+  }
+
+  /// The storefront StoreKit reports for this account, and the currency it prices the plans in.
+  ///
+  /// TestFlight has been seen to give the app one storefront's prices while the App Store's own
+  /// sheets show another's. When the two codes here disagree, the prices come from StoreKit, not
+  /// from the app; the row lets a device run tell which.
+  struct StorefrontRow: View {
+    let productIDs: [String]
+    @State private var summary = "Asking the App Store…"
+
+    var body: some View {
+      LabeledContent {
+        Text(verbatim: summary).foregroundStyle(Color.ds.labelSecondary)
+      } label: {
+        TileLabel(Text(verbatim: "App Store storefront"), systemImage: "globe", tone: .quiet)
+      }
+      .task { summary = await Self.describe(productIDs) }
+    }
+
+    private static func describe(_ productIDs: [String]) async -> String {
+      let storefront = await Storefront.current
+      let products = (try? await Product.products(for: productIDs)) ?? []
+      let currencies = Set(products.map(\.priceFormatStyle.currencyCode)).sorted()
+      return StorefrontSummary(
+        storefront: storefront?.countryCode, currencies: currencies, expectedProducts: productIDs.count,
+        loadedProducts: products.count
+      ).text
+    }
+  }
+
+  /// The words of the storefront row, apart from StoreKit so a test can check them.
+  struct StorefrontSummary: Equatable {
+    let storefront: String?
+    let currencies: [String]
+    let expectedProducts: Int
+    let loadedProducts: Int
+
+    var text: String {
+      let place = storefront ?? "unknown"
+      guard loadedProducts > 0 else { return "\(place), no plans loaded" }
+      let prices = currencies.joined(separator: ", ")
+      let missing = loadedProducts < expectedProducts ? ", \(loadedProducts) of \(expectedProducts) plans" : ""
+      return "\(place), prices in \(prices)\(missing)"
     }
   }
 

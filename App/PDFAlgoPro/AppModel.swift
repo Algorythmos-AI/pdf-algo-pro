@@ -457,6 +457,7 @@ final class AppModel {
       AnyView(
         EvaluationSection(
           intelligence: container.intelligence,
+          productIDs: container.catalog.ordered,
           onEntitlementOverride: { [container] in Task { await container.entitlements.refresh() } },
           onReplayFirstRun: { [weak self] in self?.replayFirstRun() },
           onShowOffer: { [weak self] in self?.presentPaywall(.settings) },
